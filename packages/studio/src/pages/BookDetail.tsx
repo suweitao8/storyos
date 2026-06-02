@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
-  Save
+  Save,
+  Hand,
+  Settings2
 } from "lucide-react";
 
 interface ChapterMeta {
@@ -108,6 +110,14 @@ export function BookDetail({
   const [settingsStatus, setSettingsStatus] = useState<BookStatus | null>(null);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("txt");
   const [exportApprovedOnly, setExportApprovedOnly] = useState(false);
+  // C4a: auto (pipeline self-reviews) vs manual (write the draft and stop; you
+  // run audit / revise / approve as checkpoint actions). Project-level setting.
+  const [reviewMode, setReviewMode] = useState<"auto" | "manual">("auto");
+  useEffect(() => {
+    void fetchJson<{ mode?: string }>("/project/chapter-review-mode")
+      .then((r) => setReviewMode(r.mode === "manual" ? "manual" : "auto"))
+      .catch(() => undefined);
+  }, []);
   const activity = useMemo(() => deriveBookActivity(sse.messages, bookId), [bookId, sse.messages]);
   const writing = writeRequestPending || activity.writing;
   const drafting = draftRequestPending || activity.drafting;
@@ -154,6 +164,20 @@ export function BookDetail({
     } catch (e) {
       setDraftRequestPending(false);
       alert(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const handleToggleReviewMode = async () => {
+    const next = reviewMode === "manual" ? "auto" : "manual";
+    setReviewMode(next);
+    try {
+      await fetchJson("/project/chapter-review-mode", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: next }),
+      });
+    } catch {
+      setReviewMode(reviewMode); // revert on failure
     }
   };
 
@@ -360,6 +384,16 @@ export function BookDetail({
           >
             {drafting ? <div className="w-4 h-4 border-2 border-muted-foreground/20 border-t-muted-foreground rounded-full animate-spin" /> : <Wand2 size={16} />}
             {drafting ? t("book.drafting") : t("book.draftOnly")}
+          </button>
+          <button
+            onClick={handleToggleReviewMode}
+            title={reviewMode === "manual"
+              ? "手动审查：写完即停，由你点 审稿/修订/通过（更快、更可控）。点此切回自动。"
+              : "自动审查：写完自动审校并按需重写（更省心，但更慢）。点此切到手动·写完即停。"}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-secondary/60 text-foreground rounded-xl border border-border/50 hover:bg-secondary transition-all"
+          >
+            {reviewMode === "manual" ? <Hand size={16} /> : <Settings2 size={16} />}
+            {reviewMode === "manual" ? "审查：手动·写完即停" : "审查：自动"}
           </button>
           <button
             onClick={() => setConfirmDeleteOpen(true)}
