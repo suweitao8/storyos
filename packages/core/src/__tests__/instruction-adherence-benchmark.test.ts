@@ -77,6 +77,46 @@ const CASES: readonly LiveCase[] = [
     expectedArgs: { propose_action: { action: "create_book" } },
   },
   {
+    name: "chat fanfiction request proposes existing fanfic workflow",
+    language: "zh",
+    sessionKind: "chat",
+    bookId: null,
+    user: "我想基于一部已有原作做同人，不要现在写正文，先打开能导入原作设定的入口。",
+    tools: ["propose_action"],
+    expectedTools: ["propose_action"],
+    expectedArgs: { propose_action: { action: "fanfic_init" } },
+  },
+  {
+    name: "chat continuation request proposes import-chapters workflow",
+    language: "zh",
+    sessionKind: "chat",
+    bookId: null,
+    user: "我有一本书前20章，想导入后让 InkOS 接着续写，不要直接新建长篇，先打开续写入口。",
+    tools: ["propose_action"],
+    expectedTools: ["propose_action"],
+    expectedArgs: { propose_action: { action: "continuation_import" } },
+  },
+  {
+    name: "chat side-story request proposes canon workflow",
+    language: "zh",
+    sessionKind: "chat",
+    bookId: null,
+    user: "我想基于已有世界观写一个番外，不进入主线正文，先打开能导入正典资料的入口。",
+    tools: ["propose_action"],
+    expectedTools: ["propose_action"],
+    expectedArgs: { propose_action: { action: "spinoff_create" } },
+  },
+  {
+    name: "chat style imitation request proposes style workflow",
+    language: "zh",
+    sessionKind: "chat",
+    bookId: null,
+    user: "我想先分析一段参考作品的文风，再决定怎么仿写，不要现在生成新书。",
+    tools: ["propose_action"],
+    expectedTools: ["propose_action"],
+    expectedArgs: { propose_action: { action: "style_imitation" } },
+  },
+  {
     name: "book-create free text proposes instead of running architect",
     language: "zh",
     sessionKind: "book-create",
@@ -214,8 +254,8 @@ function toolSchema(name: ToolName): Record<string, unknown> {
   });
 
   if (name === "propose_action") {
-    return base("Ask the user to confirm a production action before executing it.", {
-      action: { type: "string", enum: ["create_book", "short_run", "play_start", "generate_cover"] },
+    return base("Ask the user to confirm a production action or assisted Studio workflow before continuing.", {
+      action: { type: "string", enum: ["create_book", "short_run", "play_start", "generate_cover", "fanfic_init", "continuation_import", "spinoff_create", "style_imitation"] },
       instruction: { type: "string" },
       title: { type: "string" },
       summary: { type: "string" },

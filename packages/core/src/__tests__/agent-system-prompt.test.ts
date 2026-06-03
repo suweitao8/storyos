@@ -10,8 +10,8 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toContain("propose_action");
       expect(prompt).not.toContain("sub_agent");
       expect(prompt).not.toContain("short_fiction_run");
-      expect(prompt).not.toContain("generate_cover");
-      expect(prompt).not.toContain("play_start");
+      expect(prompt).not.toContain("generate_cover：");
+      expect(prompt).not.toContain("play_start：");
       expect(prompt).not.toContain("architect");
     });
 
@@ -29,8 +29,8 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toContain("propose_action");
       expect(prompt).not.toContain("sub_agent");
       expect(prompt).not.toContain("short_fiction_run");
-      expect(prompt).not.toContain("generate_cover");
-      expect(prompt).not.toContain("play_start");
+      expect(prompt).not.toContain("generate_cover:");
+      expect(prompt).not.toContain("play_start:");
       expect(prompt).not.toContain("architect");
     });
 
@@ -41,6 +41,17 @@ describe("buildAgentSystemPrompt", () => {
       expect(zhPrompt).toContain("不要让下一条 session 依赖上一轮聊天上下文猜");
       expect(enPrompt).toContain("instruction must be self-contained");
       expect(enPrompt).toContain("Do not make the next session infer missing context");
+    });
+
+    it("distinguishes production actions from assisted Studio workflow actions", () => {
+      const prompt = buildAgentSystemPrompt(null, "zh", "chat");
+      expect(prompt).toContain("生产型动作");
+      expect(prompt).toContain("辅助入口动作");
+      expect(prompt).toContain("fanfic_init");
+      expect(prompt).toContain("continuation_import");
+      expect(prompt).toContain("spinoff_create");
+      expect(prompt).toContain("style_imitation");
+      expect(prompt).toContain("不能声称已经生成成品");
     });
   });
 

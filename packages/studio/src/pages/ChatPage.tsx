@@ -53,6 +53,8 @@ interface Nav {
   toDashboard: () => void;
   toBook: (id: string) => void;
   toServices: () => void;
+  toImport: (tab?: "chapters" | "canon" | "fanfic") => void;
+  toStyle: () => void;
 }
 
 export interface ChatPageProps {
@@ -313,6 +315,13 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const handleProposedAction = async (details: ProposedActionDetails) => {
     // Lock the proposal card so the production action can't be re-fired.
     markProposalResolved(details.execId, "confirmed");
+    if (details.targetRoute) {
+      if (details.targetRoute === "import:fanfic") nav.toImport("fanfic");
+      else if (details.targetRoute === "import:chapters") nav.toImport("chapters");
+      else if (details.targetRoute === "import:canon") nav.toImport("canon");
+      else if (details.targetRoute === "style") nav.toStyle();
+      return;
+    }
     if (details.sameSession && activeSessionId) {
       await sendMessage(activeSessionId, details.instruction ?? "", {
         activeBookId,

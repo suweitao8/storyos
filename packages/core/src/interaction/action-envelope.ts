@@ -12,6 +12,10 @@ export const RequestedIntentSchema = z.enum([
   "play_step",
   "generate_cover",
   "edit_artifact",
+  "fanfic_init",
+  "continuation_import",
+  "spinoff_create",
+  "style_imitation",
 ]);
 export type RequestedIntent = z.infer<typeof RequestedIntentSchema>;
 

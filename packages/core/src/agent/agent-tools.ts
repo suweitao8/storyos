@@ -79,8 +79,12 @@ const ProposeActionParams = Type.Object({
     Type.Literal("short_run"),
     Type.Literal("play_start"),
     Type.Literal("generate_cover"),
+    Type.Literal("fanfic_init"),
+    Type.Literal("continuation_import"),
+    Type.Literal("spinoff_create"),
+    Type.Literal("style_imitation"),
   ], {
-    description: "The production action the user appears to want, but which needs explicit confirmation from general chat.",
+    description: "The production or assisted Studio workflow the user appears to want, but which needs explicit confirmation from general chat.",
   }),
   instruction: Type.String({
     description: "The exact production instruction to run after the user confirms. It must be self-contained: include title, story direction, active target, output directory, cover visual direction, or any referenced context that would otherwise be lost when switching sessions.",
@@ -94,11 +98,53 @@ const ProposeActionParams = Type.Object({
 });
 
 type ProposeActionParamsType = Static<typeof ProposeActionParams>;
+type ProposedActionTargetRoute = "import:fanfic" | "import:chapters" | "import:canon" | "style";
 
-function proposedActionSessionKind(action: ProposeActionParamsType["action"]): "book-create" | "short" | "play" {
+function proposedActionSessionKind(action: ProposeActionParamsType["action"]): "book-create" | "short" | "play" | "chat" {
   if (action === "create_book") return "book-create";
   if (action === "play_start") return "play";
+  if (action === "fanfic_init" || action === "continuation_import" || action === "spinoff_create" || action === "style_imitation") return "chat";
   return "short";
+}
+
+function proposedActionTargetRoute(action: ProposeActionParamsType["action"]): ProposedActionTargetRoute | undefined {
+  if (action === "fanfic_init") return "import:fanfic";
+  if (action === "continuation_import") return "import:chapters";
+  if (action === "spinoff_create") return "import:canon";
+  if (action === "style_imitation") return "style";
+  return undefined;
+}
+
+function proposedActionFallbackTitle(action: ProposeActionParamsType["action"], isZh: boolean): string {
+  switch (action) {
+    case "create_book":
+      return isZh ? "创建长篇书籍" : "Create a long-form book";
+    case "short_run":
+      return isZh ? "生成 InkOS Short" : "Generate InkOS Short";
+    case "play_start":
+      return isZh ? "启动 InkOS Play" : "Start InkOS Play";
+    case "generate_cover":
+      return isZh ? "生成封面" : "Generate cover";
+    case "fanfic_init":
+      return isZh ? "打开同人创作" : "Open fanfiction workflow";
+    case "continuation_import":
+      return isZh ? "打开续写导入" : "Open continuation import";
+    case "spinoff_create":
+      return isZh ? "打开番外创作" : "Open side-story workflow";
+    case "style_imitation":
+      return isZh ? "打开仿写/文风分析" : "Open style imitation";
+  }
+}
+
+function proposedActionFallbackSummary(action: ProposeActionParamsType["action"], isZh: boolean): string {
+  if (proposedActionTargetRoute(action)) {
+    return isZh
+      ? "确认后只会打开现有 Studio 工具，不会直接生成成品。"
+      : "After confirmation, InkOS will only open the existing Studio tool; it will not generate finished content directly.";
+  }
+  return isZh
+    ? "确认后会切换到对应入口并执行这条需求。"
+    : "After confirmation, InkOS will switch to the matching surface and run this request.";
 }
 
 export function createProposeActionTool(
@@ -114,18 +160,10 @@ export function createProposeActionTool(
     parameters: ProposeActionParams,
     async execute(_toolCallId: string, params: ProposeActionParamsType): Promise<AgentToolResult<unknown>> {
       const targetSessionKind = proposedActionSessionKind(params.action);
+      const targetRoute = proposedActionTargetRoute(params.action);
       const isZh = language === "zh";
-      const title = params.title?.trim() || (
-        params.action === "create_book" ? (isZh ? "创建长篇书籍" : "Create a long-form book")
-          : params.action === "short_run" ? (isZh ? "生成 InkOS Short" : "Generate InkOS Short")
-            : params.action === "play_start" ? (isZh ? "启动 InkOS Play" : "Start InkOS Play")
-              : (isZh ? "生成封面" : "Generate cover")
-      );
-      const summary = params.summary?.trim() || (
-        isZh
-          ? "确认后会切换到对应入口并执行这条需求。"
-          : "After confirmation, InkOS will switch to the matching surface and run this request."
-      );
+      const title = params.title?.trim() || proposedActionFallbackTitle(params.action, isZh);
+      const summary = params.summary?.trim() || proposedActionFallbackSummary(params.action, isZh);
       return textResult(
         [
           title,
@@ -137,6 +175,7 @@ export function createProposeActionTool(
           kind: "proposed_action",
           action: params.action,
           targetSessionKind,
+          ...(targetRoute ? { targetRoute } : {}),
           sameSession: options.sameSession === true,
           title,
           summary,

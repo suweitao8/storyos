@@ -43,6 +43,8 @@ describe("interaction models", () => {
     expect(ActionSourceSchema.parse("button")).toBe("button");
     expect(RequestedIntentSchema.parse("create_book")).toBe("create_book");
     expect(RequestedIntentSchema.parse("play_start")).toBe("play_start");
+    expect(RequestedIntentSchema.parse("fanfic_init")).toBe("fanfic_init");
+    expect(RequestedIntentSchema.parse("style_imitation")).toBe("style_imitation");
     expect(PlayModeSchema.parse("guided")).toBe("guided");
 
     expect(normalizeActionSource(undefined)).toBe("free-text");

@@ -163,6 +163,27 @@ describe("agent deterministic writing tools", () => {
     });
   });
 
+  it("can propose opening existing assisted creation workflows without claiming production", async () => {
+    const tool = createProposeActionTool("zh");
+
+    const result = await tool.execute("proposal-fanfic", {
+      action: "fanfic_init",
+      instruction: "打开同人工具，基于用户提供的原作设定创建衍生草案。",
+    });
+
+    expect(result.content[0]?.type).toBe("text");
+    if (result.content[0]?.type === "text") {
+      expect(result.content[0].text).toContain("打开同人创作");
+      expect(result.content[0].text).toContain("不会直接生成成品");
+    }
+    expect(result.details).toMatchObject({
+      kind: "proposed_action",
+      action: "fanfic_init",
+      targetSessionKind: "chat",
+      targetRoute: "import:fanfic",
+    });
+  });
+
   it("passes the explicit architect title straight into initBook", async () => {
     const pipeline = {
       initBook: vi.fn(async () => undefined),

@@ -115,6 +115,7 @@ export interface ProposedActionDetails {
   readonly execId: string;
   readonly action: ChatRequestedIntent;
   readonly targetSessionKind: ChatSessionKind;
+  readonly targetRoute?: "import:fanfic" | "import:chapters" | "import:canon" | "style";
   readonly sameSession?: boolean;
   readonly title?: string;
   readonly summary?: string;
@@ -129,6 +130,14 @@ function stringField(record: Record<string, unknown>, key: string): string | und
 function booleanField(record: Record<string, unknown>, key: string): boolean | undefined {
   const value = record[key];
   return typeof value === "boolean" ? value : undefined;
+}
+
+function proposedTargetRouteField(record: Record<string, unknown>): ProposedActionDetails["targetRoute"] {
+  const value = stringField(record, "targetRoute");
+  if (value === "import:fanfic" || value === "import:chapters" || value === "import:canon" || value === "style") {
+    return value;
+  }
+  return undefined;
 }
 
 export function getGeneratedArtifactDetails(exec: ToolExecution): GeneratedArtifactDetails | null {
@@ -213,6 +222,7 @@ export function getProposedActionDetails(exec: ToolExecution): ProposedActionDet
     execId: exec.id,
     action,
     targetSessionKind,
+    targetRoute: proposedTargetRouteField(record),
     sameSession: booleanField(record, "sameSession"),
     title: stringField(record, "title"),
     summary: stringField(record, "summary"),
@@ -252,7 +262,7 @@ function ProposedActionPreview({
       {resolution === "confirmed" ? (
         <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-primary">
           <Check size={13} className="shrink-0" />
-          已执行
+          {details.targetRoute ? "已打开" : "已执行"}
         </div>
       ) : resolution === "rejected" ? (
         <div className="mt-3 text-xs font-medium text-muted-foreground">已取消</div>
@@ -264,7 +274,7 @@ function ProposedActionPreview({
             disabled={!onProposedAction || streaming || locked}
             className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
           >
-            {streaming ? "执行中…" : "继续执行"}
+            {streaming ? "执行中…" : details.targetRoute ? "打开入口" : "继续执行"}
           </button>
           <button
             type="button"

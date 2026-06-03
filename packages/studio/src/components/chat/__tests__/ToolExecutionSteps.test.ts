@@ -193,4 +193,51 @@ describe("groupChronologically", () => {
       instruction: "写一篇婚姻反杀短篇",
     });
   });
+
+  it("extracts proposed route actions for existing Studio workflows", () => {
+    const exec = makeExec({
+      id: "proposal-route",
+      tool: "propose_action",
+      label: "确认动作",
+      details: {
+        kind: "proposed_action",
+        action: "fanfic_init",
+        targetSessionKind: "chat",
+        targetRoute: "import:fanfic",
+        title: "打开同人创作",
+        summary: "确认后打开导入工具的同人创作入口。",
+        instruction: "打开同人工具，等待用户补充原作材料。",
+      },
+    });
+
+    expect(getProposedActionDetails(exec)).toMatchObject({
+      kind: "proposed_action",
+      execId: "proposal-route",
+      action: "fanfic_init",
+      targetSessionKind: "chat",
+      targetRoute: "import:fanfic",
+      title: "打开同人创作",
+      instruction: "打开同人工具，等待用户补充原作材料。",
+    });
+  });
+
+  it("ignores invalid proposed target routes", () => {
+    const exec = makeExec({
+      id: "proposal-bad-route",
+      tool: "propose_action",
+      label: "确认动作",
+      details: {
+        kind: "proposed_action",
+        action: "fanfic_init",
+        targetSessionKind: "chat",
+        targetRoute: "https://example.com",
+        instruction: "打开同人工具。",
+      },
+    });
+
+    expect(getProposedActionDetails(exec)).toMatchObject({
+      action: "fanfic_init",
+      targetRoute: undefined,
+    });
+  });
 });
