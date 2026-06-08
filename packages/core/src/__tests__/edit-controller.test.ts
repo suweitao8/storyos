@@ -64,6 +64,19 @@ describe("edit controller", () => {
     expect(result.requiresTruthRebuild).toBe(true);
   });
 
+  it("plans whole-chapter replacement transactions as chapter-scoped edits", () => {
+    const result = planEditTransaction({
+      kind: "chapter-replace",
+      bookId: "harbor",
+      chapterNumber: 3,
+      fullText: "# 第3章 新稿\n\n完整替换正文。",
+    });
+
+    expect(result.transactionType).toBe("chapter-replace");
+    expect(result.affectedScope).toBe("chapter");
+    expect(result.requiresTruthRebuild).toBe(true);
+  });
+
   it("plans local text edits without forcing full-book rebuild", () => {
     const result = planEditTransaction({
       kind: "chapter-local-edit",
@@ -268,6 +281,50 @@ describe("edit controller", () => {
     expect(savedIndex[0]?.status).toBe("audit-failed");
     expect(savedIndex[0]?.auditIssues.at(-1)).toContain("Manual text edit requires review");
     expect(result.reviewRequired).toBe(true);
+  });
+
+  it("executes whole-chapter replacement and marks the chapter for review", async () => {
+    const bookDir = join(projectRoot, "books", "replacebook");
+    await mkdir(join(bookDir, "chapters"), { recursive: true });
+    await mkdir(join(bookDir, "story", "runtime"), { recursive: true });
+    await writeFile(join(bookDir, "chapters", "0002_旧章.md"), "# 第2章 旧章\n\n旧正文。", "utf-8");
+    await writeFile(join(bookDir, "story", "runtime", "chapter-0002.plan.md"), "stale plan", "utf-8");
+    const chapterIndex = [{
+      number: 2,
+      title: "旧章",
+      status: "ready-for-review" as const,
+      wordCount: 3,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      auditIssues: [],
+      lengthWarnings: [],
+    }];
+
+    let savedIndex: ChapterMeta[] = [...chapterIndex];
+    const result = await executeEditTransaction(
+      {
+        bookDir: (bookId) => join(projectRoot, "books", bookId),
+        loadChapterIndex: async () => chapterIndex,
+        saveChapterIndex: async (_bookId, index) => {
+          savedIndex = [...index];
+        },
+      },
+      {
+        kind: "chapter-replace",
+        bookId: "replacebook",
+        chapterNumber: 2,
+        fullText: "# 第2章 新章\n\n新正文完整替换。",
+      },
+    );
+
+    await expect(readFile(join(bookDir, "chapters", "0002_旧章.md"), "utf-8")).resolves.toContain("新正文完整替换");
+    await expect(access(join(bookDir, "story", "runtime", "chapter-0002.plan.md")).then(() => true).catch(() => false))
+      .resolves.toBe(false);
+    expect(savedIndex[0]?.status).toBe("audit-failed");
+    expect(savedIndex[0]?.wordCount).toBeGreaterThan(0);
+    expect(savedIndex[0]?.auditIssues.at(-1)).toContain("Manual chapter replacement requires review");
+    expect(result.reviewRequired).toBe(true);
+    expect(result.summary).toContain("Replaced chapter 2");
   });
 
   it("does not swallow unexpected filesystem errors while collecting editable files", async () => {

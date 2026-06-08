@@ -38,6 +38,7 @@ describe("project interaction control", () => {
       writeNextChapter: vi.fn(async () => ({ ok: true })),
       reviseDraft: vi.fn(async () => ({ ok: true })),
       patchChapterText: vi.fn(async () => ({ ok: true })),
+      replaceChapterText: vi.fn(async () => ({ ok: true })),
       renameEntity: vi.fn(async () => ({ ok: true })),
       updateCurrentFocus: vi.fn(async () => ({ ok: true })),
       updateAuthorIntent: vi.fn(async () => ({ ok: true })),

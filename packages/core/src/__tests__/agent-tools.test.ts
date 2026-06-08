@@ -10,6 +10,7 @@ import {
   createSubAgentTool,
   createShortFictionRunTool,
   createPatchChapterTextTool,
+  createReplaceChapterTextTool,
   createPlayEditTool,
   createPlayStartTool,
   createProposeActionTool,
@@ -117,6 +118,28 @@ describe("agent deterministic writing tools", () => {
         status: "audit-failed",
         auditIssues: expect.arrayContaining([
           expect.stringContaining("Manual text edit requires review"),
+        ]),
+      }),
+    ]);
+  });
+
+  it("replaces whole chapter text through the deterministic edit controller", async () => {
+    const tool = createReplaceChapterTextTool({} as never, root, "harbor");
+
+    await tool.execute("tool-4b", {
+      chapterNumber: 3,
+      fullText: "# 第3章 整章替换\n\n这是用户提供的完整新正文。",
+    });
+
+    await expect(readFile(join(state.bookDir("harbor"), "chapters", "0003_Storm.md"), "utf-8"))
+      .resolves.toContain("完整新正文");
+    await expect(state.loadChapterIndex("harbor")).resolves.toEqual([
+      expect.objectContaining({
+        number: 3,
+        status: "audit-failed",
+        wordCount: expect.any(Number),
+        auditIssues: expect.arrayContaining([
+          expect.stringContaining("Manual chapter replacement requires review"),
         ]),
       }),
     ]);

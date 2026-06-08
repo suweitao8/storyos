@@ -1635,6 +1635,40 @@ export function createPatchChapterTextTool(
   };
 }
 
+const ReplaceChapterTextParams = Type.Object({
+  bookId: Type.Optional(Type.String({ description: "Book ID. Omit to use the active book." })),
+  chapterNumber: Type.Number({ description: "Chapter number to replace." }),
+  fullText: Type.String({ description: "The complete replacement chapter markdown/text supplied by the user." }),
+});
+
+export function createReplaceChapterTextTool(
+  pipeline: PipelineRunner,
+  projectRoot: string,
+  activeBookId: string | null,
+): AgentTool<typeof ReplaceChapterTextParams> {
+  const tools = createDeterministicInteractionTools(pipeline, projectRoot);
+  return {
+    name: "replace_chapter_text",
+    description:
+      "Replace a whole existing chapter with user-supplied full chapter text and mark it for review. " +
+      "Use only when the user provides the complete replacement chapter; for model-generated rewrites use sub_agent reviser.",
+    label: "Replace Chapter",
+    parameters: ReplaceChapterTextParams,
+    async execute(_toolCallId, params): Promise<AgentToolResult<undefined>> {
+      const bookId = resolveToolBookId("replace_chapter_text", params.bookId, activeBookId);
+      const result = await tools.replaceChapterText(
+        bookId,
+        params.chapterNumber,
+        params.fullText,
+      ) as {
+        readonly __interaction?: { readonly responseText?: string };
+      };
+      const summary = result.__interaction?.responseText ?? `Replaced chapter ${params.chapterNumber} for "${bookId}".`;
+      return textResult(summary);
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 3. Read Tool
 // ---------------------------------------------------------------------------

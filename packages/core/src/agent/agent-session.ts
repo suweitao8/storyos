@@ -18,6 +18,7 @@ import { assertWithinContextWindow, estimatePiContextTokens } from "../llm/provi
 import { buildAgentSystemPrompt } from "./agent-system-prompt.js";
 import {
   createPatchChapterTextTool,
+  createReplaceChapterTextTool,
   createRenameEntityTool,
   createSubAgentTool,
   createReadTool,
@@ -694,6 +695,7 @@ function createAgentToolsForMode(params: {
     createWriteTruthFileTool(params.pipeline, params.projectRoot, params.bookId),
     createRenameEntityTool(params.pipeline, params.projectRoot, params.bookId),
     createPatchChapterTextTool(params.pipeline, params.projectRoot, params.bookId),
+    createReplaceChapterTextTool(params.pipeline, params.projectRoot, params.bookId),
     createGrepTool(params.projectRoot),
     createLsTool(params.projectRoot),
   ];

@@ -319,6 +319,7 @@ function buildBookPrompt(bookId: string, isZh: boolean): string {
 - 角色卡编辑走 write_truth_file，不走 patch_chapter_text：主要角色路径 roles/主要角色/<角色名>.md 或 roles/major/<name>.md；次要角色路径 roles/次要角色/<角色名>.md 或 roles/minor/<name>.md。改角色动机、关系、性格锁、禁忌、当前状态时，先读对应角色卡，保留未被用户要求改变的内容，再整卡覆盖。
 - rename_entity：统一改角色/实体名。
 - patch_chapter_text：对已有章节做局部定点修补。
+- replace_chapter_text：用户已经给出某章完整替换正文时，整章覆盖并标记复核；不要用它让模型自己生成新正文，模型生成型重写仍走 reviser。
 - grep：搜索内容。
 - ls：列出文件或章节。
 
@@ -338,6 +339,7 @@ function buildBookPrompt(bookId: string, isZh: boolean): string {
 - 用户想改角色卡/人物设定 → 先 read 对应 roles 文件，再 write_truth_file 覆盖该角色卡。
 - 用户要求角色或实体改名 → rename_entity。
 - 用户要求某章内局部小修 → patch_chapter_text。
+- 用户粘贴/提供某章完整新正文并要求替换 → replace_chapter_text。
 - 用户要求生成或重做封面 → generate_cover。
 - 其他普通讨论 → 直接回答。
 
@@ -371,6 +373,7 @@ ${commonOutputRules(true)}`
 - Role-card edits use write_truth_file, not patch_chapter_text: major characters live under roles/major/<name>.md or roles/主要角色/<name>.md; minor characters under roles/minor/<name>.md or roles/次要角色/<name>.md. For character motive, relationship, personality lock, taboo, or current-state edits, read the role card first, preserve unchanged content, then replace that card.
 - rename_entity: rename characters or entities.
 - patch_chapter_text: apply a local chapter patch.
+- replace_chapter_text: replace a whole chapter only when the user provides the complete replacement chapter text; mark it for review. Do not use it for model-generated rewrites — use reviser.
 - grep: search content.
 - ls: list files or chapters.
 
@@ -390,6 +393,7 @@ ${commonOutputRules(true)}`
 - Character-card/person-setting changes → read the matching roles file first, then write_truth_file.
 - Character/entity renames → rename_entity.
 - Local chapter edits → patch_chapter_text.
+- User-provided full replacement for an existing chapter → replace_chapter_text.
 - Cover generation/regeneration → generate_cover.
 - Ordinary discussion → answer directly.
 

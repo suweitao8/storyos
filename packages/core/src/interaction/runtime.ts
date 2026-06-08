@@ -55,6 +55,11 @@ export interface InteractionRuntimeTools {
     targetText: string,
     replacementText: string,
   ) => Promise<unknown>;
+  readonly replaceChapterText: (
+    bookId: string,
+    chapterNumber: number,
+    fullText: string,
+  ) => Promise<unknown>;
   readonly renameEntity: (
     bookId: string,
     oldValue: string,
@@ -246,7 +251,8 @@ function shouldWaitForHuman(
     || request.intent === "continue_book"
     || request.intent === "revise_chapter"
     || request.intent === "rewrite_chapter"
-    || request.intent === "patch_chapter_text";
+    || request.intent === "patch_chapter_text"
+    || request.intent === "replace_chapter_text";
   const editIntent = request.intent === "update_focus"
     || request.intent === "update_author_intent"
     || request.intent === "edit_truth"
@@ -739,6 +745,63 @@ export async function runInteractionRequest(params: {
             : localize(language, {
                 zh: `已修补 ${bookId} 的第 ${chapterNumber} 章。`,
                 en: `Patched chapter ${chapterNumber} for ${bookId}.`,
+              })
+        ),
+      };
+    }
+    case "replace_chapter_text": {
+      const bookId = request.bookId ?? session.activeBookId;
+      if (!bookId) {
+        throw new Error(localize(language, {
+          zh: "当前交互会话还没有绑定作品。",
+          en: "No active book is bound to the interaction session.",
+        }));
+      }
+      if (!request.chapterNumber || !request.fullText) {
+        throw new Error(localize(language, {
+          zh: "整章替换需要章节号和完整正文。",
+          en: "Whole-chapter replacement requires chapter number and fullText.",
+        }));
+      }
+      const toolResult = await params.tools.replaceChapterText(
+        bookId,
+        request.chapterNumber,
+        request.fullText,
+      );
+      const metadata = extractToolMetadata(toolResult);
+      const chapterNumber = metadata.activeChapterNumber ?? request.chapterNumber;
+      session = bindActiveBook(session, bookId, chapterNumber);
+      session = appendToolEvents(session, metadata.events);
+      const pendingDecision = metadata.pendingDecision ?? buildPendingDecision(
+        session,
+        request,
+        language,
+        chapterNumber,
+      );
+      const completed = pendingDecision
+        ? {
+            ...session,
+            pendingDecision,
+            currentExecution: metadata.currentExecution ?? buildWaitingExecution(session, request, language, chapterNumber),
+          }
+        : {
+            ...markCompleted(session),
+            currentExecution: metadata.currentExecution ?? markCompleted(session).currentExecution,
+          };
+      return {
+        session: addEvent(completed, "task.completed", "completed", localize(language, {
+          zh: `已替换 ${bookId} 的第 ${chapterNumber} 章。`,
+          en: `Replaced chapter ${chapterNumber} for ${bookId}.`,
+        })),
+        responseText: metadata.responseText ?? (
+          pendingDecision
+            ? localize(language, {
+                zh: `已替换 ${bookId} 的第 ${chapterNumber} 章，等待你的下一步决定。`,
+                en: `Replaced chapter ${chapterNumber} for ${bookId}; waiting for your next decision.`,
+              })
+            : localize(language, {
+                zh: `已替换 ${bookId} 的第 ${chapterNumber} 章。`,
+                en: `Replaced chapter ${chapterNumber} for ${bookId}.`,
               })
         ),
       };

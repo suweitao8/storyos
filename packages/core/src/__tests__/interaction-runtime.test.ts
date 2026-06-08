@@ -11,6 +11,7 @@ function makeTools(overrides: Partial<Parameters<typeof runInteractionRequest>[0
     writeNextChapter: vi.fn(),
     reviseDraft: vi.fn(),
     patchChapterText: vi.fn(),
+    replaceChapterText: vi.fn(),
     renameEntity: vi.fn(),
     updateCurrentFocus: vi.fn(),
     updateAuthorIntent: vi.fn(),
@@ -460,6 +461,40 @@ describe("interaction runtime", () => {
     });
 
     expect(patchChapterText).toHaveBeenCalledWith("harbor", 3, "旧名字", "新名字");
+    expect(result.session.currentExecution?.status).toBe("waiting_human");
+    expect(result.session.pendingDecision?.chapterNumber).toBe(3);
+    expect(result.responseText).toContain("marked it for review");
+  });
+
+  it("routes replace_chapter_text to the whole-chapter replacement tool and waits for review", async () => {
+    const replaceChapterText = vi.fn(async () => ({
+      chapterNumber: 3,
+      __interaction: {
+        responseText: "Replaced chapter 3 and marked it for review.",
+      },
+    }));
+
+    const result = await runInteractionRequest({
+      session: InteractionSessionSchema.parse({
+        sessionId: "session-4e",
+        projectRoot: "/tmp/project",
+        activeBookId: "harbor",
+        automationMode: "semi",
+        messages: [],
+        events: [],
+      }),
+      request: {
+        intent: "replace_chapter_text",
+        bookId: "harbor",
+        chapterNumber: 3,
+        fullText: "# 第3章 新稿\n\n完整替换正文。",
+      },
+      tools: makeTools({
+        replaceChapterText,
+      }),
+    });
+
+    expect(replaceChapterText).toHaveBeenCalledWith("harbor", 3, "# 第3章 新稿\n\n完整替换正文。");
     expect(result.session.currentExecution?.status).toBe("waiting_human");
     expect(result.session.pendingDecision?.chapterNumber).toBe(3);
     expect(result.responseText).toContain("marked it for review");

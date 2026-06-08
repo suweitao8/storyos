@@ -477,6 +477,27 @@ export function createInteractionToolsFromDeps(
         },
       };
     }),
+    replaceChapterText: async (bookId, chapterNumber, fullText) => withBookMutationLock(state, bookId, async () => {
+      const execution = await executeEditTransaction(
+        {
+          bookDir: (targetBookId) => state.bookDir(targetBookId),
+          loadChapterIndex: (targetBookId) => state.loadChapterIndex(targetBookId),
+          saveChapterIndex: (targetBookId, index) => state.saveChapterIndex(targetBookId, index),
+        },
+        {
+          kind: "chapter-replace",
+          bookId,
+          chapterNumber,
+          fullText,
+        },
+      );
+      return {
+        __interaction: {
+          activeChapterNumber: chapterNumber,
+          responseText: execution.summary,
+        },
+      };
+    }),
     renameEntity: async (bookId, oldValue, newValue) => withBookMutationLock(state, bookId, async () => {
       const execution = await executeEditTransaction(
         {
