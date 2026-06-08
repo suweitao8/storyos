@@ -30,6 +30,7 @@ import {
   ChevronDown,
   Check,
   Gamepad2,
+  Palette,
 } from "lucide-react";
 import { Shimmer } from "../components/ai-elements/shimmer";
 import {
@@ -69,6 +70,22 @@ export interface ChatPageProps {
 interface ServiceConfigPayload {
   readonly service?: string | null;
   readonly defaultModel?: string | null;
+}
+
+interface PlayImageSettings {
+  readonly actors: boolean;
+  readonly moments: boolean;
+  readonly inventory: boolean;
+}
+
+interface PlayRunImagePayload {
+  readonly imageSettings?: PlayImageSettings;
+}
+
+interface CoverConfigResponse {
+  readonly service?: string | null;
+  readonly configured?: boolean;
+  readonly providers?: ReadonlyArray<{ readonly service: string; readonly connected?: boolean }>;
 }
 
 // -- Component --
@@ -114,7 +131,11 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   // World panel (holdings / state / relations) defaults collapsed; the scene
   // image and choices live in the chat center now, opened on demand.
   const [worldPanelOpen, setWorldPanelOpen] = useState(false);
-  const [playSceneImageUrl, setPlaySceneImageUrl] = useState<string | undefined>(undefined);
+  const [playImageError, setPlayImageError] = useState<string | null>(null);
+  const [playImageMenuOpen, setPlayImageMenuOpen] = useState(false);
+  const [playImageSettings, setPlayImageSettings] = useState<PlayImageSettings>({ actors: false, moments: false, inventory: false });
+  const [playImageCoverReady, setPlayImageCoverReady] = useState(false);
+  const worldPanelInsetClass = currentSessionKind === "play" && worldPanelOpen ? "lg:pr-[380px]" : "";
 
   // Derived: is the assistant currently streaming/thinking/executing tools?
   const isStreaming = useMemo(() => {
@@ -362,6 +383,49 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     });
   };
 
+  useEffect(() => { setPlayImageError(null); }, [activeSessionId]);
+
+  useEffect(() => {
+    if (!activeSessionId || currentSessionKind !== "play") return;
+    let cancelled = false;
+    void fetchJson<PlayRunImagePayload>(`/play/runs/${encodeURIComponent(activeSessionId)}/main`)
+      .then((payload) => {
+        if (!cancelled && payload.imageSettings) setPlayImageSettings(payload.imageSettings);
+      })
+      .catch(() => {
+        // No persisted play world yet.
+      });
+    void fetchJson<CoverConfigResponse>("/cover/config")
+      .then((cfg) => {
+        if (cancelled) return;
+        const selected = cfg.service ?? null;
+        setPlayImageCoverReady(
+          cfg.configured ?? (!!selected && (cfg.providers ?? []).some((p) => p.service === selected && p.connected)),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setPlayImageCoverReady(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeSessionId, currentSessionKind]);
+
+  const togglePlayImageSetting = async (key: keyof PlayImageSettings) => {
+    if (!activeSessionId || currentSessionKind !== "play" || !playImageCoverReady) return;
+    const next = { ...playImageSettings, [key]: !playImageSettings[key] };
+    setPlayImageSettings(next);
+    setPlayImageError(null);
+    try {
+      await fetchJson(`/play/runs/${encodeURIComponent(activeSessionId)}/main/image-settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+    } catch (error) {
+      setPlayImageSettings(playImageSettings);
+      setPlayImageError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const emptyGuidance = (() => {
     if (currentSessionKind === "short") {
       return isZh
@@ -383,7 +447,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       {/* Message scroll area */}
       <div
         ref={scrollRef}
-        className="chat-message-scroll flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 py-6"
+        className={`chat-message-scroll flex-1 overflow-y-auto [scrollbar-gutter:stable] px-4 py-6 transition-[padding] duration-200 ${worldPanelInsetClass}`}
       >
         {needsPlayModeChoice ? (
           <div className="h-full flex flex-col items-center justify-center text-center select-none gap-4">
@@ -521,45 +585,37 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
 
       {/* Quick actions (only when a book is active) */}
       {hasBook && !showChoicePanel && (
-        <div className="shrink-0 max-w-3xl mx-auto w-full px-4">
-          <QuickActions
-            onAction={handleQuickAction}
-            disabled={loading || !activeSessionId}
-            isZh={isZh}
-          />
+        <div className={`shrink-0 transition-[padding] duration-200 ${worldPanelInsetClass}`}>
+          <div className="max-w-3xl mx-auto w-full px-4">
+            <QuickActions
+              onAction={handleQuickAction}
+              disabled={loading || !activeSessionId}
+              isZh={isZh}
+            />
+          </div>
         </div>
       )}
 
-      {/* Play focus: the current scene image sits centered in the chat, choices
-          directly beneath it. pick-playstyle hides this; choices are shortcuts,
-          not a replacement for free actions. */}
-      {currentSessionKind === "play" && !needsPlayModeChoice && (playSceneImageUrl || showChoicePanel) && (
-        <div className="shrink-0">
-          {playSceneImageUrl ? (
-            <div className="flex justify-center px-4 pt-3">
-              <img
-                src={playSceneImageUrl}
-                alt={isZh ? "本幕配图" : "This moment"}
-                className="max-h-[40vh] w-auto max-w-3xl rounded-xl border border-border/40 object-contain shadow-lg"
-              />
-            </div>
-          ) : null}
-          {showChoicePanel && (
-            <PlayChoicePanel
-              choices={playChoices}
-              disabled={loading || !activeSessionId}
-              isZh={isZh}
-              onChoose={(action) => {
-                if (activeSessionId) void sendMessage(activeSessionId, action, { activeBookId, sessionKind: "play", actionSource: "button" });
-              }}
-            />
-          )}
+      {/* Play choices are shortcuts, not a replacement for free actions. Scene
+          images render inside their corresponding chat result card so the
+          visual history scrolls with the conversation. */}
+      {currentSessionKind === "play" && !needsPlayModeChoice && showChoicePanel && (
+        <div className={`shrink-0 transition-[padding] duration-200 ${worldPanelInsetClass}`}>
+          <PlayChoicePanel
+            choices={playChoices}
+            disabled={loading || !activeSessionId}
+            isZh={isZh}
+            onChoose={(action) => {
+              if (activeSessionId) void sendMessage(activeSessionId, action, { activeBookId, sessionKind: "play", actionSource: "button" });
+            }}
+          />
         </div>
       )}
       {needsPlayModeChoice ? null : (
-      <div className="shrink-0 border-t border-border/40 px-4 py-3">
+      <div className={`shrink-0 border-t border-border/40 px-4 py-3 transition-[padding] duration-200 ${worldPanelInsetClass}`}>
         <div className="max-w-3xl mx-auto">
-            <div className="rounded-xl bg-secondary/30 transition-all">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 rounded-xl bg-secondary/30 transition-all">
               <div className="flex items-center gap-2 px-3 py-2">
                 <textarea
                   ref={textareaRef}
@@ -569,7 +625,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   placeholder={isZh ? "输入指令..." : "Enter command..."}
                   disabled={loading || !activeSessionId}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm leading-6 placeholder:text-muted-foreground/50 outline-none! border-none! ring-0! shadow-none focus:outline-none! focus:ring-0! focus:border-none! resize-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
+                  className="flex-1 bg-transparent text-base leading-7 placeholder:text-muted-foreground/50 outline-none! border-none! ring-0! shadow-none focus:outline-none! focus:ring-0! focus:border-none! resize-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
                 />
                 <button
                   type="button"
@@ -582,14 +638,14 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
               </div>
               <div className="flex items-center gap-2 px-3 pb-2 border-t border-border/20 pt-1.5">
                 {modelPickerStatus === "loading" ? (
-                  <span className="text-xs text-muted-foreground/40 animate-pulse">加载模型...</span>
+                  <span className="text-[15px] text-muted-foreground/40 animate-pulse">加载模型...</span>
                 ) : modelPickerStatus === "ready" ? (
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted text-sm transition-colors cursor-pointer">
-                      <span className="font-medium text-xs truncate max-w-[220px]">
+                    <DropdownMenuTrigger className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-muted text-[16px] transition-colors cursor-pointer">
+                      <span className="font-medium truncate max-w-[260px]">
                         {selectedModelLabel}
                       </span>
-                      <ChevronDown size={14} className="text-muted-foreground" />
+                      <ChevronDown size={17} className="text-muted-foreground" />
                     </DropdownMenuTrigger>
                     <ModelPickerContent
                       groupedModels={groupedModels}
@@ -602,7 +658,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                 ) : (
                   <button
                     onClick={() => nav.toServices()}
-                    className="text-xs text-muted-foreground/50 hover:text-primary transition-colors"
+                    className="text-[15px] text-muted-foreground/50 hover:text-primary transition-colors"
                   >
                     配置模型 →
                   </button>
@@ -611,15 +667,67 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   <button
                     type="button"
                     onClick={() => setWorldPanelOpen((v) => !v)}
-                    className={`ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${worldPanelOpen ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}
-                    title={isZh ? "世界面板：持有 / 状态 / 关系" : "World panel: holdings / state / relations"}
+                    className={`ml-auto flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[16px] font-medium transition-colors ${worldPanelOpen ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}
+                    title={isZh ? "查看世界：持有 / 状态 / 关系" : "View world: holdings / state / relations"}
                   >
-                    <Gamepad2 size={14} />
-                    {isZh ? "世界" : "World"}
+                    <Gamepad2 size={18} />
+                    {isZh ? "查看世界" : "View World"}
                   </button>
                 )}
               </div>
             </div>
+            {currentSessionKind === "play" ? (
+              <div className="relative mt-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPlayImageMenuOpen((value) => !value)}
+                  disabled={loading || !activeSessionId}
+                  title={isZh ? "自动配图" : "Auto illustration"}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-secondary/40 shadow-sm transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-primary active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 ${playImageMenuOpen || playImageSettings.actors || playImageSettings.moments || playImageSettings.inventory ? "text-primary" : "text-muted-foreground"}`}
+                  aria-label={isZh ? "自动配图" : "Auto illustration"}
+                >
+                  <Palette size={17} />
+                </button>
+                {playImageMenuOpen ? (
+                  <div className="absolute bottom-12 right-0 z-30 w-44 rounded-xl border border-border/50 bg-card/95 p-2 shadow-xl backdrop-blur">
+                    <div className="mb-1.5 px-1 text-[12px] leading-5 font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      {isZh ? "自动配图" : "Auto illustration"}
+                    </div>
+                    {(["actors", "moments", "inventory"] as const).map((key) => (
+                      <label
+                        key={key}
+                        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[14px] leading-6 ${playImageCoverReady ? "cursor-pointer text-foreground hover:bg-secondary/50" : "cursor-not-allowed text-muted-foreground/40"}`}
+                        title={playImageCoverReady ? undefined : (isZh ? "先在「模型配置」里配好生图 API 才能开启" : "Configure an image API in Model Settings first")}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={!playImageCoverReady}
+                          checked={playImageCoverReady && playImageSettings[key]}
+                          onChange={() => void togglePlayImageSetting(key)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                        {key === "actors"
+                          ? (isZh ? "为角色配图" : "Characters")
+                          : key === "moments"
+                            ? (isZh ? "为时刻配图" : "Moments")
+                            : (isZh ? "为背包配图" : "Inventory")}
+                      </label>
+                    ))}
+                    {!playImageCoverReady ? (
+                      <p className="mt-1 px-1 text-[12px] leading-5 text-muted-foreground/50">
+                        {isZh ? "未检测到生图 API。" : "No image API configured."}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {playImageError ? (
+            <p className="mt-2 text-right text-[13px] leading-5 text-destructive/80">
+              {isZh ? `配图失败：${playImageError}` : `Image failed: ${playImageError}`}
+            </p>
+          ) : null}
         </div>
       </div>
       )}
@@ -631,7 +739,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
           isZh={isZh}
           open={worldPanelOpen}
           onClose={() => setWorldPanelOpen(false)}
-          onSceneImageUrl={setPlaySceneImageUrl}
+          imageSettings={playImageSettings}
           sessionTitle={activeSession?.title ?? null}
         />
       )}
