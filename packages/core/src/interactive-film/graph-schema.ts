@@ -43,6 +43,31 @@ export type ImageSlot = z.infer<typeof ImageSlotSchema>;
 export const NodeTypeSchema = z.enum(["start", "normal", "branch", "merge", "ending", "explore"]);
 export type NodeType = z.infer<typeof NodeTypeSchema>;
 
+export const VoiceProfileSchema = z.object({
+  speakingRhythm: z.string().default(""),
+  vocabulary: z.string().default(""),
+  sampleLines: z.array(z.string()).default([]),
+});
+export type VoiceProfile = z.infer<typeof VoiceProfileSchema>;
+
+export const CharacterSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  role: z.enum(["protagonist", "antagonist", "support", "other"]).default("other"),
+  motivation: z.string().default(""),
+  voiceProfile: VoiceProfileSchema.optional(),
+});
+export type Character = z.infer<typeof CharacterSchema>;
+
+export const WorldAnchorSchema = z.object({
+  storyCore: z.string().default(""),
+  theme: z.string().default(""),
+  genre: z.string().default(""),
+  worldRules: z.string().default(""),
+  durationMinutes: z.number().default(0),
+});
+export type WorldAnchor = z.infer<typeof WorldAnchorSchema>;
+
 export const StoryNodeSchema = z.object({
   id: z.string().min(1),
   title: z.string().default(""),
@@ -51,6 +76,7 @@ export const StoryNodeSchema = z.object({
   dialogue: z.array(DialogueLineSchema).default([]),
   choices: z.array(ChoiceSchema).default([]),
   imageSlot: ImageSlotSchema.optional(),
+  act: z.string().default(""),
 });
 export type StoryNode = z.infer<typeof StoryNodeSchema>;
 
@@ -75,6 +101,8 @@ export const StoryGraphSchema = z.object({
   schemaVersion: z.literal(1),
   projectId: z.string().min(1),
   title: z.string(),
+  worldAnchor: WorldAnchorSchema.optional(),
+  characters: z.array(CharacterSchema).default([]),
   variables: z.array(VariableSchema).default([]),
   nodes: z.array(StoryNodeSchema).default([]),
   endings: z.array(EndingSchema).default([]),
