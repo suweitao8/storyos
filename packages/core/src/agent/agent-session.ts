@@ -890,11 +890,11 @@ async function runAgentSessionUnlocked(
         return convertAgentMessagesForModel(messages, model);
       },
       streamFn: (streamModel, context, options) => {
-        if (isLlmStubEnabled()) return stubAgentStream(streamModel, context);
         if (terminalToolResultTail) {
           terminalToolResultTail = false;
           return localAssistantStopStream(streamModel);
         }
+        if (isLlmStubEnabled()) return stubAgentStream(streamModel, context);
         return guardedStreamSimple(streamModel, context, options);
       },
       getApiKey: (provider: string) => {

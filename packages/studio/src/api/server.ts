@@ -4024,6 +4024,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
               sessionKind,
               ...(bookSession.bookId ? { activeBookId: bookSession.bookId } : {}),
             },
+            details: { toolExecutions: collectedToolExecs },
           });
         }
 

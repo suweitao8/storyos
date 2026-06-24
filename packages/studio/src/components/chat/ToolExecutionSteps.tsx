@@ -529,6 +529,7 @@ function ProposedActionPreview({
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
+            data-testid="confirm-action"
             onClick={() => onProposedAction?.(details)}
             disabled={!onProposedAction || streaming || locked}
             className="rounded-lg bg-primary px-3.5 py-2 text-[15px] leading-6 font-medium text-primary-foreground disabled:opacity-50"

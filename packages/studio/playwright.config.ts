@@ -4,18 +4,20 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   use: {
-    baseURL: "http://localhost:4567",
+    baseURL: "http://localhost:4580",
     headless: true,
     screenshot: "only-on-failure",
   },
-  // Reuse already-running dev server; start one if none is running.
-  // INKOS_PROJECT_ROOT points to test-project/ which has an inkos.json,
-  // so the API /api/v1/project endpoint returns valid JSON and the React
-  // app can reach the ready state.
+  // Always start a dedicated E2E server with INKOS_AGENT_LLM_STUB=1 so the
+  // agent uses the deterministic stub and never makes real LLM calls.
+  // reuseExistingServer: false ensures the stub env var is always active —
+  // if an existing dev server (started without the stub) were reused, the
+  // agent would attempt a real LLM call with the fake API key and hang.
+  // Ports 4580/4581 are dedicated to E2E to avoid conflict with the dev server.
   webServer: {
-    command: "INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../../test-project tsx watch --clear-screen=false src/api/index.ts & vite --host --port 4567 ; kill %1 2>/dev/null",
-    url: "http://localhost:4567",
-    reuseExistingServer: true,
+    command: "INKOS_AGENT_LLM_STUB=1 INKOS_STUDIO_PORT=4581 INKOS_PROJECT_ROOT=../../test-project tsx watch --clear-screen=false src/api/index.ts & INKOS_AGENT_LLM_STUB=1 INKOS_STUDIO_PORT=4581 vite --host --port 4580 ; kill %1 2>/dev/null",
+    url: "http://localhost:4580",
+    reuseExistingServer: false,
     timeout: 120_000,
     cwd: ".",
   },
