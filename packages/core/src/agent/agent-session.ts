@@ -37,6 +37,7 @@ import {
   createStoryboardCreationTool,
   createInteractiveFilmCreationTool,
   createResearchWebTool,
+  createIngestMaterialTool,
 } from "./agent-tools.js";
 import { createFilmAuthoringTools, filmLLMDepsFromClient } from "./film-authoring-tools.js";
 import { createBookContextTransform } from "./context-transform.js";
@@ -737,6 +738,7 @@ function createAgentToolsForMode(params: {
     sameSession: params.sessionKind !== "chat",
   });
   const researchTool = createResearchWebTool(params.projectRoot);
+  const materialTool = createIngestMaterialTool(params.projectRoot);
   const isConfirmed = (
     intent: NonNullable<AgentSessionConfig["requestedIntent"]>,
   ): boolean => {
@@ -745,7 +747,7 @@ function createAgentToolsForMode(params: {
   };
 
   if (params.sessionKind === "chat") {
-    return [proposalTool, researchTool];
+    return [proposalTool, researchTool, materialTool];
   }
 
   if (params.sessionKind === "short") {
@@ -755,28 +757,28 @@ function createAgentToolsForMode(params: {
     if (isConfirmed("generate_cover")) {
       return [createGenerateCoverTool(params.projectRoot, { actionPayload: params.actionPayload })];
     }
-    return [proposalTool];
+    return [proposalTool, materialTool];
   }
 
   if (params.sessionKind === "script") {
     if (isConfirmed("script_create")) {
       return [createScriptCreationTool(params.pipeline, params.projectRoot, { actionPayload: params.actionPayload })];
     }
-    return [proposalTool];
+    return [proposalTool, materialTool];
   }
 
   if (params.sessionKind === "storyboard") {
     if (isConfirmed("storyboard_create")) {
       return [createStoryboardCreationTool(params.pipeline, params.projectRoot, { actionPayload: params.actionPayload })];
     }
-    return [proposalTool];
+    return [proposalTool, materialTool];
   }
 
   if (params.sessionKind === "interactive-film") {
     if (isConfirmed("interactive_film_create")) {
       return [createInteractiveFilmCreationTool(params.pipeline, params.projectRoot, { actionPayload: params.actionPayload })];
     }
-    return [proposalTool];
+    return [proposalTool, materialTool];
   }
 
   if (params.sessionKind === "interactive-film-authoring") {
@@ -805,9 +807,10 @@ function createAgentToolsForMode(params: {
         createPlayEditTool(params.projectRoot, params.sessionId),
         createPlayReviseTool(params.pipeline, params.projectRoot, params.sessionId),
         createPlayStepTool(params.pipeline, params.projectRoot, params.sessionId),
+        materialTool,
       ];
     }
-    return [proposalTool];
+    return [proposalTool, materialTool];
   }
 
   if (params.sessionKind === "book-create" && !params.bookId) {
@@ -817,7 +820,7 @@ function createAgentToolsForMode(params: {
         architectCreateOnly: true,
       })];
     }
-    return [proposalTool, researchTool];
+    return [proposalTool, researchTool, materialTool];
   }
 
   if (!params.bookId) {
@@ -833,6 +836,7 @@ function createAgentToolsForMode(params: {
     createPatchChapterTextTool(params.pipeline, params.projectRoot, params.bookId),
     createReplaceChapterTextTool(params.pipeline, params.projectRoot, params.bookId),
     researchTool,
+    materialTool,
     createGrepTool(params.projectRoot),
     createLsTool(params.projectRoot),
   ];

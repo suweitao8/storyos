@@ -16,6 +16,7 @@ import { normalizePlatformId, normalizePlatformOrOther } from "../models/book.js
 import { generateShortFictionCover, runShortFictionProduction } from "../pipeline/short-fiction-runner.js";
 import { runInteractiveFilmCreation, runScriptCreation, runStoryboardCreation } from "../pipeline/script-storyboard-runner.js";
 import { runResearchReport } from "../agents/researcher.js";
+import { ingestMaterial } from "../materials/ingest.js";
 import type { ScriptTargetFormat } from "../agents/script-storyboard.js";
 import { createPlayDB, type PlayGraphDB } from "../play/play-db-factory.js";
 import { PlayRunner, type PlayOpeningSeedResult, type PlayReplayResult, type PlayStepResult, type PlayVariantRestoreResult } from "../play/play-runner.js";
@@ -872,6 +873,90 @@ export function createResearchWebTool(projectRoot: string): AgentTool<typeof Res
           claims: report.claims,
           confidence: report.confidence,
           partialFailures: report.partialFailures,
+        },
+      );
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 3. Material Ingestion Tool (ingest_material)
+// ---------------------------------------------------------------------------
+
+const IngestMaterialParams = Type.Object({
+  sourceKind: Type.Union([
+    Type.Literal("url"),
+    Type.Literal("file"),
+  ], {
+    description: "Use url for an external URL; use file for a user-uploaded file path shown in the Uploaded Files block.",
+  }),
+  url: Type.Optional(Type.String({
+    description: "HTTP/HTTPS URL to fetch and extract. Supports HTML/text/JSON/PDF.",
+  })),
+  filePath: Type.Optional(Type.String({
+    description: "Project-relative stored_path from the Uploaded Files block, e.g. .inkos/uploads/session/file.pdf.",
+  })),
+  filename: Type.Optional(Type.String({
+    description: "Original filename when known.",
+  })),
+  mimeType: Type.Optional(Type.String({
+    description: "MIME type when known, e.g. application/pdf or text/markdown.",
+  })),
+  title: Type.Optional(Type.String({
+    description: "Human-readable material title.",
+  })),
+  purpose: Type.Optional(Type.Union([
+    Type.Literal("reference"),
+    Type.Literal("worldbuilding"),
+    Type.Literal("script"),
+    Type.Literal("storyboard"),
+    Type.Literal("research"),
+    Type.Literal("general"),
+  ], {
+    description: "Why this material is being ingested. It remains reference material unless the user explicitly promotes it.",
+  })),
+});
+
+type IngestMaterialParamsType = Static<typeof IngestMaterialParams>;
+
+export function createIngestMaterialTool(projectRoot: string): AgentTool<typeof IngestMaterialParams> {
+  return {
+    name: "ingest_material",
+    description:
+      "Extract and archive a user-provided URL or uploaded file into .inkos/materials as traceable Markdown. " +
+      "Supports HTML/text/JSON/Markdown/PDF. This creates reference material only; it must not mutate canon, chapters, scripts, or play state.",
+    label: "Ingest Material",
+    parameters: IngestMaterialParams,
+    async execute(
+      _toolCallId: string,
+      params: IngestMaterialParamsType,
+      _signal?: AbortSignal,
+      onUpdate?: AgentToolUpdateCallback,
+    ): Promise<AgentToolResult<unknown>> {
+      onUpdate?.(textResult(params.sourceKind === "url"
+        ? `Extracting URL: ${params.url ?? "(missing)"}`
+        : `Extracting file: ${params.filePath ?? params.filename ?? "(missing)"}`));
+      const asset = await ingestMaterial(projectRoot, {
+        sourceKind: params.sourceKind,
+        url: params.url,
+        filePath: params.filePath,
+        filename: params.filename,
+        mimeType: params.mimeType,
+        title: params.title,
+        purpose: params.purpose ?? "reference",
+      });
+      return textResult(
+        [
+          `Material ingested: ${asset.markdownPath}`,
+          `Kind: ${asset.kind}; chars: ${asset.charCount}; source: ${asset.source}`,
+          asset.totalPages !== undefined ? `PDF pages: ${asset.totalPages}` : "",
+          "",
+          "Excerpt:",
+          asset.excerpt,
+        ].filter(Boolean).join("\n"),
+        {
+          kind: "material_ingested",
+          asset,
         },
       );
     },
