@@ -185,7 +185,7 @@ vi.mock("@mariozechner/pi-ai", async () => {
   };
 });
 
-import { runAgentSession, evictAgentCache } from "../agent/agent-session.js";
+import { abortAgentSession, runAgentSession, evictAgentCache } from "../agent/agent-session.js";
 import {
   appendManualSessionMessages,
   appendTranscriptEvent,
@@ -233,6 +233,7 @@ describe("runAgentSession cache — bookId switch", () => {
     evictAgentCache("play-session");
     evictAgentCache("play-active-session");
     evictAgentCache("play-confirmed-session");
+    evictAgentCache("abort-session");
     await rm(projectRoot, { recursive: true, force: true });
     if (otherProjectRoot) await rm(otherProjectRoot, { recursive: true, force: true });
   });
@@ -561,6 +562,8 @@ describe("runAgentSession cache — bookId switch", () => {
     expect(agentInstances[0].state.tools.map((tool: any) => tool.name)).toEqual([
       "propose_action",
       "research_web",
+      "ingest_material",
+      "retrieve_material",
     ]);
   });
 
@@ -576,6 +579,8 @@ describe("runAgentSession cache — bookId switch", () => {
     expect(agentInstances[0].state.tools.map((tool: any) => tool.name)).toEqual([
       "propose_action",
       "research_web",
+      "ingest_material",
+      "retrieve_material",
     ]);
   });
 
@@ -631,6 +636,8 @@ describe("runAgentSession cache — bookId switch", () => {
     );
     expect(agentInstances[0].state.tools.map((tool: any) => tool.name)).toEqual([
       "propose_action",
+      "ingest_material",
+      "retrieve_material",
     ]);
 
     await runAgentSession(
@@ -639,6 +646,8 @@ describe("runAgentSession cache — bookId switch", () => {
     );
     expect(agentInstances[1].state.tools.map((tool: any) => tool.name)).toEqual([
       "propose_action",
+      "ingest_material",
+      "retrieve_material",
     ]);
   });
 
@@ -775,6 +784,8 @@ describe("runAgentSession cache — bookId switch", () => {
       "play_edit",
       "play_revise",
       "play_step",
+      "ingest_material",
+      "retrieve_material",
     ]);
   });
 
@@ -860,6 +871,8 @@ describe("runAgentSession cache — bookId switch", () => {
       "patch_chapter_text",
       "replace_chapter_text",
       "research_web",
+      "ingest_material",
+      "retrieve_material",
       "grep",
       "ls",
     ]);
@@ -880,6 +893,8 @@ describe("runAgentSession cache — bookId switch", () => {
       "rename_entity",
       "patch_chapter_text",
       "replace_chapter_text",
+      "ingest_material",
+      "retrieve_material",
       "grep",
       "ls",
     ]);
@@ -1213,6 +1228,30 @@ describe("runAgentSession cache — bookId switch", () => {
     );
     expect(agentInstances).toHaveLength(instancesAfterError + 1);
     expect(JSON.stringify(streamCalls.at(-1)?.context.messages)).not.toContain("model error");
+  });
+
+  it("aborts and evicts an active cached agent session", async () => {
+    const model = { provider: "x", id: "y", api: "anthropic-messages" } as any;
+    const pipeline = {} as any;
+
+    await runAgentSession(
+      { sessionId: "abort-session", bookId: "book-a", language: "zh", pipeline, projectRoot, model },
+      "hello",
+    );
+
+    const abortSpy = vi.spyOn(agentInstances.at(-1), "abort");
+    const clearSpy = vi.spyOn(agentInstances.at(-1), "clearAllQueues");
+
+    expect(abortAgentSession(projectRoot, "abort-session")).toBe(true);
+    expect(abortSpy).toHaveBeenCalledOnce();
+    expect(clearSpy).toHaveBeenCalledOnce();
+
+    const instancesAfterAbort = agentInstances.length;
+    await runAgentSession(
+      { sessionId: "abort-session", bookId: "book-a", language: "zh", pipeline, projectRoot, model },
+      "again",
+    );
+    expect(agentInstances).toHaveLength(instancesAfterAbort + 1);
   });
 
   it("serializes concurrent turns before assigning transcript seq", async () => {

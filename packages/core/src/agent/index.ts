@@ -12,6 +12,7 @@ export {
   createStoryboardCreationTool,
   createInteractiveFilmCreationTool,
   createResearchWebTool,
+  createIngestMaterialTool,
   createGenerateCoverTool,
   createPlayStartTool,
   createPlayReviseTool,
@@ -19,7 +20,14 @@ export {
   createGrepTool,
   createLsTool,
 } from "./agent-tools.js";
-export { runAgentSession, evictAgentCache, type AgentSessionConfig, type AgentSessionResult } from "./agent-session.js";
+export {
+  abortAgentSession,
+  runAgentSession,
+  evictAgentCache,
+  type AgentSessionAttachment,
+  type AgentSessionConfig,
+  type AgentSessionResult,
+} from "./agent-session.js";
 export { createBookContextTransform } from "./context-transform.js";
 export {
   createSetWorldAnchorTool,

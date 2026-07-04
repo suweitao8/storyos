@@ -3,7 +3,7 @@ import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
 import { fetchJson, postApi, useApi } from "../hooks/use-api";
-import type { MessagePart } from "../store/chat/types";
+import type { ChatAttachmentPayload, MessagePart } from "../store/chat/types";
 import { chatSelectors, useChatStore } from "../store/chat";
 import type { ChatSessionKind } from "../store/chat";
 import { useServiceStore } from "../store/service";
@@ -26,15 +26,16 @@ import { PlayHud } from "../components/chat/PlayHud";
 import { PlayChoicePanel } from "../components/chat/PlayChoicePanel";
 import { latestPlayChoiceSet } from "../components/chat/play-choices";
 import {
-  Loader2,
   BotMessageSquare,
   ArrowUp,
   ChevronDown,
   Check,
   Plus,
   X,
+  Paperclip,
   Gamepad2,
   Palette,
+  Square,
 } from "lucide-react";
 import { Shimmer } from "../components/ai-elements/shimmer";
 import {
@@ -103,6 +104,51 @@ interface CoverConfigResponse {
   readonly service?: string | null;
   readonly configured?: boolean;
   readonly providers?: ReadonlyArray<{ readonly service: string; readonly connected?: boolean }>;
+}
+
+const MAX_CHAT_ATTACHMENTS = 8;
+const MAX_CHAT_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+const CHAT_ATTACHMENT_ACCEPT = [
+  "image/*",
+  "text/plain",
+  "text/markdown",
+  "application/json",
+  "text/csv",
+  ".txt",
+  ".md",
+  ".markdown",
+  ".json",
+  ".csv",
+  ".tsv",
+  ".yaml",
+  ".yml",
+  ".log",
+  ".pdf",
+].join(",");
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function serializeChatAttachments(files: ReadonlyArray<File>): Promise<ChatAttachmentPayload[]> {
+  return Promise.all(files.map(async (file) => ({
+    id: `${file.name}-${file.size}-${file.lastModified}`,
+    filename: file.name,
+    mediaType: file.type || "application/octet-stream",
+    size: file.size,
+    dataUrl: await fileToDataUrl(file),
+  })));
+}
+
+function formatFileSize(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size >= 1024) return `${Math.ceil(size / 1024)} KB`;
+  return `${size} B`;
 }
 
 interface SkillsResponse {
@@ -373,6 +419,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   // -- Store actions --
   const setInput = useChatStore((s) => s.setInput);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const abortSession = useChatStore((s) => s.abortSession);
   const setSelectedModel = useChatStore((s) => s.setSelectedModel);
   const loadSessionList = useChatStore((s) => s.loadSessionList);
   const createSession = useChatStore((s) => s.createSession);
@@ -384,6 +431,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<ScrollFrameId | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const autoScrollPinnedRef = useRef(true);
 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
@@ -423,6 +471,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const [skillSaving, setSkillSaving] = useState(false);
   const [skillCreateError, setSkillCreateError] = useState<string | null>(null);
   const [showSkillCreate, setShowSkillCreate] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const { data: skillsData, loading: skillsLoading, error: skillsError, refetch: refetchSkills } = useApi<SkillsResponse>("/skills");
   const worldPanelInsetClass = currentSessionKind === "play" && worldPanelOpen ? "lg:pr-[380px]" : "";
   const availableSkills = skillsData?.skills ?? [];
@@ -638,17 +688,45 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     };
   }, [activeBookId, activateSession, createSession, loadSessionDetail, loadSessionList, mode]);
 
-  const onSend = (text: string) => {
+  const addAttachedFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files);
+    const accepted: File[] = [];
+    const rejected: string[] = [];
+    for (const file of incoming) {
+      if (file.size > MAX_CHAT_ATTACHMENT_BYTES) {
+        rejected.push(`${file.name} > ${formatFileSize(MAX_CHAT_ATTACHMENT_BYTES)}`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    setAttachedFiles((prev) => [...prev, ...accepted].slice(0, MAX_CHAT_ATTACHMENTS));
+    setAttachmentError(rejected.length > 0
+      ? (isZh ? `以下文件过大，未添加：${rejected.join("、")}` : `Some files were too large: ${rejected.join(", ")}`)
+      : null);
+  };
+
+  const onSend = async (text: string) => {
     if (!activeSessionId) return;
-    if (!text.trim()) return;
+    const hasPendingMessage = Boolean(text.trim()) || attachedFiles.length > 0;
+    if (!hasPendingMessage) {
+      if (loading) await abortSession(activeSessionId);
+      return;
+    }
     const requestedSkills = selectedSkillIdsForSend(selectedSkillIds);
     autoScrollPinnedRef.current = true;
-    void sendMessage(activeSessionId, text, {
+    const attachments = await serializeChatAttachments(attachedFiles);
+    if (loading) {
+      await abortSession(activeSessionId);
+    }
+    await sendMessage(activeSessionId, text, {
       activeBookId,
       sessionKind: currentSessionKind,
       actionSource: "free-text",
       requestedSkills,
+      attachments,
     });
+    setAttachedFiles([]);
+    setAttachmentError(null);
     if (requestedSkills?.length) {
       setSelectedSkillIds([]);
       setSkillPanelOpen(false);
@@ -998,6 +1076,17 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   }}
                 />
               ) : null}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={CHAT_ATTACHMENT_ACCEPT}
+                className="hidden"
+                onChange={(event) => {
+                  if (event.currentTarget.files) addAttachedFiles(event.currentTarget.files);
+                  event.currentTarget.value = "";
+                }}
+              />
               {selectedSkills.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 border-b border-border/20 px-3 py-2">
                   {selectedSkills.map((skill) => (
@@ -1018,6 +1107,35 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                   ))}
                 </div>
               ) : null}
+              {attachedFiles.length > 0 || attachmentError ? (
+                <div className="border-b border-border/20 px-3 py-2">
+                  {attachedFiles.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {attachedFiles.map((file) => (
+                        <span
+                          key={`${file.name}-${file.size}-${file.lastModified}`}
+                          className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-xs text-muted-foreground"
+                          title={`${file.name} · ${file.type || "application/octet-stream"} · ${formatFileSize(file.size)}`}
+                        >
+                          <Paperclip size={12} />
+                          <span className="truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAttachedFiles((prev) => prev.filter((item) => item !== file))}
+                            className="rounded-full p-0.5 hover:bg-muted"
+                            aria-label={isZh ? `移除 ${file.name}` : `Remove ${file.name}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {attachmentError ? (
+                    <div className="mt-1 text-xs leading-5 text-destructive">{attachmentError}</div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="flex items-center gap-2 px-3 py-2">
                 <button
                   type="button"
@@ -1029,23 +1147,36 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                 >
                   <Plus size={16} strokeWidth={2.4} />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!activeSessionId}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-30"
+                  title={isZh ? "上传图片或资料" : "Attach files"}
+                  aria-label={isZh ? "上传图片或资料" : "Attach files"}
+                >
+                  <Paperclip size={16} strokeWidth={2.3} />
+                </button>
                 <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(input); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void onSend(input); } }}
                   placeholder={isZh ? "输入指令..." : "Enter command..."}
-                  disabled={loading || !activeSessionId}
+                  disabled={!activeSessionId}
                   rows={1}
                   className="flex-1 bg-transparent text-base leading-7 placeholder:text-muted-foreground/50 outline-none! border-none! ring-0! shadow-none focus:outline-none! focus:ring-0! focus:border-none! resize-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
                 />
                 <button
                   type="button"
-                  onClick={() => onSend(input)}
-                  disabled={!input.trim() || loading || !activeSessionId}
+                  onClick={() => void onSend(input)}
+                  disabled={(!input.trim() && attachedFiles.length === 0 && !loading) || !activeSessionId}
                   className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:scale-100 shadow-sm shadow-primary/20"
+                  title={loading && !input.trim() && attachedFiles.length === 0 ? (isZh ? "停止当前回复" : "Stop") : undefined}
                 >
-                  {loading ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} strokeWidth={2.5} />}
+                  {loading && !input.trim() && attachedFiles.length === 0
+                    ? <Square size={13} fill="currentColor" />
+                    : <ArrowUp size={14} strokeWidth={2.5} />}
                 </button>
               </div>
               <div className="flex items-center gap-2 px-3 pb-2 border-t border-border/20 pt-1.5">

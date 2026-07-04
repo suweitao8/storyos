@@ -126,7 +126,16 @@ export interface SendMessageOptions {
   readonly actionPayload?: ChatActionPayload;
   readonly requestedSkills?: ReadonlyArray<string>;
   readonly disabledSkills?: ReadonlyArray<string>;
+  readonly attachments?: ReadonlyArray<ChatAttachmentPayload>;
   readonly playMode?: PlayMode;
+}
+
+export interface ChatAttachmentPayload {
+  readonly id: string;
+  readonly filename: string;
+  readonly mediaType: string;
+  readonly size: number;
+  readonly dataUrl: string;
 }
 
 export interface SessionRuntime {
@@ -186,6 +195,7 @@ export interface MessageActions {
   deleteSession: (sessionId: string) => Promise<void>;
   loadSessionDetail: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, text: string, options?: SendMessageOptions) => Promise<void>;
+  abortSession: (sessionId: string) => Promise<void>;
   setSelectedModel: (model: string, service: string) => void;
 }
 

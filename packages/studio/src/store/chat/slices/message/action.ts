@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import type {
   AgentResponse,
+  ChatAttachmentPayload,
   ChatSessionKind,
   ChatStore,
   MessageActions,
@@ -51,6 +52,21 @@ function mergeSkillIds(
     out.push(id);
   }
   return out;
+}
+
+function formatAttachmentSize(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size >= 1024) return `${Math.ceil(size / 1024)} KB`;
+  return `${size} B`;
+}
+
+function formatUserMessageForDisplay(text: string, attachments: ReadonlyArray<ChatAttachmentPayload>): string {
+  if (attachments.length === 0) return text;
+  const lines = text ? [text, "", "附件："] : ["附件："];
+  for (const attachment of attachments) {
+    lines.push(`- ${attachment.filename} (${attachment.mediaType || "application/octet-stream"}, ${formatAttachmentSize(attachment.size)})`);
+  }
+  return lines.join("\n");
 }
 
 export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions> = (set, get) => ({
@@ -292,6 +308,23 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
     });
   },
 
+  abortSession: async (sessionId) => {
+    const session = get().sessions[sessionId];
+    session?.stream?.close();
+    set((state) => ({
+      sessions: updateSession(state.sessions, sessionId, () => ({
+        isStreaming: false,
+        stream: null,
+        lastError: null,
+      })),
+    }));
+    try {
+      await fetchJson(`/sessions/${sessionId}/abort`, { method: "POST" });
+    } catch (error) {
+      get().addErrorMessage(sessionId, error instanceof Error ? error.message : String(error));
+    }
+  },
+
   loadSessionDetail: async (sessionId) => {
     // 草稿会话：磁盘上还没有文件，直接跳过远端拉取。
     // 本地已有消息：不拉取远端，避免流式中或未持久化的消息被覆盖。
@@ -350,8 +383,10 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
 
   sendMessage: async (sessionId, text, options?: SendMessageOptions) => {
     const trimmed = text.trim();
+    const attachments = options?.attachments ?? [];
     const session = get().sessions[sessionId];
-    if (!trimmed || !session || session.isStreaming) return;
+    if ((!trimmed && attachments.length === 0) || !session || session.isStreaming) return;
+    const userInstruction = trimmed || "请阅读我上传的文件。";
     const activeBookId = options?.activeBookId ?? session.bookId ?? undefined;
     const sessionKind: ChatSessionKind = options?.sessionKind
       ?? session.sessionKind
@@ -360,7 +395,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
     const playMode = options?.playMode ?? session.playMode;
 
     if (!get().selectedModel) {
-      get().addUserMessage(sessionId, trimmed);
+      get().addUserMessage(sessionId, formatUserMessageForDisplay(userInstruction, attachments));
       get().addErrorMessage(sessionId, "请先选择一个模型");
       return;
     }
@@ -393,7 +428,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
       }
     }
 
-    const skillDirectives = parseSkillDirectives(trimmed);
+    const skillDirectives = parseSkillDirectives(userInstruction);
     const instruction = skillDirectives.instruction;
     const requestedSkills = mergeSkillIds(skillDirectives.requestedSkills, options?.requestedSkills);
     const disabledSkills = mergeSkillIds([], options?.disabledSkills);
@@ -408,7 +443,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
       })),
     }));
 
-    get().addUserMessage(sessionId, trimmed);
+    get().addUserMessage(sessionId, formatUserMessageForDisplay(userInstruction, attachments));
     session.stream?.close();
     const streamEs = new EventSource("/api/v1/events");
     set((state) => ({
@@ -430,6 +465,7 @@ export const createMessageSlice: StateCreator<ChatStore, [], [], MessageActions>
           actionPayload: options?.actionPayload,
           requestedSkills,
           disabledSkills,
+          attachments,
           sessionId,
           model: get().selectedModel ?? undefined,
           service: get().selectedService ?? undefined,

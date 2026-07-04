@@ -242,6 +242,24 @@ export function attachSessionStreamListeners({
   streamEs.addEventListener("draft:error", flushTextDeltas);
   streamEs.addEventListener("agent:complete", flushTextDeltas);
 
+  streamEs.addEventListener("agent:aborted", (event: MessageEvent) => {
+    try {
+      const data = event.data ? JSON.parse(event.data) : null;
+      if (!sessionMatchesEvent(sessionId, data)) return;
+      flushTextDeltas();
+      progressThrottle.flush();
+      streamEs.close();
+      set((state) => ({
+        sessions: updateSession(state.sessions, sessionId, () => ({
+          isStreaming: false,
+          stream: null,
+        })),
+      }));
+    } catch {
+      // ignore
+    }
+  });
+
   streamEs.addEventListener("thinking:start", (event: MessageEvent) => {
     try {
       const data = event.data ? JSON.parse(event.data) : null;
