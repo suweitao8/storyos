@@ -312,23 +312,14 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
   const showCustomSection = !loading && selectedGroups.size === 0 && (filteredCustom.length > 0 || canCreateCustom);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button
-          onClick={nav.toDashboard}
-          className="inline-flex items-center rounded-lg border border-border/50 bg-card/60 px-3 py-1.5 font-medium text-foreground hover:bg-secondary/50 transition-colors"
-        >
-          {tr("首页", "Home")}
-        </button>
-        <span className="text-border">/</span>
-        <span className="text-foreground">{tr("服务商管理", "Providers")}</span>
-      </div>
-
-      <h1 className="font-serif text-2xl">{tr("服务商管理", "Providers")}</h1>
+    <div className="mx-auto max-w-2xl space-y-8">
+      <h1 className="font-serif text-2xl">{tr("模型配置", "Models")}</h1>
 
       <ServiceConfigSourceCard onChange={() => { void refreshServices(); }} />
 
-      <CoverConfigCard />
+      {/* --- Text Models --- */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{tr("文本大模型", "Text Models")}</h2>
 
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
@@ -466,6 +457,21 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
           {tr("没有匹配的服务商", "No matching providers")}
         </div>
       )}
+      </section>
+
+      {/* --- Image Models --- */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{tr("图片大模型", "Image Models")}</h2>
+        <CoverConfigCard />
+      </section>
+
+      {/* --- Voice Models --- */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{tr("语音大模型", "Voice Models")}</h2>
+        <div className="rounded-lg border border-dashed border-border/40 p-8 text-center text-sm text-muted-foreground">
+          {tr("暂未配置语音模型", "No voice model configured")}
+        </div>
+      </section>
     </div>
   );
 }

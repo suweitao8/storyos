@@ -27,12 +27,6 @@ export function LogViewer({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunct
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button onClick={nav.toDashboard} className={c.link}>{t("bread.home")}</button>
-        <span className="text-border">/</span>
-        <span className="text-foreground">{t("logs.title")}</span>
-      </div>
-
       <div className="flex items-baseline justify-between">
         <h1 className="font-serif text-3xl">{t("logs.title")}</h1>
         <button
