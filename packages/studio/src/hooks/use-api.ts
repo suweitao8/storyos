@@ -122,7 +122,46 @@ export async function fetchJson<T>(
   return await res.json() as T;
 }
 
-export function useApi<T>(path: string) {
+type RetryConfig = {
+  readonly retries?: number;
+  readonly delayMs?: number;
+};
+
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function fetchJsonWithRetry<T>(
+  path: string,
+  init: RequestInit = {},
+  deps?: { readonly fetchImpl?: typeof fetch } & RetryConfig,
+): Promise<T> {
+  const retries = Math.max(0, deps?.retries ?? 0);
+  const delayMs = Math.max(0, deps?.delayMs ?? 0);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchJson<T>(path, init, deps);
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries) {
+        break;
+      }
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+export function useApi<T>(
+  path: string,
+  options?: { readonly retry?: RetryConfig },
+) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,14 +178,16 @@ export function useApi<T>(path: string) {
     setLoading(true);
     setError(null);
     try {
-      const json = await fetchJson<T>(url);
+      const json = options?.retry
+        ? await fetchJsonWithRetry<T>(url, {}, options.retry)
+        : await fetchJson<T>(url);
       setData(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, options?.retry]);
 
   useEffect(() => {
     refetch();

@@ -35,6 +35,13 @@ import { House } from "lucide-react";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
 
+const PROJECT_CONFIG_RETRY = {
+  retry: {
+    retries: 2,
+    delayMs: 250,
+  },
+} as const;
+
 export function deriveActiveBookId(route: HashRoute): string | undefined {
   if ("bookId" in route) return route.bookId;
   return undefined;
@@ -57,7 +64,7 @@ export function App() {
   const sse = useSSE();
   const { theme, setTheme } = useTheme();
   const { t, lang: currentLang } = useI18n();
-  const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project");
+  const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [ready, setReady] = useState(false);
 
