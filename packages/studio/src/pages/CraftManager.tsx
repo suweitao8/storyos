@@ -1,9 +1,16 @@
-import { useState } from "react";
-import { fetchJson, useApi } from "../hooks/use-api";
+import { useRef, useState } from "react";
+import { fetchJson, useApi, postApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
-import { Wand2, BookOpen, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Wand2, BookOpen, Trash2, ChevronRight,
+  Plus, FileUp, Loader2, ArrowLeft, FileText,
+} from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface CraftMeta {
   readonly id: string;
@@ -49,220 +56,474 @@ interface CraftProfile {
   readonly exemplars: ReadonlyArray<CraftExemplar>;
 }
 
+type CraftTab = "list" | "create" | "detail";
+
 interface Nav { toDashboard: () => void }
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function CraftManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
   const c = useColors(theme);
-  const [text, setText] = useState("");
-  const [sourceName, setSourceName] = useState("");
-  const [language, setLanguage] = useState<"zh" | "en">("zh");
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [detailCache, setDetailCache] = useState<Record<string, CraftProfile>>({});
-
+  const [tab, setTab] = useState<CraftTab>("list");
+  const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
+  const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
   const { data: craftsData, refetch } = useApi<{ crafts: ReadonlyArray<CraftMeta> }>("/crafts");
-
-  const handleAnalyze = async () => {
-    if (!text.trim() || !sourceName.trim()) return;
-    setLoading(true);
-    setStatus("...");
-    try {
-      await fetchJson<{ craftId: string }>("/craft/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, sourceName, language }),
-      });
-      setStatus("");
-      setText("");
-      setSourceName("");
-      await refetch();
-    } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    setLoading(false);
-  };
-
-  const handleDelete = async (craftId: string) => {
-    try {
-      await fetchJson(`/crafts/${craftId}`, { method: "DELETE" });
-      await refetch();
-    } catch (e) {
-      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const toggleExpand = async (craftId: string) => {
-    if (expandedId === craftId) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(craftId);
-    if (!detailCache[craftId]) {
-      try {
-        const profile = await fetchJson<CraftProfile>(`/crafts/${craftId}`, { method: "GET" });
-        setDetailCache((prev) => ({ ...prev, [craftId]: profile }));
-      } catch {
-        // ignore
-      }
-    }
-  };
 
   const crafts = craftsData?.crafts ?? [];
 
+  const openDetail = (craftId: string) => {
+    setSelectedCraftId(craftId);
+    setNewProfile(null);
+    setTab("detail");
+  };
+
+  const handleCreated = async (profile: CraftProfile) => {
+    setNewProfile(profile);
+    setSelectedCraftId(null);
+    setTab("detail");
+    await refetch();
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <h1 className="font-serif text-3xl flex items-center gap-3">
         <Wand2 size={28} className="text-primary" />
         {t("craft.title")}
       </h1>
 
-      {status && (
-        <div className={`px-4 py-2 rounded-lg text-sm ${
-          status.startsWith("Error:") ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-        }`}>
-          {status}
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-border">
+        <TabButton
+          active={tab === "list"}
+          onClick={() => { setTab("list"); void refetch(); }}
+          icon={<BookOpen size={15} />}
+          label={t("craft.tabList")}
+        />
+        <TabButton
+          active={tab === "create"}
+          onClick={() => setTab("create")}
+          icon={<Plus size={15} />}
+          label={t("craft.tabCreate")}
+        />
+        {tab === "detail" && (
+          <TabButton
+            active
+            icon={<FileText size={15} />}
+            label={t("craft.tabDetail")}
+          />
+        )}
+      </div>
+
+      {/* Tab content */}
+      {tab === "list" && (
+        <CraftList
+          crafts={crafts}
+          c={c}
+          t={t}
+          onNew={() => setTab("create")}
+          onOpen={openDetail}
+          onDelete={async (id) => { await fetchJson(`/crafts/${id}`, { method: "DELETE" }); await refetch(); }}
+        />
       )}
 
-      {/* Input */}
-      <div className={`border ${c.cardStatic} rounded-lg p-5 space-y-4`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">{t("craft.sourceName")}</label>
-            <input
-              type="text"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-              placeholder={t("craft.sourceExample")}
-              className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm focus:outline-none focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">{t("craft.language")}</label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as "zh" | "en")}
-              className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm focus:outline-none focus:border-primary"
-            >
-              <option value="zh">中文</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">{t("craft.textSample")}</label>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={10}
-            placeholder={t("craft.pasteHint")}
-            className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm focus:outline-none focus:border-primary resize-none font-mono"
-          />
-        </div>
-        <button
-          onClick={handleAnalyze}
-          disabled={!text.trim() || !sourceName.trim() || loading}
-          className={`px-4 py-2 text-sm rounded-lg ${c.btnPrimary} disabled:opacity-30 flex items-center gap-2`}
-        >
-          <BookOpen size={14} />
-          {loading ? t("craft.analyzing") : t("craft.analyze")}
-        </button>
-      </div>
+      {tab === "create" && (
+        <CraftCreate
+          c={c}
+          t={t}
+          onSuccess={handleCreated}
+        />
+      )}
 
-      {/* Saved craft profiles */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t("craft.results")}</h3>
-        {crafts.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t("craft.emptyHint")}</p>
-        )}
-        {crafts.map((craft) => {
-          const expanded = expandedId === craft.id;
-          const detail = detailCache[craft.id];
-          return (
-            <div key={craft.id} className={`border ${c.cardStatic} rounded-lg overflow-hidden`}>
-              <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-secondary/20"
-                onClick={() => toggleExpand(craft.id)}
-              >
-                <div className="flex items-center gap-2">
-                  {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  <span className="font-medium text-sm">{craft.sourceName}</span>
-                  <span className="text-xs text-muted-foreground">{craft.language}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(craft.createdAt).toLocaleDateString()}</span>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(craft.id); }}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              {expanded && detail && (
-                <div className="px-4 pb-4 space-y-4 border-t border-border">
-                  <CraftSection title={t("craft.structure")} fields={[
-                    ["开篇模式 / Opening", detail.structure.openingPattern],
-                    ["单章弧线 / Arc", detail.structure.chapterArc],
-                    ["章末钩子 / Hook", detail.structure.endingHookType],
-                  ]} exemplar={detail.structure.exemplar} />
-                  <CraftSection title={t("craft.sceneRhythm")} fields={[
-                    ["场景切换 / Transition", detail.sceneRhythm.sceneTransitionTechnique],
-                    ["节奏曲线 / Pacing", detail.sceneRhythm.pacingCurve],
-                    ["冲突升级 / Escalation", detail.sceneRhythm.conflictEscalation],
-                  ]} exemplar={detail.sceneRhythm.exemplar} />
-                  <CraftSection title={t("craft.infoDisclosure")} fields={[
-                    ["伏笔密度 / Foreshadowing", detail.informationDisclosure.foreshadowingDensity],
-                    ["信息释放 / Release", detail.informationDisclosure.informationReleaseRhythm],
-                    ["悬念管理 / Suspense", detail.informationDisclosure.suspenseManagement],
-                  ]} exemplar={detail.informationDisclosure.exemplar} />
-                  <CraftSection title={t("craft.narrativePOV")} fields={[
-                    ["POV 策略 / Strategy", detail.narrativePerspective.povStrategy],
-                    ["叙述/对话比例 / Ratio", detail.narrativePerspective.narrationDialogueRatio],
-                    ["叙事距离 / Distance", detail.narrativePerspective.narrativeDistance],
-                  ]} exemplar={detail.narrativePerspective.exemplar} />
-
-                  {detail.exemplars.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{t("craft.exemplars")}</h4>
-                      <div className="space-y-2">
-                        {detail.exemplars.map((ex, i) => (
-                          <div key={i} className="bg-secondary/20 rounded-lg p-3">
-                            <div className="text-xs font-medium mb-1">{ex.label}（{ex.tone}）</div>
-                            <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap">{ex.excerpt}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {tab === "detail" && (
+        <CraftDetail
+          craftId={selectedCraftId}
+          initialProfile={newProfile}
+          c={c}
+          t={t}
+          onBack={() => { setTab("list"); void refetch(); }}
+        />
+      )}
     </div>
   );
 }
 
-function CraftSection({ title, fields, exemplar }: {
+// ---------------------------------------------------------------------------
+// Tab button
+// ---------------------------------------------------------------------------
+
+function TabButton({ active, onClick, icon, label }: {
+  active: boolean;
+  onClick?: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={active && !onClick}
+      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        active
+          ? "border-primary text-primary"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab 1: Craft list
+// ---------------------------------------------------------------------------
+
+function CraftList({ crafts, c, t, onNew, onOpen, onDelete }: {
+  crafts: ReadonlyArray<CraftMeta>;
+  c: ReturnType<typeof useColors>;
+  t: TFunction;
+  onNew: () => void;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  if (crafts.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="border border-dashed border-border/40 rounded-xl p-12 text-center">
+          <Wand2 size={32} className="mx-auto text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground mb-4">{t("craft.noProfiles")}</p>
+          <button
+            onClick={onNew}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg ${c.btnPrimary}`}
+          >
+            <Plus size={14} />
+            {t("craft.newProfile")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={onNew}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg ${c.btnPrimary}`}
+        >
+          <Plus size={14} />
+          {t("craft.newProfile")}
+        </button>
+      </div>
+      {crafts.map((craft) => (
+        <div key={craft.id} className={`border ${c.cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`}>
+          <button onClick={() => onOpen(craft.id)} className="flex items-center gap-3 flex-1 text-left">
+            <ChevronRight size={16} className="text-muted-foreground" />
+            <span className="font-medium text-sm">{craft.sourceName}</span>
+            <span className="text-xs text-muted-foreground">{craft.language}</span>
+            <span className="text-xs text-muted-foreground">{new Date(craft.createdAt).toLocaleDateString()}</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); void onDelete(craft.id); }}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab 2: Create (upload + extract)
+// ---------------------------------------------------------------------------
+
+interface UploadResponse {
+  readonly text: string;
+  readonly encoding: string;
+  readonly chapterCount: number;
+  readonly usedChapters: number;
+  readonly detectedName: string;
+}
+
+function CraftCreate({ c, t, onSuccess }: {
+  c: ReturnType<typeof useColors>;
+  t: TFunction;
+  onSuccess: (profile: CraftProfile) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState("");
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    setUploadError("");
+    setUploadResult(null);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const response = await fetch("/api/v1/craft/upload", {
+        method: "POST",
+        body: arrayBuffer,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Filename": encodeURIComponent(file.name),
+        },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: String(response.status) }));
+        throw new Error(err.error ?? "upload failed");
+      }
+      const data: UploadResponse = await response.json();
+      setUploadResult(data);
+      setSourceName(data.detectedName);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    }
+    setUploading(false);
+  };
+
+  const handleExtract = async () => {
+    if (!uploadResult || !sourceName.trim()) return;
+    setExtracting(true);
+    setExtractError("");
+    try {
+      const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
+        text: uploadResult.text,
+        sourceName: sourceName.trim(),
+        language: "zh",
+      });
+      onSuccess(result.profile);
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : String(e));
+    }
+    setExtracting(false);
+  };
+
+  const busy = uploading || extracting;
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* File upload zone */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt,.md,text/plain"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+          e.target.value = "";
+        }}
+      />
+
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={busy}
+        className={`w-full border-2 border-dashed rounded-xl p-10 text-center transition-colors disabled:opacity-40 ${
+          uploadResult
+            ? "border-emerald-500/30 bg-emerald-500/[0.03]"
+            : "border-border/40 hover:border-primary/30 hover:bg-secondary/20"
+        }`}
+      >
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 size={28} className="animate-spin" />
+            <span className="text-sm">{t("craft.uploading")}</span>
+          </div>
+        ) : uploadResult ? (
+          <div className="flex flex-col items-center gap-1 text-sm">
+            <FileText size={28} className="text-emerald-500 mb-1" />
+            <span className="font-medium">{sourceName || uploadResult.detectedName}</span>
+            <span className="text-xs text-muted-foreground">
+              {t("craft.detectedEncoding")}: {uploadResult.encoding}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {t("craft.chapterInfo")
+                .replace("{total}", String(uploadResult.chapterCount))
+                .replace("{used}", String(uploadResult.usedChapters))}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <FileUp size={28} />
+            <span className="text-sm font-medium">{t("craft.dropFile")}</span>
+            <span className="text-xs">{t("craft.dropFileHint")}</span>
+          </div>
+        )}
+      </button>
+
+      {uploadError && (
+        <div className="px-4 py-2 rounded-lg text-sm bg-destructive/10 text-destructive">
+          {uploadError}
+        </div>
+      )}
+
+      {/* Source name + extract button */}
+      {uploadResult && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
+              {t("craft.sourceNameLabel")}
+            </label>
+            <input
+              type="text"
+              value={sourceName}
+              onChange={(e) => setSourceName(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <button
+            onClick={handleExtract}
+            disabled={!sourceName.trim() || busy}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg ${c.btnPrimary} disabled:opacity-30`}
+          >
+            {extracting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+            {extracting ? t("craft.extracting") : t("craft.extract")}
+          </button>
+        </div>
+      )}
+
+      {extractError && (
+        <div className="px-4 py-2 rounded-lg text-sm bg-destructive/10 text-destructive">
+          {extractError}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab 3: Detail
+// ---------------------------------------------------------------------------
+
+function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
+  craftId: string | null;
+  initialProfile: CraftProfile | null;
+  c: ReturnType<typeof useColors>;
+  t: TFunction;
+  onBack: () => void;
+}) {
+  const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
+  const [loading, setLoading] = useState(!initialProfile && !!craftId);
+  const loadedIdRef = useRef<string | null>(null);
+
+  // Load from server if we have an ID but no initial profile.
+  if (craftId && !initialProfile && loadedIdRef.current !== craftId) {
+    loadedIdRef.current = craftId;
+    void (async () => {
+      setLoading(true);
+      try {
+        const data = await fetchJson<CraftProfile>(`/crafts/${craftId}`, { method: "GET" });
+        setProfile(data);
+      } catch {
+        // ignore
+      }
+      setLoading(false);
+    })();
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="text-center py-12 text-sm text-muted-foreground">
+        {t("craft.noProfiles")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-sm">
+          <ArrowLeft size={16} />
+          {t("craft.backToList")}
+        </button>
+      </div>
+
+      <h2 className="font-serif text-2xl">{profile.sourceName}</h2>
+
+      {/* Four craft dimensions */}
+      <CraftSection title={t("craft.structure")} fields={[
+        [t("craft.openingPattern"), profile.structure.openingPattern],
+        [t("craft.chapterArc"), profile.structure.chapterArc],
+        [t("craft.endingHook"), profile.structure.endingHookType],
+      ]} exemplar={profile.structure.exemplar} c={c} />
+
+      <CraftSection title={t("craft.sceneRhythm")} fields={[
+        [t("craft.sceneTransition"), profile.sceneRhythm.sceneTransitionTechnique],
+        [t("craft.pacingCurve"), profile.sceneRhythm.pacingCurve],
+        [t("craft.conflictEscalation"), profile.sceneRhythm.conflictEscalation],
+      ]} exemplar={profile.sceneRhythm.exemplar} c={c} />
+
+      <CraftSection title={t("craft.infoDisclosure")} fields={[
+        [t("craft.foreshadowing"), profile.informationDisclosure.foreshadowingDensity],
+        [t("craft.infoRelease"), profile.informationDisclosure.informationReleaseRhythm],
+        [t("craft.suspense"), profile.informationDisclosure.suspenseManagement],
+      ]} exemplar={profile.informationDisclosure.exemplar} c={c} />
+
+      <CraftSection title={t("craft.narrativePOV")} fields={[
+        [t("craft.povStrategy"), profile.narrativePerspective.povStrategy],
+        [t("craft.dialogueRatio"), profile.narrativePerspective.narrationDialogueRatio],
+        [t("craft.narrativeDistance"), profile.narrativePerspective.narrativeDistance],
+      ]} exemplar={profile.narrativePerspective.exemplar} c={c} />
+
+      {/* Exemplars */}
+      {profile.exemplars.length > 0 && (
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">{t("craft.exemplars")}</h3>
+          <div className="space-y-2">
+            {profile.exemplars.map((ex, i) => (
+              <div key={i} className={`border ${c.cardStatic} rounded-lg p-3`}>
+                <div className="text-xs font-medium mb-1">{ex.label}（{ex.tone}）</div>
+                <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap leading-relaxed">{ex.excerpt}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Craft section (reused from original)
+// ---------------------------------------------------------------------------
+
+function CraftSection({ title, fields, exemplar, c }: {
   title: string;
   fields: ReadonlyArray<[string, string]>;
   exemplar?: string;
+  c: ReturnType<typeof useColors>;
 }) {
   return (
-    <div>
-      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{title}</h4>
-      <div className="space-y-1">
+    <div className={`border ${c.cardStatic} rounded-lg p-4 space-y-3`}>
+      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="space-y-1.5">
         {fields.map(([label, value]) => (
           <div key={label} className="text-sm flex gap-2">
-            <span className="text-muted-foreground min-w-fit">{label}:</span>
+            <span className="text-muted-foreground min-w-fit shrink-0">{label}:</span>
             <span>{value}</span>
           </div>
         ))}
       </div>
       {exemplar && (
         <div className="mt-2 bg-secondary/20 rounded-lg p-3">
-          <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap">{exemplar}</div>
+          <div className="text-xs text-muted-foreground font-mono whitespace-pre-wrap leading-relaxed">{exemplar}</div>
         </div>
       )}
     </div>

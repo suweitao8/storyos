@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import { gzipSync } from "node:zlib";
+import * as chardet from "chardet";
+import * as iconv from "iconv-lite";
 import {
   StateManager,
   PipelineRunner,
@@ -120,6 +122,18 @@ import { buildStudioBookConfig } from "./book-create.js";
 // -- Studio server language (read per request from the project config's `language`) --
 
 type StudioLanguage = "zh" | "en";
+
+/**
+ * Normalise a chardet-detected encoding name to an iconv-lite-compatible label.
+ * chardet sometimes returns uppercase aliases like "GB18030" or "ASCII"; for
+ * plain ASCII we treat it as UTF-8 since no multi-byte content was detected.
+ */
+function canonicalizeEncoding(detected: string): string {
+  const upper = detected.toUpperCase().trim();
+  if (upper === "ASCII" || upper === "ISO-8859-1") return "UTF-8";
+  if (upper === "GB2312") return "GBK"; // GBK is a superset of GB2312
+  return detected;
+}
 
 function normalizeStudioLanguage(value: unknown): StudioLanguage {
   return value === "en" ? "en" : "zh";
@@ -5479,6 +5493,64 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       return c.json({ ok: true, id: genreId });
     } catch (e) {
       return c.json({ error: `Genre "${genreId}" not found in project` }, 404);
+    }
+  });
+
+  // --- Craft Upload (detect encoding + split chapters + suggest name) ---
+
+  app.post("/api/v1/craft/upload", async (c) => {
+    const filename = c.req.header("X-Filename") ?? "novel.txt";
+    const body = await c.req.arrayBuffer();
+    if (body.byteLength === 0) return c.json({ error: "file is empty" }, 400);
+    if (body.byteLength > 20 * 1024 * 1024) return c.json({ error: "file too large (max 20MB)" }, 400);
+
+    try {
+      const buffer = Buffer.from(body);
+      // Detect encoding via chardet, then decode to UTF-8 via iconv-lite.
+      // chardet returns a confidence-sorted list; we take the top match.
+      const detectedEncoding = chardet.detect(buffer) ?? "UTF-8";
+
+      // iconv-lite canonicalises many aliases; map common CJK variants.
+      const decodeEncoding = canonicalizeEncoding(detectedEncoding);
+
+      let text: string;
+      try {
+        text = iconv.decode(buffer, decodeEncoding);
+      } catch {
+        // Fallback: treat as UTF-8 directly.
+        text = buffer.toString("utf-8");
+      }
+
+      // Strip a BOM if present so downstream chapter splitting is not confused.
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+      // Split into chapters to report how many were detected.
+      const { splitCraftChapters } = await import("@actalk/inkos-core");
+      const chapters = splitCraftChapters(text);
+      const chapterCount = chapters.length;
+
+      // Take only the first 100 chapters' content for analysis.
+      const first100 = chapters.slice(0, 100);
+      const excerptText = first100.length > 0
+        ? first100.map((ch) => `${ch.title}\n${ch.body}`).join("\n\n")
+        : text;
+
+      // Suggest a source name from the filename (strip extension + common suffixes).
+      const baseName = filename.replace(/\.[^.]+$/, "").trim();
+      const detectedName = baseName
+        .replace(/第[一二三四五六七八九十百千0-9]+[部卷]/g, "")
+        .replace(/[（(].*?[)）]/g, "")
+        .trim() || baseName || "未命名小说";
+
+      return c.json({
+        text: excerptText,
+        encoding: detectedEncoding,
+        chapterCount,
+        usedChapters: Math.min(chapterCount, 100),
+        detectedName,
+      });
+    } catch (e) {
+      return c.json({ error: String(e) }, 500);
     }
   });
 
