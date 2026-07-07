@@ -15,8 +15,8 @@ export type HashRoute =
   | { page: "daemon" }
   | { page: "logs" }
   | { page: "genres" }
-  | { page: "style" }
-  | { page: "import"; tab?: "chapters" | "canon" | "fanfic" | "spinoff" | "imitation" }
+  | { page: "craft" }
+  | { page: "import"; tab?: "chapters" | "canon" | "fanfic" | "spinoff" }
   | { page: "radar" }
   | { page: "doctor" }
   | { page: "play"; projectId: string }
@@ -33,8 +33,9 @@ function parseHash(hash: string): HashRoute {
   if (path === "config" || path === "services") return { page: "services" };
   if (path === "settings") return { page: "project-settings" };
   if (path === "import") return { page: "import" };
-  const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff|imitation)$/);
-  if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" | "imitation" };
+  if (path === "craft") return { page: "craft" };
+  const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
+  if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
   if (path === "book/new") return { page: "book-create" };
 
   const serviceMatch = path.match(/^services\/([^/]+)$/);
@@ -74,6 +75,7 @@ function routeToHash(route: HashRoute): string {
     case "services": return "#/services";
     case "project-settings": return "#/settings";
     case "import": return route.tab ? `#/import/${route.tab}` : "#/import";
+    case "craft": return "#/craft";
     case "service-detail": return `#/services/${encodeURIComponent(route.serviceId)}`;
     case "play": return `#/play/${encodeURIComponent(route.projectId)}`;
     case "film": return `#/film/${encodeURIComponent(route.projectId)}`;

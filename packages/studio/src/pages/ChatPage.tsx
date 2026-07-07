@@ -70,8 +70,7 @@ interface Nav {
   toDashboard: () => void;
   toBook: (id: string) => void;
   toServices: () => void;
-  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff" | "imitation") => void;
-  toStyle: () => void;
+  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toFilm: (projectId: string) => void;
   toFilmStudio: (projectId: string) => void;
 }
@@ -773,8 +772,6 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       else if (details.targetRoute === "import:chapters") nav.toImport("chapters");
       else if (details.targetRoute === "import:canon") nav.toImport("canon");
       else if (details.targetRoute === "import:spinoff") nav.toImport("spinoff");
-      else if (details.targetRoute === "import:imitation") nav.toImport("imitation");
-      else if (details.targetRoute === "style") nav.toStyle();
       return;
     }
     if (details.sameSession && activeSessionId) {

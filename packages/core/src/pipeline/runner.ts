@@ -17,6 +17,8 @@ import { ReviserAgent, DEFAULT_REVISE_MODE, type ReviseMode } from "../agents/re
 import { StateValidatorAgent, type ValidationResult, type ValidationWarning } from "../agents/state-validator.js";
 import { RadarAgent } from "../agents/radar.js";
 import type { RadarSource } from "../agents/radar-source.js";
+import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
+import type { CraftProfile, CraftMeta } from "../models/craft-profile.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
 import { analyzeSensitiveWords } from "../agents/sensitive-words.js";
@@ -32,7 +34,6 @@ import type { ChapterMemo, ContextPackage, RuleStack } from "../models/input-gov
 import type { ContextCompressionCallback } from "../models/context-compression.js";
 import { buildLengthSpec, countChapterLength, formatLengthCount, isOutsideHardRange, resolveLengthCountingMode, type LengthLanguage } from "../utils/length-metrics.js";
 import { analyzeLongSpanFatigue } from "../utils/long-span-fatigue.js";
-import { buildWritingMethodologySection } from "../utils/writing-methodology.js";
 import {
   isNewLayoutBook,
   readCharacterContext,
@@ -465,30 +466,11 @@ export class PipelineRunner {
     this.config.logger?.warn(this.localize(language, message));
   }
 
-  private async tryGenerateStyleGuide(
-    bookId: string,
-    referenceText: string,
-    sourceName: string | undefined,
-    language?: LengthLanguage,
-  ): Promise<void> {
-    try {
-      await this.generateStyleGuide(bookId, referenceText, sourceName);
-    } catch (error) {
-      const resolvedLanguage = language ?? await this.resolveBookLanguageById(bookId);
-      const detail = error instanceof Error ? error.message : String(error);
-      this.logWarn(resolvedLanguage, {
-        zh: `风格指纹提取失败，已跳过：${detail}`,
-        en: `Style fingerprint extraction failed and was skipped: ${detail}`,
-      });
-    }
-  }
-
   private async generateAndReviewFoundation(params: {
     readonly generate: (reviewFeedback?: string) => Promise<ArchitectOutput>;
     readonly reviewer: FoundationReviewerAgent;
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
-    readonly styleGuide?: string;
     readonly language: "zh" | "en";
     readonly stageLanguage: LengthLanguage;
     readonly targetChapters?: number;
@@ -507,7 +489,6 @@ export class PipelineRunner {
         foundation,
         mode: params.mode,
         sourceCanon: params.sourceCanon,
-        styleGuide: params.styleGuide,
         language: params.language,
         targetChapters: params.targetChapters,
       });
@@ -536,7 +517,6 @@ export class PipelineRunner {
       foundation,
       mode: params.mode,
       sourceCanon: params.sourceCanon,
-      styleGuide: params.styleGuide,
       language: params.language,
       targetChapters: params.targetChapters,
     });
@@ -679,6 +659,75 @@ export class PipelineRunner {
   async runRadar(): Promise<RadarResult> {
     const radar = new RadarAgent(this.agentCtxFor("radar"), this.config.radarSources);
     return radar.scan();
+  }
+
+  /**
+   * Analyze a reference novel and save a craft profile to crafts/<id>/.
+   * Returns the craft ID and profile.
+   */
+  async analyzeCraft(
+    text: string,
+    sourceName: string,
+    language: "zh" | "en" = "zh",
+  ): Promise<{ craftId: string; profile: CraftProfile }> {
+    const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
+    const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
+      this.config.logger?.info(`[craft] ${msg}`);
+    });
+
+    const craftId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    await mkdir(craftsDir, { recursive: true });
+
+    const meta: CraftMeta = {
+      id: craftId,
+      sourceName,
+      createdAt: new Date().toISOString(),
+      language,
+    };
+
+    await writeFile(join(craftsDir, "craft_profile.json"), JSON.stringify(profile, null, 2), "utf-8");
+    await writeFile(join(craftsDir, "meta.json"), JSON.stringify(meta, null, 2), "utf-8");
+
+    return { craftId, profile };
+  }
+
+  /** List all saved craft profiles. */
+  async listCrafts(): Promise<CraftMeta[]> {
+    const craftsRoot = join(this.config.projectRoot, "crafts");
+    try {
+      const entries = await readdir(craftsRoot, { withFileTypes: true });
+      const metas: CraftMeta[] = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        try {
+          const raw = await readFile(join(craftsRoot, entry.name, "meta.json"), "utf-8");
+          metas.push(JSON.parse(raw) as CraftMeta);
+        } catch {
+          // skip broken entries
+        }
+      }
+      return metas.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Load a single craft profile by ID. */
+  async loadCraft(craftId: string): Promise<CraftProfile | null> {
+    const profilePath = join(this.config.projectRoot, "crafts", craftId, "craft_profile.json");
+    try {
+      const raw = await readFile(profilePath, "utf-8");
+      return JSON.parse(raw) as CraftProfile;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Delete a craft profile by ID. */
+  async deleteCraft(craftId: string): Promise<void> {
+    const craftDir = join(this.config.projectRoot, "crafts", craftId);
+    await rm(craftDir, { recursive: true, force: true });
   }
 
   async initBook(book: BookConfig, options: InitBookOptions = {}): Promise<void> {
@@ -964,13 +1013,7 @@ export class PipelineRunner {
     this.logStage(stageLanguage, { zh: "初始化控制文档", en: "initializing control documents" });
     await this.state.ensureControlDocuments(book.id, this.config.externalContext);
 
-    // Step 3: Generate style guide from source material
-    if (sourceText.length >= 500) {
-      this.logStage(stageLanguage, { zh: "提取原作风格指纹", en: "extracting source style fingerprint" });
-      await this.tryGenerateStyleGuide(book.id, sourceText, sourceName, stageLanguage);
-    }
-
-    // Step 4: Initialize chapters directory + snapshot
+    // Step 3: Initialize chapters directory + snapshot
     this.logStage(stageLanguage, { zh: "创建初始快照", en: "creating initial snapshot" });
     await mkdir(join(bookDir, "chapters"), { recursive: true });
     await this.state.saveChapterIndex(book.id, []);
@@ -1020,26 +1063,6 @@ export class PipelineRunner {
     await mkdir(join(bookDir, "chapters"), { recursive: true });
     await this.state.saveChapterIndex(book.id, []);
     await this.state.snapshotState(book.id, 0);
-  }
-
-  /**
-   * Create an imitation (仿写) book: an ORIGINAL story whose prose imitates the
-   * voice of a reference work. The architect builds an original foundation from
-   * the user's story idea; the reference text becomes the book's style_guide.md
-   * so the writer mimics its style. The style guide is mandatory here (imitation
-   * is the whole point), so a failure to generate it surfaces rather than being
-   * silently skipped.
-   */
-  async initImitationBook(
-    book: BookConfig,
-    referenceText: string,
-    storyIdea: string,
-    sourceName?: string,
-  ): Promise<void> {
-    await this.initBook(book, { externalContext: storyIdea });
-    const stageLanguage = await this.resolveBookLanguage(book);
-    this.logStage(stageLanguage, { zh: "提取参考作品风格指纹", en: "extracting reference style fingerprint" });
-    await this.generateStyleGuide(book.id, referenceText, sourceName?.trim() || "reference");
   }
 
   /** Write a single draft chapter. Saves chapter file + truth files + index + snapshot. */
@@ -2339,185 +2362,8 @@ export class PipelineRunner {
   }
 
   // ---------------------------------------------------------------------------
-  // Import operations (style imitation + canon for spinoff)
+  // Import operations (canon for spinoff)
   // ---------------------------------------------------------------------------
-
-  /**
-   * Generate a qualitative style guide from reference text via LLM.
-   * Also saves the statistical style_profile.json.
-   */
-  async generateStyleGuide(bookId: string, referenceText: string, sourceName?: string): Promise<string> {
-    const sample = referenceText.trim();
-    if (!sample) {
-      throw new Error("Reference text is required for style extraction.");
-    }
-
-    const { analyzeStyle } = await import("../agents/style-analyzer.js");
-    const bookDir = this.state.bookDir(bookId);
-    const storyDir = join(bookDir, "story");
-    await mkdir(storyDir, { recursive: true });
-
-    const book = await this.state.loadBookConfig(bookId);
-    const { profile: gp } = await this.loadGenreProfile(book.genre);
-    const lang = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
-
-    // Statistical fingerprint (language-aware: words for en, characters for zh)
-    const profile = analyzeStyle(sample, sourceName, lang);
-    await writeFile(join(storyDir, "style_profile.json"), JSON.stringify(profile, null, 2), "utf-8");
-
-    let qualitativeGuide: string;
-    if (sample.length < 500) {
-      qualitativeGuide = this.buildDeterministicStyleGuide(profile, {
-        language: lang,
-        reason: lang === "en"
-          ? `The sample is short (${sample.length} chars), so this guide uses the statistical fingerprint instead of LLM qualitative extraction.`
-          : `样本文本较短（${sample.length}字），本次先使用统计指纹生成文风指南，不强行调用 LLM 做定性拆解。`,
-      });
-    } else {
-      try {
-        // LLM qualitative extraction (language-aware prompt)
-        const styleSystemPrompt = lang === "en"
-          ? `You are a literary style analyst. Analyze the writing style of the reference text and extract qualitative, imitable features.
-
-Output format (Markdown):
-## Narrative Voice & Tone
-(detached / fervent / ironic / warm / ..., with 1-2 quoted lines from the text)
-
-## Dialogue Style
-(shared traits in how characters speak: sentence length, verbal tics, dialect markers, dialogue rhythm)
-
-## Scene Description
-(sensory preferences, choice of imagery, description density, how setting ties to emotion)
-
-## Transitions & Connective Technique
-(how scenes switch, how time jumps are handled, paragraph-to-paragraph transitions)
-
-## Pacing
-(distribution of long vs short sentences, paragraph-length preference, how climaxes and lulls alternate)
-
-## Diction
-(signature high-frequency word choices, figurative/rhetorical tendencies, degree of colloquialism)
-
-## Emotional Expression
-(direct lyricism vs externalized action, frequency and style of interior monologue)
-
-## Distinctive Habits
-(any personal writing habits worth imitating)
-
-Base the analysis on the text's actual features, not generalities. Support each section with 1-2 quoted lines from the original.`
-          : `你是一位文学风格分析专家。分析参考文本的写作风格，提取可供模仿的定性特征。
-
-输出格式（Markdown）：
-## 叙事声音与语气
-（冷峻/热烈/讽刺/温情/...，附1-2个原文例句）
-
-## 对话风格
-（角色说话的共性特征：句子长短、口头禅倾向、方言痕迹、对话节奏）
-
-## 场景描写特征
-（五感偏好、意象选择、描写密度、环境与情绪的关联方式）
-
-## 转折与衔接手法
-（场景如何切换、时间跳跃的处理方式、段落间的过渡特征）
-
-## 节奏特征
-（长短句分布、段落长度偏好、高潮/舒缓的交替方式）
-
-## 词汇偏好
-（高频特色用词、比喻/修辞倾向、口语化程度）
-
-## 情绪表达方式
-（直白抒情 vs 动作外化、内心独白的频率和风格）
-
-## 独特习惯
-（任何值得模仿的个人写作习惯）
-
-分析必须基于原文实际特征，不要泛泛而谈。每个部分用1-2个原文例句佐证。`;
-        const styleUserPrompt = lang === "en"
-          ? `Analyze the writing style of the following reference text:\n\n${sample}`
-          : `分析以下参考文本的写作风格：\n\n${sample}`;
-        const response = await chatCompletion(this.config.client, this.config.model, [
-          { role: "system", content: styleSystemPrompt },
-          { role: "user", content: styleUserPrompt },
-        ], { temperature: 0.3 });
-        qualitativeGuide = response.content.trim()
-          ? response.content
-          : this.buildDeterministicStyleGuide(profile, {
-              language: lang,
-              reason: lang === "en"
-                ? "The LLM returned empty style analysis; using the statistical fingerprint fallback."
-                : "LLM 未返回有效文风分析，本次使用统计指纹兜底生成文风指南。",
-            });
-      } catch (error) {
-        qualitativeGuide = this.buildDeterministicStyleGuide(profile, {
-          language: lang,
-          reason: lang === "en"
-            ? `LLM qualitative extraction failed: ${error instanceof Error ? error.message : String(error)}. Using the statistical fingerprint fallback.`
-            : `LLM 定性拆解失败：${error instanceof Error ? error.message : String(error)}。本次使用统计指纹兜底生成文风指南。`,
-        });
-      }
-    }
-
-    const craftMethodology = buildWritingMethodologySection(lang);
-    const fullStyleGuide = `${qualitativeGuide}\n\n${craftMethodology}`;
-    await writeFile(join(storyDir, "style_guide.md"), fullStyleGuide, "utf-8");
-    return fullStyleGuide;
-  }
-
-  private buildDeterministicStyleGuide(
-    profile: {
-      readonly avgSentenceLength: number;
-      readonly sentenceLengthStdDev: number;
-      readonly avgParagraphLength: number;
-      readonly vocabularyDiversity: number;
-      readonly topPatterns: ReadonlyArray<string>;
-      readonly rhetoricalFeatures: ReadonlyArray<string>;
-      readonly sourceName?: string;
-    },
-    options: { readonly language: "zh" | "en"; readonly reason: string },
-  ): string {
-    if (options.language === "en") {
-      return [
-        "# Style Guide",
-        "",
-        `> ${options.reason}`,
-        "",
-        "## Statistical Fingerprint",
-        `- Source: ${profile.sourceName ?? "unknown"}`,
-        `- Average sentence length: ${profile.avgSentenceLength}`,
-        `- Sentence length variance: ${profile.sentenceLengthStdDev}`,
-        `- Average paragraph length: ${profile.avgParagraphLength}`,
-        `- Vocabulary diversity: ${Math.round(profile.vocabularyDiversity * 100)}%`,
-        profile.topPatterns.length > 0 ? `- Repeated openings: ${profile.topPatterns.join(", ")}` : "- Repeated openings: none obvious in this sample",
-        profile.rhetoricalFeatures.length > 0 ? `- Rhetorical features: ${profile.rhetoricalFeatures.join(", ")}` : "- Rhetorical features: none obvious in this sample",
-        "",
-        "## How To Use",
-        "- Treat this as a lightweight style fingerprint, not a full imitation bible.",
-        "- Keep sentence and paragraph rhythm close to the sample when drafting.",
-        "- If this guide feels too thin, import a longer excerpt later; the file will be replaced.",
-      ].join("\n");
-    }
-
-    return [
-      "# 文风指南",
-      "",
-      `> ${options.reason}`,
-      "",
-      "## 统计风格指纹",
-      `- 来源：${profile.sourceName ?? "unknown"}`,
-      `- 平均句长：${profile.avgSentenceLength}`,
-      `- 句长波动：${profile.sentenceLengthStdDev}`,
-      `- 平均段落长度：${profile.avgParagraphLength}`,
-      `- 词汇多样性：${Math.round(profile.vocabularyDiversity * 100)}%`,
-      profile.topPatterns.length > 0 ? `- 高频句首/模式：${profile.topPatterns.join("、")}` : "- 高频句首/模式：样本内不明显",
-      profile.rhetoricalFeatures.length > 0 ? `- 修辞特征：${profile.rhetoricalFeatures.join("、")}` : "- 修辞特征：样本内不明显",
-      "",
-      "## 使用方式",
-      "- 这是一份轻量文风指纹，不是完整仿写圣经。",
-      "- 后续写作优先参考句长、段落长度、节奏波动和可见修辞。",
-      "- 如果想得到更稳定的定性拆解，后续可以导入更长片段覆盖本文件。",
-    ].join("\n");
-  }
 
   /**
    * Import canon from parent book for spinoff writing.
@@ -2657,35 +2503,7 @@ ${matrix}`,
 
     await writeFile(join(storyDir, "parent_canon.md"), canon, "utf-8");
 
-    // Also generate style guide from parent's chapter text if available
-    const parentChaptersDir = join(parentDir, "chapters");
-    const parentChapterText = await this.readParentChapterSample(parentChaptersDir);
-    if (parentChapterText.length >= 500) {
-      await this.tryGenerateStyleGuide(targetBookId, parentChapterText, parentBook.title);
-    }
-
     return canon;
-  }
-
-  private async readParentChapterSample(chaptersDir: string): Promise<string> {
-    try {
-      const entries = await readdir(chaptersDir);
-      const mdFiles = entries
-        .filter((file) => file.endsWith(".md"))
-        .sort()
-        .slice(0, 5);
-      const chunks: string[] = [];
-      let totalLength = 0;
-      for (const file of mdFiles) {
-        if (totalLength >= 20000) break;
-        const content = await readFile(join(chaptersDir, file), "utf-8");
-        chunks.push(content);
-        totalLength += content.length;
-      }
-      return chunks.join("\n\n---\n\n");
-    } catch {
-      return "";
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -2740,15 +2558,6 @@ ${matrix}`,
         await this.resetImportReplayTruthFiles(bookDir, resolvedLanguage);
         await this.state.saveChapterIndex(input.bookId, [], { allowEmptyWithChapterFiles: true });
         await this.state.snapshotState(input.bookId, 0);
-
-        // Generate style guide from imported chapters
-        if (foundationSource.length >= 500) {
-          log?.info(this.localize(resolvedLanguage, {
-            zh: "提取原文风格指纹...",
-            en: "Extracting source style fingerprint...",
-          }));
-          await this.tryGenerateStyleGuide(input.bookId, foundationSource, book.title, resolvedLanguage);
-        }
 
         log?.info(this.localize(resolvedLanguage, {
           zh: "基础设定已生成。",

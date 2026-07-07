@@ -30,9 +30,9 @@ import {
   ScrollText,
   BookPlus,
   BookCopy,
+  BookOpen,
   Boxes,
   Feather,
-  Wand2,
   FileInput,
   TrendingUp,
   Stethoscope,
@@ -81,8 +81,8 @@ interface Nav {
   toDaemon: () => void;
   toLogs: () => void;
   toGenres: () => void;
-  toStyle: () => void;
-  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff" | "imitation") => void;
+  toCraft: () => void;
+  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toRadar: () => void;
   toDoctor: () => void;
   toFilmStudio: (id: string) => void;
@@ -309,15 +309,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
           <div className="grid grid-cols-2 gap-1">
             <CreateItem icon={<BookPlus size={16} />} label={t("nav.createNovel")} active={activePage === "book-create"} onClick={handleOpenBookCreate} />
             <CreateItem icon={<ScrollText size={16} />} label={t("nav.createShort")} onClick={() => launchProjectMode("short")} />
-            <CreateItem icon={<Clapperboard size={16} />} label={t("nav.createScript")} onClick={() => launchProjectMode("script")} />
-            <CreateItem icon={<Rows3 size={16} />} label={t("nav.createStoryboard")} onClick={() => launchProjectMode("storyboard")} />
-            <CreateItem icon={<Film size={16} />} label={t("nav.createInteractiveFilm")} onClick={() => launchProjectMode("interactive-film")} />
-            <CreateItem icon={<Feather size={16} />} label={t("nav.createFanfic")} onClick={() => nav.toImport("fanfic")} />
-            <CreateItem icon={<BookCopy size={16} />} label={t("nav.createSpinoff")} onClick={() => nav.toImport("spinoff")} />
-            <CreateItem icon={<Wand2 size={16} />} label={t("nav.createImitation")} onClick={() => nav.toImport("imitation")} />
-            <CreateItem icon={<FileInput size={16} />} label={t("nav.createContinuation")} onClick={() => nav.toImport("chapters")} />
-            <CreateItem icon={<GitBranch size={16} />} label={t("nav.createBranching")} onClick={() => launchProjectMode("play", "guided")} />
-            <CreateItem icon={<Gamepad2 size={16} />} label={t("nav.createFree")} onClick={() => launchProjectMode("play", "open")} />
+            <CreateItem icon={<BookOpen size={16} />} label={t("nav.craft")} active={activePage === "craft"} onClick={nav.toCraft} />
           </div>
         </div>
 
@@ -602,12 +594,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
             </span>
           </div>
           <div className="space-y-1">
-            <SidebarItem
-              label={t("nav.style")}
-              icon={<Wand2 size={16} />}
-              active={activePage === "style"}
-              onClick={nav.toStyle}
-            />
             <SidebarItem
               label={t("nav.import")}
               icon={<FileInput size={16} />}

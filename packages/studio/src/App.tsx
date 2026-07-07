@@ -14,7 +14,7 @@ import { TruthFiles } from "./pages/TruthFiles";
 import { DaemonControl } from "./pages/DaemonControl";
 import { LogViewer } from "./pages/LogViewer";
 import { GenreManager } from "./pages/GenreManager";
-import { StyleManager } from "./pages/StyleManager";
+import { CraftManager } from "./pages/CraftManager";
 import { ImportManager } from "./pages/ImportManager";
 import { RadarView } from "./pages/RadarView";
 import { DoctorView } from "./pages/DoctorView";
@@ -111,8 +111,8 @@ export function App() {
     toDaemon: () => setRoute({ page: "daemon" }),
     toLogs: () => setRoute({ page: "logs" }),
     toGenres: () => setRoute({ page: "genres" }),
-    toStyle: () => setRoute({ page: "style" }),
-    toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff" | "imitation") => setRoute({ page: "import", ...(tab ? { tab } : {}) }),
+    toCraft: () => setRoute({ page: "craft" }),
+    toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => setRoute({ page: "import", ...(tab ? { tab } : {}) }),
     toRadar: () => setRoute({ page: "radar" }),
     toDoctor: () => setRoute({ page: "doctor" }),
     toPlay: (projectId: string) => setRoute({ page: "play", projectId }),
@@ -323,9 +323,9 @@ export function App() {
               <GenreManager nav={nav} theme={theme} t={t} />
             </div>
           )}
-          {route.page === "style" && (
+          {route.page === "craft" && (
             <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
-              <StyleManager nav={nav} theme={theme} t={t} />
+              <CraftManager nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "import" && (

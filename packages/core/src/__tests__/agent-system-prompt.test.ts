@@ -61,25 +61,7 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toContain("fanfic_init");
       expect(prompt).toContain("continuation_import");
       expect(prompt).toContain("spinoff_create");
-      expect(prompt).toContain("style_imitation");
       expect(prompt).toContain("不能声称已经生成成品");
-    });
-
-    it("maps style analysis requests to the style-imitation workflow", () => {
-      const zhPrompt = buildAgentSystemPrompt(null, "zh", "chat");
-      const enPrompt = buildAgentSystemPrompt(null, "en", "chat");
-      expect(zhPrompt).toContain("文风分析");
-      expect(zhPrompt).toContain("先分析再仿写");
-      expect(zhPrompt).toContain("必须调用 propose_action");
-      expect(zhPrompt).toContain("仿写/文风分析/参考文风/模仿笔法=style_imitation");
-      expect(zhPrompt).toContain("不要用普通文字追问书名、原文、父书路径或解释流程");
-      expect(zhPrompt).toContain("番外/正典资料/不进入主线=spinoff_create");
-      expect(enPrompt).toContain("style analysis");
-      expect(enPrompt).toContain("analyze first then imitate");
-      expect(enPrompt).toContain("you must call propose_action");
-      expect(enPrompt).toContain("style imitation/style analysis/reference-style/prose mimicry=style_imitation");
-      expect(enPrompt).toContain("Do not answer by asking for a title/source text/parent-book path");
-      expect(enPrompt).toContain("side-story/spinoff/canon-materials=spinoff_create");
     });
 
     it("adds forced skill guidance without granting execution authority", () => {

@@ -395,14 +395,14 @@ export class ContinuityAuditor extends BaseAgent {
       };
     },
   ): Promise<AuditResult> {
-    const [diskCurrentState, diskLedger, diskHooks, styleGuideRaw, subplotBoard, emotionalArcs, characterMatrix, chapterSummaries, parentCanon, fanficCanon, volumeOutline] =
+    const [diskCurrentState, diskLedger, diskHooks, writingMethodologyRaw, subplotBoard, emotionalArcs, characterMatrix, chapterSummaries, parentCanon, fanficCanon, volumeOutline] =
       await Promise.all([
         // Phase 5 consolidation: derive initial state from roles + seed hooks
         // when current_state.md is still the architect seed placeholder.
         readCurrentStateWithFallback(bookDir, "(文件不存在)"),
         this.readFileSafe(join(bookDir, "story/particle_ledger.md")),
         this.readFileSafe(join(bookDir, "story/pending_hooks.md")),
-        this.readFileSafe(join(bookDir, "story/style_guide.md")),
+        this.readFileSafe(join(bookDir, "story/writing_methodology.md")),
         this.readFileSafe(join(bookDir, "story/subplot_board.md")),
         this.readFileSafe(join(bookDir, "story/emotional_arcs.md")),
         readCharacterContext(bookDir, "(文件不存在)"),
@@ -430,15 +430,15 @@ export class ContinuityAuditor extends BaseAgent {
     const parsedRules = await readBookRules(bookDir);
     const bookRules = parsedRules?.rules ?? null;
 
-    // Fallback: use book_rules body when style_guide.md doesn't exist.
+    // Fallback: use book_rules body when writing_methodology.md doesn't exist.
     // Phase 5 hotfix 2: parsedRules.body is only populated for legacy
     // book_rules.md sources — story_frame.md frontmatter yields an empty
-    // body, and an empty string is NOT a usable style guide. Treat
+    // body, and an empty string is NOT a usable methodology guide. Treat
     // missing/empty body as "no fallback available".
     const legacyRulesBody = parsedRules?.body?.trim();
-    const styleGuide = styleGuideRaw !== "(文件不存在)"
-      ? styleGuideRaw
-      : (legacyRulesBody || "(无文风指南)");
+    const writingMethodology = writingMethodologyRaw !== "(文件不存在)"
+      ? writingMethodologyRaw
+      : (legacyRulesBody || "(无写作方法论)");
 
     const resolvedLanguage = bookLanguage ?? gp.language;
     const isEnglish = resolvedLanguage === "en";
@@ -615,10 +615,10 @@ overall_score 评分校准：
     const reducedControlBlock = options?.chapterIntent && options.contextPackage && options.ruleStack
       ? this.buildReducedControlBlock(options.chapterIntent, options.contextPackage, options.ruleStack, resolvedLanguage)
       : "";
-    const styleGuideBlock = reducedControlBlock.length === 0
+    const methodologyBlock = reducedControlBlock.length === 0
       ? isEnglish
-        ? `\n## Style Guide\n${styleGuide}`
-        : `\n## 文风指南\n${styleGuide}`
+        ? `\n## Writing Methodology\n${writingMethodology}`
+        : `\n## 写作方法论\n${writingMethodology}`
       : "";
 
     const prevChapterBlock = previousChapter
@@ -633,7 +633,7 @@ overall_score 评分校准：
 ## Current State Card
 ${currentState}
 ${ledgerBlock}
-${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${styleGuideBlock}
+${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}
 
 ## Chapter Content Under Review
 ${chapterContent}`
@@ -642,7 +642,7 @@ ${chapterContent}`
 ## 当前状态卡
 ${currentState}
 ${ledgerBlock}
-${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${styleGuideBlock}
+${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}
 
 ## 待审章节内容
 ${chapterContent}`;

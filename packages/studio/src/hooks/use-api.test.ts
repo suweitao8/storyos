@@ -93,7 +93,6 @@ describe("deriveInvalidationPaths", () => {
   it("refreshes book collections after creating a book", () => {
     expect(deriveInvalidationPaths("/books/create")).toEqual(["/api/v1/books"]);
     expect(deriveInvalidationPaths("/spinoff/init")).toEqual(["/api/v1/books"]);
-    expect(deriveInvalidationPaths("/imitation/init")).toEqual(["/api/v1/books"]);
   });
 
   it("refreshes both collections and the current book after book mutations", () => {

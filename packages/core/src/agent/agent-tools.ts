@@ -124,7 +124,6 @@ const ProposeActionParams = Type.Object({
     Type.Literal("fanfic_init"),
     Type.Literal("continuation_import"),
     Type.Literal("spinoff_create"),
-    Type.Literal("style_imitation"),
     Type.Literal("script_create"),
     Type.Literal("storyboard_create"),
     Type.Literal("interactive_film_create"),
@@ -262,7 +261,7 @@ const ProposeActionParams = Type.Object({
 });
 
 type ProposeActionParamsType = Static<typeof ProposeActionParams>;
-type ProposedActionTargetRoute = "import:fanfic" | "import:chapters" | "import:canon" | "import:spinoff" | "import:imitation" | "style";
+type ProposedActionTargetRoute = "import:fanfic" | "import:chapters" | "import:canon" | "import:spinoff";
 type ProposeActionToolOptions = {
   readonly sameSession?: boolean;
 };
@@ -274,7 +273,7 @@ function proposedActionSessionKind(action: ProposeActionParamsType["action"]): "
   if (action === "storyboard_create") return "storyboard";
   if (action === "interactive_film_create") return "interactive-film";
   if (action === "draft_structure" || action === "connect_choice" || action === "remove_node") return "interactive-film-authoring";
-  if (action === "fanfic_init" || action === "continuation_import" || action === "spinoff_create" || action === "style_imitation") return "chat";
+  if (action === "fanfic_init" || action === "continuation_import" || action === "spinoff_create") return "chat";
   return "short";
 }
 
@@ -282,7 +281,6 @@ function proposedActionTargetRoute(action: ProposeActionParamsType["action"]): P
   if (action === "fanfic_init") return "import:fanfic";
   if (action === "continuation_import") return "import:chapters";
   if (action === "spinoff_create") return "import:spinoff";
-  if (action === "style_imitation") return "import:imitation";
   return undefined;
 }
 
@@ -302,8 +300,6 @@ function proposedActionFallbackTitle(action: ProposeActionParamsType["action"], 
       return isZh ? "打开续写导入" : "Open continuation import";
     case "spinoff_create":
       return isZh ? "打开番外创作" : "Open side-story workflow";
-    case "style_imitation":
-      return isZh ? "打开仿写/文风分析" : "Open style imitation";
     case "script_create":
       return isZh ? "创建剧本" : "Create script";
     case "storyboard_create":

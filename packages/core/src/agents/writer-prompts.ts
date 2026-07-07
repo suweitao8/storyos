@@ -2,9 +2,11 @@ import type { BookConfig, FanficMode } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import type { BookRules } from "../models/book-rules.js";
 import type { LengthSpec } from "../models/length-governance.js";
+import type { CraftProfile } from "../models/craft-profile.js";
 import { buildFanficCanonSection, buildCharacterVoiceProfiles, buildFanficModeInstructions } from "./fanfic-prompt-sections.js";
 import { buildEnglishCoreRules, buildEnglishAntiAIRules, buildEnglishCharacterMethod, buildEnglishPreWriteChecklist, buildEnglishGenreIntro } from "./en-prompt-sections.js";
 import { buildLengthSpec } from "../utils/length-metrics.js";
+import { buildCraftGuide, buildCraftExemplars } from "./craft-prompts.js";
 
 export interface FanficContext {
   readonly fanficCanon: string;
@@ -22,14 +24,14 @@ export function buildWriterSystemPrompt(
   bookRules: BookRules | null,
   bookRulesBody: string,
   genreBody: string,
-  styleGuide: string,
-  styleFingerprint?: string,
+  writingMethodology: string,
   chapterNumber?: number,
   mode: "full" | "creative" = "full",
   fanficContext?: FanficContext,
   languageOverride?: "zh" | "en",
   inputProfile: "legacy" | "governed" = "legacy",
   lengthSpec?: LengthSpec,
+  craftProfile?: CraftProfile,
 ): string {
   const isEnglish = (languageOverride ?? genreProfile.language) === "en";
   const governed = inputProfile === "governed";
@@ -59,12 +61,13 @@ export function buildWriterSystemPrompt(
         buildProtagonistRules(bookRules),
         buildNarrativePersonRule(bookRules, isEnglish ? "en" : "zh"),
         buildBookRulesBody(bookRulesBody),
-        buildStyleGuide(styleGuide),
-        buildStyleFingerprint(styleFingerprint),
+        buildWritingMethodology(writingMethodology),
+        buildCraftGuide(craftProfile),
+        buildCraftExemplars(craftProfile),
         fanficContext ? buildFanficCanonSection(fanficContext.fanficCanon, fanficContext.fanficMode) : "",
         fanficContext ? buildCharacterVoiceProfiles(fanficContext.fanficCanon) : "",
         fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "",
-        // Pre-write checklist moved to style_guide.md (v10)
+        // Pre-write checklist moved to writing_methodology.md (v10)
         outputSection,
       ]
     : [
@@ -84,12 +87,13 @@ export function buildWriterSystemPrompt(
         buildProtagonistRules(bookRules),
         buildNarrativePersonRule(bookRules, isEnglish ? "en" : "zh"),
         buildBookRulesBody(bookRulesBody),
-        buildStyleGuide(styleGuide),
-        buildStyleFingerprint(styleFingerprint),
+        buildWritingMethodology(writingMethodology),
+        buildCraftGuide(craftProfile),
+        buildCraftExemplars(craftProfile),
         fanficContext ? buildFanficCanonSection(fanficContext.fanficCanon, fanficContext.fanficMode) : "",
         fanficContext ? buildCharacterVoiceProfiles(fanficContext.fanficCanon) : "",
         fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "",
-        // Pre-write checklist moved to style_guide.md (v10)
+        // Pre-write checklist moved to writing_methodology.md (v10)
         outputSection,
       ];
 
@@ -442,7 +446,7 @@ function buildImmersionTechniques(): string {
 
 // ---------------------------------------------------------------------------
 // Writing Craft Card (v10: compact rules, replaces 9 full modules)
-// Full methodology is in style_guide.md; this is the always-on reminder.
+// Full methodology is in writing_methodology.md; this is the always-on reminder.
 // ---------------------------------------------------------------------------
 
 function buildWritingCraftCard(language: "zh" | "en"): string {
@@ -755,25 +759,12 @@ function buildBookRulesBody(body: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Style guide
+// Writing methodology (previously injected via style_guide.md)
 // ---------------------------------------------------------------------------
 
-function buildStyleGuide(styleGuide: string): string {
-  if (!styleGuide || styleGuide === "(文件尚未创建)") return "";
-  return `## 文风指南\n\n${styleGuide}`;
-}
-
-// ---------------------------------------------------------------------------
-// Style fingerprint (Phase 9: C3)
-// ---------------------------------------------------------------------------
-
-function buildStyleFingerprint(fingerprint?: string): string {
-  if (!fingerprint) return "";
-  return `## 文风指纹（模仿目标）
-
-以下是从参考文本中提取的写作风格特征。你的输出必须尽量贴合这些特征：
-
-${fingerprint}`;
+function buildWritingMethodology(methodology: string): string {
+  if (!methodology || methodology === "(文件尚未创建)") return "";
+  return `## 写作方法论\n\n${methodology}`;
 }
 
 // ---------------------------------------------------------------------------

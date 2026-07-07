@@ -39,8 +39,7 @@ describe("buildWriterSystemPrompt", () => {
       null,
       "# Book Rules",
       "# Genre Body",
-      "# Style Guide\n\nKeep the prose restrained.",
-      undefined,
+      "# Writing Methodology\n\nKeep the prose restrained.",
       3,
       "creative",
       undefined,
@@ -58,7 +57,7 @@ describe("buildWriterSystemPrompt", () => {
 
   it("injects cross-theme prose-execution rules: simile restraint + dramatize the climax (zh)", () => {
     const prompt = buildWriterSystemPrompt(
-      BOOK, GENRE, null, "", "", "", undefined, 5, "creative", undefined, "zh", "governed",
+      BOOK, GENRE, null, "", "", "", 5, "creative", undefined, "zh", "governed",
     );
     expect(prompt).toContain("明喻节制");
     expect(prompt).toContain("高潮必须演出");
@@ -67,7 +66,7 @@ describe("buildWriterSystemPrompt", () => {
 
   it("injects cross-theme prose-execution rules into the English prompt", () => {
     const prompt = buildWriterSystemPrompt(
-      { ...BOOK }, { ...GENRE, language: "en" }, null, "", "", "", undefined, 5, "creative", undefined, "en", "governed",
+      { ...BOOK }, { ...GENRE, language: "en" }, null, "", "", "", 5, "creative", undefined, "en", "governed",
     );
     expect(prompt).toContain("Simile restraint");
     expect(prompt).toContain("Play out the climax");
@@ -77,7 +76,7 @@ describe("buildWriterSystemPrompt", () => {
     const firstPerson = BookRulesSchema.parse({ narrativePerson: "first" });
     const promptFirst = buildWriterSystemPrompt(
       BOOK, GENRE, firstPerson, "# Book Rules", "# Genre Body", "# Style Guide",
-      undefined, 3, "creative", undefined, "zh", "governed",
+      3, "creative", undefined, "zh", "governed",
     );
     expect(promptFirst).toContain("叙事人称（硬约束）");
     expect(promptFirst).toContain("第一人称");
@@ -86,7 +85,7 @@ describe("buildWriterSystemPrompt", () => {
     const noPerson = BookRulesSchema.parse({});
     const promptNone = buildWriterSystemPrompt(
       BOOK, GENRE, noPerson, "# Book Rules", "# Genre Body", "# Style Guide",
-      undefined, 3, "creative", undefined, "zh", "governed",
+      3, "creative", undefined, "zh", "governed",
     );
     expect(promptNone).not.toContain("叙事人称（硬约束）");
   });
@@ -114,7 +113,6 @@ describe("buildWriterSystemPrompt", () => {
       "# Book Rules",
       "# Genre Body",
       "# Style Guide\n\nKeep the prose restrained.",
-      undefined,
       3,
       "creative",
       undefined,
@@ -136,7 +134,6 @@ describe("buildWriterSystemPrompt", () => {
       "# Book Rules\n\n- Do not reveal the mastermind.",
       "# Genre Body",
       "# Style Guide\n\nKeep the prose restrained.",
-      undefined,
       3,
       "creative",
       undefined,
@@ -158,7 +155,6 @@ describe("buildWriterSystemPrompt", () => {
       "# Book Rules",
       "# Genre Body",
       "# Style Guide",
-      undefined,
       3,
       "creative",
       undefined,
@@ -190,7 +186,6 @@ describe("buildWriterSystemPrompt", () => {
       "# Book Rules",
       "# Genre Body",
       "# Style Guide",
-      undefined,
       3,
       "creative",
       undefined,
@@ -214,7 +209,6 @@ describe("buildWriterSystemPrompt", () => {
         "# Book Rules",
         "# Genre Body",
         "# Style Guide",
-        undefined,
         ch,
         "creative",
         undefined,
@@ -235,7 +229,6 @@ describe("buildWriterSystemPrompt", () => {
         "# Book Rules",
         "# Genre Body",
         "# Style Guide",
-        undefined,
         ch,
         "creative",
         undefined,
@@ -250,14 +243,14 @@ describe("buildWriterSystemPrompt", () => {
   it("omits golden opening discipline for ch>=4 in both languages", () => {
     const zh = buildWriterSystemPrompt(
       BOOK, GENRE, null, "# Book Rules", "# Genre Body", "# Style Guide",
-      undefined, 4, "creative", undefined, "zh", "governed",
+      4, "creative", undefined, "zh", "governed",
     );
     expect(zh).not.toContain("黄金三章写作纪律");
 
     const en = buildWriterSystemPrompt(
       BOOK, { ...GENRE, language: "en", name: "General" }, null,
       "# Book Rules", "# Genre Body", "# Style Guide",
-      undefined, 4, "creative", undefined, "en", "governed",
+      4, "creative", undefined, "en", "governed",
     );
     expect(en).not.toContain("Golden Opening Discipline");
   });
@@ -296,7 +289,6 @@ describe("buildWriterSystemPrompt", () => {
       "# Book Rules",
       "# Genre Body",
       "# Style Guide\n\nKeep the prose restrained.",
-      undefined,
       3,
       "creative",
       undefined,

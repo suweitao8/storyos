@@ -65,6 +65,8 @@ export const BookConfigSchema = z.object({
   updatedAt: z.string().datetime(),
   parentBookId: z.string().optional(),
   fanficMode: FanficModeSchema.optional(),
+  /** ID of a saved craft profile to guide writing technique imitation. */
+  craftId: z.string().optional(),
   writing: z.object({
     reviewMode: z.enum(["auto", "manual"]).optional(),
     revisionGate: z.enum(["strict", "lenient", "always"]).optional(),

@@ -110,7 +110,6 @@ describe("FoundationReviewerAgent", () => {
       language: "zh",
       mode: "fanfic",
       sourceCanon: `${"正典".repeat(9000)}\nSOURCE_CANON_TAIL_MARKER`,
-      styleGuide: `${"文风".repeat(3000)}\nSTYLE_GUIDE_TAIL_MARKER`,
       foundation: {
         storyBible: `${"世界".repeat(5000)}\nSTORY_BIBLE_TAIL_MARKER`,
         volumeOutline: `${"卷纲".repeat(5000)}\nVOLUME_OUTLINE_TAIL_MARKER`,
@@ -122,7 +121,6 @@ describe("FoundationReviewerAgent", () => {
 
     const messages = chatSpy.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
     expect(messages[0]?.content).toContain("SOURCE_CANON_TAIL_MARKER");
-    expect(messages[0]?.content).toContain("STYLE_GUIDE_TAIL_MARKER");
     expect(messages[1]?.content).toContain("STORY_BIBLE_TAIL_MARKER");
     expect(messages[1]?.content).toContain("VOLUME_OUTLINE_TAIL_MARKER");
     expect(messages[1]?.content).toContain("BOOK_RULES_TAIL_MARKER");

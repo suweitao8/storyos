@@ -13,7 +13,7 @@ describe("deriveActiveBookId", () => {
   it("returns undefined for non-book routes", () => {
     expect(deriveActiveBookId({ page: "dashboard" })).toBeUndefined();
     expect(deriveActiveBookId({ page: "services" })).toBeUndefined();
-    expect(deriveActiveBookId({ page: "style" })).toBeUndefined();
+    expect(deriveActiveBookId({ page: "craft" })).toBeUndefined();
   });
 });
 

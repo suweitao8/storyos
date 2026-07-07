@@ -32,6 +32,8 @@ import { coverSecretKey, resolveCoverProviderPreset, type CoverProviderPreset } 
 import { loadSecrets } from "../llm/secrets.js";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath as projectPath } from "../utils/posix-path.js";
+import { buildCraftGuide, buildCraftExemplars } from "../agents/craft-prompts.js";
+import type { CraftProfile } from "../models/craft-profile.js";
 
 const SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS = 3;
 
@@ -62,6 +64,8 @@ export interface ShortFictionRunOptions {
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
   readonly onProgress?: (message: string) => void;
+  /** Optional writing craft profile to guide technique imitation. */
+  readonly craftProfile?: CraftProfile;
 }
 
 export interface ShortFictionRunResult {
@@ -187,6 +191,7 @@ async function produceShort(
       chapterCount,
       charsPerChapter,
       reference: options.reference,
+      craftGuide: options.craftProfile ? buildCraftGuide(options.craftProfile) : undefined,
       language,
     });
 
@@ -230,6 +235,8 @@ async function produceShort(
       outlineMarkdown,
       chapterCount,
       charsPerChapter,
+      craftGuide: options.craftProfile ? buildCraftGuide(options.craftProfile) : undefined,
+      craftExemplars: options.craftProfile ? buildCraftExemplars(options.craftProfile) : undefined,
       language,
     });
     let missingFromDraft = findEmptyShortFictionChapters(draftV1);

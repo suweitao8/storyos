@@ -24,15 +24,11 @@ export class FoundationReviewerAgent extends BaseAgent {
     readonly foundation: ArchitectOutput;
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
-    readonly styleGuide?: string;
     readonly language: "zh" | "en";
     readonly targetChapters?: number;
   }): Promise<FoundationReviewResult> {
     const canonBlock = params.sourceCanon
       ? `\n## 原作正典参照\n${params.sourceCanon}\n`
-      : "";
-    const styleBlock = params.styleGuide
-      ? `\n## 原作风格参照\n${params.styleGuide}\n`
       : "";
 
     const dimensions = params.mode === "original"
@@ -40,8 +36,8 @@ export class FoundationReviewerAgent extends BaseAgent {
       : this.derivativeDimensions(params.language, params.mode);
 
     const systemPrompt = params.language === "en"
-      ? this.buildEnglishReviewPrompt(dimensions, canonBlock, styleBlock)
-      : this.buildChineseReviewPrompt(dimensions, canonBlock, styleBlock);
+      ? this.buildEnglishReviewPrompt(dimensions, canonBlock)
+      : this.buildChineseReviewPrompt(dimensions, canonBlock);
 
     const userPrompt = this.buildFoundationExcerpt(params.foundation, params.language);
 
@@ -101,7 +97,6 @@ export class FoundationReviewerAgent extends BaseAgent {
   private buildChineseReviewPrompt(
     dimensions: ReadonlyArray<string>,
     canonBlock: string,
-    styleBlock: string,
   ): string {
     return `你是一位资深小说编辑，正在审核一本新书的基础设定（世界观 + 大纲 + 规则）。
 
@@ -129,7 +124,7 @@ ${dimensions.map((dim, i) => `${i + 1}. ${dim}`).join("\n")}
 总分：{加权平均}
 通过：{是/否}
 总评：{1-2段总结，指出最大的问题和最值得保留的优点}
-${canonBlock}${styleBlock}
+${canonBlock}
 
 审核时要严格。不要因为"还行"就给高分。80分意味着"可以直接开写，不需要改"。`;
   }
@@ -137,7 +132,6 @@ ${canonBlock}${styleBlock}
   private buildEnglishReviewPrompt(
     dimensions: ReadonlyArray<string>,
     canonBlock: string,
-    styleBlock: string,
   ): string {
     return `You are a senior fiction editor reviewing a new book's foundation (worldbuilding + outline + rules).
 
@@ -165,7 +159,7 @@ Feedback: {specific feedback}
 Total: {weighted average}
 Passed: {yes/no}
 Summary: {1-2 paragraphs — biggest problem and best quality}
-${canonBlock}${styleBlock}
+${canonBlock}
 
 Be strict. 80 means "ready to write without changes."`;
   }
