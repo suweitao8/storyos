@@ -29,10 +29,14 @@
 完成后按这个顺序处理：
 
 1. 在 worktree 里提交改动。
-2. 回到主 checkout，把 worktree 分支合并回 `master`。
-3. 推送到远程：`git push origin master`。
-4. 删除这次任务对应的 worktree。
-5. 执行 `git worktree prune`。
+2. 用 `node scripts/finish-worktree.mjs --base master` 完成回主分支、推送、删除 worktree、`git worktree prune`。
+3. 不要把已完成的 worktree 留给下一次对话。
+
+## 强制收尾
+
+- 只要当前任务已经完成，必须先提交，再立刻执行收尾脚本。
+- 如果脚本判断主 checkout 或 worktree 不是干净状态，先处理干净，再继续。
+- 除非用户明确要求保留 worktree，否则不要把已完成的 worktree 挂着不管。
 
 ## 验证要求
 

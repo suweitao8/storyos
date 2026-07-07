@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildApiUrl, deriveInvalidationPaths, fetchJson } from "./use-api";
+import { buildApiUrl, deriveInvalidationPaths, fetchJson, fetchJsonWithRetry } from "./use-api";
 
 describe("buildApiUrl", () => {
   it("returns null for blank paths so callers can skip requests", () => {
@@ -62,6 +62,30 @@ describe("fetchJson", () => {
     await expect(fetchJson("/books/demo/write-next", { method: "POST" }, { fetchImpl })).rejects.toThrow(
       "最新第 1 章处于状态降级（state-degraded）。继续写下一章前，请先修复状态，或重写这一章。",
     );
+  });
+});
+
+describe("fetchJsonWithRetry", () => {
+  it("retries transient failures before surfacing an error", async () => {
+    let attempts = 0;
+    const fetchImpl = vi.fn(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return new Response(JSON.stringify({ error: "Temporary server error" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    await expect(
+      fetchJsonWithRetry("/project", {}, { fetchImpl, retries: 1, delayMs: 0 }),
+    ).resolves.toEqual({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });
 
