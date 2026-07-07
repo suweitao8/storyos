@@ -137,12 +137,6 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button onClick={nav.toDashboard} className={c.link}>{t("bread.home")}</button>
-        <span className="text-border">/</span>
-        <span>{t("nav.import")}</span>
-      </div>
-
       <h1 className="font-serif text-3xl flex items-center gap-3">
         <FileInput size={28} className="text-primary" />
         {t("import.title")}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Bot, FileText, MessageSquare, Radar, RotateCcw, Search, Settings2, Plus, Trash2 } from "lucide-react";
+import { Bell, Bot, FileText, Globe, MessageSquare, Moon, Radar, RotateCcw, Search, Settings2, Sun, Plus, Trash2 } from "lucide-react";
 import { fetchJson, postApi, putApi, useApi } from "../hooks/use-api";
 import { usePreferencesStore } from "../store/preferences";
 import type { Theme } from "../hooks/use-theme";
@@ -93,9 +93,16 @@ function SettingsCard({
 
 const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
 
-export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
+export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }: {
+  nav: Nav;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  lang: "zh" | "en";
+  onLangChange: (lang: "zh" | "en") => void;
+  t: TFunction;
+}) {
   const c = useColors(theme);
-  const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
+  const isZh = lang === "zh";
   const { data: overridesData, refetch: refetchOverrides } = useApi<{ overrides: Record<string, unknown> }>("/project/model-overrides");
   const { data: defaultModelData, refetch: refetchDefaultModel } = useApi<{ service: string | null; defaultModel: string | null }>("/project/default-model");
   const { data: researchSearchData, refetch: refetchResearchSearch } = useApi<{ researchSearch: Partial<ResearchSearchDraft> }>("/project/research-search");
@@ -198,12 +205,6 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button onClick={nav.toDashboard} className={c.link}>{t("bread.home")}</button>
-        <span className="text-border">/</span>
-        <span>{t("settings.title")}</span>
-      </div>
-
       <div className="space-y-2">
         <h1 className="font-serif text-3xl flex items-center gap-3">
           <Settings2 size={28} className="text-primary" />
@@ -225,6 +226,45 @@ export function ProjectSettings({ nav, theme, t }: { nav: Nav; theme: Theme; t: 
           {notice.message}
         </div>
       )}
+
+      <SettingsCard title={t("settings.general")} description={t("settings.generalHint")} icon={<Globe size={18} />}>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-muted-foreground min-w-fit">{t("settings.language")}:</span>
+          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+            <button
+              onClick={() => onLangChange("zh")}
+              className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "zh" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            >
+              中文
+            </button>
+            <button
+              onClick={() => onLangChange("en")}
+              className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            >
+              EN
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-muted-foreground min-w-fit">{t("settings.theme")}:</span>
+          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+            <button
+              onClick={() => setTheme("light")}
+              className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "light" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            >
+              <Sun size={14} />
+              {t("settings.themeLight")}
+            </button>
+            <button
+              onClick={() => setTheme("dark")}
+              className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            >
+              <Moon size={14} />
+              {t("settings.themeDark")}
+            </button>
+          </div>
+        </div>
+      </SettingsCard>
 
       <SettingsCard title={t("settings.inputGovernance")} description={t("settings.inputGovernanceHint")} icon={<Radar size={18} />}>
         <div className="flex flex-wrap items-center gap-3">

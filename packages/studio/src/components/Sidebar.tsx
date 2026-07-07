@@ -564,7 +564,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
               onClick={nav.toServices}
             />
             <SidebarItem
-              label={t("nav.projectSettings")}
+              label={t("nav.settings")}
               icon={<Settings size={16} />}
               active={activePage === "project-settings"}
               onClick={nav.toProjectSettings}
