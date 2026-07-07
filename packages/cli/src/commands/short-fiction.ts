@@ -44,7 +44,7 @@ shortCommand
   .option("--cover-model <model>", "Image-capable Responses model for cover generation", "gpt-5.5")
   .option("--cover-size <size>", "Cover image size", "1024x1360")
   .option("--cover-api-key-env <name>", "Env var containing cover API key", "INKOS_COVER_API_KEY")
-  .option("--no-cover", "Skip cover image generation")
+  .option("--cover", "Generate cover image", false)
   .option("--json", "Output JSON")
   .action(async (opts: ShortRunOptions) => {
     try {

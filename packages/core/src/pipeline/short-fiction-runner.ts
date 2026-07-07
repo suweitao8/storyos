@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { AgentContext } from "../agents/base.js";
 import {
@@ -324,9 +324,8 @@ async function produceShort(
     throw error;
   }
 
-  const coverArtifacts: { readonly coverImagePath?: string; readonly coverError?: string } = options.cover === false
-    ? { coverError: "disabled" }
-    : await generateCoverArtifact({
+  const coverArtifacts: { readonly coverImagePath?: string; readonly coverError?: string } = options.cover === true
+    ? await generateCoverArtifact({
         root,
         baseDir,
         salesPackage,
@@ -336,7 +335,12 @@ async function produceShort(
         coverModel: options.coverModel,
         coverSize: options.coverSize,
         coverApiKeyEnv: options.coverApiKeyEnv,
-      }).catch((error: unknown) => ({ coverError: String(error) }));
+      }).catch((error: unknown) => ({ coverError: String(error) }))
+    : await writeLocalCoverPlaceholder({
+        root,
+        outputDir: join(baseDir, "final"),
+        title: salesPackage.title,
+      });
 
   if (revisionWarning) {
     await writeShortRunStatus(root, baseDir, {
@@ -532,6 +536,17 @@ async function generateCoverArtifact(input: {
   });
 }
 
+async function writeLocalCoverPlaceholder(input: {
+  readonly root: string;
+  readonly outputDir: string;
+  readonly title: string;
+}): Promise<{ readonly coverImagePath: string }> {
+  await clearCoverOutputArtifacts(input.root, input.outputDir);
+  const coverPath = join(input.outputDir, "cover.svg");
+  await writeText(input.root, coverPath, buildCoverPlaceholderSvg(input.title));
+  return { coverImagePath: projectPath(coverPath) };
+}
+
 async function generateCoverImageArtifact(input: {
   readonly root: string;
   readonly outputDir: string;
@@ -544,6 +559,7 @@ async function generateCoverImageArtifact(input: {
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
 }): Promise<{ readonly coverImagePath: string }> {
+  await clearCoverOutputArtifacts(input.root, input.outputDir);
   const request = await resolveCoverGenerationRequest({
     root: input.root,
     coverBaseUrl: input.coverBaseUrl,
@@ -556,6 +572,19 @@ async function generateCoverImageArtifact(input: {
   const coverPath = join(input.outputDir, extension === "jpg" ? "cover.jpg" : "cover.png");
   await writeBinary(input.root, coverPath, buffer);
   return { coverImagePath: projectPath(coverPath) };
+}
+
+async function clearCoverOutputArtifacts(root: string, outputDir: string): Promise<void> {
+  await Promise.all([
+    "cover.svg",
+    "cover.png",
+    "cover.jpg",
+    "cover.jpeg",
+    "cover.webp",
+  ].map(async (fileName) => {
+    const resolved = safeChildPath(root, join(outputDir, fileName));
+    await unlink(resolved).catch(() => undefined);
+  }));
 }
 
 /**
@@ -930,6 +959,88 @@ function normalizeSellingPoints(value: string | ReadonlyArray<string> | undefine
       .filter(Boolean);
   }
   return value.map((point) => point.trim()).filter(Boolean);
+}
+
+function buildCoverPlaceholderSvg(title: string): string {
+  const lines = wrapCoverTitleLines(title);
+  const lineCount = lines.length;
+  const lineGap = lineCount > 2 ? 96 : 110;
+  const fontSize = lineCount > 2 ? 72 : 84;
+  const totalTextHeight = fontSize + (lineCount - 1) * lineGap;
+  const top = Math.round((1360 - totalTextHeight) / 2 + fontSize * 0.8);
+
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1024 1360\" role=\"img\" aria-labelledby=\"cover-title\">",
+    `  <title id=\"cover-title\">${escapeXml(title.trim() || "Untitled Short Story")}</title>`,
+    "  <defs>",
+    "    <linearGradient id=\"bg\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\">",
+    "      <stop offset=\"0%\" stop-color=\"#101727\" />",
+    "      <stop offset=\"55%\" stop-color=\"#1e2a44\" />",
+    "      <stop offset=\"100%\" stop-color=\"#2d162f\" />",
+    "    </linearGradient>",
+    "    <linearGradient id=\"frame\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">",
+    "      <stop offset=\"0%\" stop-color=\"#ffffff\" stop-opacity=\"0.24\" />",
+    "      <stop offset=\"100%\" stop-color=\"#ffffff\" stop-opacity=\"0.08\" />",
+    "    </linearGradient>",
+    "  </defs>",
+    "  <rect width=\"1024\" height=\"1360\" fill=\"url(#bg)\" />",
+    "  <rect x=\"44\" y=\"44\" width=\"936\" height=\"1272\" rx=\"44\" fill=\"none\" stroke=\"url(#frame)\" stroke-width=\"2\" />",
+    "  <circle cx=\"178\" cy=\"214\" r=\"118\" fill=\"#ffffff\" fill-opacity=\"0.05\" />",
+    "  <circle cx=\"848\" cy=\"1110\" r=\"160\" fill=\"#ffffff\" fill-opacity=\"0.04\" />",
+    `  <text x="512" y="${top}" text-anchor="middle" fill="#f8fafc" font-family="Georgia, 'Noto Serif SC', 'Songti SC', serif" font-size="${fontSize}" font-weight="700" letter-spacing="1">`,
+    ...lines.map((line, index) => `    <tspan x=\"512\" dy=\"${index === 0 ? 0 : lineGap}\">${escapeXml(line)}</tspan>`),
+    "  </text>",
+    "</svg>",
+  ].join("\n");
+}
+
+function wrapCoverTitleLines(title: string): string[] {
+  const normalized = title.trim().replace(/\s+/gu, " ");
+  if (!normalized) return ["Untitled Short Story"];
+  if (normalized.length <= 16) return [normalized];
+
+  if (normalized.includes(" ")) {
+    const maxChars = normalized.length > 34 ? 14 : 18;
+    const lines: string[] = [];
+    let current = "";
+    for (const word of normalized.split(" ")) {
+      const next = current ? `${current} ${word}` : word;
+      if (current && next.length > maxChars && lines.length < 2) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+    if (current) lines.push(current);
+    if (lines.length > 3) {
+      lines[2] = `${lines[2].slice(0, 13)}…`;
+      return lines.slice(0, 3);
+    }
+    return lines;
+  }
+
+  const chars = Array.from(normalized);
+  const chunkSize = chars.length > 24 ? 8 : chars.length > 16 ? 10 : 12;
+  const lines: string[] = [];
+  for (let index = 0; index < chars.length; index += chunkSize) {
+    lines.push(chars.slice(index, index + chunkSize).join(""));
+    if (lines.length >= 3) break;
+  }
+  if (lines.length === 3 && chars.length > chunkSize * 3) {
+    lines[2] = `${lines[2].slice(0, Math.max(4, lines[2].length - 1))}…`;
+  }
+  return lines;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 async function writeBinary(root: string, path: string, value: Buffer): Promise<void> {

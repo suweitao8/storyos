@@ -1214,7 +1214,7 @@ const ShortFictionRunParams = Type.Object({
     description: "Per-chapter length in the story language's native unit: 900-1200 Chinese characters (default 1000) for zh, or 600-800 English words (default 650) for en. Do not use total story length here.",
   })),
   cover: Type.Optional(Type.Boolean({
-    description: "Whether to attempt cover image generation after synopsis and cover prompt. Default true; use false if the user only wants text assets.",
+    description: "Whether to attempt cover image generation after synopsis and cover prompt. Default false; use true only when the user explicitly wants a cover.",
   })),
   coverBaseUrl: Type.Optional(Type.String({
     description: "Optional OpenAI-compatible Responses API base URL for cover generation.",
@@ -1244,7 +1244,7 @@ export function createShortFictionRunTool(
     name: "short_fiction_run",
     description:
       "Create a standalone short fiction project from a direction. " +
-      "Runs outline -> outline review/revision -> full draft -> draft review/revision -> synopsis/selling points/cover prompt -> optional cover image. " +
+      "Runs outline -> outline review/revision -> full draft -> draft review/revision -> synopsis/selling points/cover prompt, and only generates a cover image when explicitly requested. " +
       "Uses the user's direction and optional reference notes as input.",
     label: "Short Fiction",
     parameters: ShortFictionRunParams,

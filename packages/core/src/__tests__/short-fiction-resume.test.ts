@@ -213,7 +213,8 @@ describe("short fiction resume + failure marker (C2)", () => {
       chapterCount: CH, charsPerChapter: 1000, cover: false, runtimes: runtimes(root),
     });
 
-    expect(result.coverError).toBe("disabled");
+    expect(result.coverImagePath).toBe("shorts/elevator/final/cover.svg");
+    expect(result.coverError).toBeUndefined();
     expect(packageSpy).toHaveBeenCalled();
     await expect(access(join(root, "shorts", "elevator", "final", "sales-package.md"))).resolves.toBeUndefined();
   });

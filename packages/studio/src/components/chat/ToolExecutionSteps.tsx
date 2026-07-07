@@ -291,7 +291,7 @@ function ShortFictionResultPreview({ exec }: { exec: ToolExecution }) {
   const details = getGeneratedArtifactDetails(exec);
   const coverPath = details?.coverImagePath ?? extractResultPath(exec.result, "Cover image");
   const coverError = details?.coverError ?? extractResultPath(exec.result, "Cover image reason");
-  if (!coverPath || !/\.(png|jpe?g|webp)$/iu.test(coverPath)) {
+  if (!coverPath || !/\.(png|jpe?g|webp|svg)$/iu.test(coverPath)) {
     if (!coverError) return null;
     return (
       <div className="mx-3 mb-3 mt-1 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">

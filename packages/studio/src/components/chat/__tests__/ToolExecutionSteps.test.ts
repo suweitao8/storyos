@@ -179,6 +179,26 @@ describe("groupChronologically", () => {
     });
   });
 
+  it("renders svg placeholder covers from short fiction tools", () => {
+    const exec = makeExec({
+      id: "short-svg-1",
+      tool: "short_fiction_run",
+      label: "鐭瘒鐢熶骇",
+      details: {
+        kind: "short_fiction_created",
+        storyId: "demo-story",
+        title: "Demo Story",
+        finalMarkdownPath: "shorts/demo-story/final/full.md",
+        salesPackagePath: "shorts/demo-story/final/sales-package.md",
+        coverImagePath: "shorts/demo-story/final/cover.svg",
+      },
+    });
+
+    const html = renderToStaticMarkup(React.createElement(ToolExecutionSteps, { executions: [exec] }));
+    expect(html).toContain("shorts/demo-story/final/cover.svg");
+    expect(html).toContain("Demo Story");
+  });
+
   it("extracts and renders interactive-film creation artifacts", () => {
     const exec = makeExec({
       id: "interactive-film-1",
