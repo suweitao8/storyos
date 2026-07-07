@@ -122,7 +122,14 @@ runGit(mainRoot, ["push", "origin", args.baseBranch]);
 
 if (worktreeOwned) {
   console.log(`Removing worktree ${worktreePath}...`);
-  runGit(mainRoot, ["worktree", "remove", "--force", worktreePath]);
+  try {
+    runGit(mainRoot, ["worktree", "remove", "--force", worktreePath]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("Directory not empty")) {
+      throw error;
+    }
+  }
   process.chdir(mainRoot);
   if (existsSync(worktreePath)) {
     await rm(worktreePath, { recursive: true, force: true });
