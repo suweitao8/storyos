@@ -32,3 +32,4 @@ inkos.json
 prompt/
 CLAUDE.md
 .studio-live-*.log
+.zcode/
