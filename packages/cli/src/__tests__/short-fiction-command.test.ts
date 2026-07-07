@@ -21,7 +21,7 @@ describe("short command", () => {
     expect(optionNames).toContain("--cover-model");
     expect(optionNames).toContain("--cover-size");
     expect(optionNames).toContain("--cover-api-key-env");
-    expect(optionNames).toContain("--no-cover");
+    expect(optionNames).toContain("--cover");
   });
 
   it("extracts base64 image output from a Responses image_generation_call", () => {

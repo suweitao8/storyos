@@ -211,7 +211,7 @@ describe("short-fiction runner English branch", () => {
       title: "The Extra Floor", intro: "An elevator hook.", sellingPoints: ["reversal"], coverPrompt: "", rawContent: "",
     });
 
-    await runShortFictionProduction({
+    const result = await runShortFictionProduction({
       projectRoot: root,
       direction: "haunted elevator",
       storyId: "extra-floor",
@@ -222,9 +222,13 @@ describe("short-fiction runner English branch", () => {
     });
 
     expect(writeDraft).toHaveBeenCalledWith(expect.objectContaining({ language: "en", charsPerChapter: 650 }));
+    expect(result.coverImagePath).toBe("shorts/extra-floor/final/cover.svg");
+    expect(result.coverError).toBeUndefined();
     const final = await readFile(join(root, "shorts", "extra-floor", "final", "full.md"), "utf-8");
     expect(final).toContain("## Chapter 12: Room 12");
     expect(CJK.test(final)).toBe(false);
+    const coverSvg = await readFile(join(root, "shorts", "extra-floor", "final", "cover.svg"), "utf-8");
+    expect(coverSvg).toContain("The Extra Floor");
     const chapterFile = await readFile(join(root, "shorts", "extra-floor", "final", "chapters", "0001.md"), "utf-8");
     expect(chapterFile.startsWith("# Chapter 1: Room 1")).toBe(true);
     const salesPackage = await readFile(join(root, "shorts", "extra-floor", "final", "sales-package.md"), "utf-8");
