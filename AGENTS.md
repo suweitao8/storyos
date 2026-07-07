@@ -8,7 +8,7 @@
 ## 默认开发流程
 
 1. 先创建独立 worktree，再开始改动。
-2. worktree 目录默认放在 `D:\Github\_worktrees\storyos\<task-name>`。
+2. worktree 目录默认放在项目内 `.worktrees/<task-name>`。
 3. 分支名默认使用 `codex/<task-name>`。
 4. 任何功能、修复、重构类变更都不要直接在主 checkout 上做。
 5. 只允许在 worktree 里完成代码修改、验证和提交。
