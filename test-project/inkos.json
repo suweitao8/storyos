@@ -1,6 +1,22 @@
 {
   "name": "test-project",
   "version": "0.1.0",
+  "llm": {
+    "provider": "anthropic",
+    "service": "astronCodingPlan",
+    "configSource": "studio",
+    "baseUrl": "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
+    "apiKey": "",
+    "model": "astron-code-latest",
+    "apiFormat": "chat",
+    "stream": true,
+    "defaultModel": "astron-code-latest",
+    "services": [
+      {
+        "service": "astronCodingPlan"
+      }
+    ]
+  },
   "notify": [],
   "daemon": {
     "schedule": {
