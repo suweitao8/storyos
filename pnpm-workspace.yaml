@@ -1,2 +1,9 @@
 packages:
   - "packages/*"
+allowBuilds:
+  esbuild: true
+  msw: true
+  protobufjs: true
+minimumReleaseAgeExclude:
+  - '@actalk/inkos-core@1.6.3'
+  - '@actalk/inkos-studio@1.6.3'
