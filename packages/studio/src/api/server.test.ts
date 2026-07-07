@@ -11,7 +11,6 @@ const composeChapterMock = vi.fn();
 const repairChapterStateMock = vi.fn();
 const reviseFoundationMock = vi.fn();
 const initSpinoffBookMock = vi.fn();
-const initImitationBookMock = vi.fn();
 const consolidateMock = vi.fn();
 const evaluateBookQualityMock = vi.fn();
 const reviseDraftMock = vi.fn();
@@ -191,7 +190,6 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     repairChapterState = repairChapterStateMock;
     reviseFoundation = reviseFoundationMock;
     initSpinoffBook = initSpinoffBookMock;
-    initImitationBook = initImitationBookMock;
     reviseDraft = reviseDraftMock;
     resyncChapterArtifacts = resyncChapterArtifactsMock;
     writeNextChapter = writeNextChapterMock;
@@ -377,7 +375,6 @@ describe("createStudioServer daemon lifecycle", () => {
     repairChapterStateMock.mockReset();
     reviseFoundationMock.mockReset();
     initSpinoffBookMock.mockReset();
-    initImitationBookMock.mockReset();
     consolidateMock.mockReset();
     evaluateBookQualityMock.mockReset();
     reviseDraftMock.mockReset();
@@ -406,7 +403,6 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     reviseFoundationMock.mockResolvedValue(undefined);
     initSpinoffBookMock.mockResolvedValue(undefined);
-    initImitationBookMock.mockResolvedValue(undefined);
     consolidateMock.mockResolvedValue({ archivedVolumes: 1, retainedChapters: 8 });
     evaluateBookQualityMock.mockResolvedValue({
       bookId: "demo-book",
@@ -4499,26 +4495,6 @@ describe("createStudioServer daemon lifecycle", () => {
       error: expect.stringContaining('Book "existing-book" already exists'),
     });
     expect(initSpinoffBookMock).not.toHaveBeenCalled();
-  });
-
-  it("imitation/init requires title+reference+idea and otherwise runs initImitationBook", async () => {
-    const { createStudioServer } = await import("./server.js");
-    const app = createStudioServer(cloneProjectConfig() as never, root);
-
-    const missing = await app.request("http://localhost/api/v1/imitation/init", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "仿写新书", storyIdea: "一个原创故事" }),
-    });
-    expect(missing.status).toBe(400);
-    expect(initImitationBookMock).not.toHaveBeenCalled();
-
-    const ok = await app.request("http://localhost/api/v1/imitation/init", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "仿写新书", referenceText: "参考文本片段……", storyIdea: "一个原创故事", sourceName: "范本" }),
-    });
-    await expect(ok.json()).resolves.toMatchObject({ status: "creating", bookId: "仿写新书" });
-    await vi.waitFor(() => expect(initImitationBookMock).toHaveBeenCalledTimes(1));
-    expect(initImitationBookMock.mock.calls[0]?.[2]).toBe("一个原创故事");
   });
 
 });

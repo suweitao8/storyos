@@ -129,13 +129,13 @@ export class ReviserAgent extends BaseAgent {
       lengthSpec?: LengthSpec;
     },
   ): Promise<ReviseOutput> {
-    const [currentState, ledger, hooks, styleGuideRaw, volumeOutline, storyBible, characterMatrix, chapterSummaries, parentCanon, fanficCanon] = await Promise.all([
+    const [currentState, ledger, hooks, writingMethodologyRaw, volumeOutline, storyBible, characterMatrix, chapterSummaries, parentCanon, fanficCanon] = await Promise.all([
       // Phase 5 consolidation: derive initial state from roles + seed hooks
       // when current_state.md is still the architect seed placeholder.
       readCurrentStateWithFallback(bookDir, "(文件不存在)"),
       this.readFileSafe(join(bookDir, "story/particle_ledger.md")),
       this.readFileSafe(join(bookDir, "story/pending_hooks.md")),
-      this.readFileSafe(join(bookDir, "story/style_guide.md")),
+      this.readFileSafe(join(bookDir, "story/writing_methodology.md")),
       readVolumeMap(bookDir, "(文件不存在)"),
       readStoryFrame(bookDir, "(文件不存在)"),
       readCharacterContext(bookDir, "(文件不存在)"),
@@ -153,15 +153,15 @@ export class ReviserAgent extends BaseAgent {
     const parsedRules = await readBookRules(bookDir);
     const bookRules = parsedRules?.rules ?? null;
 
-    // Fallback: use book_rules body when style_guide.md doesn't exist.
+    // Fallback: use book_rules body when writing_methodology.md doesn't exist.
     // Phase 5 hotfix 2: parsedRules.body is only populated for legacy
     // book_rules.md sources — story_frame.md frontmatter yields an empty
-    // body, and an empty string is NOT a usable style guide. Treat
+    // body, and an empty string is NOT a usable methodology guide. Treat
     // missing/empty body as "no fallback available".
     const legacyRulesBody = parsedRules?.body?.trim();
-    const styleGuide = styleGuideRaw !== "(文件不存在)"
-      ? styleGuideRaw
-      : (legacyRulesBody || "(无文风指南)");
+    const writingMethodology = writingMethodologyRaw !== "(文件不存在)"
+      ? writingMethodologyRaw
+      : (legacyRulesBody || "(无写作方法论)");
 
     const isEnglish = (bookLanguage ?? gp.language) === "en";
     const resolvedLanguage = isEnglish ? "en" : "zh";
@@ -260,8 +260,8 @@ export class ReviserAgent extends BaseAgent {
     const lengthGuidanceBlock = mode !== "auto" && options?.lengthSpec
       ? `\n## 字数护栏\n目标字数：${options.lengthSpec.target}\n允许区间：${options.lengthSpec.softMin}-${options.lengthSpec.softMax}\n极限区间：${options.lengthSpec.hardMin}-${options.lengthSpec.hardMax}\n如果修正后超出允许区间，请优先压缩冗余解释、重复动作和弱信息句，不得新增支线或删掉核心事实。\n`
       : "";
-    const styleGuideBlock = reducedControlBlock.length === 0
-      ? `\n## 文风指南\n${styleGuide}`
+    const methodologyBlock = reducedControlBlock.length === 0
+      ? `\n## 写作方法论\n${writingMethodology}`
       : "";
 
     const userPrompt = `请修正第${chapterNumber}章。
@@ -272,7 +272,7 @@ ${issueList}
 ## 当前状态卡
 ${currentState}
 ${ledgerBlock}
-${sanitizeNarrativeEvidenceBlock(hookDebtBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(hooksBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(volumeSummariesBlock, resolvedLanguage) ?? ""}${reducedControlBlock || outlineBlock}${bibleBlock}${matrixBlock}${sanitizeNarrativeEvidenceBlock(summariesBlock, resolvedLanguage) ?? ""}${canonBlock}${fanficCanonBlock}${styleGuideBlock}${lengthGuidanceBlock}
+${sanitizeNarrativeEvidenceBlock(hookDebtBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(hooksBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(volumeSummariesBlock, resolvedLanguage) ?? ""}${reducedControlBlock || outlineBlock}${bibleBlock}${matrixBlock}${sanitizeNarrativeEvidenceBlock(summariesBlock, resolvedLanguage) ?? ""}${canonBlock}${fanficCanonBlock}${methodologyBlock}${lengthGuidanceBlock}
 
 ## 待修正章节
 ${chapterContent}`;

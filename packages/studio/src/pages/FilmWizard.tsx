@@ -34,8 +34,7 @@ interface Nav {
   toFilmStudio: (projectId: string) => void;
   toBook: (id: string) => void;
   toServices: () => void;
-  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff" | "imitation") => void;
-  toStyle: () => void;
+  toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
 }
 
 interface FilmWizardProps {

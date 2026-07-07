@@ -54,7 +54,6 @@ describe("interaction models", () => {
     expect(RequestedIntentSchema.parse("storyboard_create")).toBe("storyboard_create");
     expect(RequestedIntentSchema.parse("interactive_film_create")).toBe("interactive_film_create");
     expect(RequestedIntentSchema.parse("fanfic_init")).toBe("fanfic_init");
-    expect(RequestedIntentSchema.parse("style_imitation")).toBe("style_imitation");
     expect(SessionKindSchema.parse("script")).toBe("script");
     expect(SessionKindSchema.parse("storyboard")).toBe("storyboard");
     expect(SessionKindSchema.parse("interactive-film")).toBe("interactive-film");

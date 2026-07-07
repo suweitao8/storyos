@@ -401,7 +401,6 @@ describe("groupChronologically", () => {
     const cases = [
       { action: "fanfic_init", route: "import:fanfic", title: "打开同人创作" },
       { action: "spinoff_create", route: "import:spinoff", title: "打开番外创作" },
-      { action: "style_imitation", route: "import:imitation", title: "打开仿写创作" },
     ] as const;
 
     for (const item of cases) {

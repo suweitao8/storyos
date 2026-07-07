@@ -9,6 +9,7 @@ export interface ShortFictionOutlinePromptInput {
   readonly chapterCount: number;
   readonly charsPerChapter: number;
   readonly reference?: ShortFictionReferencePromptInput;
+  readonly craftGuide?: string;
 }
 
 export interface ShortFictionOutlineReviewPromptInput {
@@ -30,6 +31,8 @@ export interface ShortFictionDraftPromptInput {
   readonly outlineMarkdown: string;
   readonly chapterCount: number;
   readonly charsPerChapter: number;
+  readonly craftGuide?: string;
+  readonly craftExemplars?: string;
 }
 
 export interface ShortFictionDraftContinuationPromptInput extends ShortFictionDraftPromptInput {
@@ -104,6 +107,7 @@ export function buildShortFictionOutlineUserPrompt(
     `完整短篇 ${input.chapterCount} 章，每章约 ${input.charsPerChapter} 字。`,
     "",
     input.reference?.text ? "## 可选参考文本\n" + input.reference.text.trim() + "\n" : "",
+    input.craftGuide ?? "",
     "## 产出要求",
     "先给一个平台感标题，再给完整故事方案。大纲要讲清楚主角为什么被压住、读者想看什么回报、主角靠什么翻盘、证据/关系/身份/规则如何递进、反派为什么会反扑、结尾如何落地。",
     "章节方案必须逐章写清：章节标题方向、当章发生的关键场面、角色动作、压力升级或回报、章尾继续读的理由。",
@@ -250,6 +254,9 @@ export function buildShortFictionWriterUserPrompt(
       "## Story Plan",
       input.outlineMarkdown,
       "",
+      input.craftGuide ?? "",
+      input.craftExemplars ?? "",
+      "",
       "## Output Format",
       "=== SHORT_FICTION_TITLE ===",
       "The story title — plain text, platform-ready, nothing else",
@@ -278,6 +285,9 @@ export function buildShortFictionWriterUserPrompt(
     "",
     "## 故事方案",
     input.outlineMarkdown,
+    "",
+    input.craftGuide ?? "",
+    input.craftExemplars ?? "",
     "",
     "## 输出格式",
     "=== SHORT_FICTION_TITLE ===",

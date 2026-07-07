@@ -42,6 +42,7 @@ import type { RuntimeStateSnapshot } from "../state/state-reducer.js";
 import { parsePendingHooksMarkdown } from "../utils/memory-retrieval.js";
 import { analyzeHookHealth } from "../utils/hook-health.js";
 import { buildEnglishVarianceBrief } from "../utils/long-span-fatigue.js";
+import type { CraftProfile } from "../models/craft-profile.js";
 import {
   buildNarrativeIntentBrief,
   renderMemoAsNarrativeBlock,
@@ -154,28 +155,27 @@ export class WriterAgent extends BaseAgent {
 
     const placeholder = "(文件尚未创建)";
     const [
-      storyBible, volumeOutline, styleGuide, currentState, ledger, hooks,
-      chapterSummaries, subplotBoard, emotionalArcs, characterMatrix, styleProfileRaw,
+      storyBible, volumeOutline, writingMethodology, currentState, ledger, hooks,
+      chapterSummaries, subplotBoard, emotionalArcs, characterMatrix,
       parentCanon, fanficCanonRaw,
     ] = await Promise.all([
-        readStoryFrame(bookDir, placeholder),
-        readVolumeMap(bookDir, placeholder),
-        this.readFileOrDefault(join(bookDir, "story/style_guide.md")),
-        // Phase 5 consolidation: architect no longer emits an initial current_state
-        // section. When the file is only a seed placeholder, derive initial state
-        // from roles/*.Current_State + pending_hooks startChapter=0 rows so the
-        // writer still sees substantive content instead of a runtime-append note.
-        readCurrentStateWithFallback(bookDir, placeholder),
-        this.readFileOrDefault(join(bookDir, "story/particle_ledger.md")),
-        this.readFileOrDefault(join(bookDir, "story/pending_hooks.md")),
-        this.readFileOrDefault(join(bookDir, "story/chapter_summaries.md")),
-        this.readFileOrDefault(join(bookDir, "story/subplot_board.md")),
-        this.readFileOrDefault(join(bookDir, "story/emotional_arcs.md")),
-        readCharacterContext(bookDir, placeholder),
-        this.readFileOrDefault(join(bookDir, "story/style_profile.json")),
-        this.readFileOrDefault(join(bookDir, "story/parent_canon.md")),
-        this.readFileOrDefault(join(bookDir, "story/fanfic_canon.md")),
-      ]);
+      readStoryFrame(bookDir, placeholder),
+      readVolumeMap(bookDir, placeholder),
+      this.readFileOrDefault(join(bookDir, "story/writing_methodology.md")),
+      // Phase 5 consolidation: architect no longer emits an initial current_state
+      // section. When the file is only a seed placeholder, derive initial state
+      // from roles/*.Current_State + pending_hooks startChapter=0 rows so the
+      // writer still sees substantive content instead of a runtime-append note.
+      readCurrentStateWithFallback(bookDir, placeholder),
+      this.readFileOrDefault(join(bookDir, "story/particle_ledger.md")),
+      this.readFileOrDefault(join(bookDir, "story/pending_hooks.md")),
+      this.readFileOrDefault(join(bookDir, "story/chapter_summaries.md")),
+      this.readFileOrDefault(join(bookDir, "story/subplot_board.md")),
+      this.readFileOrDefault(join(bookDir, "story/emotional_arcs.md")),
+      readCharacterContext(bookDir, placeholder),
+      this.readFileOrDefault(join(bookDir, "story/parent_canon.md")),
+      this.readFileOrDefault(join(bookDir, "story/fanfic_canon.md")),
+    ]);
 
     const recentChapters = await this.loadRecentChapters(bookDir, chapterNumber);
     // Load more chapters for dialogue fingerprint extraction (voice consistency over longer span)
@@ -188,7 +188,10 @@ export class WriterAgent extends BaseAgent {
     const bookRules = parsedBookRules?.rules ?? null;
     const bookRulesBody = parsedBookRules?.body ?? "";
 
-    const styleFingerprint = this.buildStyleFingerprint(styleProfileRaw);
+    // Load craft profile if the book references one
+    const craftProfile = book.craftId
+      ? await this.loadCraftProfile(book.craftId)
+      : undefined;
 
     const dialogueFingerprints = this.extractDialogueFingerprints(fingerprintChapters, storyBible);
     const relevantSummaries = this.findRelevantSummaries(chapterSummaries, volumeOutline, chapterNumber);
@@ -219,10 +222,10 @@ export class WriterAgent extends BaseAgent {
 
     // ── Phase 1: Creative writing (temperature 0.7) ──
     const creativeSystemPrompt = await this.withPromptPackGuidance(buildWriterSystemPrompt(
-      book, genreProfile, bookRules, bookRulesBody, genreBody, styleGuide, styleFingerprint,
+      book, genreProfile, bookRules, bookRulesBody, genreBody, writingMethodology,
       chapterNumber, "creative", fanficContext, resolvedLanguage,
       input.chapterMemo ? "governed" : "legacy",
-      resolvedLengthSpec,
+      resolvedLengthSpec, craftProfile,
     ), "longform.writer");
 
     const creativeUserPrompt = input.chapterMemo && input.contextPackage && input.ruleStack
@@ -1330,24 +1333,21 @@ ${overrides}\n`;
     }
   }
 
-  private buildStyleFingerprint(styleProfileRaw: string): string | undefined {
-    if (!styleProfileRaw || styleProfileRaw === "(文件尚未创建)") return undefined;
+
+
+  /**
+   * Load a saved craft profile by ID from the project's crafts/ directory.
+   */
+  private async loadCraftProfile(craftId: string): Promise<CraftProfile | undefined> {
+    const profilePath = join(this.ctx.projectRoot, "crafts", craftId, "craft_profile.json");
     try {
-      const profile = JSON.parse(styleProfileRaw);
-      const lines: string[] = [];
-      if (profile.avgSentenceLength) lines.push(`- 平均句长：${profile.avgSentenceLength}字`);
-      if (profile.sentenceLengthStdDev) lines.push(`- 句长标准差：${profile.sentenceLengthStdDev}`);
-      if (profile.avgParagraphLength) lines.push(`- 平均段落长度：${profile.avgParagraphLength}字`);
-      if (profile.paragraphLengthRange) lines.push(`- 段落长度范围：${profile.paragraphLengthRange.min}-${profile.paragraphLengthRange.max}字`);
-      if (profile.vocabularyDiversity) lines.push(`- 词汇多样性(TTR)：${profile.vocabularyDiversity}`);
-      if (profile.topPatterns?.length > 0) lines.push(`- 高频句式：${profile.topPatterns.join("、")}`);
-      if (profile.rhetoricalFeatures?.length > 0) lines.push(`- 修辞特征：${profile.rhetoricalFeatures.join("、")}`);
-      return lines.length > 0 ? lines.join("\n") : undefined;
+      const raw = await readFile(profilePath, "utf-8");
+      return JSON.parse(raw) as CraftProfile;
     } catch {
+      this.log?.warn(`Craft profile not found or invalid: ${craftId}`);
       return undefined;
     }
   }
-
 
   /**
    * Extract dialogue fingerprints from recent chapters.

@@ -2708,7 +2708,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     "story_bible.md", "book_rules.md", "volume_outline.md", "current_state.md",
     "particle_ledger.md", "pending_hooks.md", "chapter_summaries.md",
     "subplot_board.md", "emotional_arcs.md", "character_matrix.md",
-    "style_guide.md", "parent_canon.md", "fanfic_canon.md",
+    "writing_methodology.md", "parent_canon.md", "fanfic_canon.md",
   ];
 
   // Authoritative Phase 5 paths — prose outline + role sheets live under
@@ -5482,36 +5482,68 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   });
 
-  // --- Style Analyze ---
+  // --- Craft Analyze (writing technique profile) ---
 
-  app.post("/api/v1/style/analyze", async (c) => {
-    const { text, sourceName } = await c.req.json<{ text: string; sourceName: string }>();
+  app.post("/api/v1/craft/analyze", async (c) => {
+    const { text, sourceName, language } = await c.req.json<{
+      text: string;
+      sourceName: string;
+      language?: "zh" | "en";
+    }>();
     if (!text?.trim()) return c.json({ error: "text is required" }, 400);
+    if (!sourceName?.trim()) return c.json({ error: "sourceName is required" }, 400);
 
+    broadcast("craft:start", { sourceName });
     try {
-      const { analyzeStyle } = await import("@actalk/inkos-core");
-      const profile = analyzeStyle(text, sourceName ?? "unknown");
+      const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const { craftId, profile } = await pipeline.analyzeCraft(
+        text,
+        sourceName,
+        language ?? "zh",
+      );
+      broadcast("craft:complete", { craftId, sourceName });
+      return c.json({ craftId, profile });
+    } catch (e) {
+      broadcast("craft:error", { sourceName, error: String(e) });
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  // --- Craft List ---
+
+  app.get("/api/v1/crafts", async (c) => {
+    try {
+      const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const crafts = await pipeline.listCrafts();
+      return c.json({ crafts });
+    } catch (e) {
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  // --- Craft Detail ---
+
+  app.get("/api/v1/crafts/:id", async (c) => {
+    const id = c.req.param("id");
+    try {
+      const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const profile = await pipeline.loadCraft(id);
+      if (!profile) return c.json({ error: "craft not found" }, 404);
       return c.json(profile);
     } catch (e) {
       return c.json({ error: String(e) }, 500);
     }
   });
 
-  // --- Style Import to Book ---
+  // --- Craft Delete ---
 
-  app.post("/api/v1/books/:id/style/import", async (c) => {
+  app.delete("/api/v1/crafts/:id", async (c) => {
     const id = c.req.param("id");
-    const { text, sourceName } = await c.req.json<{ text: string; sourceName: string }>();
-    if (!text?.trim()) return c.json({ error: "text is required" }, 400);
-
-    broadcast("style:start", { bookId: id });
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
-      const result = await pipeline.generateStyleGuide(id, text, sourceName ?? "unknown");
-      broadcast("style:complete", { bookId: id });
-      return c.json({ ok: true, result });
+      await pipeline.deleteCraft(id);
+      return c.json({ ok: true });
     } catch (e) {
-      broadcast("style:error", { bookId: id, error: String(e) });
       return c.json({ error: String(e) }, 500);
     }
   });
@@ -5679,53 +5711,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         const error = e instanceof Error ? e.message : String(e);
         bookCreateStatus.set(bookId, { status: "error", error });
         broadcast("spinoff:error", { bookId, error });
-        broadcast("book:error", { bookId, error });
-      }
-    })();
-    return c.json({ status: "creating", bookId });
-  });
-
-  // --- Imitation (仿写) init: original story imitating a reference work's style ---
-
-  app.post("/api/v1/imitation/init", async (c) => {
-    const body = await c.req.json<{
-      title: string; referenceText: string; storyIdea: string; sourceName?: string;
-      genre?: string; platform?: string;
-      targetChapters?: number; chapterWordCount?: number; language?: string;
-    }>();
-    if (!body.title?.trim() || !body.referenceText?.trim() || !body.storyIdea?.trim()) {
-      return c.json({ error: "title, referenceText and storyIdea are required" }, 400);
-    }
-    const now = new Date().toISOString();
-    const bookConfig = buildStudioBookConfig({
-      title: body.title,
-      genre: body.genre ?? "other",
-      platform: body.platform,
-      targetChapters: body.targetChapters,
-      chapterWordCount: body.chapterWordCount,
-      ...(body.language ? { language: body.language as "zh" | "en" } : {}),
-    }, now);
-    const bookId = bookConfig.id;
-    if (!bookId) {
-      return c.json({ error: "Could not derive a valid book id from title" }, 400);
-    }
-    if (await completeBookExists(state.bookDir(bookId))) {
-      return c.json({ error: `Book "${bookId}" already exists` }, 409);
-    }
-    broadcast("imitation:start", { bookId, title: body.title });
-    bookCreateStatus.set(bookId, { status: "creating" });
-    void (async () => {
-      try {
-        const pipeline = new PipelineRunner(await buildPipelineConfig());
-        await pipeline.initImitationBook(bookConfig, body.referenceText, body.storyIdea, body.sourceName);
-        const book = await loadStudioBookListSummary(state, bookId).catch(() => undefined);
-        bookCreateStatus.delete(bookId);
-        broadcast("imitation:complete", { bookId });
-        broadcast("book:created", { bookId, ...(book ? { book } : {}) });
-      } catch (e) {
-        const error = e instanceof Error ? e.message : String(e);
-        bookCreateStatus.set(bookId, { status: "error", error });
-        broadcast("imitation:error", { bookId, error });
         broadcast("book:error", { bookId, error });
       }
     })();

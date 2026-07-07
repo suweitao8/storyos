@@ -27,7 +27,7 @@ const SAFE_TRUTH_FLAT_FILE_NAMES = new Set([
   "particle_ledger.md",
   "subplot_board.md",
   "emotional_arcs.md",
-  "style_guide.md",
+  "writing_methodology.md",
   "parent_canon.md",
   "fanfic_canon.md",
   "character_matrix.md",

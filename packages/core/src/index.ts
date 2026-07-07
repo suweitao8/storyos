@@ -6,7 +6,7 @@ export { type CurrentState, type ParticleLedger, type PendingHooks, type Pending
 export { type GenreProfile, type ParsedGenreProfile, GenreProfileSchema, parseGenreProfile } from "./models/genre-profile.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
-export { type StyleProfile } from "./models/style-profile.js";
+export { type CraftProfile, type CraftExemplar, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type CraftMeta } from "./models/craft-profile.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {
   type RuntimeStateLanguage,
@@ -439,7 +439,8 @@ export { buildWriterSystemPrompt, buildGoldenOpeningDiscipline } from "./agents/
 export { analyzeAITells, type AITellResult, type AITellIssue } from "./agents/ai-tells.js";
 export { analyzeSensitiveWords, type SensitiveWordResult, type SensitiveWordMatch } from "./agents/sensitive-words.js";
 export { detectAIContent, type DetectionResult } from "./agents/detector.js";
-export { analyzeStyle } from "./agents/style-analyzer.js";
+export { CraftAnalyzerAgent, splitCraftChapters, selectSampleChapters, validateExemplars } from "./agents/craft-analyzer.js";
+export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./agents/craft-prompts.js";
 export { analyzeDetectionInsights } from "./agents/detection-insights.js";
 export { validatePostWrite, detectParagraphLengthDrift, detectParagraphShapeWarnings, detectDuplicateTitle, type PostWriteViolation } from "./agents/post-write-validator.js";
 export { ChapterAnalyzerAgent, type AnalyzeChapterInput, type AnalyzeChapterOutput } from "./agents/chapter-analyzer.js";

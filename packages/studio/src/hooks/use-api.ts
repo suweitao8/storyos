@@ -24,8 +24,7 @@ export function deriveInvalidationPaths(path: string): ReadonlyArray<string> {
   if (
     normalized === "/api/v1/books/create" ||
     normalized === "/api/v1/fanfic/init" ||
-    normalized === "/api/v1/spinoff/init" ||
-    normalized === "/api/v1/imitation/init"
+    normalized === "/api/v1/spinoff/init"
   ) {
     return ["/api/v1/books"];
   }

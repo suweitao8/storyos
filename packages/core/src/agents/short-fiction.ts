@@ -71,6 +71,7 @@ export interface ShortFictionOutlineInput {
   readonly chapterCount: number;
   readonly charsPerChapter: number;
   readonly reference?: ShortFictionReference;
+  readonly craftGuide?: string;
   readonly language?: ShortFictionLanguage;
 }
 
@@ -92,6 +93,8 @@ export interface ShortFictionDraftInput {
   readonly outlineMarkdown: string;
   readonly chapterCount: number;
   readonly charsPerChapter: number;
+  readonly craftGuide?: string;
+  readonly craftExemplars?: string;
   readonly language?: ShortFictionLanguage;
 }
 

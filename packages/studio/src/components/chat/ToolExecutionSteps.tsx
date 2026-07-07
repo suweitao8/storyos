@@ -139,7 +139,7 @@ export interface ProposedActionDetails {
   readonly execId: string;
   readonly action: ChatRequestedIntent;
   readonly targetSessionKind: ChatSessionKind;
-  readonly targetRoute?: "import:fanfic" | "import:chapters" | "import:canon" | "import:spinoff" | "import:imitation" | "style";
+  readonly targetRoute?: "import:fanfic" | "import:chapters" | "import:canon" | "import:spinoff";
   readonly sameSession?: boolean;
   readonly title?: string;
   readonly summary?: string;
@@ -181,8 +181,6 @@ function proposedTargetRouteField(record: Record<string, unknown>): ProposedActi
     || value === "import:chapters"
     || value === "import:canon"
     || value === "import:spinoff"
-    || value === "import:imitation"
-    || value === "style"
   ) {
     return value;
   }

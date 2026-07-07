@@ -21,7 +21,6 @@ export const RequestedIntentSchema = z.enum([
   "fanfic_init",
   "continuation_import",
   "spinoff_create",
-  "style_imitation",
   "script_create",
   "storyboard_create",
   "interactive_film_create",
