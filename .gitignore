@@ -33,4 +33,5 @@ prompt/
 CLAUDE.md
 .studio-live/
 .studio-live-*.log
+.screenshots/
 .zcode/
