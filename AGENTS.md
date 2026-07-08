@@ -38,6 +38,19 @@
 - 如果脚本判断主 checkout 或 worktree 不是干净状态，先处理干净，再继续。
 - 除非用户明确要求保留 worktree，否则不要把已完成的 worktree 挂着不管。
 
+## Studio 重启
+
+- 每次 finish-worktree 合并回 master 后，如果改动涉及 Studio 前端或后端代码，必须立刻自动重启 Studio，不要询问用户。
+- 重启步骤：
+  1. 杀掉占用 4567/4569 端口的旧进程（`netstat -ano | grep ":456[79].*LISTENING"` 取 PID，`taskkill //PID <pid> //F`）。
+  2. 在主 checkout 执行 `pnpm install`（确保新依赖到位）。
+  3. 在 `packages/studio` 目录下用 Git Bash 启动：
+     - API: `INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../.. npx tsx watch --clear-screen=false src/api/index.ts &`
+     - 前端: `npx vite --host --port 4567 &`
+  4. 等待 5 秒，确认端口监听成功。
+- 如果端口已被占用且进程是 Studio 相关的 tsx/vite，先杀再启。
+- 不要等用户催，合并完就重启。
+
 ## 验证要求
 
 - 提交前先确认 `git status --short` 只剩预期改动。
