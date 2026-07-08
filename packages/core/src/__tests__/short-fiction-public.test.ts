@@ -142,13 +142,13 @@ describe("public short-fiction chain", () => {
         language: "zh",
         llm: {
           provider: "openai",
-          service: "kkaiapi",
+          service: "astronCodingPlan",
           configSource: "studio",
-          baseUrl: "https://api.kkaiapi.com/v1",
+          baseUrl: "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
           apiKey: "",
-          model: "deepseek-v4-flash",
+          model: "astron-code-latest",
           cover: {
-            service: "kkaiapi",
+            service: "grsai",
             model: "gpt-image-2",
           },
         },
@@ -156,13 +156,13 @@ describe("public short-fiction chain", () => {
       }, null, 2), "utf-8");
       await saveSecrets(root, {
         services: {
-          "cover:kkaiapi": { apiKey: "sk-cover" },
+          "cover:grsai": { apiKey: "sk-cover" },
         },
       });
 
       await expect(resolveCoverGenerationRequest({ root })).resolves.toMatchObject({
-        api: "images",
-        baseUrl: "https://api.kkaiapi.com/v1",
+        api: "grsai",
+        baseUrl: "https://grsai.dakka.com.cn",
         model: "gpt-image-2",
         apiKey: "sk-cover",
       });

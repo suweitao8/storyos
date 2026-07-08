@@ -265,6 +265,16 @@ const strings = {
   "config.imageModel": { zh: "图片大模型", en: "Image Models" },
   "config.voiceModel": { zh: "语音大模型", en: "Voice Models" },
   "config.voiceModelEmpty": { zh: "暂未配置语音模型", en: "No voice model configured" },
+  "voice.provider": { zh: "服务商", en: "Provider" },
+  "voice.model": { zh: "模型", en: "Model" },
+  "voice.apiKey": { zh: "API Key", en: "API Key" },
+  "voice.apiKeyPlaceholder": { zh: "粘贴 API Key...", en: "Paste API Key..." },
+  "voice.test": { zh: "测试连接", en: "Test Connection" },
+  "voice.testing": { zh: "测试中...", en: "Testing..." },
+  "voice.testSuccess": { zh: "连接成功", en: "Connection successful" },
+  "voice.testFailed": { zh: "连接失败", en: "Connection failed" },
+  "voice.save": { zh: "保存", en: "Save" },
+  "voice.saved": { zh: "已保存", en: "Saved" },
 
   // Project Settings
   "settings.title": { zh: "设置", en: "Settings" },

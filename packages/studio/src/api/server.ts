@@ -59,6 +59,10 @@ import {
   Scheduler,
   coverSecretKey,
   resolveCoverProviderPreset,
+  VOICE_PROVIDER_PRESETS,
+  voiceSecretKey,
+  resolveVoiceProviderPreset,
+  testVoiceConnection,
   SessionKindSchema,
   isExplicitWriteChapterCommand,
   isUsablePlayInitialScene,
@@ -3250,6 +3254,111 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
     await saveSecrets(root, secrets);
     return c.json({ ok: true, service });
+  });
+
+  // --- Voice (TTS) config ---
+
+  app.get("/api/v1/voice/config", async (c) => {
+    const config = await loadRawConfig(root);
+    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
+    const voice = (llm.voice as { service?: string; model?: string } | undefined) ?? {};
+    const secrets = await loadSecrets(root);
+    const keyFor = (service: string): boolean =>
+      Boolean(secrets.services[voiceSecretKey(service)]?.apiKey);
+    const configured = Boolean(voice.service && keyFor(voice.service));
+    return c.json({
+      service: voice.service ?? null,
+      model: voice.model ?? null,
+      configured,
+      providers: VOICE_PROVIDER_PRESETS.map((provider) => ({
+        service: provider.service,
+        label: provider.label,
+        baseUrl: provider.baseUrl,
+        defaultModel: provider.defaultModel,
+        models: provider.models,
+        connected: keyFor(provider.service),
+      })),
+    });
+  });
+
+  app.put("/api/v1/voice/config", async (c) => {
+    const body = await c.req.json<{ service?: string; model?: string }>();
+    const preset = resolveVoiceProviderPreset(body.service);
+    if (!preset) {
+      return c.json({ error: "Unsupported voice service" }, 400);
+    }
+    const model = typeof body.model === "string" && preset.models.includes(body.model)
+      ? body.model
+      : preset.defaultModel;
+
+    const config = await loadRawConfig(root);
+    config.llm = config.llm ?? {};
+    const llm = config.llm as Record<string, unknown>;
+    llm.voice = { service: preset.service, model };
+    await saveRawConfig(root, config);
+    return c.json({ ok: true, service: preset.service, model });
+  });
+
+  app.get("/api/v1/voice/secret/:service", async (c) => {
+    const service = c.req.param("service");
+    if (!resolveVoiceProviderPreset(service)) {
+      return c.json({ error: "Unsupported voice service" }, 400);
+    }
+    const secrets = await loadSecrets(root);
+    return c.json({ apiKey: secrets.services[voiceSecretKey(service)]?.apiKey ?? "" });
+  });
+
+  app.put("/api/v1/voice/secret/:service", async (c) => {
+    const service = c.req.param("service");
+    if (!resolveVoiceProviderPreset(service)) {
+      return c.json({ error: "Unsupported voice service" }, 400);
+    }
+    const body = await c.req.json<{ apiKey?: string }>();
+    const trimmedKey = body.apiKey?.trim() ?? "";
+    if (trimmedKey && !isHeaderSafeApiKey(trimmedKey)) {
+      return c.json({
+        error: pick(
+          await currentProjectLanguage(),
+          "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
+          "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
+        ),
+      }, 400);
+    }
+    const secrets = await loadSecrets(root);
+    const key = voiceSecretKey(service);
+    if (trimmedKey) {
+      secrets.services[key] = { apiKey: trimmedKey };
+    } else {
+      delete secrets.services[key];
+    }
+    await saveSecrets(root, secrets);
+    return c.json({ ok: true, service });
+  });
+
+  app.post("/api/v1/voice/test", async (c) => {
+    const config = await loadRawConfig(root);
+    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
+    const voice = (llm.voice as { service?: string; model?: string } | undefined) ?? {};
+    const service = voice.service ?? "bailian";
+    const preset = resolveVoiceProviderPreset(service);
+    if (!preset) {
+      return c.json({ error: "Unsupported voice service" }, 400);
+    }
+    const secrets = await loadSecrets(root);
+    const apiKey = secrets.services[voiceSecretKey(service)]?.apiKey ?? "";
+    if (!apiKey) {
+      return c.json({ error: "Voice API key not configured" }, 400);
+    }
+    try {
+      const result = await testVoiceConnection({
+        baseUrl: preset.baseUrl,
+        apiKey,
+        model: voice.model ?? preset.defaultModel,
+      });
+      return c.json(result);
+    } catch (e) {
+      return c.json({ success: false, message: e instanceof Error ? e.message : String(e) }, 500);
+    }
   });
 
   app.delete("/api/v1/services/:service", async (c) => {
