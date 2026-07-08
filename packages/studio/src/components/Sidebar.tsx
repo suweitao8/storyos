@@ -427,32 +427,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </Collapse>
         </div>
 
-        {/* 互动影游 Section */}
-        <div data-testid="film-projects-section">
-          <SectionHeader label={t("nav.createInteractiveFilm")} expanded={filmsExpanded} onToggle={() => setFilmsExpanded((v) => !v)} />
-          <Collapse open={filmsExpanded}>
-            <div className="space-y-0.5 pt-1">
-              {films.map((film) => (
-                <button
-                  key={film.projectId}
-                  type="button"
-                  data-testid={`film-project-${film.projectId}`}
-                  onClick={() => nav.toFilmStudio(film.projectId)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-left hover:bg-secondary/30 transition-colors"
-                >
-                  <Film size={14} className="shrink-0 text-muted-foreground" />
-                  <span className="truncate text-[15px] text-foreground">{film.title}</span>
-                </button>
-              ))}
-              {films.length === 0 && (
-                <div className="px-3 py-6 text-xs text-muted-foreground/50 italic text-center">
-                  {tr("还没有互动影游项目", "No interactive film projects yet")}
-                </div>
-              )}
-            </div>
-          </Collapse>
-        </div>
-
         {/* Sessions Section */}
         <div>
           <SectionHeader

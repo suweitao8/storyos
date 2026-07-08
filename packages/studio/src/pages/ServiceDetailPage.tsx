@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchJson } from "../hooks/use-api";
 import { useServiceStore } from "../store/service";
 import { Eye, EyeOff, Loader2, ArrowLeft, Trash2 } from "lucide-react";
@@ -57,6 +57,10 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   const [detectedModel, setDetectedModel] = useState<string>("");
   const [detectedConfig, setDetectedConfig] = useState<DetectedConfig | null>(null);
   const [verifiedProbe, setVerifiedProbe] = useState<VerifiedProbe | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [secretLoaded, setSecretLoaded] = useState(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const savedSnapshotRef = useRef("");
 
   // -- Unified connection status --
   const [status, setStatus] = useState<ConnectionStatus>({ state: "idle" });
@@ -67,14 +71,16 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
       .then((data) => {
         if (cancelled) return;
         const matched = matchServiceConfigEntryForDetail(data.services ?? [], serviceId);
-        if (!matched) return;
-        if (isCustom) {
-          setCustomName(String(matched.name ?? persistedCustomName));
-          setBaseUrl(String(matched.baseUrl ?? ""));
+        if (matched) {
+          if (isCustom) {
+            setCustomName(String(matched.name ?? persistedCustomName));
+            setBaseUrl(String(matched.baseUrl ?? ""));
+          }
+          if (typeof matched.temperature === "number") setTemperature(String(matched.temperature));
+          if (matched.apiFormat === "chat" || matched.apiFormat === "responses") setApiFormat(matched.apiFormat);
+          if (typeof matched.stream === "boolean") setStream(matched.stream);
         }
-        if (typeof matched.temperature === "number") setTemperature(String(matched.temperature));
-        if (matched.apiFormat === "chat" || matched.apiFormat === "responses") setApiFormat(matched.apiFormat);
-        if (typeof matched.stream === "boolean") setStream(matched.stream);
+        setConfigLoaded(true);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -87,6 +93,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
 
   useEffect(() => {
     let cancelled = false;
+    setSecretLoaded(false);
     void rehydrateServiceConnectionStatus({
       effectiveServiceId,
       shouldVerify: Boolean(svc?.connected),
@@ -108,6 +115,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
       .catch(() => {
         if (cancelled) return;
         setStatus({ state: "idle" });
+      })
+      .finally(() => {
+        if (!cancelled) setSecretLoaded(true);
       });
     return () => { cancelled = true; };
   }, [
@@ -126,6 +136,104 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   const isConnected = Boolean(svc?.connected);
   const models = status.state === "connected" ? status.models : (storeModels ?? []);
   const isBusy = status.state === "testing" || status.state === "saving";
+  const currentSnapshot = JSON.stringify({
+    apiKey: apiKey.trim(),
+    customName: customName.trim(),
+    baseUrl: baseUrl.trim(),
+    temperature: temperature.trim(),
+    apiFormat,
+    stream,
+  });
+
+  const persistConfig = useCallback(async (redirectAfterSave: boolean) => {
+    const trimmedKey = apiKey.trim();
+    const trimmedBaseUrl = baseUrl.trim();
+    setApiKey(trimmedKey);
+    if (isCustom && !trimmedBaseUrl) {
+      setStatus({ state: "error", message: tr("请先填写 Base URL", "Enter a base URL first") });
+      return;
+    }
+    setStatus({ state: "saving" });
+    try {
+      const result = await saveServiceConfig({
+        effectiveServiceId,
+        serviceId,
+        isCustom,
+        resolvedCustomName,
+        apiKey: trimmedKey,
+        baseUrl,
+        apiFormat,
+        stream,
+        temperature,
+        detectedModel,
+        verifiedProbe,
+      });
+      if (result.status.state === "connected") {
+        const nextApiFormat = result.detectedConfig?.apiFormat ?? apiFormat;
+        const nextStream = typeof result.detectedConfig?.stream === "boolean" ? result.detectedConfig.stream : stream;
+        const nextBaseUrl = isCustom ? (result.detectedConfig?.baseUrl ?? baseUrl.trim()) : "";
+        if (result.detectedConfig?.apiFormat) setApiFormat(result.detectedConfig.apiFormat);
+        if (typeof result.detectedConfig?.stream === "boolean") setStream(result.detectedConfig.stream);
+        if (isCustom && result.detectedConfig?.baseUrl) setBaseUrl(result.detectedConfig.baseUrl);
+        setDetectedModel(result.detectedModel);
+        setDetectedConfig(result.detectedConfig);
+        setStoreModels(effectiveServiceId, result.status.models);
+        setStatus(result.status);
+        savedSnapshotRef.current = JSON.stringify({
+          apiKey: trimmedKey,
+          customName: customName.trim(),
+          baseUrl: nextBaseUrl,
+          temperature: temperature.trim(),
+          apiFormat: nextApiFormat,
+          stream: nextStream,
+        });
+      } else {
+        setStatus(result.status);
+        if (result.status.state === "error") return;
+      }
+      await refreshServices();
+      if (redirectAfterSave) nav.toServices();
+    } catch (e) {
+      setStatus({ state: "error", message: e instanceof Error ? e.message : tr("保存失败", "Save failed") });
+    }
+  }, [
+    apiFormat,
+    apiKey,
+    baseUrl,
+    currentSnapshot,
+    detectedModel,
+    effectiveServiceId,
+    isCustom,
+    nav,
+    refreshServices,
+    resolvedCustomName,
+    serviceId,
+    setStoreModels,
+    stream,
+    temperature,
+    verifiedProbe,
+  ]);
+
+  useEffect(() => {
+    if (!configLoaded || !secretLoaded) return;
+    if (!savedSnapshotRef.current) {
+      savedSnapshotRef.current = currentSnapshot;
+      return;
+    }
+    if (status.state === "saving" || status.state === "testing" || status.state === "error") return;
+    if (currentSnapshot === savedSnapshotRef.current) return;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void persistConfig(false);
+    }, 700);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [configLoaded, currentSnapshot, persistConfig, secretLoaded, status.state]);
 
   // -- Handlers --
   const handleTest = async () => {
@@ -192,47 +300,6 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
     }
   };
 
-  const handleSave = async () => {
-    const trimmedKey = apiKey.trim();
-    setApiKey(trimmedKey);
-    if (isCustom && !baseUrl.trim()) {
-      setStatus({ state: "error", message: tr("请先填写 Base URL", "Enter a base URL first") });
-      return;
-    }
-    setStatus({ state: "saving" });
-    try {
-      const result = await saveServiceConfig({
-        effectiveServiceId,
-        serviceId,
-        isCustom,
-        resolvedCustomName,
-        apiKey: trimmedKey,
-        baseUrl,
-        apiFormat,
-        stream,
-        temperature,
-        detectedModel,
-        verifiedProbe,
-      });
-      if (result.status.state === "connected") {
-        if (result.detectedConfig?.apiFormat) setApiFormat(result.detectedConfig.apiFormat);
-        if (typeof result.detectedConfig?.stream === "boolean") setStream(result.detectedConfig.stream);
-        if (isCustom && result.detectedConfig?.baseUrl) setBaseUrl(result.detectedConfig.baseUrl);
-        setDetectedModel(result.detectedModel);
-        setDetectedConfig(result.detectedConfig);
-        setStoreModels(effectiveServiceId, result.status.models);
-        setStatus(result.status);
-      } else {
-        setStatus(result.status);
-        if (result.status.state === "error") return;
-      }
-      await refreshServices();
-      nav.toServices();
-    } catch (e) {
-      setStatus({ state: "error", message: e instanceof Error ? e.message : tr("保存失败", "Save failed") });
-    }
-  };
-
   return (
     <div className="max-w-xl mx-auto space-y-6">
       {/* Back */}
@@ -292,7 +359,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
             {status.state === "testing" && <Loader2 size={12} className="animate-spin" />}
             {tr("测试连接", "Test connection")}
           </button>
-          <button onClick={handleSave} disabled={isBusy}
+          <button onClick={() => void persistConfig(true)} disabled={isBusy}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
             {status.state === "saving" && <Loader2 size={12} className="animate-spin" />}
             {tr("保存", "Save")}

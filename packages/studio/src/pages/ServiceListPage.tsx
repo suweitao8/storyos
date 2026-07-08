@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, EyeOff, Loader2, Plus } from "lucide-react";
 import { tr } from "../lib/app-language";
 import { fetchJson } from "../hooks/use-api";
@@ -65,16 +65,38 @@ interface CoverConfigPayload {
   readonly providers: readonly CoverProviderInfo[];
 }
 
+function resolveSingleModel(
+  provider: { readonly defaultModel: string; readonly models: readonly string[] } | undefined,
+  currentModel: string,
+  fallbackModel: string,
+): string {
+  if (provider?.defaultModel && provider.models.includes(provider.defaultModel)) {
+    return provider.defaultModel;
+  }
+  if (provider?.models[0]) {
+    return provider.models[0];
+  }
+  return currentModel || fallbackModel;
+}
+
 function CoverConfigCard() {
   const [providers, setProviders] = useState<readonly CoverProviderInfo[]>([]);
   const [service, setService] = useState("kkaiapi");
   const [model, setModel] = useState("gpt-image-2");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("loading");
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "testing" | "saved" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [secretLoaded, setSecretLoaded] = useState(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const savedSnapshotRef = useRef("");
 
   const selected = providers.find((provider) => provider.service === service);
+  const modelOptions = useMemo(() => {
+    const resolved = resolveSingleModel(selected, model, "gpt-image-2");
+    return resolved ? [resolved] : [];
+  }, [model, selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,8 +107,9 @@ function CoverConfigCard() {
         const nextService = payload.service ?? payload.providers[0]?.service ?? "kkaiapi";
         const provider = payload.providers.find((item) => item.service === nextService) ?? payload.providers[0];
         setService(nextService);
-        setModel(payload.model ?? provider?.defaultModel ?? "gpt-image-2");
+        setModel(resolveSingleModel(provider, payload.model ?? "", "gpt-image-2"));
         setStatus("idle");
+        setConfigLoaded(true);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -99,6 +122,7 @@ function CoverConfigCard() {
   useEffect(() => {
     if (!service) return;
     let cancelled = false;
+    setSecretLoaded(false);
     void fetchJson<{ apiKey?: string }>(`/cover/secret/${encodeURIComponent(service)}`)
       .then((payload) => {
         if (cancelled) return;
@@ -106,6 +130,9 @@ function CoverConfigCard() {
       })
       .catch(() => {
         if (!cancelled) setApiKey("");
+      })
+      .finally(() => {
+        if (!cancelled) setSecretLoaded(true);
       });
     return () => { cancelled = true; };
   }, [service]);
@@ -113,16 +140,21 @@ function CoverConfigCard() {
   const handleServiceChange = (nextService: string) => {
     const provider = providers.find((item) => item.service === nextService);
     setService(nextService);
-    setModel(provider?.defaultModel ?? "gpt-image-2");
+    setModel(resolveSingleModel(provider, "", "gpt-image-2"));
     setStatus("idle");
     setMessage("");
   };
 
-  const handleSave = async () => {
+  const saveConfig = useCallback(async (reason: "manual" | "auto") => {
     const provider = selected;
     if (!provider) return;
     setStatus("saving");
     setMessage("");
+    const snapshot = JSON.stringify({
+      service: provider.service,
+      model,
+      apiKey: apiKey.trim(),
+    });
     try {
       await fetchJson(`/cover/secret/${encodeURIComponent(provider.service)}`, {
         method: "PUT",
@@ -134,11 +166,69 @@ function CoverConfigCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: provider.service, model }),
       });
+      savedSnapshotRef.current = snapshot;
       setStatus("saved");
-      setMessage(tr("封面配置已保存", "Cover config saved"));
+      setMessage(reason === "auto" ? tr("封面配置已自动保存", "Cover config auto-saved") : tr("封面配置已保存", "Cover config saved"));
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : tr("保存封面配置失败", "Failed to save cover config"));
+    }
+  }, [apiKey, model, selected]);
+
+  useEffect(() => {
+    if (!configLoaded || !secretLoaded) return;
+    const snapshot = JSON.stringify({
+      service,
+      model,
+      apiKey: apiKey.trim(),
+    });
+    if (!savedSnapshotRef.current) {
+      savedSnapshotRef.current = snapshot;
+      return;
+    }
+    if (status === "saving" || status === "testing" || status === "error") return;
+    if (snapshot === savedSnapshotRef.current) return;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveConfig("auto");
+    }, 700);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [apiKey, configLoaded, model, saveConfig, secretLoaded, service, status]);
+
+  const handleTest = async () => {
+    const provider = selected;
+    if (!provider) return;
+    setStatus("testing");
+    setMessage("");
+    try {
+      const result = await fetchJson<{ ok?: boolean; error?: string; message?: string }>(
+        `/services/${encodeURIComponent(provider.service)}/test`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            apiKey: apiKey.trim(),
+            apiFormat: "chat",
+            stream: true,
+          }),
+        },
+      );
+      if (result.ok === false) {
+        setStatus("error");
+        setMessage(result.error ?? result.message ?? tr("连接失败", "Connection failed"));
+      } else {
+        setStatus("saved");
+        setMessage(result.message ?? tr("连接成功", "Connection successful"));
+      }
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : tr("连接失败", "Connection failed"));
     }
   };
 
@@ -183,7 +273,7 @@ function CoverConfigCard() {
             onChange={(event) => setModel(event.target.value)}
             className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
           >
-            {(selected?.models ?? [model]).map((item) => (
+            {modelOptions.map((item) => (
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
@@ -212,12 +302,20 @@ function CoverConfigCard() {
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          onClick={handleSave}
-          disabled={status === "saving" || !selected}
+          onClick={() => void saveConfig("manual")}
+          disabled={status === "saving" || status === "testing" || !selected}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           {status === "saving" && <Loader2 size={12} className="animate-spin" />}
           {tr("保存封面配置", "Save cover config")}
+        </button>
+        <button
+          onClick={() => void handleTest()}
+          disabled={status === "saving" || status === "testing" || !selected}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 disabled:opacity-50"
+        >
+          {status === "testing" && <Loader2 size={12} className="animate-spin" />}
+          {tr("测试连接", "Test connection")}
         </button>
         {selected?.baseUrl && (
           <span className="text-xs text-muted-foreground/60">
@@ -257,8 +355,16 @@ function VoiceConfigCard() {
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "testing" | "saved" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [secretLoaded, setSecretLoaded] = useState(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const savedSnapshotRef = useRef("");
 
   const selected = providers.find((provider) => provider.service === service);
+  const modelOptions = useMemo(() => {
+    const resolved = resolveSingleModel(selected, model, "");
+    return resolved ? [resolved] : [];
+  }, [model, selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,8 +375,9 @@ function VoiceConfigCard() {
         const nextService = payload.service ?? payload.providers[0]?.service ?? "";
         const provider = payload.providers.find((item) => item.service === nextService) ?? payload.providers[0];
         setService(nextService);
-        setModel(payload.model ?? provider?.defaultModel ?? "");
+        setModel(resolveSingleModel(provider, payload.model ?? "", ""));
         setStatus("idle");
+        setConfigLoaded(true);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -283,6 +390,7 @@ function VoiceConfigCard() {
   useEffect(() => {
     if (!service) return;
     let cancelled = false;
+    setSecretLoaded(false);
     void fetchJson<{ apiKey?: string }>(`/voice/secret/${encodeURIComponent(service)}`)
       .then((payload) => {
         if (cancelled) return;
@@ -290,6 +398,9 @@ function VoiceConfigCard() {
       })
       .catch(() => {
         if (!cancelled) setApiKey("");
+      })
+      .finally(() => {
+        if (!cancelled) setSecretLoaded(true);
       });
     return () => { cancelled = true; };
   }, [service]);
@@ -297,16 +408,21 @@ function VoiceConfigCard() {
   const handleServiceChange = (nextService: string) => {
     const provider = providers.find((item) => item.service === nextService);
     setService(nextService);
-    setModel(provider?.defaultModel ?? "");
+    setModel(resolveSingleModel(provider, "", ""));
     setStatus("idle");
     setMessage("");
   };
 
-  const handleSave = async () => {
+  const saveConfig = useCallback(async (reason: "manual" | "auto") => {
     const provider = selected;
     if (!provider) return;
     setStatus("saving");
     setMessage("");
+    const snapshot = JSON.stringify({
+      service: provider.service,
+      model,
+      apiKey: apiKey.trim(),
+    });
     try {
       await fetchJson(`/voice/secret/${encodeURIComponent(provider.service)}`, {
         method: "PUT",
@@ -318,13 +434,40 @@ function VoiceConfigCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ service: provider.service, model }),
       });
+      savedSnapshotRef.current = snapshot;
       setStatus("saved");
-      setMessage(tr("语音配置已保存", "Voice config saved"));
+      setMessage(reason === "auto" ? tr("语音配置已自动保存", "Voice config auto-saved") : tr("语音配置已保存", "Voice config saved"));
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : tr("保存语音配置失败", "Failed to save voice config"));
     }
-  };
+  }, [apiKey, model, selected]);
+
+  useEffect(() => {
+    if (!configLoaded || !secretLoaded) return;
+    const snapshot = JSON.stringify({
+      service,
+      model,
+      apiKey: apiKey.trim(),
+    });
+    if (!savedSnapshotRef.current) {
+      savedSnapshotRef.current = snapshot;
+      return;
+    }
+    if (status === "saving" || status === "testing" || status === "error") return;
+    if (snapshot === savedSnapshotRef.current) return;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      void saveConfig("auto");
+    }, 700);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [apiKey, configLoaded, model, saveConfig, secretLoaded, service, status]);
 
   const handleTest = async () => {
     setStatus("testing");
@@ -382,7 +525,7 @@ function VoiceConfigCard() {
             onChange={(event) => setModel(event.target.value)}
             className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
           >
-            {(selected?.models ?? [model]).map((item) => (
+            {modelOptions.map((item) => (
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
@@ -411,7 +554,7 @@ function VoiceConfigCard() {
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          onClick={handleSave}
+          onClick={() => void saveConfig("manual")}
           disabled={status === "saving" || status === "testing" || !selected}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
@@ -464,8 +607,6 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h1 className="font-serif text-2xl">{tr("模型配置", "Models")}</h1>
-
       {/* --- Text Models --- */}
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{tr("文本大模型", "Text Models")}</h2>

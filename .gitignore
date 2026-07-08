@@ -34,4 +34,5 @@ CLAUDE.md
 .studio-live/
 .studio-live-*.log
 .screenshots/
+radar/
 .zcode/
