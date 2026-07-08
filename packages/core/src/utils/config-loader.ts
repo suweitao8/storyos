@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "../models/project.js";
+import { migrateConfig } from "../llm/config-migration.js";
 import {
   resolveEffectiveLLMConfig,
   type LLMConfigCliOverrides,
@@ -17,6 +18,9 @@ export async function loadProjectConfig(
     readonly consumer?: LLMConsumer;
   },
 ): Promise<ProjectConfig> {
+  if (options?.consumer === "studio") {
+    await migrateConfig(root);
+  }
   const envLayers = await loadLLMEnvLayers(root);
   const result = await resolveEffectiveLLMConfig({
     consumer: options?.consumer ?? "cli",

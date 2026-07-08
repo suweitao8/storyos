@@ -47,6 +47,32 @@ describe("config migration", () => {
     expect(secrets.services.moonshot.apiKey).toBe("sk-old-key");
   });
 
+  it("is idempotent when run again after migrating legacy llm config", async () => {
+    const oldConfig = {
+      llm: {
+        provider: "openai",
+        model: "gpt-4o",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-old",
+      },
+    };
+    await writeFile(join(root, "inkos.json"), JSON.stringify(oldConfig));
+
+    const first = await migrateConfig(root);
+    const second = await migrateConfig(root);
+
+    expect(first.migrated).toBe(true);
+    expect(second.migrated).toBe(false);
+
+    const raw = await readFile(join(root, "inkos.json"), "utf-8");
+    const config = JSON.parse(raw);
+    expect(config.llm.services).toHaveLength(1);
+    expect(config.llm.defaultModel).toBe("gpt-4o");
+
+    const secrets = await loadSecrets(root);
+    expect(secrets.services.openai.apiKey).toBe("sk-old");
+  });
+
   it("does nothing if already in new format", async () => {
     const newConfig = {
       name: "mybook",

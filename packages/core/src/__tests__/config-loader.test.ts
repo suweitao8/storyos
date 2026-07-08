@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadProjectConfig } from "../utils/config-loader.js";
+import { loadSecrets } from "../llm/secrets.js";
 
 const ENV_KEYS = [
   "INKOS_LLM_SERVICE",
@@ -115,6 +116,42 @@ describe("loadProjectConfig local provider auth", () => {
     expect(config.llm.model).toBe("kimi-k2.5");
     expect(config.llm.apiKey).toBe("sk-moon");
     expect(config.llm.temperature).toBe(1);
+  });
+
+  it("migrates old llm.provider/model/apiKey into secrets before Studio loads config", async () => {
+    root = await mkdtemp(join(tmpdir(), "inkos-config-loader-legacy-studio-"));
+    for (const key of ENV_KEYS) {
+      previousEnv.set(key, process.env[key]);
+      process.env[key] = "";
+    }
+
+    await writeFile(join(root, "inkos.json"), JSON.stringify({
+      name: "legacy-studio-project",
+      version: "0.1.0",
+      llm: {
+        provider: "openai",
+        model: "gpt-4o",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-old",
+      },
+    }, null, 2), "utf-8");
+    await writeFile(join(root, ".env"), "", "utf-8");
+
+    const config = await loadProjectConfig(root, { consumer: "studio" });
+
+    expect(config.llm).toMatchObject({
+      services: [{ service: "openai" }],
+      defaultModel: "gpt-4o",
+    });
+
+    const secrets = await loadSecrets(root);
+    expect(secrets.services.openai).toEqual({ apiKey: "sk-old" });
+
+    const configAgain = await loadProjectConfig(root, { consumer: "studio" });
+    expect(configAgain.llm).toMatchObject({
+      services: [{ service: "openai" }],
+      defaultModel: "gpt-4o",
+    });
   });
 
   it("derives provider/baseUrl from the MiniMax preset single source of truth", async () => {
