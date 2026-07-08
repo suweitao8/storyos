@@ -21,6 +21,7 @@ interface TextModelConfigPanelProps {
   serviceId: string;
   onBack?: () => void;
   redirectAfterSave?: boolean;
+  compact?: boolean;
 }
 
 function DetailSkeleton() {
@@ -41,6 +42,7 @@ export function TextModelConfigPanel({
   serviceId,
   onBack,
   redirectAfterSave = false,
+  compact = false,
 }: TextModelConfigPanelProps) {
   const services = useServiceStore((s) => s.services);
   const loading = useServiceStore((s) => s.servicesLoading);
@@ -329,7 +331,7 @@ export function TextModelConfigPanel({
   if (loading) return <DetailSkeleton />;
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className={compact ? "space-y-3" : "mx-auto max-w-xl space-y-6"}>
       {onBack && (
         <button
           onClick={onBack}
@@ -340,10 +342,14 @@ export function TextModelConfigPanel({
         </button>
       )}
 
-      <section className="rounded-xl border border-border/50 bg-card/50 p-5 space-y-5">
+      <section className={`rounded-xl border border-border/50 bg-card/50 ${compact ? "p-4 space-y-3" : "p-5 space-y-5"}`}>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="font-serif text-2xl">{label}</h1>
+            {compact ? (
+              <h2 className="text-sm font-medium text-foreground">{label}</h2>
+            ) : (
+              <h1 className="font-serif text-2xl">{label}</h1>
+            )}
             {isConnected && (
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                 {tr("已连接", "Connected")}

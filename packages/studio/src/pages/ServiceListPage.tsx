@@ -3,8 +3,6 @@ import { Eye, EyeOff, Loader2, Plus } from "lucide-react";
 import { tr } from "../lib/app-language";
 import { fetchJson } from "../hooks/use-api";
 import { useServiceStore } from "../store/service";
-import type { ServiceInfo } from "../store/service";
-import { ServiceQuickLinks, getServiceQuickLinks } from "../components/ServiceQuickLinks";
 import { TextModelConfigPanel } from "./ServiceDetailPage";
 
 interface Nav {
@@ -24,33 +22,6 @@ function SkeletonCard() {
   );
 }
 
-function ServiceCard({ svc, onClick }: { svc: ServiceInfo; onClick: () => void }) {
-  const quickLinks = getServiceQuickLinks(svc.service);
-  return (
-    <div
-      className={[
-        "flex min-h-[92px] flex-col gap-2 rounded-lg border p-5 text-left transition-all hover:shadow-sm",
-        svc.connected
-          ? "border-emerald-500/30 bg-emerald-500/[0.03]"
-          : "border-dashed border-border/40",
-      ].join(" ")}
-    >
-      <button onClick={onClick} className="flex flex-1 flex-col gap-2 text-left">
-        <div className="flex items-center justify-between gap-3">
-          <span className="truncate text-sm font-medium">{svc.label}</span>
-          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${svc.connected ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-        </div>
-        <span className="text-xs text-muted-foreground/60">
-          {svc.connected ? tr("已连接", "Connected") : tr("未配置", "Not configured")}
-        </span>
-      </button>
-      {quickLinks.length > 0 && (
-        <ServiceQuickLinks serviceId={svc.service} variant="card" className="pt-1" />
-      )}
-    </div>
-  );
-}
-
 interface CoverProviderInfo {
   readonly service: string;
   readonly label: string;
@@ -64,6 +35,10 @@ interface CoverConfigPayload {
   readonly service: string | null;
   readonly model: string | null;
   readonly providers: readonly CoverProviderInfo[];
+}
+
+function ServiceCard(_: { svc: { service: string }; onClick: () => void }) {
+  return null;
 }
 
 function resolveSingleModel(
@@ -596,15 +571,9 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
     () => services.filter((svc) => svc.service === "astronCodingPlan"),
     [services],
   );
-  const customServices = useMemo(
-    () => services.filter((s) => s.service.startsWith("custom")),
-    [services],
-  );
-
-  const filteredCustom = useMemo(() => customServices, [customServices]);
-
-  const canCreateCustom = true;
-  const showCustomSection = !loading && (filteredCustom.length > 0 || canCreateCustom);
+  const filteredCustom: Array<{ service: string }> = [];
+  const canCreateCustom = false;
+  const showCustomSection = false;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -619,7 +588,7 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
       )}
 
       {!loading && bankServices.length > 0 && (
-        <TextModelConfigPanel serviceId={bankServices[0]!.service} />
+        <TextModelConfigPanel serviceId={bankServices[0]!.service} compact />
       )}
 
       {showCustomSection && (
