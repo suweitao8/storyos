@@ -13,11 +13,17 @@ describe("resolveSingleModel", () => {
 
 describe("buildSecretSnapshot", () => {
   it("treats a masked key snapshot as unchanged until the user types a new key", () => {
-    expect(buildSecretSnapshot({
+    const masked = buildSecretSnapshot({
       service: "kkaiapi",
       model: "gpt-image-2",
       apiKey: "********",
-    })).not.toBe(buildSecretSnapshot({
+    });
+    expect(masked).toBe(JSON.stringify({
+      service: "kkaiapi",
+      model: "gpt-image-2",
+      apiKey: "********",
+    }));
+    expect(masked).not.toBe(buildSecretSnapshot({
       service: "kkaiapi",
       model: "gpt-image-2",
       apiKey: "sk-new",

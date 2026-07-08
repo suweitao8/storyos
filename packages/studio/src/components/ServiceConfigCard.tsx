@@ -9,7 +9,6 @@ interface ServiceConfigCardProps {
   readonly editing: boolean;
   readonly autosaveStatus: ServiceConfigCardAutosaveStatus;
   readonly onEditToggle: () => void;
-  readonly onModelChange: (model: string) => void;
   readonly onApiKeyChange: (apiKey: string) => void;
   readonly onToggleShowKey: () => void;
   readonly onTestConnection: () => void;
@@ -66,9 +65,8 @@ export function ServiceConfigCard(props: ServiceConfigCardProps) {
           <span className="block text-xs font-medium text-muted-foreground/70">Current model</span>
           <input
             value={props.model}
-            onChange={(event) => props.onModelChange(event.target.value)}
-            disabled={!props.editing}
-            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+            readOnly
+            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-muted-foreground/80"
           />
         </label>
 
