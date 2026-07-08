@@ -17,6 +17,12 @@ interface Nav {
   toServices: () => void;
 }
 
+interface TextModelConfigPanelProps {
+  serviceId: string;
+  onBack?: () => void;
+  redirectAfterSave?: boolean;
+}
+
 function DetailSkeleton() {
   return (
     <div className="max-w-xl mx-auto space-y-6 animate-pulse">
@@ -31,7 +37,11 @@ function DetailSkeleton() {
   );
 }
 
-export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: Nav }) {
+export function TextModelConfigPanel({
+  serviceId,
+  onBack,
+  redirectAfterSave = false,
+}: TextModelConfigPanelProps) {
   const services = useServiceStore((s) => s.services);
   const loading = useServiceStore((s) => s.servicesLoading);
   const fetchServices = useServiceStore((s) => s.fetchServices);
@@ -46,7 +56,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
 
   const svc = services.find((s) => s.service === serviceId);
   const isCustom = serviceId === "custom" || serviceId.startsWith("custom:");
-  const persistedCustomName = serviceId.startsWith("custom:") ? decodeURIComponent(serviceId.slice("custom:".length)) : "";
+  const persistedCustomName = serviceId.startsWith("custom:")
+    ? decodeURIComponent(serviceId.slice("custom:".length))
+    : "";
 
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -60,9 +72,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   const [verifiedProbe, setVerifiedProbe] = useState<VerifiedProbe | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [secretLoaded, setSecretLoaded] = useState(false);
+  const [status, setStatus] = useState<ConnectionStatus>({ state: "idle" });
   const saveTimerRef = useRef<number | null>(null);
   const savedSnapshotRef = useRef("");
-  const [status, setStatus] = useState<ConnectionStatus>({ state: "idle" });
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +102,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
 
   const resolvedCustomName = persistedCustomName || customName.trim() || "Custom";
   const effectiveServiceId = isCustom ? `custom:${resolvedCustomName}` : serviceId;
-  const label = isCustom ? (customName || persistedCustomName || tr("自定义服务", "Custom service")) : (svc?.label ?? serviceId);
+  const label = isCustom
+    ? (customName || persistedCustomName || tr("自定义服务", "Custom service"))
+    : (svc?.label ?? serviceId);
   const storeModels = useServiceStore((s) => s.modelsByService[effectiveServiceId]);
 
   useEffect(() => {
@@ -158,7 +172,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
     setSelectedModel(models[0]?.id ?? "");
   }, [models, selectedModel]);
 
-  const persistConfig = useCallback(async (redirectAfterSave: boolean) => {
+  const persistConfig = useCallback(async (shouldRedirect: boolean) => {
     const trimmedKey = apiKey.trim();
     const trimmedBaseUrl = baseUrl.trim();
     const nextSelectedModel = selectedModel.trim();
@@ -213,7 +227,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         if (result.status.state === "error") return;
       }
       await refreshServices();
-      if (redirectAfterSave) nav.toServices();
+      if (shouldRedirect && onBack) onBack();
     } catch (error) {
       setStatus({ state: "error", message: error instanceof Error ? error.message : tr("保存失败", "Save failed") });
     }
@@ -224,7 +238,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
     customName,
     effectiveServiceId,
     isCustom,
-    nav,
+    onBack,
     refreshServices,
     resolvedCustomName,
     selectedModel,
@@ -281,7 +295,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         ...(isCustom ? { baseUrl: baseUrl.trim() } : {}),
       });
       if (result.ok) {
-        const models = result.models ?? [];
+        const nextModels = result.models ?? [];
         const verifiedApiFormat = result.detected?.apiFormat ?? apiFormat;
         const verifiedStream = typeof result.detected?.stream === "boolean" ? result.detected.stream : stream;
         const verifiedBaseUrl = isCustom ? (result.detected?.baseUrl ?? baseUrl.trim()) : "";
@@ -295,13 +309,12 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           baseUrl: verifiedBaseUrl,
           apiFormat: verifiedApiFormat,
           stream: verifiedStream,
-          models,
+          models: nextModels,
           selectedModel: result.selectedModel,
           detected: result.detected,
         });
-        setStatus({ state: "connected", models });
-        setStoreModels(effectiveServiceId, models);
-        if (result.selectedModel) setSelectedModel(result.selectedModel);
+        setStatus({ state: "connected", models: nextModels });
+        setStoreModels(effectiveServiceId, nextModels);
       } else {
         setVerifiedProbe(null);
         setStatus({ state: "error", message: result.error ?? tr("连接失败", "Connection failed") });
@@ -317,25 +330,29 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <button
-        onClick={nav.toServices}
-        className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card/60 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
-      >
-        <ArrowLeft size={14} />
-        {tr("返回服务列表", "Back to providers")}
-      </button>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card/60 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
+        >
+          <ArrowLeft size={14} />
+          {tr("返回服务列表", "Back to providers")}
+        </button>
+      )}
 
       <section className="rounded-xl border border-border/50 bg-card/50 p-5 space-y-5">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="font-serif text-2xl">{tr("模型配置", "Model config")}</h1>
+            <h1 className="font-serif text-2xl">{label}</h1>
             {isConnected && (
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                 {tr("已连接", "Connected")}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground/70">{label}</p>
+          <p className="text-xs text-muted-foreground/70">
+            {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
+          </p>
         </div>
 
         {isCustom && (
@@ -374,7 +391,9 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
                 </option>
               ))
             ) : (
-              <option value={selectedModel || ""}>{selectedModel || tr("正在加载模型", "Loading models")}</option>
+              <option value={selectedModel || ""}>
+                {selectedModel || tr("正在加载模型", "Loading models")}
+              </option>
             )}
           </select>
           <p className="text-xs text-muted-foreground/60">
@@ -413,7 +432,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
             {tr("测试连接", "Test connection")}
           </button>
           <button
-            onClick={() => void persistConfig(true)}
+            onClick={() => void persistConfig(redirectAfterSave)}
             disabled={isBusy}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
@@ -422,7 +441,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           </button>
           {status.state === "connected" && (
             <span className="text-xs text-emerald-500">
-              {tr(`连接成功`, "Connected")}
+              {tr("连接成功", "Connected")}
               {selectedModelLabel ? ` · ${selectedModelLabel}` : ""}
               {detectedConfig
                 ? ` · ${detectedConfig.apiFormat === "responses" ? "Responses" : "Chat"} / ${detectedConfig.stream ? tr("流式", "Streaming") : tr("非流式", "Non-streaming")}`
@@ -438,6 +457,16 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         </div>
       </section>
     </div>
+  );
+}
+
+export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: Nav }) {
+  return (
+    <TextModelConfigPanel
+      serviceId={serviceId}
+      onBack={nav.toServices}
+      redirectAfterSave
+    />
   );
 }
 

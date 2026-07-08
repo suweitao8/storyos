@@ -5,6 +5,7 @@ import { fetchJson } from "../hooks/use-api";
 import { useServiceStore } from "../store/service";
 import type { ServiceInfo } from "../store/service";
 import { ServiceQuickLinks, getServiceQuickLinks } from "../components/ServiceQuickLinks";
+import { TextModelConfigPanel } from "./ServiceDetailPage";
 
 interface Nav {
   toDashboard: () => void;
@@ -618,15 +619,7 @@ export function ServiceListPage({ nav }: { nav: Nav }) {
       )}
 
       {!loading && bankServices.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          {bankServices.map((svc) => (
-            <ServiceCard
-              key={svc.service}
-              svc={svc}
-              onClick={() => nav.toServiceDetail(svc.service)}
-            />
-          ))}
-        </div>
+        <TextModelConfigPanel serviceId={bankServices[0]!.service} />
       )}
 
       {showCustomSection && (
