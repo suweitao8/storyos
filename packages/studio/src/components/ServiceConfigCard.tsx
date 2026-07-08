@@ -1,17 +1,13 @@
 import { Eye, EyeOff, Loader2, Pencil } from "lucide-react";
-import type { ServiceConfigCardModelInfo } from "../pages/service-config-card-state";
 
-export type ServiceConfigCardAutosaveStatus = "idle" | "saving" | "saved" | "testing" | "error";
+type ServiceConfigCardAutosaveStatus = "idle" | "saving" | "saved" | "testing" | "error";
 
-export interface ServiceConfigCardProps {
-  readonly title: string;
+interface ServiceConfigCardProps {
   readonly model: string;
-  readonly modelOptions: ReadonlyArray<ServiceConfigCardModelInfo | string>;
   readonly apiKey: string;
   readonly showKey: boolean;
   readonly editing: boolean;
   readonly autosaveStatus: ServiceConfigCardAutosaveStatus;
-  readonly autosaveMessage?: string;
   readonly onEditToggle: () => void;
   readonly onModelChange: (model: string) => void;
   readonly onApiKeyChange: (apiKey: string) => void;
@@ -48,24 +44,10 @@ function statusTone(status: ServiceConfigCardAutosaveStatus): string {
   }
 }
 
-function optionLabel(option: ServiceConfigCardModelInfo | string): string {
-  return typeof option === "string" ? option : (option.name ?? option.id);
-}
-
-function optionValue(option: ServiceConfigCardModelInfo | string): string {
-  return typeof option === "string" ? option : option.id;
-}
-
 export function ServiceConfigCard(props: ServiceConfigCardProps) {
   return (
     <section className="rounded-xl border border-border/50 bg-card/60 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium text-foreground">{props.title}</h2>
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            Current model and API key only.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={props.onEditToggle}
@@ -74,26 +56,20 @@ export function ServiceConfigCard(props: ServiceConfigCardProps) {
           <Pencil size={12} />
           {props.editing ? "Done" : "Edit"}
         </button>
+        <span className={`text-xs font-medium ${statusTone(props.autosaveStatus)}`}>
+          {statusLabel(props.autosaveStatus)}
+        </span>
       </div>
 
       <div className="mt-4 space-y-4">
         <label className="block space-y-1.5">
           <span className="block text-xs font-medium text-muted-foreground/70">Current model</span>
-          <select
+          <input
             value={props.model}
             onChange={(event) => props.onModelChange(event.target.value)}
             disabled={!props.editing}
             className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {props.modelOptions.map((option) => {
-              const value = optionValue(option);
-              return (
-                <option key={value} value={value}>
-                  {optionLabel(option)}
-                </option>
-              );
-            })}
-          </select>
+          />
         </label>
 
         <label className="block space-y-1.5">
@@ -128,12 +104,6 @@ export function ServiceConfigCard(props: ServiceConfigCardProps) {
             {props.autosaveStatus === "testing" ? <Loader2 size={12} className="animate-spin" /> : null}
             Test connection
           </button>
-          <span className={`text-xs font-medium ${statusTone(props.autosaveStatus)}`}>
-            {statusLabel(props.autosaveStatus)}
-          </span>
-          {props.autosaveMessage ? (
-            <span className="text-xs text-muted-foreground/70">{props.autosaveMessage}</span>
-          ) : null}
         </div>
       </div>
     </section>
