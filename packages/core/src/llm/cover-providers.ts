@@ -1,38 +1,22 @@
-export type CoverProviderId = "kkaiapi" | "openai" | "google";
+export type CoverProviderId = "grsai";
 
 export interface CoverProviderPreset {
   readonly service: CoverProviderId;
   readonly label: string;
   readonly baseUrl: string;
-  readonly api: "responses" | "images" | "gemini";
+  readonly api: "responses" | "images" | "gemini" | "grsai";
   readonly defaultModel: string;
   readonly models: readonly string[];
 }
 
 export const COVER_PROVIDER_PRESETS: readonly CoverProviderPreset[] = [
   {
-    service: "kkaiapi",
-    label: "kkaiapi",
-    baseUrl: "https://api.kkaiapi.com/v1",
-    api: "images",
+    service: "grsai",
+    label: "Grsai",
+    baseUrl: "https://grsai.dakka.com.cn",
+    api: "grsai",
     defaultModel: "gpt-image-2",
-    models: ["gpt-image-2"],
-  },
-  {
-    service: "openai",
-    label: "OpenAI Images",
-    baseUrl: "https://api.openai.com/v1",
-    api: "images",
-    defaultModel: "gpt-image-2",
-    models: ["gpt-image-2"],
-  },
-  {
-    service: "google",
-    label: "Google Gemini",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    api: "gemini",
-    defaultModel: "gemini-3.1-flash-image-preview",
-    models: ["gemini-3.1-flash-image-preview", "gemini-2.5-flash-image"],
+    models: ["gpt-image-2", "nano-banana-fast"],
   },
 ];
 

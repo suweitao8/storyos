@@ -420,6 +420,14 @@ export {
   type CoverProviderId,
   type CoverProviderPreset,
 } from "./llm/cover-providers.js";
+export {
+  VOICE_PROVIDER_PRESETS,
+  voiceSecretKey,
+  resolveVoiceProviderPreset,
+  testVoiceConnection,
+  type VoiceProviderId,
+  type VoiceProviderPreset,
+} from "./llm/voice-providers.js";
 export { migrateConfig, type MigrationResult } from "./llm/config-migration.js";
 export { getAllEndpoints, getEndpoint, type InkosEndpoint, type InkosModel, type EndpointGroup } from "./llm/providers/index.js";
 export { probeModelsFromUpstream, type ProbedModel } from "./llm/providers/probe.js";

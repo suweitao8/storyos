@@ -605,6 +605,9 @@ export async function generateImageFromPrompt(
   prompt: string,
   size: string,
 ): Promise<{ readonly buffer: Buffer; readonly extension: "png" | "jpg" }> {
+  if (request.api === "grsai") {
+    return generateGrsaiCover(request, prompt);
+  }
   if (request.api === "gemini") {
     const payload = await generateGeminiCover(request, prompt);
     return { buffer: Buffer.from(payload.base64, "base64"), extension: payload.extension };
@@ -643,6 +646,75 @@ export async function generateImageFromPrompt(
     throw new Error("image generation response did not include image_generation_call result.");
   }
   return { buffer: Buffer.from(imageBase64, "base64"), extension: "png" };
+}
+
+/**
+ * Generate an image via the Grsai draw API (SSE streaming).
+ * Endpoint: POST {baseUrl}/v1/draw/completions
+ * Response: SSE stream with `data:` events containing `{ results: [{ url }] }`.
+ */
+async function generateGrsaiCover(
+  request: ShortFictionCoverRequest,
+  prompt: string,
+): Promise<{ readonly buffer: Buffer; readonly extension: "png" | "jpg" }> {
+  const endpoint = request.endpoint ?? `${request.baseUrl.replace(/\/+$/u, "")}/v1/draw/completions`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${request.apiKey}`,
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify({
+      model: request.model,
+      prompt,
+      aspectRatio: "auto",
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`grsai image generation failed: HTTP ${response.status} ${text.slice(0, 500)}`);
+  }
+
+  // Parse SSE stream to find the final image URL.
+  const text = await response.text();
+  const imageUrl = extractGrsaiImageUrl(text);
+  if (!imageUrl) {
+    throw new Error("grsai image generation did not return an image URL");
+  }
+
+  // Download the image.
+  const imageResponse = await fetch(imageUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`failed to download grsai image: HTTP ${imageResponse.status}`);
+  }
+  const arrayBuffer = await imageResponse.arrayBuffer();
+  const contentType = imageResponse.headers.get("content-type") ?? "";
+  const extension = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  return { buffer: Buffer.from(arrayBuffer), extension };
+}
+
+/** Extract the first image URL from a Grsai SSE response body. */
+function extractGrsaiImageUrl(sseBody: string): string | undefined {
+  const lines = sseBody.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const data = trimmed.slice(5).trim();
+    if (data === "[DONE]" || data === "") continue;
+    try {
+      const parsed = JSON.parse(data) as Record<string, unknown>;
+      const results = parsed.results;
+      if (Array.isArray(results) && results.length > 0) {
+        const url = (results[0] as Record<string, unknown>)?.url;
+        if (typeof url === "string" && url) return url;
+      }
+    } catch {
+      // Not JSON, skip
+    }
+  }
+  return undefined;
 }
 
 export interface ShortFictionCoverRequest {

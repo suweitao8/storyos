@@ -11,7 +11,12 @@ const LLMServiceEntrySchema = z.object({
 });
 
 const LLMCoverConfigSchema = z.object({
-  service: z.enum(["kkaiapi", "openai", "google"]),
+  service: z.enum(["grsai"]),
+  model: z.string().min(1),
+}).optional();
+
+const LLMVoiceConfigSchema = z.object({
+  service: z.string().min(1),
   model: z.string().min(1),
 }).optional();
 
@@ -35,6 +40,7 @@ export const LLMConfigSchema = z.object({
   services: z.array(LLMServiceEntrySchema).optional(),
   defaultModel: z.string().min(1).optional(),
   cover: LLMCoverConfigSchema,
+  voice: LLMVoiceConfigSchema,
 });
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;

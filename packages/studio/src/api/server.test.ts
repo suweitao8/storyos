@@ -2211,7 +2211,7 @@ describe("createStudioServer daemon lifecycle", () => {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        service: "kkaiapi",
+        service: "grsai",
         model: "gpt-image-2",
       }),
     });
@@ -2219,11 +2219,11 @@ describe("createStudioServer daemon lifecycle", () => {
 
     const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
     expect(raw.llm.cover).toEqual({
-      service: "kkaiapi",
+      service: "grsai",
       model: "gpt-image-2",
     });
 
-    const saveSecret = await app.request("http://localhost/api/v1/cover/secret/kkaiapi", {
+    const saveSecret = await app.request("http://localhost/api/v1/cover/secret/grsai", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apiKey: "sk-cover" }),
@@ -2231,7 +2231,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(saveSecret.status).toBe(200);
     expect(saveSecretsMock).toHaveBeenCalledWith(root, {
       services: {
-        "cover:kkaiapi": { apiKey: "sk-cover" },
+        "cover:grsai": { apiKey: "sk-cover" },
       },
     });
   });
