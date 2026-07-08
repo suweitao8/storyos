@@ -300,7 +300,7 @@ function CoverConfigCard() {
         </div>
       </label>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={() => void saveConfig("manual")}
           disabled={status === "saving" || status === "testing" || !selected}
@@ -552,7 +552,7 @@ function VoiceConfigCard() {
         </div>
       </label>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={() => void saveConfig("manual")}
           disabled={status === "saving" || status === "testing" || !selected}
