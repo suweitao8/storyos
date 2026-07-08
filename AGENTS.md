@@ -44,9 +44,9 @@
 - 重启步骤：
   1. 杀掉占用 4567/4569 端口的旧进程（`netstat -ano | grep ":456[79].*LISTENING"` 取 PID，`taskkill //PID <pid> //F`）。
   2. 在主 checkout 执行 `pnpm install`（确保新依赖到位）。
-  3. 在 `packages/studio` 目录下用 Git Bash 启动：
-     - API: `INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../.. npx tsx watch --clear-screen=false src/api/index.ts &`
-     - 前端: `npx vite --host --port 4567 &`
+  3. 在 `packages/studio` 目录下用 Git Bash 启动（日志统一写到 `.studio-live/` 目录）：
+     - API: `INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../.. npx tsx watch --clear-screen=false src/api/index.ts > ../../.studio-live/server.out.log 2> ../../.studio-live/server.err.log &`
+     - 前端: `npx vite --host --port 4567 > ../../.studio-live/client.out.log 2> ../../.studio-live/client.err.log &`
   4. 等待 5 秒，确认端口监听成功。
 - 如果端口已被占用且进程是 Studio 相关的 tsx/vite，先杀再启。
 - 不要等用户催，合并完就重启。
