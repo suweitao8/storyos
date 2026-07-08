@@ -39,6 +39,10 @@ export function RadarView({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunct
     try {
       const data = await fetchJson<{ items: ReadonlyArray<RadarHistoryItem> }>("/radar/history");
       setHistory(data.items ?? []);
+      // Auto-show the latest scan result when opening the page
+      if (data.items && data.items.length > 0) {
+        setResult((prev) => prev ?? data.items[0]!.result);
+      }
     } catch {
       setHistory([]);
     }
