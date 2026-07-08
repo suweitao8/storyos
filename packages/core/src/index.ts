@@ -417,6 +417,7 @@ export {
   COVER_PROVIDER_PRESETS,
   coverSecretKey,
   resolveCoverProviderPreset,
+  testCoverConnection,
   type CoverProviderId,
   type CoverProviderPreset,
 } from "./llm/cover-providers.js";

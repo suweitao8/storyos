@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { fetchJson } from "../hooks/use-api";
 import { tr } from "../lib/app-language";
@@ -26,9 +26,12 @@ interface TextModelConfigPanelProps {
 
 function DetailSkeleton() {
   return (
-    <div className="max-w-xl mx-auto space-y-6 animate-pulse">
+    <div className="mx-auto max-w-xl animate-pulse space-y-6">
       <div className="h-4 w-16 rounded bg-muted" />
-      <div className="h-7 w-40 rounded bg-muted" />
+      <div className="space-y-2">
+        <div className="h-3 w-16 rounded bg-muted/60" />
+        <div className="h-10 w-full rounded-lg bg-muted/40" />
+      </div>
       <div className="space-y-2">
         <div className="h-3 w-16 rounded bg-muted/60" />
         <div className="h-10 w-full rounded-lg bg-muted/40" />
@@ -36,6 +39,11 @@ function DetailSkeleton() {
       <div className="h-9 w-24 rounded-lg bg-muted/40" />
     </div>
   );
+}
+
+function compactProviderLabel(serviceId: string, label: string): string {
+  if (serviceId === "astronCodingPlan") return tr("讯飞 Open Plan", "iFlytek Open Plan");
+  return label;
 }
 
 export function TextModelConfigPanel({
@@ -56,11 +64,14 @@ export function TextModelConfigPanel({
     void fetchServices();
   }, [fetchServices]);
 
-  const svc = services.find((s) => s.service === serviceId);
+  const svc = services.find((item) => item.service === serviceId);
   const isCustom = serviceId === "custom" || serviceId.startsWith("custom:");
   const persistedCustomName = serviceId.startsWith("custom:")
     ? decodeURIComponent(serviceId.slice("custom:".length))
     : "";
+  const resolvedLabel = isCustom
+    ? (persistedCustomName || tr("自定义服务", "Custom service"))
+    : (svc?.label ?? serviceId);
 
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -104,9 +115,6 @@ export function TextModelConfigPanel({
 
   const resolvedCustomName = persistedCustomName || customName.trim() || "Custom";
   const effectiveServiceId = isCustom ? `custom:${resolvedCustomName}` : serviceId;
-  const label = isCustom
-    ? (customName || persistedCustomName || tr("自定义服务", "Custom service"))
-    : (svc?.label ?? serviceId);
   const storeModels = useServiceStore((s) => s.modelsByService[effectiveServiceId]);
 
   useEffect(() => {
@@ -130,8 +138,7 @@ export function TextModelConfigPanel({
         setStatus(result.status);
       })
       .catch(() => {
-        if (cancelled) return;
-        setStatus({ state: "idle" });
+        if (!cancelled) setStatus({ state: "idle" });
       })
       .finally(() => {
         if (!cancelled) setSecretLoaded(true);
@@ -342,24 +349,30 @@ export function TextModelConfigPanel({
         </button>
       )}
 
-      <section className={`rounded-xl border border-border/50 bg-card/50 ${compact ? "p-4 space-y-3" : "p-5 space-y-5"}`}>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            {compact ? (
-              <h2 className="text-sm font-medium text-foreground">{label}</h2>
-            ) : (
-              <h1 className="font-serif text-2xl">{label}</h1>
-            )}
+      <section className={`rounded-xl border border-border/50 bg-card/50 ${compact ? "p-4 space-y-4" : "p-5 space-y-5"}`}>
+        {compact ? (
+          <div className="flex justify-end">
             {isConnected && (
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                 {tr("已连接", "Connected")}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground/70">
-            {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
-          </p>
-        </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="font-serif text-2xl">{resolvedLabel}</h1>
+              {isConnected && (
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                  {tr("已连接", "Connected")}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground/70">
+              {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
+            </p>
+          </div>
+        )}
 
         {isCustom && (
           <div className="grid gap-4 md:grid-cols-2">
@@ -384,7 +397,18 @@ export function TextModelConfigPanel({
           </div>
         )}
 
-        <Field label={tr("当前模型", "Current model")}>
+        {compact && (
+          <Field label={tr("服务商", "Provider")}>
+            <input
+              type="text"
+              value={compactProviderLabel(serviceId, resolvedLabel)}
+              readOnly
+              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
+            />
+          </Field>
+        )}
+
+        <Field label={compact ? tr("文本模型", "Text model") : tr("当前模型", "Current model")}>
           <select
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
@@ -402,11 +426,13 @@ export function TextModelConfigPanel({
               </option>
             )}
           </select>
-          <p className="text-xs text-muted-foreground/60">
-            {models.length > 0
-              ? tr(`当前可选 ${models.length} 个模型`, `${models.length} models available`)
-              : tr("连接后会自动加载可用模型", "Available models will load after connection")}
-          </p>
+          {!compact && (
+            <p className="text-xs text-muted-foreground/60">
+              {models.length > 0
+                ? tr(`当前可选 ${models.length} 个模型`, `${models.length} models available`)
+                : tr("连接后会自动加载可用模型", "Available models will load after connection")}
+            </p>
+          )}
         </Field>
 
         <Field label="API Key">
@@ -476,7 +502,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium text-muted-foreground/70">{label}</label>

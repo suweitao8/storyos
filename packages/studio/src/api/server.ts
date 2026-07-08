@@ -62,7 +62,6 @@ import {
   VOICE_PROVIDER_PRESETS,
   voiceSecretKey,
   resolveVoiceProviderPreset,
-  testVoiceConnection,
   SessionKindSchema,
   isExplicitWriteChapterCommand,
   isUsablePlayInitialScene,
@@ -318,6 +317,57 @@ function writeTarOctal(header: Buffer, offset: number, length: number, value: nu
 function isHeaderSafeApiKey(value: string): boolean {
   if (!value) return true;
   return /^[\x21-\x7E]+$/.test(value);
+}
+
+async function testCoverProviderConnection(params: {
+  readonly baseUrl: string;
+  readonly apiKey: string;
+}): Promise<{ readonly success: boolean; readonly message: string }> {
+  const endpoint = `${params.baseUrl.replace(/\/+$/u, "")}/v1/draw/completions`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${params.apiKey}`,
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      model: "__inkos_auth_check__",
+    }),
+  });
+
+  const text = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(`Cover test failed: HTTP ${response.status} ${text.slice(0, 300)}`);
+  }
+
+  const normalized = text.toLowerCase();
+  if (normalized.includes("apikey error")) {
+    throw new Error("Cover API key is invalid.");
+  }
+  if (normalized.includes("model not found")) {
+    return { success: true, message: "Cover connection successful" };
+  }
+
+  return { success: true, message: "Cover provider reachable" };
+}
+
+async function testVoiceProviderConnection(params: {
+  readonly apiKey: string;
+}): Promise<{ readonly success: boolean; readonly message: string }> {
+  const response = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/models", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+    },
+  });
+
+  const text = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(`Voice test failed: HTTP ${response.status} ${text.slice(0, 300)}`);
+  }
+
+  return { success: true, message: "Voice connection successful" };
 }
 
 const NON_TEXT_MODEL_ID_PARTS = [
@@ -3256,6 +3306,31 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ ok: true, service });
   });
 
+  app.post("/api/v1/cover/test", async (c) => {
+    const config = await loadRawConfig(root);
+    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
+    const cover = normalizeCoverConfig(llm.cover);
+    const service = cover?.service ?? "grsai";
+    const preset = resolveCoverProviderPreset(service);
+    if (!preset) {
+      return c.json({ error: "Unsupported cover service" }, 400);
+    }
+    const secrets = await loadSecrets(root);
+    const apiKey = secrets.services[coverSecretKey(service)]?.apiKey ?? "";
+    if (!apiKey) {
+      return c.json({ error: "Cover API key not configured" }, 400);
+    }
+    try {
+      const result = await testCoverProviderConnection({
+        baseUrl: preset.baseUrl,
+        apiKey,
+      });
+      return c.json(result);
+    } catch (e) {
+      return c.json({ success: false, message: e instanceof Error ? e.message : String(e) }, 500);
+    }
+  });
+
   // --- Voice (TTS) config ---
 
   app.get("/api/v1/voice/config", async (c) => {
@@ -3350,10 +3425,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       return c.json({ error: "Voice API key not configured" }, 400);
     }
     try {
-      const result = await testVoiceConnection({
-        baseUrl: preset.baseUrl,
+      const result = await testVoiceProviderConnection({
         apiKey,
-        model: voice.model ?? preset.defaultModel,
       });
       return c.json(result);
     } catch (e) {

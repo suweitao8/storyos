@@ -41,6 +41,7 @@ prompt/
 CLAUDE.md
 .studio-live/
 .studio-live-*.log
+studio-dev*.log
 .screenshots/
 radar/
 .zcode/
