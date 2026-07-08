@@ -36,3 +36,20 @@ export function buildSecretSnapshot(input: ServiceConfigCardSecretSnapshotInput)
     apiKey: trimmedApiKey === MASKED_API_KEY ? MASKED_API_KEY : trimmedApiKey,
   });
 }
+
+function buildServiceConfigTestRequest(input: ServiceConfigCardSecretSnapshotInput): {
+  readonly apiKey: string;
+  readonly model: string;
+} {
+  return {
+    apiKey: input.apiKey.trim(),
+    model: input.model.trim(),
+  };
+}
+
+function buildServiceConfigSaveRequest(input: ServiceConfigCardSecretSnapshotInput): {
+  readonly apiKey: string;
+  readonly model: string;
+} {
+  return buildServiceConfigTestRequest(input);
+}
