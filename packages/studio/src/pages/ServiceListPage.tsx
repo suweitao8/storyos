@@ -60,7 +60,7 @@ function resolveSingleModel(
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="space-y-1.5">
+    <label className="space-y-2">
       <span className="block text-xs font-medium text-muted-foreground/70">{label}</span>
       {children}
     </label>
@@ -248,73 +248,76 @@ function CoverConfigCard() {
   if (providers.length === 0 && status !== "error") return null;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/50 bg-card/50 p-4">
+    <section className="space-y-5 rounded-xl border border-border/50 bg-card/50 p-5">
       <div className="flex justify-end">
         <StatusBadge connected={selected?.connected} />
       </div>
 
-      <Field label={tr("服务商", "Provider")}>
-        <ReadonlyValue value={selected?.label ?? ""} />
-      </Field>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label={tr("服务商", "Provider")}>
+          <ReadonlyValue value={selected?.label ?? ""} />
+        </Field>
 
-      <Field label={tr("图片模型", "Image model")}>
-        <select
-          value={model}
-          onChange={(event) => setModel(event.target.value)}
-          className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
-        >
-          {modelOptions.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="API Key">
-        <div className="relative">
-          <input
-            type={showKey ? "text" : "password"}
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder="sk-..."
-            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey((value) => !value)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
+        <Field label={tr("语音模型", "Voice model")}>
+          <select
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
           >
-            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-        </div>
-      </Field>
+            {modelOptions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <button
-          onClick={() => void handleTest()}
-          disabled={status === "saving" || status === "testing" || !selected}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 disabled:opacity-50"
-        >
-          {status === "testing" && <Loader2 size={12} className="animate-spin" />}
-          {tr("测试连接", "Test connection")}
-        </button>
-        <button
-          onClick={() => void saveConfig("manual")}
-          disabled={status === "saving" || status === "testing" || !selected}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {status === "saving" && <Loader2 size={12} className="animate-spin" />}
-          {tr("保存", "Save")}
-        </button>
-        {selected?.baseUrl && (
-          <span className="text-xs text-muted-foreground/60">
-            Base URL: <span className="font-mono">{selected.baseUrl}</span>
-          </span>
-        )}
-        {message && (
-          <span className={`text-xs ${status === "error" ? "text-destructive" : "text-emerald-500"}`}>
-            {message}
-          </span>
-        )}
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <Field label="API Key">
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder="sk-..."
+              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </Field>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => void handleTest()}
+              disabled={status === "saving" || status === "testing" || !selected}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 disabled:opacity-50"
+            >
+              {status === "testing" && <Loader2 size={12} className="animate-spin" />}
+              {tr("测试连接", "Test connection")}
+            </button>
+            <button
+              onClick={() => void saveConfig("manual")}
+              disabled={status === "saving" || status === "testing" || !selected}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {status === "saving" && <Loader2 size={12} className="animate-spin" />}
+              {tr("保存", "Save")}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            {message && (
+              <span className={status === "error" ? "text-destructive" : "text-emerald-500"}>
+                {message}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <select
@@ -488,73 +491,76 @@ function VoiceConfigCard() {
   if (providers.length === 0 && status !== "error") return null;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/50 bg-card/50 p-4">
+    <section className="space-y-5 rounded-xl border border-border/50 bg-card/50 p-5">
       <div className="flex justify-end">
         <StatusBadge connected={selected?.connected} />
       </div>
 
-      <Field label={tr("服务商", "Provider")}>
-        <ReadonlyValue value={selected?.label ?? ""} />
-      </Field>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label={tr("服务商", "Provider")}>
+          <ReadonlyValue value={selected?.label ?? ""} />
+        </Field>
 
-      <Field label={tr("语音模型", "Voice model")}>
-        <select
-          value={model}
-          onChange={(event) => setModel(event.target.value)}
-          className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
-        >
-          {modelOptions.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="API Key">
-        <div className="relative">
-          <input
-            type={showKey ? "text" : "password"}
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder="sk-..."
-            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
-          />
-          <button
-            type="button"
-            onClick={() => setShowKey((value) => !value)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
+        <Field label={tr("语音模型", "Voice model")}>
+          <select
+            value={model}
+            onChange={(event) => setModel(event.target.value)}
+            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
           >
-            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-        </div>
-      </Field>
+            {modelOptions.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <button
-          onClick={() => void handleTest()}
-          disabled={status === "saving" || status === "testing" || !selected}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 disabled:opacity-50"
-        >
-          {status === "testing" && <Loader2 size={12} className="animate-spin" />}
-          {tr("测试连接", "Test connection")}
-        </button>
-        <button
-          onClick={() => void saveConfig("manual")}
-          disabled={status === "saving" || status === "testing" || !selected}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {status === "saving" && <Loader2 size={12} className="animate-spin" />}
-          {tr("保存", "Save")}
-        </button>
-        {selected?.baseUrl && (
-          <span className="text-xs text-muted-foreground/60">
-            Base URL: <span className="font-mono">{selected.baseUrl}</span>
-          </span>
-        )}
-        {message && (
-          <span className={`text-xs ${status === "error" ? "text-destructive" : "text-emerald-500"}`}>
-            {message}
-          </span>
-        )}
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <Field label="API Key">
+          <div className="relative">
+            <input
+              type={showKey ? "text" : "password"}
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder="sk-..."
+              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((value) => !value)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </Field>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => void handleTest()}
+              disabled={status === "saving" || status === "testing" || !selected}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary/50 disabled:opacity-50"
+            >
+              {status === "testing" && <Loader2 size={12} className="animate-spin" />}
+              {tr("测试连接", "Test connection")}
+            </button>
+            <button
+              onClick={() => void saveConfig("manual")}
+              disabled={status === "saving" || status === "testing" || !selected}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {status === "saving" && <Loader2 size={12} className="animate-spin" />}
+              {tr("保存", "Save")}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            {message && (
+              <span className={status === "error" ? "text-destructive" : "text-emerald-500"}>
+                {message}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <select

@@ -338,7 +338,7 @@ export function TextModelConfigPanel({
   if (loading) return <DetailSkeleton />;
 
   return (
-    <div className={compact ? "space-y-3" : "mx-auto max-w-xl space-y-6"}>
+    <div className={compact ? "space-y-4" : "mx-auto max-w-xl space-y-6"}>
       {onBack && (
         <button
           onClick={onBack}
@@ -349,144 +349,225 @@ export function TextModelConfigPanel({
         </button>
       )}
 
-      <section className={`rounded-xl border border-border/50 bg-card/50 ${compact ? "p-4 space-y-4" : "p-5 space-y-5"}`}>
+      <section className={`rounded-xl border border-border/50 bg-card/50 p-5 space-y-5`}>
         {compact ? (
-          <div className="flex justify-end">
-            {isConnected && (
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                {tr("已连接", "Connected")}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-serif text-2xl">{resolvedLabel}</h1>
+          <div className="space-y-5">
+            <div className="flex justify-end">
               {isConnected && (
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                   {tr("已连接", "Connected")}
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground/70">
-              {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
-            </p>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={tr("服务商", "Provider")}>
+                <input
+                  type="text"
+                  value={compactProviderLabel(serviceId, resolvedLabel)}
+                  readOnly
+                  className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
+                />
+              </Field>
+
+              <Field label={tr("文本模型", "Text model")}>
+                <select
+                  value={selectedModel}
+                  onChange={(event) => setSelectedModel(event.target.value)}
+                  className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
+                >
+                  {models.length > 0 ? (
+                    models.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name ?? model.id}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={selectedModel || ""}>
+                      {selectedModel || tr("正在加载模型", "Loading models")}
+                    </option>
+                  )}
+                </select>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <Field label="API Key">
+                <div className="relative">
+                  <input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder="sk-..."
+                    className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((value) => !value)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+                  >
+                    {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </Field>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => void handleTest()}
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs transition-colors hover:bg-secondary/50 disabled:opacity-50"
+                  >
+                    {status.state === "testing" && <Loader2 size={12} className="animate-spin" />}
+                    {tr("测试连接", "Test connection")}
+                  </button>
+                  <button
+                    onClick={() => void persistConfig(redirectAfterSave)}
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {status.state === "saving" && <Loader2 size={12} className="animate-spin" />}
+                    {tr("保存", "Save")}
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  {status.state === "connected" && (
+                  <span className="text-emerald-500">
+                      {tr("连接成功", "Connected")}
+                      {selectedModelLabel ? " · " + selectedModelLabel : ""}
+                    </span>
+                  )}
+                  {status.state === "saved" && (
+                    <span className="text-emerald-500">{tr("已保存", "Saved")}</span>
+                  )}
+                  {status.state === "error" && (
+                    <span className="text-destructive">{status.message}</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h1 className="font-serif text-2xl">{resolvedLabel}</h1>
+                {isConnected && (
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
+                    {tr("已连接", "Connected")}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground/70">
+                {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
+              </p>
+            </div>
 
-        {isCustom && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label={tr("服务名称", "Service name")}>
-              <input
-                type="text"
-                value={customName}
-                onChange={(event) => setCustomName(event.target.value)}
-                placeholder={tr("例如：本地 Ollama", "e.g. local Ollama")}
-                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
-              />
-            </Field>
-            <Field label="Base URL">
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://api.example.com/v1"
-                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm font-mono"
-              />
-            </Field>
-          </div>
-        )}
-
-        {compact && (
-          <Field label={tr("服务商", "Provider")}>
-            <input
-              type="text"
-              value={compactProviderLabel(serviceId, resolvedLabel)}
-              readOnly
-              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground"
-            />
-          </Field>
-        )}
-
-        <Field label={compact ? tr("文本模型", "Text model") : tr("当前模型", "Current model")}>
-          <select
-            value={selectedModel}
-            onChange={(event) => setSelectedModel(event.target.value)}
-            className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
-          >
-            {models.length > 0 ? (
-              models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name ?? model.id}
-                </option>
-              ))
-            ) : (
-              <option value={selectedModel || ""}>
-                {selectedModel || tr("正在加载模型", "Loading models")}
-              </option>
+            {isCustom && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label={tr("服务名称", "Service name")}>
+                  <input
+                    type="text"
+                    value={customName}
+                    onChange={(event) => setCustomName(event.target.value)}
+                    placeholder={tr("例如：本地 Ollama", "e.g. local Ollama")}
+                    className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
+                  />
+                </Field>
+                <Field label="Base URL">
+                  <input
+                    type="text"
+                    value={baseUrl}
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                    placeholder="https://api.example.com/v1"
+                    className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm font-mono"
+                  />
+                </Field>
+              </div>
             )}
-          </select>
-          {!compact && (
-            <p className="text-xs text-muted-foreground/60">
-              {models.length > 0
-                ? tr(`当前可选 ${models.length} 个模型`, `${models.length} models available`)
-                : tr("连接后会自动加载可用模型", "Available models will load after connection")}
-            </p>
-          )}
-        </Field>
 
-        <Field label="API Key">
-          <div className="relative">
-            <input
-              type={showKey ? "text" : "password"}
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-..."
-              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
-            />
-            <button
-              type="button"
-              onClick={() => setShowKey((value) => !value)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-            >
-              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-        </Field>
+            <Field label={tr("当前模型", "Current model")}>
+              <select
+                value={selectedModel}
+                onChange={(event) => setSelectedModel(event.target.value)}
+                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
+              >
+                {models.length > 0 ? (
+                  models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name ?? model.id}
+                    </option>
+                  ))
+                ) : (
+                  <option value={selectedModel || ""}>
+                    {selectedModel || tr("正在加载模型", "Loading models")}
+                  </option>
+                )}
+              </select>
+              <p className="text-xs text-muted-foreground/60">
+                {models.length > 0
+                  ? tr("当前可选 " + models.length + " 个模型", models.length + " models available")
+                  : tr("连接后会自动加载可用模型", "Available models will load after connection")}
+              </p>
+            </Field>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => void handleTest()}
-            disabled={isBusy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs transition-colors hover:bg-secondary/50 disabled:opacity-50"
-          >
-            {status.state === "testing" && <Loader2 size={12} className="animate-spin" />}
-            {tr("测试连接", "Test connection")}
-          </button>
-          <button
-            onClick={() => void persistConfig(redirectAfterSave)}
-            disabled={isBusy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            {status.state === "saving" && <Loader2 size={12} className="animate-spin" />}
-            {tr("保存", "Save")}
-          </button>
-          {status.state === "connected" && (
-            <span className="text-xs text-emerald-500">
-              {tr("连接成功", "Connected")}
-              {selectedModelLabel ? ` · ${selectedModelLabel}` : ""}
-              {detectedConfig
-                ? ` · ${detectedConfig.apiFormat === "responses" ? "Responses" : "Chat"} / ${detectedConfig.stream ? tr("流式", "Streaming") : tr("非流式", "Non-streaming")}`
-                : ""}
-            </span>
-          )}
-          {status.state === "saved" && (
-            <span className="text-xs text-emerald-500">{tr("已保存", "Saved")}</span>
-          )}
-          {status.state === "error" && (
-            <span className="text-xs text-destructive">{status.message}</span>
-          )}
-        </div>
+            <Field label="API Key">
+              <div className="relative">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder="sk-..."
+                  className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 pr-10 text-sm font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((value) => !value)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+                >
+                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </Field>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => void handleTest()}
+                disabled={isBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-xs transition-colors hover:bg-secondary/50 disabled:opacity-50"
+              >
+                {status.state === "testing" && <Loader2 size={12} className="animate-spin" />}
+                {tr("测试连接", "Test connection")}
+              </button>
+              <button
+                onClick={() => void persistConfig(redirectAfterSave)}
+                disabled={isBusy}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                {status.state === "saving" && <Loader2 size={12} className="animate-spin" />}
+                {tr("保存", "Save")}
+              </button>
+                  {status.state === "connected" && (
+                <span className="text-xs text-emerald-500">
+                  {tr("连接成功", "Connected")}
+                  {selectedModelLabel ? " · " + selectedModelLabel : ""}
+                  {detectedConfig
+                    ? " · " +
+                      (detectedConfig.apiFormat === "responses" ? "Responses" : "Chat") +
+                      " / " +
+                      (detectedConfig.stream ? tr("流式", "Streaming") : tr("非流式", "Non-streaming"))
+                    : ""}
+                </span>
+              )}
+              {status.state === "saved" && (
+                <span className="text-xs text-emerald-500">{tr("已保存", "Saved")}</span>
+              )}
+              {status.state === "error" && (
+                <span className="text-xs text-destructive">{status.message}</span>
+              )}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

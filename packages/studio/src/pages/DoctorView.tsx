@@ -54,7 +54,7 @@ export function DoctorView({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
           <CheckRow label={t("doctor.inkosJson")} ok={data.inkosJson} />
           <CheckRow label={t("doctor.projectEnv")} ok={data.projectEnv} />
           <CheckRow label={t("doctor.globalEnv")} ok={data.globalEnv} />
-          <CheckRow label={t("doctor.booksDir")} ok={data.booksDir} detail={`${data.bookCount} book(s)`} />
+          <CheckRow label={t("doctor.booksDir")} ok={data.booksDir} detail={`${data.bookCount} book(s) / books/`} />
           <CheckRow label={t("doctor.llmApi")} ok={data.llmConnected} detail={data.llmConnected ? t("doctor.connected") : t("doctor.failed")} />
         </div>
       )}

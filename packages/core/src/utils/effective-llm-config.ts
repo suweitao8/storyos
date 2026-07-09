@@ -96,6 +96,9 @@ export async function resolveEffectiveLLMConfig(
     fillNoopLLMDefaults(llm);
   }
 
+  // Hard-disable reasoning mode for this project so text generation stays direct.
+  llm.thinkingBudget = 0;
+
   const provider = typeof llm.provider === "string" ? llm.provider : undefined;
   const baseUrl = typeof llm.baseUrl === "string" ? llm.baseUrl : undefined;
   const apiKey = typeof llm.apiKey === "string" ? llm.apiKey : "";
@@ -326,7 +329,6 @@ function applyCommonEnv(
   env: LLMEnvMap,
 ): void {
   if (env.INKOS_LLM_TEMPERATURE) llm.temperature = Number.parseFloat(env.INKOS_LLM_TEMPERATURE);
-  if (env.INKOS_LLM_THINKING_BUDGET) llm.thinkingBudget = Number.parseInt(env.INKOS_LLM_THINKING_BUDGET, 10);
   if (env.INKOS_LLM_PROXY_URL) llm.proxyUrl = env.INKOS_LLM_PROXY_URL;
   if (env.INKOS_LLM_API_FORMAT) llm.apiFormat = env.INKOS_LLM_API_FORMAT;
   if (env.INKOS_LLM_STREAM) llm.stream = parseBoolean(env.INKOS_LLM_STREAM);

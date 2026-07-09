@@ -3,6 +3,7 @@ import type { AssistantMessage, Model, Api } from "@mariozechner/pi-ai";
 import {
   __resetFixedTemperatureWarnings,
   chatCompletion,
+  createLLMClient,
   type LLMClient,
 } from "../llm/provider.js";
 
@@ -143,6 +144,24 @@ describe("chatCompletion via pi-ai", () => {
     mockStreamSimple.mockReset();
     mockCompleteSimple.mockReset();
     mockComplete.mockReset();
+  });
+
+  it("hard-disables reasoning even when thinkingBudget is set", () => {
+    const client = createLLMClient({
+      provider: "openai",
+      service: "openai",
+      baseUrl: "https://api.openai.com/v1",
+      apiKey: "sk-test",
+      model: "gpt-5.4",
+      temperature: 0.7,
+      thinkingBudget: 128,
+      apiFormat: "chat",
+      stream: true,
+      extra: {},
+    } as never);
+
+    expect(client.defaults.thinkingBudget).toBe(0);
+    expect(client._piModel?.reasoning).toBe(false);
   });
 
   it("returns text content from a successful stream", async () => {

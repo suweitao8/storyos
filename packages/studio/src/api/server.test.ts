@@ -312,6 +312,23 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
   };
 });
 
+describe("deriveCraftSourceName", () => {
+  it("decodes URI-encoded filenames and strips trailing chapter-count markers", async () => {
+    const { deriveCraftSourceName } = await import("./server.js");
+
+    expect(deriveCraftSourceName("%E6%88%91%E7%9A%84%E6%B2%BB%E6%84%88%E7%B3%BB%E6%B8%B8%E6%88%8F_100.txt"))
+      .toBe("我的治愈系游戏");
+  });
+
+  it("removes common trailing numeric markers without breaking the main title", async () => {
+    const { deriveCraftSourceName } = await import("./server.js");
+
+    expect(deriveCraftSourceName("示例小说-100.txt")).toBe("示例小说");
+    expect(deriveCraftSourceName("示例小说 100.txt")).toBe("示例小说");
+    expect(deriveCraftSourceName("示例小说（精校版）_100.txt")).toBe("示例小说");
+  });
+});
+
 const projectConfig = {
   name: "studio-test",
   version: "0.1.0",

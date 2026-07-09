@@ -3,6 +3,7 @@ import { resolve, join, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { ensureProjectSupportFiles } from "@actalk/inkos-core";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +24,8 @@ if (!existsSync(join(distDir, "index.html"))) {
     process.exit(1);
   }
 }
+
+await ensureProjectSupportFiles(root);
 
 startStudioServer(root, port, { staticDir: distDir }).catch((e) => {
   console.error("Failed to start studio:", e);

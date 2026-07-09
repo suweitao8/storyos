@@ -138,6 +138,26 @@ function canonicalizeEncoding(detected: string): string {
   return detected;
 }
 
+export function deriveCraftSourceName(filename: string): string {
+  const decodedFilename = (() => {
+    try {
+      return decodeURIComponent(filename);
+    } catch {
+      return filename;
+    }
+  })();
+
+  const baseName = decodedFilename.replace(/\.[^.]+$/, "").trim();
+  const normalizedName = baseName
+    .replace(/第[一二三四五六七八九十百千0-9]+[部卷]/g, "")
+    .replace(/[（(].*?[)）]/g, "")
+    // Drop user-added trailing chapter-count markers such as "_100" / "-100" / " 100".
+    .replace(/(?:[_\-\s]+)(\d{1,4})$/g, "")
+    .trim();
+
+  return normalizedName || baseName || "未命名小说";
+}
+
 function normalizeStudioLanguage(value: unknown): StudioLanguage {
   return value === "en" ? "en" : "zh";
 }
@@ -5718,13 +5738,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         : text;
 
       // Suggest a source name from the filename (strip extension + common suffixes).
-      const baseName = filename.replace(/\.[^.]+$/, "").trim();
-      const detectedName = baseName
-        .replace(/第[一二三四五六七八九十百千0-9]+[部卷]/g, "")
-        .replace(/[（(].*?[)）]/g, "")
-        .trim() || baseName || "未命名小说";
+        const detectedName = deriveCraftSourceName(filename);
 
-      return c.json({
+        return c.json({
         text: excerptText,
         encoding: detectedEncoding,
         chapterCount,

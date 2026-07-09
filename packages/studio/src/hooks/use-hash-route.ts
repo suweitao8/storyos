@@ -36,6 +36,7 @@ function parseHash(hash: string): HashRoute {
   if (path === "craft") return { page: "craft" };
   const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
   if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
+  if (path.startsWith("import/")) return { page: "import" };
   if (path === "book/new") return { page: "book-create" };
 
   const serviceMatch = path.match(/^services\/([^/]+)$/);

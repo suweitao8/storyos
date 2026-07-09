@@ -136,14 +136,10 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
   ];
 
   return (
-    <div className="space-y-8">
-      <h1 className="font-serif text-3xl flex items-center gap-3">
-        <FileInput size={28} className="text-primary" />
-        {t("import.title")}
-      </h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-secondary/30 rounded-lg p-1 w-fit">
+      <div className="mx-auto flex w-fit gap-1 rounded-lg bg-secondary/30 p-1">
         {tabs.map((tb) => (
           <button
             key={tb.id}

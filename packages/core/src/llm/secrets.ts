@@ -10,6 +10,8 @@ const SECRETS_FILE = "secrets.json";
 
 const LEGACY_SERVICE_ID_REMAP: Record<string, string> = {
   siliconflow: "siliconcloud",
+  grsai: "cover:grsai",
+  bailian: "voice:bailian",
 };
 
 function migrateLegacyServiceIds(secrets: SecretsFile): { data: SecretsFile; changed: boolean } {

@@ -119,6 +119,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const books = data?.books ?? [];
   const films = filmsData?.films ?? [];
   const projectChatKey = "__null__";
+  const activeSession = activeSessionId ? sessions[activeSessionId] ?? null : null;
   const projectChatSessions = useMemo(
     () =>
       (sessionIdsByBook[projectChatKey] ?? [])
@@ -308,7 +309,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
           <div className="grid grid-cols-2 gap-1">
             <CreateItem icon={<BookPlus size={16} />} label={t("nav.createNovel")} active={activePage === "book-create"} onClick={handleOpenBookCreate} />
-            <CreateItem icon={<ScrollText size={16} />} label={t("nav.createShort")} onClick={() => launchProjectMode("short")} />
+            <CreateItem
+              icon={<ScrollText size={16} />}
+              label={t("nav.createShort")}
+              active={activeSession?.sessionKind === "short"}
+              onClick={() => launchProjectMode("short")}
+            />
             <CreateItem icon={<BookOpen size={16} />} label={t("nav.craft")} active={activePage === "craft"} onClick={nav.toCraft} />
           </div>
         </div>
@@ -572,7 +578,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
               label={t("nav.import")}
               icon={<FileInput size={16} />}
               active={activePage === "import"}
-              onClick={nav.toImport}
+              onClick={() => nav.toImport()}
             />
             <SidebarItem
               label={t("nav.radar")}

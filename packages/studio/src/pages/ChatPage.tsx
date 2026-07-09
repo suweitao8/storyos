@@ -1179,7 +1179,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
                     : <ArrowUp size={14} strokeWidth={2.5} />}
                 </button>
               </div>
-              <div className="flex items-center gap-2 px-3 pb-2 border-t border-border/20 pt-1.5">
+              <div className="hidden items-center gap-2 px-3 pb-2 border-t border-border/20 pt-1.5">
                 {modelPickerStatus === "loading" ? (
                   <span className="text-[15px] text-muted-foreground/40 animate-pulse">{isZh ? "加载模型..." : "Loading models..."}</span>
                 ) : modelPickerStatus === "ready" ? (

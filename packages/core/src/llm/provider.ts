@@ -150,7 +150,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
   const defaults = {
     temperature: config.temperature ?? 0.7,
     maxTokens: _earlyCard?.maxOutput ?? UNKNOWN_MODEL_FALLBACK_MAX_TOKENS,
-    thinkingBudget: config.thinkingBudget ?? 0,
+    thinkingBudget: 0,
     extra: config.extra ?? {},
   };
 
@@ -192,7 +192,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
     // 不是"模型能力"标签。只有用户显式配了 thinkingBudget > 0 才启用 reasoning mode。
     // 千万不要从 lobe abilities.reasoning 自动推导，否则 Moonshot 这类不支持 developer role 的服务
     // 会把 content 吃掉，只返回 reasoning_content（见 R4 bug 1 诊断）。
-    reasoning: (config.thinkingBudget ?? 0) > 0,
+    reasoning: false,
     input: ["text"] as ("text" | "image")[],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: modelCard?.contextWindowTokens ?? 128_000,

@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -30,6 +30,9 @@ describe("project bootstrap", () => {
     expect(config.llm.service).toBe("custom");
     expect(config.llm.model).toBe("");
     expect(config.llm.baseUrl).toBe("");
+    await expect(access(join(tempDir, "books"))).resolves.toBeUndefined();
+    await expect(access(join(tempDir, "radar"))).resolves.toBeUndefined();
+    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("INKOS_LLM_PROVIDER");
     await expect(readFile(join(tempDir, ".nvmrc"), "utf-8")).resolves.toBe("22\n");
     await expect(readFile(join(tempDir, ".node-version"), "utf-8")).resolves.toBe("22\n");
   }, 20_000);
@@ -67,5 +70,8 @@ describe("project bootstrap", () => {
     const { ensureProjectDirectoryInitialized } = await import("../project-bootstrap.js");
 
     await expect(ensureProjectDirectoryInitialized(tempDir, { language: "zh" })).resolves.toBe(false);
+    await expect(access(join(tempDir, "books"))).resolves.toBeUndefined();
+    await expect(access(join(tempDir, "radar"))).resolves.toBeUndefined();
+    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("INKOS_LLM_PROVIDER");
   });
 });
