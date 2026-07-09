@@ -96,6 +96,65 @@ function truncateChapters(
     .join("\n\n");
 }
 
+function stripCodeFence(value: string): string {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
+}
+
+function extractFirstJSONObject(value: string): string | null {
+  const text = stripCodeFence(value);
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const ch = text[index]!;
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function sanitizeCraftJSON(value: string): string {
+  return stripCodeFence(value)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/}\s*{/g, "},{");
+}
+
 // ---------------------------------------------------------------------------
 // Exemplar validation
 // ---------------------------------------------------------------------------
@@ -182,24 +241,23 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.3, maxTokens: 8192 },
     );
 
-    const profile = this.parseProfile(response.content, sourceName, language);
+    const profile = await this.parseProfile(response.content, sourceName, language);
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
 
     return validateExemplars(profile, text);
   }
 
-  private parseProfile(
+  private async parseProfile(
     raw: string,
     sourceName: string,
     language: "zh" | "en",
-  ): CraftProfile {
-    // Extract JSON from the response (handle markdown fences or bare JSON)
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+  ): Promise<CraftProfile> {
+    const jsonPayload = extractFirstJSONObject(raw);
+    if (!jsonPayload) {
       throw new Error("Craft analysis did not return valid JSON");
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    const parsed = await this.parseProfileObject(jsonPayload, language);
 
     return {
       sourceName,
@@ -247,6 +305,73 @@ export class CraftAnalyzerAgent extends BaseAgent {
       result.exemplar = obj.exemplar;
     }
     return result;
+  }
+
+  private async parseProfileObject(
+    raw: string,
+    language: "zh" | "en",
+  ): Promise<Record<string, unknown>> {
+    const candidates = [raw, sanitizeCraftJSON(raw)];
+    let lastError: unknown = null;
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+        lastError = new Error("Craft analysis JSON root must be an object");
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    const repaired = await this.repairMalformedProfileJSON(raw, language, lastError);
+    const repairedPayload = extractFirstJSONObject(repaired) ?? repaired;
+
+    try {
+      const parsed = JSON.parse(sanitizeCraftJSON(repairedPayload)) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      throw new Error("Craft analysis JSON root must be an object");
+    } catch (error) {
+      throw new Error(`Craft analysis JSON parse error: ${String(error)}`);
+    }
+  }
+
+  private async repairMalformedProfileJSON(
+    raw: string,
+    language: "zh" | "en",
+    parseError: unknown,
+  ): Promise<string> {
+    this.log?.warn(`[craft] repairing malformed JSON after parse error: ${String(parseError)}`);
+    const systemPrompt = language === "en"
+      ? [
+          "You repair malformed JSON emitted by another model.",
+          "Return one valid JSON object only.",
+          "Do not add commentary, markdown fences, or new fields.",
+          "Preserve the original keys and string values as much as possible.",
+          "Only fix JSON syntax issues such as missing commas, trailing commas, or broken escaping.",
+        ].join("\n")
+      : [
+          "你是 JSON 修复器，负责修复另一个模型输出的损坏 JSON。",
+          "只返回一个合法 JSON 对象。",
+          "不要输出说明、不要加 markdown 代码块、不要新增字段。",
+          "尽量保留原有的键和值内容。",
+          "只修复 JSON 语法问题，例如漏逗号、多余逗号或转义损坏。",
+        ].join("\n");
+    const userPrompt = language === "en"
+      ? `Fix the malformed JSON below and return valid JSON only:\n\n${raw}`
+      : `请修复下面这段损坏的 JSON，并且只返回合法 JSON：\n\n${raw}`;
+    const response = await this.chat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      { temperature: 0, maxTokens: 8192 },
+    );
+    return response.content;
   }
 
   private parseExemplars(raw: unknown): CraftProfile["exemplars"] {
