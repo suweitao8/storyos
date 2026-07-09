@@ -1,6 +1,7 @@
 import type { AgentContext } from "./base.js";
 import { BaseAgent } from "./base.js";
 import { buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./craft-prompts.js";
+import { deriveCraftBreakdownModules, normalizeCraftBreakdownModules } from "./craft-breakdown.js";
 import type {
   CraftProfile,
   CraftStructure,
@@ -19,6 +20,62 @@ interface ChapterSegment {
   readonly title: string;
   readonly body: string;
 }
+
+interface CraftFieldSpec {
+  readonly key: string;
+  readonly aliases: readonly string[];
+}
+
+interface WeakCraftField {
+  readonly section: keyof typeof CRAFT_SECTION_SPECS;
+  readonly key: string;
+  readonly value: string;
+}
+
+const CRAFT_SECTION_FALLBACKS: Record<string, string> = {
+  zh: "未明确说明",
+  en: "Not specified",
+};
+
+const CRAFT_SECTION_SPECS: Record<string, ReadonlyArray<CraftFieldSpec>> = {
+  structure: [
+    { key: "openingPattern", aliases: ["\u5f00\u7bc7\u6a21\u5f0f", "\u5f00\u573a\u6a21\u5f0f", "opening", "openingStyle", "openingTechnique"] },
+    { key: "chapterArc", aliases: ["\u5355\u7ae0\u5f27\u7ebf", "\u7ae0\u8282\u5f27\u7ebf", "chapterStructure", "arc"] },
+    { key: "endingHookType", aliases: ["\u7ae0\u672b\u94a9\u5b50", "\u6536\u5c3e\u94a9\u5b50", "endingHook", "hook"] },
+  ],
+  sceneRhythm: [
+    { key: "sceneTransitionTechnique", aliases: ["\u573a\u666f\u5207\u6362", "\u573a\u666f\u8f6c\u6362", "sceneTransition"] },
+    { key: "pacingCurve", aliases: ["\u8282\u594f\u66f2\u7ebf", "pacing"] },
+    { key: "conflictEscalation", aliases: ["\u51b2\u7a81\u5347\u7ea7"] },
+  ],
+  informationDisclosure: [
+    { key: "foreshadowingDensity", aliases: ["\u4f0f\u7b14\u5bc6\u5ea6", "\u4f0f\u7b14"] },
+    { key: "informationReleaseRhythm", aliases: ["\u4fe1\u606f\u91ca\u653e", "\u4fe1\u606f\u8282\u594f"] },
+    { key: "suspenseManagement", aliases: ["\u60ac\u5ff5\u7ba1\u7406"] },
+  ],
+  narrativePerspective: [
+    { key: "povStrategy", aliases: ["POV\u7b56\u7565", "\u89c6\u89d2\u7b56\u7565", "\u53d9\u4e8b\u89c6\u89d2"] },
+    { key: "narrationDialogueRatio", aliases: ["\u53d9\u8ff0/\u5bf9\u8bdd\u6bd4\u4f8b", "\u53d9\u8ff0\u5bf9\u8bdd\u6bd4\u4f8b", "\u53d9\u8ff0\u4e0e\u5bf9\u8bdd\u6bd4\u4f8b"] },
+    { key: "narrativeDistance", aliases: ["\u53d9\u4e8b\u8ddd\u79bb"] },
+  ],
+};
+
+const WEAK_CRAFT_PATTERNS: Record<"zh" | "en", ReadonlyArray<RegExp>> = {
+  zh: [
+    /^未明确说明$/u,
+    /^不明确$/u,
+    /^未提及$/u,
+    /^未知$/u,
+    /^无法判断$/u,
+  ],
+  en: [
+    /^not specified$/iu,
+    /^unknown$/iu,
+    /^n\/a$/iu,
+    /^not mentioned$/iu,
+    /^unclear$/iu,
+  ],
+};
 
 /** Split raw text into chapters by Chinese chapter markers. */
 export function splitCraftChapters(text: string): ChapterSegment[] {
@@ -58,7 +115,6 @@ export function selectSampleChapters(
   const selected: ChapterSegment[] = [];
   const seen = new Set<number>();
 
-  // First pass: pick by predefined indices
   for (const idx of SAMPLE_INDICES) {
     if (idx < pool.length && !seen.has(idx)) {
       selected.push(pool[idx]);
@@ -66,7 +122,6 @@ export function selectSampleChapters(
     }
   }
 
-  // Fallback: if we got fewer than 3, distribute evenly
   if (selected.length < 3 && pool.length > 0) {
     const step = Math.max(1, Math.floor(pool.length / 5));
     for (let i = 0; i < pool.length && selected.length < 5; i += step) {
@@ -155,6 +210,56 @@ function sanitizeCraftJSON(value: string): string {
     .replace(/}\s*{/g, "},{");
 }
 
+function normalizeCraftFieldKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/giu, "");
+}
+
+function isWeakCraftValue(value: string, language: "zh" | "en"): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  return WEAK_CRAFT_PATTERNS[language].some((pattern) => pattern.test(trimmed));
+}
+
+function collectWeakCraftFields(
+  profile: CraftProfile,
+  language: "zh" | "en",
+): WeakCraftField[] {
+  type CraftSectionName = keyof typeof CRAFT_SECTION_SPECS;
+  const getSectionValues = (section: CraftSectionName): Record<string, unknown> => {
+    switch (section) {
+      case "structure":
+        return profile.structure as unknown as Record<string, unknown>;
+      case "sceneRhythm":
+        return profile.sceneRhythm as unknown as Record<string, unknown>;
+      case "informationDisclosure":
+        return profile.informationDisclosure as unknown as Record<string, unknown>;
+      case "narrativePerspective":
+        return profile.narrativePerspective as unknown as Record<string, unknown>;
+      default:
+        return {};
+    }
+  };
+
+  const weakFields: WeakCraftField[] = [];
+
+  for (const [section, specs] of Object.entries(CRAFT_SECTION_SPECS) as Array<
+    [CraftSectionName, ReadonlyArray<CraftFieldSpec>]
+  >) {
+    const values = getSectionValues(section);
+    for (const spec of specs) {
+      const value = values[spec.key];
+      if (typeof value === "string" && isWeakCraftValue(value, language)) {
+        weakFields.push({ section, key: spec.key, value });
+      }
+    }
+  }
+
+  return weakFields;
+}
+
 // ---------------------------------------------------------------------------
 // Exemplar validation
 // ---------------------------------------------------------------------------
@@ -167,14 +272,12 @@ export function validateExemplars(
   profile: CraftProfile,
   sourceText: string,
 ): CraftProfile {
-  // Normalize: remove whitespace differences for more forgiving matching
   const normalized = sourceText.replace(/\s+/g, "");
   const validExemplars = profile.exemplars.filter((ex) => {
     const normalizedExcerpt = ex.excerpt.replace(/\s+/g, "");
     return normalizedExcerpt.length > 50 && normalized.includes(normalizedExcerpt);
   });
 
-  // Also validate per-section exemplars
   const validateSection = <T extends { exemplar?: string }>(section: T): T => {
     if (!section.exemplar) return section;
     const normalizedExcerpt = section.exemplar.replace(/\s+/g, "");
@@ -185,13 +288,29 @@ export function validateExemplars(
     return section;
   };
 
+  const validatedStructure = validateSection(profile.structure);
+  const validatedSceneRhythm = validateSection(profile.sceneRhythm);
+  const validatedInformationDisclosure = validateSection(profile.informationDisclosure);
+  const validatedNarrativePerspective = validateSection(profile.narrativePerspective);
+
+  const fallbackExemplars = validExemplars.length > 0
+    ? validExemplars
+    : [
+        { label: "结构手法", tone: "代表片段", excerpt: validatedStructure.exemplar },
+        { label: "场景与节奏", tone: "代表片段", excerpt: validatedSceneRhythm.exemplar },
+        { label: "信息披露", tone: "代表片段", excerpt: validatedInformationDisclosure.exemplar },
+        { label: "叙事视角", tone: "代表片段", excerpt: validatedNarrativePerspective.exemplar },
+      ].filter((item): item is CraftProfile["exemplars"][number] =>
+        typeof item.excerpt === "string" && item.excerpt.length > 50,
+      );
+
   return {
     ...profile,
-    structure: validateSection(profile.structure),
-    sceneRhythm: validateSection(profile.sceneRhythm),
-    informationDisclosure: validateSection(profile.informationDisclosure),
-    narrativePerspective: validateSection(profile.narrativePerspective),
-    exemplars: validExemplars,
+    structure: validatedStructure,
+    sceneRhythm: validatedSceneRhythm,
+    informationDisclosure: validatedInformationDisclosure,
+    narrativePerspective: validatedNarrativePerspective,
+    exemplars: fallbackExemplars,
   };
 }
 
@@ -204,14 +323,6 @@ export class CraftAnalyzerAgent extends BaseAgent {
     return "craft-analyzer";
   }
 
-  /**
-   * Analyze a reference novel and produce a CraftProfile.
-   *
-   * @param text Full reference text (can be up to ~1M characters)
-   * @param sourceName Name of the source work
-   * @param language Output language
-   * @param onProgress Optional progress callback
-   */
   async analyze(
     text: string,
     sourceName: string,
@@ -241,7 +352,18 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.3, maxTokens: 8192 },
     );
 
-    const profile = await this.parseProfile(response.content, sourceName, language);
+    let profile = await this.parseProfile(response.content, sourceName, language);
+    const weakFields = collectWeakCraftFields(profile, language);
+    if (weakFields.length > 0) {
+      onProgress?.(language === "zh" ? "补全不明确的技法字段…" : "Refining weak craft fields…");
+      profile = await this.refineWeakCraftProfile(
+        sample,
+        sourceName,
+        language,
+        profile,
+        weakFields,
+      );
+    }
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
 
     return validateExemplars(profile, text);
@@ -259,52 +381,64 @@ export class CraftAnalyzerAgent extends BaseAgent {
 
     const parsed = await this.parseProfileObject(jsonPayload, language);
 
-    return {
+    const baseProfile = {
       sourceName,
       analyzedAt: new Date().toISOString(),
       language,
-      structure: this.parseSection(parsed.structure, [
-        "openingPattern",
-        "chapterArc",
-        "endingHookType",
-      ]) as unknown as CraftStructure,
-      sceneRhythm: this.parseSection(parsed.sceneRhythm, [
-        "sceneTransitionTechnique",
-        "pacingCurve",
-        "conflictEscalation",
-      ]) as unknown as CraftSceneRhythm,
-      informationDisclosure: this.parseSection(parsed.informationDisclosure, [
-        "foreshadowingDensity",
-        "informationReleaseRhythm",
-        "suspenseManagement",
-      ]) as unknown as CraftInformationDisclosure,
-      narrativePerspective: this.parseSection(parsed.narrativePerspective, [
-        "povStrategy",
-        "narrationDialogueRatio",
-        "narrativeDistance",
-      ]) as unknown as CraftNarrativePerspective,
+      structure: this.parseSection(parsed.structure, CRAFT_SECTION_SPECS.structure, language) as unknown as CraftStructure,
+      sceneRhythm: this.parseSection(parsed.sceneRhythm, CRAFT_SECTION_SPECS.sceneRhythm, language) as unknown as CraftSceneRhythm,
+      informationDisclosure: this.parseSection(parsed.informationDisclosure, CRAFT_SECTION_SPECS.informationDisclosure, language) as unknown as CraftInformationDisclosure,
+      narrativePerspective: this.parseSection(parsed.narrativePerspective, CRAFT_SECTION_SPECS.narrativePerspective, language) as unknown as CraftNarrativePerspective,
       exemplars: this.parseExemplars(parsed.exemplars),
+    } satisfies Omit<CraftProfile, "modules">;
+    const modules = normalizeCraftBreakdownModules(parsed.modules);
+
+    return {
+      ...baseProfile,
+      modules: modules.length > 0 ? modules : deriveCraftBreakdownModules(baseProfile),
     };
   }
 
   private parseSection(
     raw: unknown,
-    requiredFields: ReadonlyArray<string>,
+    requiredFields: ReadonlyArray<CraftFieldSpec>,
+    language: "zh" | "en",
   ): Record<string, unknown> {
-    if (!raw || typeof raw !== "object") {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       throw new Error(`Invalid craft section: ${JSON.stringify(raw)}`);
     }
+
     const obj = raw as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
     for (const field of requiredFields) {
-      if (typeof obj[field] !== "string" || !obj[field]) {
-        throw new Error(`Missing required field '${field}' in craft section`);
-      }
+      result[field.key] = this.pickCraftFieldValue(obj, field, language);
     }
-    const result: Record<string, unknown> = { ...obj };
-    if (typeof obj.exemplar === "string" && obj.exemplar) {
+
+    if (typeof obj.exemplar === "string" && obj.exemplar.trim()) {
       result.exemplar = obj.exemplar;
     }
     return result;
+  }
+
+  private pickCraftFieldValue(
+    raw: Record<string, unknown>,
+    field: CraftFieldSpec,
+    language: "zh" | "en",
+  ): string {
+    const lookup = new Map<string, string>();
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value !== "string" || !value.trim()) continue;
+      const normalizedKey = normalizeCraftFieldKey(key);
+      if (!lookup.has(normalizedKey)) lookup.set(normalizedKey, value.trim());
+    }
+
+    for (const candidate of [field.key, ...field.aliases]) {
+      const value = lookup.get(normalizeCraftFieldKey(candidate));
+      if (value) return value;
+    }
+
+    this.log?.warn(`[craft] missing field '${field.key}', using fallback`);
+    return CRAFT_SECTION_FALLBACKS[language];
   }
 
   private async parseProfileObject(
@@ -374,6 +508,81 @@ export class CraftAnalyzerAgent extends BaseAgent {
     return response.content;
   }
 
+  private async refineWeakCraftProfile(
+    sample: string,
+    sourceName: string,
+    language: "zh" | "en",
+    profile: CraftProfile,
+    weakFields: ReadonlyArray<WeakCraftField>,
+  ): Promise<CraftProfile> {
+    const weakFieldList = weakFields
+      .map((field) => `- ${field.section}.${field.key}: ${field.value}`)
+      .join("\n");
+
+    const systemPrompt = language === "en"
+      ? [
+          "You refine an extracted craft profile from novel excerpts.",
+          "Return one valid JSON object with the exact same schema as the input profile.",
+          "Rewrite vague fields into concrete, evidence-based craft descriptions grounded in the excerpts.",
+          "Do not use placeholders such as \"Not specified\", \"Unknown\", or \"N/A\".",
+          "If the pattern is implicit, infer the dominant technique from repeated evidence.",
+          "Keep strong fields and valid exemplar text unless you can make them more precise without changing meaning.",
+          "Output JSON only.",
+        ].join("\n")
+      : [
+          "你负责精炼一份从小说节选中提取出来的写作模式。",
+          "只返回一个合法 JSON 对象,并严格保持与输入 profile 相同的结构。",
+          "把含糊或占位的字段改写成基于节选证据的具体技法描述。",
+          "不要再输出“未明确说明”“未知”“N/A”之类的占位词。",
+          "如果某种模式没有被原文直接点明,就根据重复出现的写法推断主导手法。",
+          "已有足够具体的字段和有效范例尽量保留,只在能更准确时再改写。",
+          "只输出 JSON,不要解释。",
+        ].join("\n");
+
+    const userPrompt = language === "en"
+      ? [
+          "## Reference Text Excerpts",
+          "",
+          sample,
+          "",
+          "## Current Profile JSON",
+          "",
+          JSON.stringify(profile, null, 2),
+          "",
+          "## Fields That Must Be Rewritten",
+          weakFieldList,
+        ].join("\n")
+      : [
+          "## 参考文本节选",
+          "",
+          sample,
+          "",
+          "## 当前写作模式 JSON",
+          "",
+          JSON.stringify(profile, null, 2),
+          "",
+          "## 必须重写的字段",
+          weakFieldList,
+        ].join("\n");
+
+    const response = await this.chat(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      { temperature: 0.2, maxTokens: 8192 },
+    );
+
+    const refined = await this.parseProfile(response.content, sourceName, language);
+    if (refined.exemplars.length === 0 && profile.exemplars.length > 0) {
+      return {
+        ...refined,
+        exemplars: profile.exemplars,
+      };
+    }
+    return refined;
+  }
+
   private parseExemplars(raw: unknown): CraftProfile["exemplars"] {
     if (!Array.isArray(raw)) return [];
     return raw
@@ -383,7 +592,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       .map((item) => ({
         label: String(item.label ?? ""),
         tone: String(item.tone ?? ""),
-        excerpt: String(item.excerpt ?? ""),
+        excerpt: String(item.excerpt ?? item.text ?? item.content ?? ""),
       }))
       .filter((ex) => ex.label && ex.excerpt);
   }

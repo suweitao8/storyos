@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { LLMMessage, LLMResponse } from "../llm/provider.js";
-import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
+import {
+  CraftAnalyzerAgent,
+  splitCraftChapters,
+  validateExemplars,
+} from "../agents/craft-analyzer.js";
+import { buildCraftAnalysisSystemPrompt } from "../agents/craft-prompts.js";
 
 const EMPTY_USAGE = {
   promptTokens: 0,
@@ -41,6 +46,39 @@ function longExcerpt(seed: string): string {
 }
 
 describe("CraftAnalyzerAgent", () => {
+  it("splits Chinese chapter markers correctly", () => {
+    const chapters = splitCraftChapters([
+      "第1章 开局",
+      "主角登场。",
+      "第2章 变故",
+      "冲突升级。",
+      "第3章 收束",
+      "留下钩子。",
+    ].join("\n"));
+
+    expect(chapters).toHaveLength(3);
+    expect(chapters[0]).toMatchObject({ title: "第1章", body: "开局\n主角登场。" });
+    expect(chapters[1]).toMatchObject({ title: "第2章", body: "变故\n冲突升级。" });
+    expect(chapters[2]).toMatchObject({ title: "第3章", body: "收束\n留下钩子。" });
+  });
+
+  it("uses a readable Chinese craft-analysis prompt with concrete-output constraints", () => {
+    const prompt = buildCraftAnalysisSystemPrompt("zh");
+
+    expect(prompt).toContain("你是一位写作手法分析师");
+    expect(prompt).toContain("每个必填字段都必须是具体");
+    expect(prompt).toContain("不要输出“未明确说明”");
+  });
+
+  it("asks for fine-grained modules in the craft-analysis prompt", () => {
+    const prompt = buildCraftAnalysisSystemPrompt("zh");
+
+    expect(prompt).toContain("modules");
+    expect(prompt).toContain("6-10");
+    expect(prompt).toContain("推进章节");
+    expect(prompt).toContain("悬念管理");
+  });
+
   it("sanitizes malformed JSON when exemplar objects are missing commas", async () => {
     const malformed = `{
   "structure": {
@@ -77,47 +115,13 @@ describe("CraftAnalyzerAgent", () => {
   ]
 }`;
 
-    const repaired = `{
-  "structure": {
-    "openingPattern": "悬念切入",
-    "chapterArc": "递进推进",
-    "endingHookType": "反转留钩"
-  },
-  "sceneRhythm": {
-    "sceneTransitionTechnique": "硬切",
-    "pacingCurve": "先压后放",
-    "conflictEscalation": "层层抬升"
-  },
-  "informationDisclosure": {
-    "foreshadowingDensity": "高",
-    "informationReleaseRhythm": "逐步释放",
-    "suspenseManagement": "短悬念持续叠加"
-  },
-  "narrativePerspective": {
-    "povStrategy": "近距离第三人称",
-    "narrationDialogueRatio": "叙述略多于对话",
-    "narrativeDistance": "贴近主角"
-  },
-  "exemplars": [
-    {
-      "label": "开篇压迫感",
-      "tone": "紧张",
-      "excerpt": "${longExcerpt("风声压着窗纸，")}"
-    },
-    {
-      "label": "冲突升级",
-      "tone": "高压",
-      "excerpt": "${longExcerpt("脚步声越来越近，")}"
-    }
-  ]
-}`;
-
     const sourceText = [
-      "第1章",
+      "第1章 开局",
       longExcerpt("风声压着窗纸，"),
+      "第2章 升级",
       longExcerpt("脚步声越来越近，"),
     ].join("\n");
-    const agent = new StubCraftAnalyzerAgent([malformed, repaired]);
+    const agent = new StubCraftAnalyzerAgent([malformed]);
 
     const profile = await agent.analyze(sourceText, "测试小说", "zh");
 
@@ -126,6 +130,42 @@ describe("CraftAnalyzerAgent", () => {
     expect(profile.sceneRhythm.conflictEscalation).toBe("层层抬升");
     expect(profile.informationDisclosure.suspenseManagement).toBe("短悬念持续叠加");
     expect(profile.narrativePerspective.povStrategy).toBe("近距离第三人称");
+    expect(profile.exemplars.length).toBe(2);
+  });
+
+  it("accepts craft section field aliases when the model returns Chinese labels", async () => {
+    const aliased = `{
+  "structure": {
+    "开篇模式": "悬念切入",
+    "单章弧线": "起承转合",
+    "章末钩子": "反转留钩"
+  },
+  "sceneRhythm": {
+    "场景切换": "硬切",
+    "节奏曲线": "前松后紧",
+    "冲突升级": "层层推进"
+  },
+  "informationDisclosure": {
+    "伏笔密度": "高",
+    "信息释放": "逐步递进",
+    "悬念管理": "连续吊点"
+  },
+  "narrativePerspective": {
+    "POV策略": "近距离第三人称",
+    "叙述/对话比例": "叙述略多于对话",
+    "叙事距离": "贴近主角"
+  },
+  "exemplars": []
+}`;
+
+    const agent = new StubCraftAnalyzerAgent([aliased]);
+
+    const profile = await agent.analyze("第1章 开局\n正文", "别名测试", "zh");
+
+    expect(profile.structure.openingPattern).toBe("悬念切入");
+    expect(profile.structure.chapterArc).toBe("起承转合");
+    expect(profile.structure.endingHookType).toBe("反转留钩");
+    expect(profile.narrativePerspective.narrationDialogueRatio).toBe("叙述略多于对话");
   });
 
   it("falls back to a JSON-repair pass when deterministic sanitization is insufficient", async () => {
@@ -190,8 +230,9 @@ describe("CraftAnalyzerAgent", () => {
 }`;
 
     const sourceText = [
-      "第1章",
+      "第1章 开局",
       longExcerpt("风声压着窗纸，"),
+      "第2章 升级",
       longExcerpt("脚步声越来越近，"),
     ].join("\n");
     const agent = new StubCraftAnalyzerAgent([malformed, repaired]);
@@ -201,5 +242,258 @@ describe("CraftAnalyzerAgent", () => {
     expect(agent.calls).toBe(2);
     expect(profile.structure.endingHookType).toBe("反转留钩");
     expect(profile.exemplars.length).toBe(1);
+  });
+
+  it("retries with a refinement pass when the extracted profile is mostly unspecified", async () => {
+    const weak = JSON.stringify({
+      structure: {
+        openingPattern: "未明确说明",
+        chapterArc: "未明确说明",
+        endingHookType: "未明确说明",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "未明确说明",
+        pacingCurve: "未明确说明",
+        conflictEscalation: "未明确说明",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "未明确说明",
+        informationReleaseRhythm: "未明确说明",
+        suspenseManagement: "未明确说明",
+      },
+      narrativePerspective: {
+        povStrategy: "未明确说明",
+        narrationDialogueRatio: "未明确说明",
+        narrativeDistance: "未明确说明",
+      },
+      exemplars: [],
+    });
+
+    const refined = JSON.stringify({
+      structure: {
+        openingPattern: "常以异常事件或危机瞬间切入，先抛问题再补背景。",
+        chapterArc: "单章通常按遭遇异常、试探推进、得到新线索、末尾再翻紧的顺序展开。",
+        endingHookType: "多在章末追加新发现或危险逼近，强行把读者带入下一章。",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "以动作或感官触发硬切，少做解释性过渡。",
+        pacingCurve: "前段快速抛设定，中段压缩探索，尾段用突发事件陡然拉高张力。",
+        conflictEscalation: "常用更诡异的现象或更直接的人身威胁层层加码。",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "高频埋伏笔，几乎每段异常描写都会挂出后续可回收的信息点。",
+        informationReleaseRhythm: "采用小线索连续释放、关键真相延后揭露的节奏。",
+        suspenseManagement: "通过只给局部答案、立刻引出新疑点来持续维持悬念。",
+      },
+      narrativePerspective: {
+        povStrategy: "以贴近主角感知的第三人称为主，只展示主角当下能确认的信息。",
+        narrationDialogueRatio: "叙述明显多于对话，对话主要承担信息刺点和情绪打断。",
+        narrativeDistance: "叙事距离近，频繁进入主角即时感受和本能反应。",
+      },
+      exemplars: [],
+    });
+
+    const sourceText = [
+      "第1章 开局",
+      "韩非刚推开门，就闻到一股不属于活人的潮气。",
+      "第2章 异响",
+      "他还没来得及后退，走廊尽头忽然传来金属摩擦声。",
+      "第3章 线索",
+      "墙上的血字只出现了一瞬，却像故意给他看一样。",
+    ].join("\n");
+    const agent = new StubCraftAnalyzerAgent([weak, refined]);
+
+    const profile = await agent.analyze(sourceText, "精炼测试", "zh");
+
+    expect(agent.calls).toBe(2);
+    expect(profile.structure.openingPattern).toContain("异常事件");
+    expect(profile.informationDisclosure.suspenseManagement).toContain("新疑点");
+  });
+
+  it("preserves first-pass exemplars when refinement clears the array and the model uses text alias", async () => {
+    const firstPass = JSON.stringify({
+      structure: {
+        openingPattern: "未明确说明",
+        chapterArc: "未明确说明",
+        endingHookType: "未明确说明",
+        exemplar: "第一个结构范例片段".repeat(20),
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "未明确说明",
+        pacingCurve: "未明确说明",
+        conflictEscalation: "未明确说明",
+        exemplar: "第一个节奏范例片段".repeat(20),
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "未明确说明",
+        informationReleaseRhythm: "未明确说明",
+        suspenseManagement: "未明确说明",
+        exemplar: "第一个信息范例片段".repeat(20),
+      },
+      narrativePerspective: {
+        povStrategy: "未明确说明",
+        narrationDialogueRatio: "未明确说明",
+        narrativeDistance: "未明确说明",
+        exemplar: "第一个视角范例片段".repeat(20),
+      },
+      exemplars: [
+        {
+          label: "首轮代表片段",
+          tone: "紧张",
+          text: "首轮代表片段正文".repeat(30),
+        },
+      ],
+    });
+
+    const refined = JSON.stringify({
+      structure: {
+        openingPattern: "常以异常事件切入并快速翻入危机。",
+        chapterArc: "先抛异状再递进线索，章末抬高危险。",
+        endingHookType: "多用新发现或系统提示把章节挂起。",
+        exemplar: "第一个结构范例片段".repeat(20),
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "以动作和感官完成硬切。",
+        pacingCurve: "前缓后紧，尾段突然抬速。",
+        conflictEscalation: "从轻微异常一路升级到直接威胁。",
+        exemplar: "第一个节奏范例片段".repeat(20),
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "高频伏笔密集回收。",
+        informationReleaseRhythm: "小线索连续抛出，关键真相延后揭露。",
+        suspenseManagement: "始终保留缺口并用新问题顶替旧答案。",
+        exemplar: "第一个信息范例片段".repeat(20),
+      },
+      narrativePerspective: {
+        povStrategy: "贴近主角即时感知的第三人称。",
+        narrationDialogueRatio: "叙述主导，对话负责打点信息。",
+        narrativeDistance: "时而贴身感知，时而稍拉远回望。",
+        exemplar: "第一个视角范例片段".repeat(20),
+      },
+      exemplars: [],
+    });
+
+    const sourceText = [
+      "第1章 开局",
+      "首轮代表片段正文".repeat(30),
+      "第2章 异响",
+      "第一个结构范例片段".repeat(20),
+      "第3章 深挖",
+      "第一个节奏范例片段".repeat(20),
+      "第4章 线索",
+      "第一个信息范例片段".repeat(20),
+      "第5章 决断",
+      "第一个视角范例片段".repeat(20),
+    ].join("\n");
+    const agent = new StubCraftAnalyzerAgent([firstPass, refined]);
+
+    const profile = await agent.analyze(sourceText, "范例保留测试", "zh");
+
+    expect(agent.calls).toBe(2);
+    expect(profile.exemplars).toHaveLength(1);
+    expect(profile.exemplars[0]).toMatchObject({
+      label: "首轮代表片段",
+      tone: "紧张",
+    });
+    expect(profile.exemplars[0]?.excerpt).toContain("首轮代表片段正文");
+  });
+
+  it("backfills exemplars array from validated section exemplars when the array is empty", () => {
+    const sourceText = [
+      "第1章 开局",
+      "结构范例正文".repeat(30),
+      "第2章 节奏",
+      "节奏范例正文".repeat(30),
+      "第3章 披露",
+      "信息范例正文".repeat(30),
+      "第4章 视角",
+      "视角范例正文".repeat(30),
+    ].join("\n");
+
+    const profile = validateExemplars({
+      sourceName: "兜底测试",
+      analyzedAt: new Date().toISOString(),
+      language: "zh",
+      structure: {
+        openingPattern: "结构描述",
+        chapterArc: "弧线描述",
+        endingHookType: "钩子描述",
+        exemplar: "结构范例正文".repeat(30),
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "切场描述",
+        pacingCurve: "节奏描述",
+        conflictEscalation: "升级描述",
+        exemplar: "节奏范例正文".repeat(30),
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "伏笔描述",
+        informationReleaseRhythm: "释放描述",
+        suspenseManagement: "悬念描述",
+        exemplar: "信息范例正文".repeat(30),
+      },
+      narrativePerspective: {
+        povStrategy: "视角描述",
+        narrationDialogueRatio: "比例描述",
+        narrativeDistance: "距离描述",
+        exemplar: "视角范例正文".repeat(30),
+      },
+      exemplars: [],
+    }, sourceText);
+
+    expect(profile.exemplars).toHaveLength(4);
+    expect(profile.exemplars.map((item) => item.label)).toEqual([
+      "结构手法",
+      "场景与节奏",
+      "信息披露",
+      "叙事视角",
+    ]);
+  });
+
+  it("derives richer craft breakdown modules from the legacy sections when the model omits them", async () => {
+    const sourceText = [
+      "第1章 开局",
+      "首先把异常事件轻轻抛出来，然后再补背景。",
+      "第2章 进展",
+      "不是一口气把信息全都说尽，而是一层层逐步上抬。",
+      "第3章 悬念",
+      "细节再处理，把新疑点持续抛出来。",
+      "第4章 视角",
+      "叙述和对话双线交织，距离主角非常近。",
+    ].join("\n");
+
+    const response = JSON.stringify({
+      structure: {
+        openingPattern: "先把异常事件轻轻抛出来，再补背景。",
+        chapterArc: "单章从异状到加码，再向新信息推进。",
+        endingHookType: "往往留下不完整的疑问号。",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "用对话和动作做硬切换。",
+        pacingCurve: "先推进压迫，再用撕扯点拉高。",
+        conflictEscalation: "围绕核心矛盾一层层升级。",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "高频埋伏点。",
+        informationReleaseRhythm: "不是中心讲解，而是一点一点释放。",
+        suspenseManagement: "持续吊着新疑点。",
+      },
+      narrativePerspective: {
+        povStrategy: "贴近主角的第三人称。",
+        narrationDialogueRatio: "叙述明显多于对话。",
+        narrativeDistance: "视角贴近，代入感强。",
+      },
+      exemplars: [],
+    });
+    const agent = new StubCraftAnalyzerAgent([response]);
+
+    const profile = await agent.analyze(sourceText, "测试小说", "zh");
+
+    expect(profile.modules?.length).toBeGreaterThanOrEqual(8);
+    expect(profile.modules?.[0]).toMatchObject({
+      category: "opening",
+      label: "开篇钩子",
+    });
+    expect(profile.modules?.some((item) => item.label.includes("悬念"))).toBe(true);
   });
 });

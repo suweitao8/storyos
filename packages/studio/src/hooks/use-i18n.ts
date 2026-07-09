@@ -191,6 +191,11 @@ const strings = {
   "craft.povStrategy": { zh: "POV 策略", en: "POV Strategy" },
   "craft.dialogueRatio": { zh: "叙述/对话比例", en: "Dialogue Ratio" },
   "craft.narrativeDistance": { zh: "叙事距离", en: "Narrative Distance" },
+  "craft.breakdownModules": { zh: "拆文模块", en: "Breakdown Modules" },
+  "craft.legacySummary": { zh: "基础四维", en: "Legacy Summary" },
+  "craft.moduleCount": { zh: "{count} 个拆文模块", en: "{count} breakdown modules" },
+  "craft.exemplarCount": { zh: "{count} 个范例片段", en: "{count} exemplar excerpts" },
+  "craft.moduleEvidence": { zh: "证据", en: "Evidence" },
 
   // Import
   "import.title": { zh: "导入工具", en: "Import Tools" },

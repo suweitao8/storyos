@@ -6,7 +6,7 @@ export { type CurrentState, type ParticleLedger, type PendingHooks, type Pending
 export { type GenreProfile, type ParsedGenreProfile, GenreProfileSchema, parseGenreProfile } from "./models/genre-profile.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
-export { type CraftProfile, type CraftExemplar, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type CraftMeta } from "./models/craft-profile.js";
+export { type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type CraftMeta } from "./models/craft-profile.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {
   type RuntimeStateLanguage,
@@ -450,6 +450,7 @@ export { analyzeSensitiveWords, type SensitiveWordResult, type SensitiveWordMatc
 export { detectAIContent, type DetectionResult } from "./agents/detector.js";
 export { CraftAnalyzerAgent, splitCraftChapters, selectSampleChapters, validateExemplars } from "./agents/craft-analyzer.js";
 export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./agents/craft-prompts.js";
+export { deriveCraftBreakdownModules, formatCraftBreakdownModules, normalizeCraftBreakdownModule, normalizeCraftBreakdownModules } from "./agents/craft-breakdown.js";
 export { analyzeDetectionInsights } from "./agents/detection-insights.js";
 export { validatePostWrite, detectParagraphLengthDrift, detectParagraphShapeWarnings, detectDuplicateTitle, type PostWriteViolation } from "./agents/post-write-validator.js";
 export { ChapterAnalyzerAgent, type AnalyzeChapterInput, type AnalyzeChapterOutput } from "./agents/chapter-analyzer.js";
@@ -483,6 +484,7 @@ export { countChapterLength, resolveLengthCountingMode, formatLengthCount, build
 export { createLogger, createStderrSink, createJsonLineSink, nullSink, type Logger, type LogSink, type LogLevel, type LogEntry } from "./utils/logger.js";
 export { inferLanguage, type WritingLanguage } from "./utils/language.js";
 export { loadProjectConfig, GLOBAL_CONFIG_DIR, GLOBAL_ENV_PATH, isApiKeyOptionalForEndpoint } from "./utils/config-loader.js";
+export { ensureProjectGitignore, ensureProjectSupportFiles } from "./utils/project-bootstrap.js";
 export { resolveEffectiveLLMConfig, type EffectiveLLMConfigResult, type EffectiveLLMDiagnostics, type LLMConfigCliOverrides, type LLMConfigMode, type LLMConsumer, type LLMValueSource } from "./utils/effective-llm-config.js";
 export { loadLLMEnvLayers, mergeEnvMaps, studioIgnoredEnv, cliOverlayEnv, legacyEnv, type LLMEnvLayers, type LLMEnvMap } from "./utils/llm-env.js";
 export type { ContextCompressionCallback, ContextCompressionCategory, ContextCompressionEvent, ContextCompressionPhase } from "./models/context-compression.js";

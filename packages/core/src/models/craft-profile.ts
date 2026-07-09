@@ -20,6 +20,27 @@ export interface CraftExemplar {
   readonly excerpt: string;
 }
 
+/** A smaller breakdown card extracted from the reference work. */
+export interface CraftBreakdownModule {
+  /** Module category, used for grouping and ordering in the UI. */
+  readonly category:
+    | "opening"
+    | "chapterFlow"
+    | "sceneRhythm"
+    | "disclosure"
+    | "suspense"
+    | "perspective"
+    | "emotion"
+    | "turningPoint"
+    | "other";
+  /** Short module label, such as "开篇钩子" or "信息释放". */
+  readonly label: string;
+  /** Concrete craft observation, grounded in the source text. */
+  readonly summary: string;
+  /** Verbatim evidence excerpt, if available. */
+  readonly evidence?: string;
+}
+
 /** Structural techniques — how chapters are opened, arced, and closed. */
 export interface CraftStructure {
   /** Typical opening pattern (悬念 / 场景 / 对话 / 倒叙). */
@@ -76,6 +97,8 @@ export interface CraftProfile {
   readonly informationDisclosure: CraftInformationDisclosure;
   readonly narrativePerspective: CraftNarrativePerspective;
 
+  /** Optional fine-grained breakdown modules for richer inspection. */
+  readonly modules?: ReadonlyArray<CraftBreakdownModule>;
   /** Representative excerpts used as few-shot examples during generation. */
   readonly exemplars: ReadonlyArray<CraftExemplar>;
 }

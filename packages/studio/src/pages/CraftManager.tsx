@@ -5,6 +5,8 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
+import { normalizeCraftDisplayName } from "./craft-name.js";
+import { deriveCraftBreakdownModules } from "@actalk/inkos-core";
 import {
   Wand2, BookOpen, Trash2, ChevronRight,
   Plus, FileUp, Loader2, ArrowLeft, FileText,
@@ -25,6 +27,22 @@ interface CraftExemplar {
   readonly label: string;
   readonly tone: string;
   readonly excerpt: string;
+}
+
+interface CraftModule {
+  readonly category:
+    | "opening"
+    | "chapterFlow"
+    | "sceneRhythm"
+    | "disclosure"
+    | "suspense"
+    | "perspective"
+    | "emotion"
+    | "turningPoint"
+    | "other";
+  readonly label: string;
+  readonly summary: string;
+  readonly evidence?: string;
 }
 
 interface CraftProfile {
@@ -55,6 +73,7 @@ interface CraftProfile {
     readonly narrativeDistance: string;
     readonly exemplar?: string;
   };
+  readonly modules?: ReadonlyArray<CraftModule>;
   readonly exemplars: ReadonlyArray<CraftExemplar>;
 }
 
@@ -66,12 +85,65 @@ interface SseState {
   readonly messages: ReadonlyArray<SSEMessage>;
 }
 
-function decodeMaybeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+interface CraftLegacySection {
+  readonly title: string;
+  readonly fields: ReadonlyArray<[string, string]>;
+  readonly exemplar?: string;
+}
+
+interface CraftDetailModel {
+  readonly moduleCount: number;
+  readonly exemplarCount: number;
+  readonly modules: ReadonlyArray<CraftModule>;
+  readonly legacySections: ReadonlyArray<CraftLegacySection>;
+}
+
+export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
+  const modules = deriveCraftBreakdownModules(profile) as ReadonlyArray<CraftModule>;
+
+  return {
+    moduleCount: modules.length,
+    exemplarCount: profile.exemplars.length,
+    modules,
+    legacySections: [
+      {
+        title: "结构手法",
+        fields: [
+          ["开篇模式", profile.structure.openingPattern],
+          ["单章弧线", profile.structure.chapterArc],
+          ["章末钩子", profile.structure.endingHookType],
+        ],
+        exemplar: profile.structure.exemplar,
+      },
+      {
+        title: "场景与节奏",
+        fields: [
+          ["场景切换", profile.sceneRhythm.sceneTransitionTechnique],
+          ["节奏曲线", profile.sceneRhythm.pacingCurve],
+          ["冲突升级", profile.sceneRhythm.conflictEscalation],
+        ],
+        exemplar: profile.sceneRhythm.exemplar,
+      },
+      {
+        title: "信息披露",
+        fields: [
+          ["伏笔密度", profile.informationDisclosure.foreshadowingDensity],
+          ["信息释放", profile.informationDisclosure.informationReleaseRhythm],
+          ["悬念管理", profile.informationDisclosure.suspenseManagement],
+        ],
+        exemplar: profile.informationDisclosure.exemplar,
+      },
+      {
+        title: "叙事视角",
+        fields: [
+          ["POV 策略", profile.narrativePerspective.povStrategy],
+          ["叙述/对话比例", profile.narrativePerspective.narrationDialogueRatio],
+          ["叙事距离", profile.narrativePerspective.narrativeDistance],
+        ],
+        exemplar: profile.narrativePerspective.exemplar,
+      },
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +303,7 @@ function CraftList({ crafts, c, t, onNew, onOpen, onDelete }: {
         <div key={craft.id} className={`border ${c.cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`}>
           <button onClick={() => onOpen(craft.id)} className="flex items-center gap-3 flex-1 text-left">
             <ChevronRight size={16} className="text-muted-foreground" />
-            <span className="font-medium text-sm">{craft.sourceName}</span>
+            <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
             <span className="text-xs text-muted-foreground">{craft.language}</span>
             <span className="text-xs text-muted-foreground">{new Date(craft.createdAt).toLocaleDateString()}</span>
           </button>
@@ -345,7 +417,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       }
       const data: UploadResponse = await response.json();
       setUploadResult(data);
-      setSourceName(decodeMaybeURIComponent(data.detectedName));
+      setSourceName(normalizeCraftDisplayName(data.detectedName));
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
     }
@@ -407,7 +479,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         ) : uploadResult ? (
           <div className="flex flex-col items-center gap-1 text-sm">
             <FileText size={28} className="text-emerald-500 mb-1" />
-            <span className="font-medium">{sourceName || uploadResult.detectedName}</span>
+            <span className="font-medium">{normalizeCraftDisplayName(sourceName || uploadResult.detectedName)}</span>
             <span className="text-xs text-muted-foreground">
               {t("craft.detectedEncoding")}: {uploadResult.encoding}
             </span>
@@ -547,6 +619,8 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
     );
   }
 
+  const detail = buildCraftDetailModel(profile);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -557,32 +631,67 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
         </button>
       </div>
 
-      <h2 className="font-serif text-2xl">{profile.sourceName}</h2>
+      <div className="space-y-2">
+        <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
+            {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
+          </span>
+          <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
+            {t("craft.exemplarCount").replace("{count}", String(detail.exemplarCount))}
+          </span>
+        </div>
+      </div>
 
-      {/* Four craft dimensions */}
-      <CraftSection title={t("craft.structure")} fields={[
-        [t("craft.openingPattern"), profile.structure.openingPattern],
-        [t("craft.chapterArc"), profile.structure.chapterArc],
-        [t("craft.endingHook"), profile.structure.endingHookType],
-      ]} exemplar={profile.structure.exemplar} c={c} />
+      <section className="space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("craft.breakdownModules")}</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {detail.modules.map((module) => (
+            <div key={`${module.category}-${module.label}`} className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">{module.label}</div>
+                <span className="text-[11px] rounded-full bg-secondary/30 px-2 py-0.5 text-muted-foreground">
+                  {module.category}
+                </span>
+              </div>
+              <div className="text-sm leading-6 text-foreground/90">{module.summary}</div>
+              {module.evidence && (
+                <div className="rounded-lg bg-secondary/20 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  <div className="mb-1 font-medium uppercase tracking-wider">{t("craft.moduleEvidence")}</div>
+                  {module.evidence}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <CraftSection title={t("craft.sceneRhythm")} fields={[
-        [t("craft.sceneTransition"), profile.sceneRhythm.sceneTransitionTechnique],
-        [t("craft.pacingCurve"), profile.sceneRhythm.pacingCurve],
-        [t("craft.conflictEscalation"), profile.sceneRhythm.conflictEscalation],
-      ]} exemplar={profile.sceneRhythm.exemplar} c={c} />
+      <section className="space-y-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("craft.legacySummary")}</h3>
+        <CraftSection title={t("craft.structure")} fields={[
+          [t("craft.openingPattern"), profile.structure.openingPattern],
+          [t("craft.chapterArc"), profile.structure.chapterArc],
+          [t("craft.endingHook"), profile.structure.endingHookType],
+        ]} exemplar={profile.structure.exemplar} c={c} />
 
-      <CraftSection title={t("craft.infoDisclosure")} fields={[
-        [t("craft.foreshadowing"), profile.informationDisclosure.foreshadowingDensity],
-        [t("craft.infoRelease"), profile.informationDisclosure.informationReleaseRhythm],
-        [t("craft.suspense"), profile.informationDisclosure.suspenseManagement],
-      ]} exemplar={profile.informationDisclosure.exemplar} c={c} />
+        <CraftSection title={t("craft.sceneRhythm")} fields={[
+          [t("craft.sceneTransition"), profile.sceneRhythm.sceneTransitionTechnique],
+          [t("craft.pacingCurve"), profile.sceneRhythm.pacingCurve],
+          [t("craft.conflictEscalation"), profile.sceneRhythm.conflictEscalation],
+        ]} exemplar={profile.sceneRhythm.exemplar} c={c} />
 
-      <CraftSection title={t("craft.narrativePOV")} fields={[
-        [t("craft.povStrategy"), profile.narrativePerspective.povStrategy],
-        [t("craft.dialogueRatio"), profile.narrativePerspective.narrationDialogueRatio],
-        [t("craft.narrativeDistance"), profile.narrativePerspective.narrativeDistance],
-      ]} exemplar={profile.narrativePerspective.exemplar} c={c} />
+        <CraftSection title={t("craft.infoDisclosure")} fields={[
+          [t("craft.foreshadowing"), profile.informationDisclosure.foreshadowingDensity],
+          [t("craft.infoRelease"), profile.informationDisclosure.informationReleaseRhythm],
+          [t("craft.suspense"), profile.informationDisclosure.suspenseManagement],
+        ]} exemplar={profile.informationDisclosure.exemplar} c={c} />
+
+        <CraftSection title={t("craft.narrativePOV")} fields={[
+          [t("craft.povStrategy"), profile.narrativePerspective.povStrategy],
+          [t("craft.dialogueRatio"), profile.narrativePerspective.narrationDialogueRatio],
+          [t("craft.narrativeDistance"), profile.narrativePerspective.narrativeDistance],
+        ]} exemplar={profile.narrativePerspective.exemplar} c={c} />
+      </section>
 
       {/* Exemplars */}
       {profile.exemplars.length > 0 && (
