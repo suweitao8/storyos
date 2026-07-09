@@ -291,7 +291,7 @@ export function App() {
           )}
           {route.page === "craft" && (
             <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
-              <CraftManager nav={nav} theme={theme} t={t} />
+              <CraftManager nav={nav} theme={theme} t={t} sse={sse} />
             </div>
           )}
           {route.page === "import" && (

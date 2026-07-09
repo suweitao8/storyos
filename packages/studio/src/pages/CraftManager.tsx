@@ -1,8 +1,10 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { fetchJson, useApi, postApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
+import type { SSEMessage } from "../hooks/use-sse";
+import { useNewSSEMessages } from "../hooks/use-sse";
 import {
   Wand2, BookOpen, Trash2, ChevronRight,
   Plus, FileUp, Loader2, ArrowLeft, FileText,
@@ -60,11 +62,23 @@ type CraftTab = "list" | "create" | "detail";
 
 interface Nav { toDashboard: () => void }
 
+interface SseState {
+  readonly messages: ReadonlyArray<SSEMessage>;
+}
+
+function decodeMaybeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function CraftManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
+export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t: TFunction; sse: SseState }) {
   const c = useColors(theme);
   const [tab, setTab] = useState<CraftTab>("list");
   const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
@@ -87,14 +101,10 @@ export function CraftManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-serif text-3xl flex items-center gap-3">
-        <Wand2 size={28} className="text-primary" />
-        {t("craft.title")}
-      </h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="mx-auto flex w-fit gap-1 border-b border-border">
         <TabButton
           active={tab === "list"}
           onClick={() => { setTab("list"); void refetch(); }}
@@ -132,6 +142,7 @@ export function CraftManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
         <CraftCreate
           c={c}
           t={t}
+          sse={sse}
           onSuccess={handleCreated}
         />
       )}
@@ -248,23 +259,76 @@ interface UploadResponse {
   readonly detectedName: string;
 }
 
-function CraftCreate({ c, t, onSuccess }: {
+function CraftCreate({ c, t, sse, onSuccess }: {
   c: ReturnType<typeof useColors>;
   t: TFunction;
+  sse: SseState;
   onSuccess: (profile: CraftProfile) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeSourceNameRef = useRef<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [sourceName, setSourceName] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
+  const [currentStep, setCurrentStep] = useState("");
+  const [progressLogs, setProgressLogs] = useState<ReadonlyArray<string>>([]);
+
+  const appendProgressLog = useCallback((message: string) => {
+    setProgressLogs((prev) => [...prev, message].slice(-12));
+  }, []);
+
+  const handleProgressEvent = useCallback((event: SSEMessage) => {
+    const activeSourceName = activeSourceNameRef.current;
+    if (!activeSourceName) return;
+    const data = event.data as { sourceName?: string; message?: string; error?: string; tag?: string } | null;
+
+    if (event.event === "log") {
+      const rawMessage = data?.message;
+      if (!rawMessage?.startsWith("[craft] ")) return;
+      const progressMessage = rawMessage.replace(/^\[craft\]\s*/, "").trim();
+      if (!progressMessage) return;
+      setCurrentStep(progressMessage);
+      appendProgressLog(progressMessage);
+      return;
+    }
+
+    if (data?.sourceName !== activeSourceName) return;
+
+    if (event.event === "craft:start") {
+      const message = t("craft.progressStarted");
+      setCurrentStep(message);
+      appendProgressLog(message);
+      return;
+    }
+
+    if (event.event === "craft:complete") {
+      const message = t("craft.progressFinished");
+      setCurrentStep(message);
+      appendProgressLog(message);
+      return;
+    }
+
+    if (event.event === "craft:error") {
+      const message = data?.error ?? t("craft.progressWaiting");
+      setExtractError(message);
+      setCurrentStep(message);
+      appendProgressLog(message);
+    }
+  }, [appendProgressLog, t]);
+
+  useNewSSEMessages(sse.messages, handleProgressEvent);
 
   const handleFile = async (file: File) => {
     setUploading(true);
     setUploadError("");
     setUploadResult(null);
+    setExtractError("");
+    setCurrentStep("");
+    setProgressLogs([]);
+    activeSourceNameRef.current = null;
     try {
       const arrayBuffer = await file.arrayBuffer();
       const response = await fetch("/api/v1/craft/upload", {
@@ -281,7 +345,7 @@ function CraftCreate({ c, t, onSuccess }: {
       }
       const data: UploadResponse = await response.json();
       setUploadResult(data);
-      setSourceName(data.detectedName);
+      setSourceName(decodeMaybeURIComponent(data.detectedName));
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
     }
@@ -290,12 +354,16 @@ function CraftCreate({ c, t, onSuccess }: {
 
   const handleExtract = async () => {
     if (!uploadResult || !sourceName.trim()) return;
+    const nextSourceName = sourceName.trim();
+    activeSourceNameRef.current = nextSourceName;
     setExtracting(true);
     setExtractError("");
+    setCurrentStep(t("craft.progressWaiting"));
+    setProgressLogs([]);
     try {
       const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
         text: uploadResult.text,
-        sourceName: sourceName.trim(),
+        sourceName: nextSourceName,
         language: "zh",
       });
       onSuccess(result.profile);
@@ -308,7 +376,7 @@ function CraftCreate({ c, t, onSuccess }: {
   const busy = uploading || extracting;
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl space-y-6">
       {/* File upload zone */}
       <input
         ref={fileInputRef}
@@ -393,6 +461,40 @@ function CraftCreate({ c, t, onSuccess }: {
       {extractError && (
         <div className="px-4 py-2 rounded-lg text-sm bg-destructive/10 text-destructive">
           {extractError}
+        </div>
+      )}
+
+      {(extracting || progressLogs.length > 0) && (
+        <div className={`rounded-2xl border ${c.cardStatic} p-4 space-y-4`}>
+          <div className="space-y-1">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("craft.progressTitle")}
+            </div>
+            <div className="text-sm font-medium">
+              {t("craft.progressCurrentStep")}：{currentStep || t("craft.progressWaiting")}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("craft.progressLogs")}
+            </div>
+            <div className="rounded-xl border border-border/60 bg-secondary/20 px-3 py-3">
+              {progressLogs.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  {t("craft.progressPending")}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {progressLogs.map((log, index) => (
+                    <div key={`${index}-${log}`} className="text-sm leading-6 text-foreground/90">
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
