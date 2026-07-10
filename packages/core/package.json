@@ -32,6 +32,10 @@
     "./interactive-film/graph-schema": {
       "types": "./dist/interactive-film/graph-schema.d.ts",
       "import": "./dist/interactive-film/graph-schema.js"
+    },
+    "./agents/*": {
+      "types": "./dist/agents/*.d.ts",
+      "import": "./dist/agents/*.js"
     }
   },
   "files": [

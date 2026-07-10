@@ -6,7 +6,7 @@ import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
 import { normalizeCraftDisplayName } from "./craft-name.js";
-import { deriveCraftBreakdownModules } from "@actalk/inkos-core";
+import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import {
   Wand2, BookOpen, Trash2, ChevronRight,
   Plus, FileUp, Loader2, ArrowLeft, FileText,
