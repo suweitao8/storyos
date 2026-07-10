@@ -18,7 +18,7 @@ import { StateValidatorAgent, type ValidationResult, type ValidationWarning } fr
 import { RadarAgent } from "../agents/radar.js";
 import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
-import type { CraftProfile, CraftMeta } from "../models/craft-profile.js";
+import type { CraftMode, CraftProfile, CraftMeta } from "../models/craft-profile.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
 import { analyzeSensitiveWords } from "../agents/sensitive-words.js";
@@ -669,11 +669,12 @@ export class PipelineRunner {
     text: string,
     sourceName: string,
     language: "zh" | "en" = "zh",
+    mode: CraftMode = "general",
   ): Promise<{ craftId: string; profile: CraftProfile }> {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
       this.config.logger?.info(`[craft] ${msg}`);
-    });
+    }, mode);
 
     const craftId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);
@@ -684,6 +685,7 @@ export class PipelineRunner {
       sourceName,
       createdAt: new Date().toISOString(),
       language,
+      mode,
     };
 
     await writeFile(join(craftsDir, "craft_profile.json"), JSON.stringify(profile, null, 2), "utf-8");

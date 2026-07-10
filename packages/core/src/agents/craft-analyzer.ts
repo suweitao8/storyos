@@ -9,6 +9,8 @@ import type {
   CraftSceneRhythm,
   CraftInformationDisclosure,
   CraftNarrativePerspective,
+  CraftMode,
+  GhostStoryCraft,
 } from "../models/craft-profile.js";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +60,18 @@ const CRAFT_SECTION_SPECS: Record<string, ReadonlyArray<CraftFieldSpec>> = {
     { key: "povStrategy", aliases: ["POV\u7b56\u7565", "\u89c6\u89d2\u7b56\u7565", "\u53d9\u4e8b\u89c6\u89d2"] },
     { key: "narrationDialogueRatio", aliases: ["\u53d9\u8ff0/\u5bf9\u8bdd\u6bd4\u4f8b", "\u53d9\u8ff0\u5bf9\u8bdd\u6bd4\u4f8b", "\u53d9\u8ff0\u4e0e\u5bf9\u8bdd\u6bd4\u4f8b"] },
     { key: "narrativeDistance", aliases: ["\u53d9\u4e8b\u8ddd\u79bb"] },
+  ],
+  ghostStory: [
+    { key: "fearCore", aliases: ["\u6050\u60e7\u6838\u5fc3", "fear", "fearSource", "horrorCore"] },
+    { key: "supernaturalRules", aliases: ["\u8d85\u81ea\u7136\u89c4\u5219", "supernaturalRule", "entityRules", "ghostRules"] },
+    { key: "taboos", aliases: ["\u7981\u5fcc", "\u7981\u5fcc\u4e0e\u89e6\u53d1\u6761\u4ef6", "triggers", "tabooRules"] },
+    { key: "protagonistVulnerability", aliases: ["\u4e3b\u89d2\u8106\u5f31\u70b9", "protagonistWeakness", "vulnerability"] },
+    { key: "clueSystem", aliases: ["\u7ebf\u7d22\u7cfb\u7edf", "clues", "evidenceChain", "clueChain"] },
+    { key: "revealCadence", aliases: ["\u771f\u76f8\u63ed\u793a\u8282\u594f", "\u63ed\u793a\u8282\u594f", "revealRhythm", "revelation"] },
+    { key: "scareCadence", aliases: ["\u60ca\u5413\u8282\u594f", "scareRhythm", "scarePattern"] },
+    { key: "escalationLadder", aliases: ["\u6050\u6016\u5347\u7ea7\u9636\u68af", "horrorEscalation", "escalation"] },
+    { key: "sensoryMotifs", aliases: ["\u611f\u5b98\u6bcd\u9898", "sensoryMotif", "sensoryDetails", "motifs"] },
+    { key: "endingAftertaste", aliases: ["\u7ed3\u5c3e\u4f59\u97f5", "endingAfterglow", "aftertaste", "endingEffect"] },
   ],
 };
 
@@ -223,6 +237,7 @@ const CRAFT_TOP_LEVEL_ALIASES: Record<string, ReadonlyArray<string>> = {
   sceneRhythm: ["sceneRhythm", "sceneAndRhythm", "场景与节奏", "场景节奏", "场景手法"],
   informationDisclosure: ["informationDisclosure", "informationRelease", "信息披露", "信息释放", "信息手法"],
   narrativePerspective: ["narrativePerspective", "narrativePOV", "叙事视角", "叙事", "视角手法"],
+  ghostStory: ["ghostStory", "ghostCraft", "horrorCraft", "鬼故事模式", "恐怖机制", "恐怖故事手法"],
   modules: ["modules", "module", "breakdownModules", "拆文模块", "写作模块", "模块"],
   exemplars: ["exemplars", "exemplar", "范例", "代表片段", "范例片段"],
 };
@@ -293,6 +308,10 @@ function collectWeakCraftFields(
         return profile.informationDisclosure as unknown as Record<string, unknown>;
       case "narrativePerspective":
         return profile.narrativePerspective as unknown as Record<string, unknown>;
+      case "ghostStory":
+        return profile.ghostStory
+          ? profile.ghostStory as unknown as Record<string, unknown>
+          : {};
       default:
         return {};
     }
@@ -385,6 +404,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     sourceName: string,
     language: "zh" | "en",
     onProgress?: (message: string) => void,
+    mode: CraftMode = "general",
   ): Promise<CraftProfile> {
     onProgress?.(language === "zh" ? "分割章节…" : "Splitting chapters…");
     const chapters = splitCraftChapters(text);
@@ -398,8 +418,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
     const sample = truncateChapters(sampleChapters);
 
     onProgress?.(language === "zh" ? "分析写作手法…" : "Analyzing writing craft…");
-    const systemPrompt = buildCraftAnalysisSystemPrompt(language);
-    const userPrompt = buildCraftAnalysisUserPrompt(sample, language);
+    const systemPrompt = buildCraftAnalysisSystemPrompt(language, mode);
+    const userPrompt = buildCraftAnalysisUserPrompt(sample, language, mode);
 
     const response = await this.chat(
       [
@@ -409,7 +429,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.3, maxTokens: 8192 },
     );
 
-    let profile = await this.parseProfile(response.content, sourceName, language);
+    let profile = await this.parseProfile(response.content, sourceName, language, undefined, mode);
     onProgress?.(
       language === "zh"
         ? `首轮已提取 ${profile.modules?.length ?? 0} 个拆文模块，正在检查字段完整性…`
@@ -424,6 +444,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
         language,
         profile,
         weakFields,
+        mode,
       );
     }
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
@@ -442,23 +463,28 @@ export class CraftAnalyzerAgent extends BaseAgent {
     sourceName: string,
     language: "zh" | "en",
     fallbackModules?: ReadonlyArray<CraftBreakdownModule>,
+    mode: CraftMode = "general",
   ): Promise<CraftProfile> {
     const jsonPayload = extractFirstJSONObject(raw);
     if (!jsonPayload) {
       throw new Error("Craft analysis did not return valid JSON");
     }
 
-    const parsed = await this.parseProfileObject(jsonPayload, language);
+    const parsed = await this.parseProfileObject(jsonPayload, language, mode);
 
     const payload = unwrapCraftProfilePayload(parsed);
     const baseProfile = {
       sourceName,
       analyzedAt: new Date().toISOString(),
       language,
+      mode,
       structure: this.parseSection(pickCraftTopLevelValue(payload, "structure"), CRAFT_SECTION_SPECS.structure, language) as unknown as CraftStructure,
       sceneRhythm: this.parseSection(pickCraftTopLevelValue(payload, "sceneRhythm"), CRAFT_SECTION_SPECS.sceneRhythm, language) as unknown as CraftSceneRhythm,
       informationDisclosure: this.parseSection(pickCraftTopLevelValue(payload, "informationDisclosure"), CRAFT_SECTION_SPECS.informationDisclosure, language) as unknown as CraftInformationDisclosure,
       narrativePerspective: this.parseSection(pickCraftTopLevelValue(payload, "narrativePerspective"), CRAFT_SECTION_SPECS.narrativePerspective, language) as unknown as CraftNarrativePerspective,
+      ...(mode === "ghost-story"
+        ? { ghostStory: this.parseSection(pickCraftTopLevelValue(payload, "ghostStory") ?? {}, CRAFT_SECTION_SPECS.ghostStory, language) as unknown as GhostStoryCraft }
+        : {}),
       exemplars: this.parseExemplars(pickCraftTopLevelValue(payload, "exemplars")),
     } satisfies Omit<CraftProfile, "modules">;
     const modules = normalizeCraftBreakdownModules(pickCraftTopLevelValue(payload, "modules"));
@@ -514,6 +540,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
   private async parseProfileObject(
     raw: string,
     language: "zh" | "en",
+    mode: CraftMode = "general",
   ): Promise<Record<string, unknown>> {
     const candidates = [raw, sanitizeCraftJSON(raw)];
     let lastError: unknown = null;
@@ -537,6 +564,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
         language,
         lastError,
         attempt === 1,
+        mode,
       );
       const repairedPayload = extractFirstJSONObject(repaired) ?? repaired;
 
@@ -560,20 +588,23 @@ export class CraftAnalyzerAgent extends BaseAgent {
     language: "zh" | "en",
     parseError: unknown,
     compact = false,
+    mode: CraftMode = "general",
   ): Promise<string> {
+    const requiredSections = mode === "ghost-story" ? "six" : "four";
+    const requiredSectionsZh = mode === "ghost-story" ? "六个" : "四个";
     this.log?.warn(
       `[craft] repairing malformed JSON${compact ? " with compact fallback" : ""} after parse error: ${String(parseError)}`,
     );
     const compactRules = language === "en"
       ? [
           "The previous repair was still invalid JSON.",
-          "Return a compact object with only the four required sections and their required fields.",
+          `Return a compact object with only the ${requiredSections} required sections${mode === "ghost-story" ? ", including the required ghostStory section" : ""}, and their required fields.`,
           "Use an empty modules array and an empty exemplars array if optional detail is unsafe to preserve.",
           "Keep each required value concise; omit optional exemplar and evidence fields.",
         ]
       : [
           "上一次修复仍然不是合法 JSON。",
-          "只返回包含四个必需 section 及其必需字段的紧凑对象。",
+          `只返回包含${requiredSectionsZh}个必需 section（鬼故事模式必须包含 ghostStory）及其必需字段的紧凑对象。`,
           "如果可选细节难以保留，将 modules 和 exemplars 设为空数组。",
           "每个必填值保持简短，省略可选的 exemplar 和 evidence 字段。",
         ];
@@ -584,6 +615,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "Do not add commentary, markdown fences, or new fields.",
           "Preserve the original keys and string values as much as possible.",
           "Only fix JSON syntax issues such as missing commas, trailing commas, or broken escaping.",
+          ...(mode === "ghost-story" ? ["Preserve the required ghostStory object and all ten of its fields."] : []),
           ...(compact ? compactRules : []),
         ].join("\n")
       : [
@@ -592,6 +624,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "不要输出说明、不要加 markdown 代码块、不要新增字段。",
           "尽量保留原有的键和值内容。",
           "只修复 JSON 语法问题，例如漏逗号、多余逗号或转义损坏。",
+          ...(mode === "ghost-story" ? ["鬼故事模式必须保留 ghostStory 对象及其十个字段。"] : []),
           ...(compact ? compactRules : []),
         ].join("\n");
     const userPrompt = language === "en"
@@ -613,6 +646,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     language: "zh" | "en",
     profile: CraftProfile,
     weakFields: ReadonlyArray<WeakCraftField>,
+    mode: CraftMode,
   ): Promise<CraftProfile> {
     const weakFieldList = weakFields
       .map((field) => `- ${field.section}.${field.key}: ${field.value}`)
@@ -672,7 +706,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.2, maxTokens: 8192 },
     );
 
-    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules);
+    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules, mode);
     if (refined.exemplars.length === 0 && profile.exemplars.length > 0) {
       return {
         ...refined,

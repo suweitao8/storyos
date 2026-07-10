@@ -27,6 +27,7 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
+  readonly mode?: "general" | "ghost-story";
 }
 
 interface CraftListResponse {
@@ -93,6 +94,7 @@ interface CraftProfile {
   readonly sourceName: string;
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
+  readonly mode?: "general" | "ghost-story";
   readonly structure: {
     readonly openingPattern: string;
     readonly chapterArc: string;
@@ -116,6 +118,18 @@ interface CraftProfile {
     readonly narrationDialogueRatio: string;
     readonly narrativeDistance: string;
     readonly exemplar?: string;
+  };
+  readonly ghostStory?: {
+    readonly fearCore: string;
+    readonly supernaturalRules: string;
+    readonly taboos: string;
+    readonly protagonistVulnerability: string;
+    readonly clueSystem: string;
+    readonly revealCadence: string;
+    readonly scareCadence: string;
+    readonly escalationLadder: string;
+    readonly sensoryMotifs: string;
+    readonly endingAftertaste: string;
   };
   readonly modules?: ReadonlyArray<CraftModule>;
   readonly exemplars: ReadonlyArray<CraftExemplar>;
@@ -488,6 +502,9 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
           <button onClick={() => onOpen(craft.id)} className="flex items-center gap-3 flex-1 text-left">
             <ChevronRight size={16} className="text-muted-foreground" />
             <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
+            {craft.mode === "ghost-story" && (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">鬼故事</span>
+            )}
             <span className="text-xs text-muted-foreground">{craft.language}</span>
             <span className="text-xs text-muted-foreground">{new Date(craft.createdAt).toLocaleDateString()}</span>
           </button>
@@ -527,6 +544,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [sourceName, setSourceName] = useState("");
+  const [craftMode, setCraftMode] = useState<"general" | "ghost-story">("general");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
   const [currentStep, setCurrentStep] = useState("");
@@ -621,6 +639,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         text: uploadResult.text,
         sourceName: nextSourceName,
         language: "zh",
+        mode: craftMode,
       });
       onSuccess(result.profile, result.craftId);
     } catch (e) {
@@ -633,6 +652,23 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
+      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-2">
+        <label htmlFor="craft-mode" className="text-sm font-medium">模式类型</label>
+        <select
+          id="craft-mode"
+          value={craftMode}
+          onChange={(event) => setCraftMode(event.target.value === "ghost-story" ? "ghost-story" : "general")}
+          disabled={busy}
+          className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="general">通用写作模式</option>
+          <option value="ghost-story">鬼故事模式</option>
+        </select>
+        <p className="text-xs leading-5 text-muted-foreground">
+          选择鬼故事模式后，会额外提取恐惧核心、超自然规则、禁忌、线索链、惊吓节奏和结尾余韵，并用于短篇仿写。
+        </p>
+      </div>
+
       {/* File upload zone */}
       <input
         ref={fileInputRef}
@@ -865,6 +901,9 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
       <div className="space-y-2">
         <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {profile.mode === "ghost-story" && (
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">鬼故事模式</span>
+          )}
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
           </span>
@@ -873,6 +912,31 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
           </span>
         </div>
       </div>
+
+      {profile.mode === "ghost-story" && profile.ghostStory && (
+        <section className="space-y-3 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-primary">鬼故事仿写约束</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {[
+              ["恐惧核心", profile.ghostStory.fearCore],
+              ["超自然规则", profile.ghostStory.supernaturalRules],
+              ["禁忌与触发条件", profile.ghostStory.taboos],
+              ["主角脆弱点", profile.ghostStory.protagonistVulnerability],
+              ["线索系统", profile.ghostStory.clueSystem],
+              ["真相揭示节奏", profile.ghostStory.revealCadence],
+              ["惊吓节奏", profile.ghostStory.scareCadence],
+              ["恐怖升级阶梯", profile.ghostStory.escalationLadder],
+              ["感官母题", profile.ghostStory.sensoryMotifs],
+              ["结尾余韵", profile.ghostStory.endingAftertaste],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                <div className="text-xs font-medium text-muted-foreground">{label}</div>
+                <div className="mt-1 text-sm leading-6">{value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("craft.breakdownModules")}</h3>

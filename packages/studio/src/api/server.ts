@@ -115,6 +115,7 @@ import {
   type RequestedIntent,
   type SessionKind,
   type AgentSessionAttachment,
+  type CraftMode,
 } from "@actalk/inkos-core";
 import { access, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -1392,7 +1393,14 @@ async function executeConfirmedProductionAction(args: {
     const payload = actionPayload?.shortRun;
     const direction = payload?.direction?.trim() || args.instruction.trim();
     if (!direction) throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认短篇缺少方向，请重新生成确认卡。", "The short fiction confirmation is missing a direction. Regenerate the confirmation card."));
-    tool = createShortFictionRunTool(args.pipeline, args.root, { actionPayload });
+    const recentCraftId = await getRecentCraftId(args.root).catch(() => null);
+    const effectiveActionPayload = recentCraftId && !payload?.craftId
+      ? {
+          ...actionPayload,
+          shortRun: { ...payload, craftId: recentCraftId },
+        }
+      : actionPayload;
+    tool = createShortFictionRunTool(args.pipeline, args.root, { actionPayload: effectiveActionPayload });
     params = {
       direction,
       ...(payload?.reference ? { reference: payload.reference } : {}),
@@ -5768,10 +5776,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft Analyze (writing technique profile) ---
 
   app.post("/api/v1/craft/analyze", async (c) => {
-    const { text, sourceName, language } = await c.req.json<{
+    const { text, sourceName, language, mode } = await c.req.json<{
       text: string;
       sourceName: string;
       language?: "zh" | "en";
+      mode?: CraftMode;
     }>();
     if (!text?.trim()) return c.json({ error: "text is required" }, 400);
     if (!sourceName?.trim()) return c.json({ error: "sourceName is required" }, 400);
@@ -5779,10 +5788,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     broadcast("craft:start", { sourceName });
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const craftMode: CraftMode = mode === "ghost-story" ? "ghost-story" : "general";
       const { craftId, profile } = await pipeline.analyzeCraft(
         text,
         sourceName,
         language ?? "zh",
+        craftMode,
       );
       broadcast("craft:complete", { craftId, sourceName });
       return c.json({ craftId, profile });

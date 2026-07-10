@@ -1,16 +1,36 @@
-import type { CraftProfile } from "../models/craft-profile.js";
+import type { CraftMode, CraftProfile } from "../models/craft-profile.js";
 import { formatCraftBreakdownModules } from "./craft-breakdown.js";
 
 // ---------------------------------------------------------------------------
 // Craft analysis prompts
 // ---------------------------------------------------------------------------
 
-export function buildCraftAnalysisSystemPrompt(language: "zh" | "en"): string {
+export function buildCraftAnalysisSystemPrompt(language: "zh" | "en", mode: CraftMode = "general"): string {
+  const ghostStoryInstructions = mode === "ghost-story"
+    ? language === "en"
+      ? [
+          "This is a ghost-story craft extraction. Add a required top-level `ghostStory` object with exactly these fields: fearCore, supernaturalRules, taboos, protagonistVulnerability, clueSystem, revealCadence, scareCadence, escalationLadder, sensoryMotifs, endingAftertaste.",
+          "Describe repeatable mechanisms, not the reference story's named characters, locations, monsters, or plot events. Every field must explain how to use the mechanism in an original story.",
+          "Separate what is shown, what is implied, and what remains ambiguous. Do not turn unexplained details into arbitrary facts.",
+          "The output must be useful as a generation guide: include trigger, constraint, escalation, evidence, and payoff wherever the source supports them.",
+          "Never copy distinctive sentences, dialogue, proper nouns, or the reference's exact sequence of events into the craft guide.",
+        ]
+      : [
+          "这是鬼故事模式提取。必须新增顶层 `ghostStory` 对象，且包含字段：fearCore（恐惧核心）、supernaturalRules（超自然规则）、taboos（禁忌与触发条件）、protagonistVulnerability（主角脆弱点）、clueSystem（线索系统）、revealCadence（真相揭示节奏）、scareCadence（惊吓节奏）、escalationLadder（恐怖升级阶梯）、sensoryMotifs（感官母题）、endingAftertaste（结尾余韵）。",
+          "提取可复用的恐怖机制，不要提取原故事的人名、地点、怪物名称或具体情节。每个字段都要说明如何用于创作一个全新的故事。",
+          "区分明确展示、暗示线索和刻意留白，不要把原文没有解释的内容擅自补成确定设定。",
+          "结果必须能直接指导生成：在原文有依据时写清触发条件、限制规则、升级方式、证据链和情绪回报。",
+          "禁止把原文的独特句子、对白、专有名词或完整事件顺序复制到模式中。",
+        ]
+    : [];
+
   if (language === "en") {
     return [
       "You are a writing-craft analyst. Given excerpts from a novel, extract the author's storytelling techniques, not just surface prose style.",
       "Focus on how the author structures chapters, opens scenes, escalates conflict, releases information, manages suspense, and controls narrative perspective.",
-      "Output a single JSON object with five top-level sections: structure, sceneRhythm, informationDisclosure, narrativePerspective, and modules.",
+      mode === "ghost-story"
+        ? "Output a single JSON object with six top-level sections: structure, sceneRhythm, informationDisclosure, narrativePerspective, ghostStory, and modules."
+        : "Output a single JSON object with five top-level sections: structure, sceneRhythm, informationDisclosure, narrativePerspective, and modules.",
       "Use these exact English top-level keys; do not translate the section names or wrap the object in another profile key.",
       "Every required field must be concrete, evidence-based, and grounded in the excerpts. Do not output placeholders like \"Not specified\", \"Unknown\", or \"N/A\".",
       "If a pattern is implicit, infer the dominant technique from repeated evidence and write it as the prevailing method.",
@@ -24,13 +44,16 @@ export function buildCraftAnalysisSystemPrompt(language: "zh" | "en"): string {
       "- Choose excerpts that best represent the author's technique across different tones, including tension, calm, and climax.",
       "- Keep each technique field focused on how the author writes, such as how chapters open, how conflict escalates, or how suspense is sustained.",
       "Output ONLY the JSON object, with no markdown fences and no commentary.",
+      ...ghostStoryInstructions,
     ].join("\n");
   }
 
   return [
     "你是一位写作手法分析师/拆文分析师。给定一部小说的章节节选，你要提取的是作者的写作手法，而不是只做表层文风总结。",
     "重点分析作者如何开篇、如何推进章节、如何切换场景、如何推进节奏、如何释放信息、如何维持悬念（悬念管理）、如何控制叙述视角与情绪转折。",
-    "输出一个 JSON 对象，包含五个顶层部分：structure、sceneRhythm、informationDisclosure、narrativePerspective、modules。",
+    mode === "ghost-story"
+      ? "输出一个 JSON 对象，包含六个顶层部分：structure、sceneRhythm、informationDisclosure、narrativePerspective、ghostStory、modules。"
+      : "输出一个 JSON 对象，包含五个顶层部分：structure、sceneRhythm、informationDisclosure、narrativePerspective、modules。",
     "顶层键必须严格使用这些英文名称，不要把 section 名称翻译成中文，也不要再套一层写作模式或 profile 对象。",
     "每个必填字段都必须是具体、基于原文证据的描述，不要输出“未明确说明”“未知”“N/A”这类占位词。",
     "如果原文没有直接点明某个模式，就根据重复出现的写法推断出主导手法，并把它写清楚。",
@@ -44,12 +67,14 @@ export function buildCraftAnalysisSystemPrompt(language: "zh" | "en"): string {
     "- 选择最能代表作者手法的片段，覆盖紧张、舒缓、高潮等不同基调。",
     "- 每个手法字段都要聚焦“作者怎么写”，例如如何开篇、如何升级冲突、如何吊住悬念。",
     "只输出 JSON 对象，不要 markdown 代码块，不要解释。",
+    ...ghostStoryInstructions,
   ].join("\n");
 }
 
 export function buildCraftAnalysisUserPrompt(
   sample: string,
   language: "zh" | "en",
+  mode: CraftMode = "general",
 ): string {
   if (language === "en") {
     return [
@@ -59,6 +84,7 @@ export function buildCraftAnalysisUserPrompt(
       "",
       "## Task",
       "Analyze the writing craft in the excerpts above and output the craft profile JSON.",
+      ...(mode === "ghost-story" ? ["The profile must include the required ghostStory object and make every field operational for generating an original ghost story."] : []),
     ].join("\n");
   }
 
@@ -69,6 +95,7 @@ export function buildCraftAnalysisUserPrompt(
     "",
     "## 任务",
     "分析上述节选的写作手法，输出写作拆文 JSON。",
+    ...(mode === "ghost-story" ? ["必须包含完整 ghostStory 对象，并让每个字段都能直接指导原创鬼故事生成。"] : []),
   ].join("\n");
 }
 
@@ -107,6 +134,25 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
     `- 叙述/对话比例: ${n.narrationDialogueRatio}`,
     `- 叙事距离: ${n.narrativeDistance}`,
   ];
+  if (craftProfile.mode === "ghost-story" && craftProfile.ghostStory) {
+    const h = craftProfile.ghostStory;
+    lines.push(
+      "",
+      "## 鬼故事仿写约束",
+      "以下内容只提取可复用的恐怖机制，不复制原故事的句子、人物、地点或事件顺序。",
+      `- 恐惧核心: ${h.fearCore}`,
+      `- 超自然规则: ${h.supernaturalRules}`,
+      `- 禁忌与触发条件: ${h.taboos}`,
+      `- 主角脆弱点: ${h.protagonistVulnerability}`,
+      `- 线索系统: ${h.clueSystem}`,
+      `- 真相揭示节奏: ${h.revealCadence}`,
+      `- 惊吓节奏: ${h.scareCadence}`,
+      `- 恐怖升级阶梯: ${h.escalationLadder}`,
+      `- 感官母题: ${h.sensoryMotifs}`,
+      `- 结尾余韵: ${h.endingAftertaste}`,
+      "生成时必须重新设计人物、地点、因果链和具体事件，只借鉴上述机制。",
+    );
+  }
   return lines.join("\n");
 }
 

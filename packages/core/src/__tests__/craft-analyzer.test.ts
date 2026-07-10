@@ -5,7 +5,7 @@ import {
   splitCraftChapters,
   validateExemplars,
 } from "../agents/craft-analyzer.js";
-import { buildCraftAnalysisSystemPrompt } from "../agents/craft-prompts.js";
+import { buildCraftAnalysisSystemPrompt, buildCraftGuide } from "../agents/craft-prompts.js";
 
 const EMPTY_USAGE = {
   promptTokens: 0,
@@ -77,6 +77,43 @@ describe("CraftAnalyzerAgent", () => {
     expect(prompt).toContain("6-10");
     expect(prompt).toContain("推进章节");
     expect(prompt).toContain("悬念管理");
+  });
+
+  it("extracts the complete ghost-story craft contract and exposes it to the writer guide", async () => {
+    const prompt = buildCraftAnalysisSystemPrompt("zh", "ghost-story");
+    expect(prompt).toContain("ghostStory");
+    expect(prompt).toContain("超自然规则");
+    expect(prompt).toContain("禁止把原文的独特句子");
+
+    const response = JSON.stringify({
+      structure: { openingPattern: "异常先行", chapterArc: "线索递进", endingHookType: "新禁忌" },
+      sceneRhythm: { sceneTransitionTechnique: "感官硬切", pacingCurve: "缓慢压迫后骤然收紧", conflictEscalation: "从异常到规则失效" },
+      informationDisclosure: { foreshadowingDensity: "每章一个核心线索", informationReleaseRhythm: "逐层揭示", suspenseManagement: "回答旧疑问并制造新疑问" },
+      narrativePerspective: { povStrategy: "贴近主角感知", narrationDialogueRatio: "叙述多于对话", narrativeDistance: "近距离" },
+      ghostStory: {
+        fearCore: "无法确认身边的人是否还是本人",
+        supernaturalRules: "异常只在特定时间和声音出现",
+        taboos: "不能回应第三次呼唤",
+        protagonistVulnerability: "主角必须依赖听觉判断环境",
+        clueSystem: "重复物件和声音逐步组成证据链",
+        revealCadence: "先确认现象，再延后解释来源",
+        scareCadence: "日常细节轻微偏差后短促爆发",
+        escalationLadder: "可疑征兆、规则验证、逃生失败、身份反转",
+        sensoryMotifs: "水声、旧收音机、潮湿气味",
+        endingAftertaste: "真相闭合但规则仍在主角身边运行",
+      },
+      modules: [],
+      exemplars: [],
+    });
+    const agent = new StubCraftAnalyzerAgent([response]);
+
+    const profile = await agent.analyze("第1章 开始\n异常出现", "鬼故事测试", "zh", undefined, "ghost-story");
+
+    expect(profile.mode).toBe("ghost-story");
+    expect(profile.ghostStory?.fearCore).toContain("本人");
+    expect(profile.ghostStory?.escalationLadder).toContain("身份反转");
+    expect(buildCraftGuide(profile)).toContain("鬼故事仿写约束");
+    expect(buildCraftGuide(profile)).toContain("超自然规则");
   });
 
   it("sanitizes malformed JSON when exemplar objects are missing commas", async () => {
