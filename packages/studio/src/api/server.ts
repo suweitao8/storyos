@@ -128,6 +128,7 @@ import {
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db.js";
+import { importBilibiliSubtitles } from "./bilibili.js";
 
 // -- Studio server language (read per request from the project config's `language`) --
 
@@ -5720,6 +5721,28 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   });
 
   // --- Craft Upload (detect encoding + split chapters + suggest name) ---
+
+  // --- Craft Bilibili Subtitle Import (anonymous public subtitle/audio fallback) ---
+
+  app.post("/api/v1/craft/bilibili/import", async (c) => {
+    const { url } = await c.req.json<{ url?: string }>();
+    if (!url?.trim()) return c.json({ error: "Bilibili URL is required" }, 400);
+
+    try {
+      const result = await importBilibiliSubtitles(url);
+      return c.json({
+        text: result.text,
+        detectedName: deriveCraftSourceName(result.videoInfo.title),
+        videoInfo: result.videoInfo,
+        subtitleSource: result.subtitleSource,
+        subtitleCount: result.subtitles.length,
+        subtitlePreview: result.subtitles.slice(0, 8),
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return c.json({ error: `获取 B 站字幕失败：${message}` }, 502);
+    }
+  });
 
   app.post("/api/v1/craft/upload", async (c) => {
     const filename = c.req.header("X-Filename") ?? "novel.txt";
