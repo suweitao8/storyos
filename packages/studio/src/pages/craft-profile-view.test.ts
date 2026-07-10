@@ -4,6 +4,7 @@ import {
   buildCraftDetailModel,
   craftListRowClassName,
   craftModuleCategoryLabel,
+  resolveCraftDeleteSelection,
 } from "./CraftManager";
 
 describe("craft navigation model", () => {
@@ -13,6 +14,13 @@ describe("craft navigation model", () => {
 });
 
 describe("craft list selection", () => {
+  it("keeps the selected craft when deleting a different craft without persisting a fallback", () => {
+    expect(resolveCraftDeleteSelection("craft-1", "craft-2", ["craft-1"])).toEqual({
+      selectedCraftId: "craft-1",
+      shouldPersistRecentCraft: false,
+    });
+  });
+
   it("highlights only the selected craft row", () => {
     expect(craftListRowClassName(true, "border-border")).toContain("bg-primary/5");
     expect(craftListRowClassName(false, "border-border")).toContain("border-border");

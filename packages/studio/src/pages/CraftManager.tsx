@@ -193,6 +193,34 @@ export function craftListRowClassName(isSelected: boolean, cardStatic: string): 
   return `border ${isSelected ? "border-primary/50 bg-primary/5" : cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`;
 }
 
+export function resolveCraftDeleteSelection(
+  selectedCraftId: string | null,
+  deletedCraftId: string,
+  remainingCraftIds: ReadonlyArray<string>,
+): {
+  readonly selectedCraftId: string | null;
+  readonly shouldPersistRecentCraft: boolean;
+} {
+  const selectedCraftStillExists =
+    selectedCraftId !== null && remainingCraftIds.includes(selectedCraftId);
+
+  if (
+    deletedCraftId !== selectedCraftId &&
+    (selectedCraftId === null || selectedCraftStillExists)
+  ) {
+    return {
+      selectedCraftId,
+      shouldPersistRecentCraft: false,
+    };
+  }
+
+  const fallback = resolveAfterCraftDelete(deletedCraftId, remainingCraftIds);
+  return {
+    selectedCraftId: fallback.selectedCraftId,
+    shouldPersistRecentCraft: true,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -271,15 +299,17 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       const latest = await fetchJson<CraftListResponse>("/crafts");
       mutate(latest);
 
-      const nextState = resolveAfterCraftDelete(
+      const deletion = resolveCraftDeleteSelection(
+        selectedCraftId,
         deletedCraftId,
         latest.crafts.map((craft) => craft.id),
       );
-      setTab(nextState.tab);
-      setSelectedCraftId(nextState.selectedCraftId);
-      setNewProfile(null);
+      if (!deletion.shouldPersistRecentCraft) return;
 
-      await persistRecentCraft(nextState.selectedCraftId);
+      setTab(deletion.selectedCraftId ? "detail" : "list");
+      setSelectedCraftId(deletion.selectedCraftId);
+      setNewProfile(null);
+      await persistRecentCraft(deletion.selectedCraftId);
     } catch {
       // Keep the current view intact when deletion or refresh fails.
     }
