@@ -5,6 +5,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
+import { PageToolbar } from "../components/PageToolbar";
 import { normalizeCraftDisplayName } from "./craft-name.js";
 import {
   type CraftTab,
@@ -376,21 +377,16 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   return (
     <div className={CRAFT_LAYOUT_CLASSES.content}>
 
-      {/* Tab bar */}
-      <div className={CRAFT_LAYOUT_CLASSES.tabBar}>
-        {CRAFT_TABS.map((craftTab) => {
-          const config = tabConfig[craftTab];
-          return (
-            <TabButton
-              key={craftTab}
-              active={tab === craftTab}
-              onClick={config.onClick}
-              icon={config.icon}
-              label={config.label}
-            />
-          );
-        })}
-      </div>
+      <PageToolbar
+        tabs={CRAFT_TABS.map((craftTab) => ({
+          id: craftTab,
+          label: tabConfig[craftTab].label,
+          icon: tabConfig[craftTab].icon,
+        }))}
+        activeTab={tab}
+        onTabChange={(craftTab) => tabConfig[craftTab as CraftTab]?.onClick()}
+        className="border-b-0 px-0"
+      />
 
       {/* Tab content */}
       {tab === "list" && (
@@ -439,32 +435,6 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
         />
       )}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab button
-// ---------------------------------------------------------------------------
-
-function TabButton({ active, onClick, icon, label }: {
-  active: boolean;
-  onClick?: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={active && !onClick}
-      className={`${CRAFT_LAYOUT_CLASSES.tab} ${
-        active
-          ? "border-primary text-primary"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 

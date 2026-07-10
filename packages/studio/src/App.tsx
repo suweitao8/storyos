@@ -30,6 +30,7 @@ import { useTheme } from "./hooks/use-theme";
 import { useI18n } from "./hooks/use-i18n";
 import { setAppLanguage, tr } from "./lib/app-language";
 import { postApi, putApi, useApi } from "./hooks/use-api";
+import { PageToolbar } from "./components/PageToolbar";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
 
@@ -49,6 +50,62 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
   return route.page === "book-create";
 }
 
+export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en"): string {
+  const titles = lang === "zh"
+    ? {
+        dashboard: "项目总览",
+        chat: "聊天",
+        book: "写作",
+        "book-settings": "书籍设置",
+        "book-create": "新建小说",
+        services: "模型配置",
+        "project-settings": "设置",
+        "service-detail": "服务配置",
+        chapter: "章节阅读",
+        analytics: "数据分析",
+        truth: "知识库",
+        daemon: "守护进程",
+        logs: "日志",
+        genres: "题材",
+        craft: "写作模式",
+        import: "导入",
+        radar: "市场雷达",
+        doctor: "环境诊断",
+        play: "互动世界",
+        film: "故事图谱",
+        flow: "流程图",
+        "film-author": "互动剧本",
+        "film-studio": "创作向导",
+      }
+    : {
+        dashboard: "Dashboard",
+        chat: "Chat",
+        book: "Writing",
+        "book-settings": "Book Settings",
+        "book-create": "New Book",
+        services: "Model Configuration",
+        "project-settings": "Settings",
+        "service-detail": "Service Configuration",
+        chapter: "Chapter Reader",
+        analytics: "Analytics",
+        truth: "Knowledge Base",
+        daemon: "Daemon",
+        logs: "Logs",
+        genres: "Genres",
+        craft: "Writing Modes",
+        import: "Import",
+        radar: "Market Radar",
+        doctor: "Environment Diagnostics",
+        play: "Interactive World",
+        film: "Story Graph",
+        flow: "Flow",
+        "film-author": "Interactive Script",
+        "film-studio": "Creation Wizard",
+      };
+
+  return titles[route.page];
+}
+
 export function deriveStartupGate(input: {
   readonly ready: boolean;
   readonly projectError: string | null;
@@ -64,6 +121,8 @@ export function App() {
   const { t, lang: currentLang } = useI18n();
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const [languageSaving, setLanguageSaving] = useState(false);
+  const [languageError, setLanguageError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const isDark = theme === "dark";
@@ -92,6 +151,19 @@ export function App() {
   }, [project]);
 
   useSessionEvents(sse, route, setRoute);
+
+  const changeLanguage = async (language: "zh" | "en") => {
+    if (languageSaving || language === currentLang) return;
+    setLanguageSaving(true);
+    setLanguageError(null);
+    try {
+      await putApi("/project", { language });
+    } catch (error) {
+      setLanguageError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLanguageSaving(false);
+    }
+  };
 
   const nav = {
     toDashboard: () => setRoute({ page: "dashboard" }),
@@ -186,6 +258,54 @@ export function App() {
         {/* Header Strip — kept as a thin divider; navigation lives in the sidebar */}
         <div className="h-px shrink-0 border-b border-border/40" />
 
+        <PageToolbar
+          title={getRouteToolbarTitle(route, currentLang)}
+          globalActions={(
+            <div className="flex items-center gap-1" role="group" aria-label={currentLang === "zh" ? "全局界面设置" : "Global interface settings"}>
+              <button
+                type="button"
+                onClick={() => void changeLanguage("zh")}
+                disabled={languageSaving}
+                aria-pressed={currentLang === "zh"}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${currentLang === "zh" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}
+              >
+                中文
+              </button>
+              <button
+                type="button"
+                onClick={() => void changeLanguage("en")}
+                disabled={languageSaving}
+                aria-pressed={currentLang === "en"}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${currentLang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"} disabled:opacity-50`}
+              >
+                EN
+              </button>
+              <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => setTheme("light")}
+                aria-pressed={theme === "light"}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${theme === "light" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {currentLang === "zh" ? "浅色" : "Light"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("dark")}
+                aria-pressed={theme === "dark"}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {currentLang === "zh" ? "深色" : "Dark"}
+              </button>
+              {languageError ? (
+                <span role="alert" className="ml-2 max-w-52 truncate text-xs text-destructive" title={languageError}>
+                  {languageError}
+                </span>
+              ) : null}
+            </div>
+          )}
+        />
+
         {/* Main Content Area */}
         <main className="flex-1 relative overflow-y-auto scroll-smooth">
           {route.page === "dashboard" && (
@@ -254,12 +374,7 @@ export function App() {
               <ProjectSettings
                 nav={nav}
                 theme={theme}
-                setTheme={setTheme}
                 lang={currentLang}
-                onLangChange={async (nextLang) => {
-                  await putApi("/project", { language: nextLang });
-                  refetchProject();
-                }}
                 t={t}
               />
             </div>
