@@ -11,6 +11,7 @@ export default defineConfig({
       // (browser-safe, zod-only); tests resolve them to source like the bare pkg.
       "@actalk/inkos-core/interactive-film/evaluator": resolve(__dirname, "../core/src/interactive-film/evaluator.ts"),
       "@actalk/inkos-core/interactive-film/graph-schema": resolve(__dirname, "../core/src/interactive-film/graph-schema.ts"),
+      "@actalk/inkos-core/agents/craft-breakdown": resolve(__dirname, "../core/src/agents/craft-breakdown.ts"),
       "@actalk/inkos-core": resolve(__dirname, "../core/src/index.ts"),
     },
   },

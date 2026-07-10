@@ -4,6 +4,7 @@ import { buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./
 import { deriveCraftBreakdownModules, normalizeCraftBreakdownModules } from "./craft-breakdown.js";
 import type {
   CraftProfile,
+  CraftBreakdownModule,
   CraftStructure,
   CraftSceneRhythm,
   CraftInformationDisclosure,
@@ -217,10 +218,64 @@ function normalizeCraftFieldKey(value: string): string {
     .replace(/[^a-z0-9\u4e00-\u9fff]+/giu, "");
 }
 
+const CRAFT_TOP_LEVEL_ALIASES: Record<string, ReadonlyArray<string>> = {
+  structure: ["structure", "结构", "结构手法", "开篇与结构", "故事结构"],
+  sceneRhythm: ["sceneRhythm", "sceneAndRhythm", "场景与节奏", "场景节奏", "场景手法"],
+  informationDisclosure: ["informationDisclosure", "informationRelease", "信息披露", "信息释放", "信息手法"],
+  narrativePerspective: ["narrativePerspective", "narrativePOV", "叙事视角", "叙事", "视角手法"],
+  modules: ["modules", "module", "breakdownModules", "拆文模块", "写作模块", "模块"],
+  exemplars: ["exemplars", "exemplar", "范例", "代表片段", "范例片段"],
+};
+
+function pickCraftObjectValue(
+  raw: Record<string, unknown>,
+  candidates: ReadonlyArray<string>,
+): unknown {
+  const normalized = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(raw)) {
+    normalized.set(normalizeCraftFieldKey(key), value);
+  }
+  for (const candidate of candidates) {
+    const value = normalized.get(normalizeCraftFieldKey(candidate));
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function unwrapCraftProfilePayload(raw: Record<string, unknown>): Record<string, unknown> {
+  let current = raw;
+  const wrappers = ["craftProfile", "profile", "craft", "writingCraft", "写作模式", "写作手法", "拆文结果", "分析结果"];
+  for (let depth = 0; depth < 2; depth += 1) {
+    const nested = pickCraftObjectValue(current, wrappers);
+    if (!nested || typeof nested !== "object" || Array.isArray(nested)) break;
+    current = nested as Record<string, unknown>;
+  }
+  return current;
+}
+
+function pickCraftTopLevelValue(raw: Record<string, unknown>, key: string): unknown {
+  return pickCraftObjectValue(raw, CRAFT_TOP_LEVEL_ALIASES[key] ?? [key]);
+}
+
 function isWeakCraftValue(value: string, language: "zh" | "en"): boolean {
   const trimmed = value.trim();
   if (!trimmed) return true;
   return WEAK_CRAFT_PATTERNS[language].some((pattern) => pattern.test(trimmed));
+}
+
+function validateCraftModuleEvidence(
+  modules: ReadonlyArray<CraftBreakdownModule> | undefined,
+  sourceText: string,
+): ReadonlyArray<CraftBreakdownModule> | undefined {
+  if (!modules) return modules;
+  const normalizedSource = sourceText.replace(/\s+/g, "");
+  return modules.map((module) => {
+    if (!module.evidence) return module;
+    const normalizedEvidence = module.evidence.replace(/\s+/g, "");
+    if (normalizedEvidence.length > 50 && normalizedSource.includes(normalizedEvidence)) return module;
+    const { evidence: _, ...withoutEvidence } = module;
+    return withoutEvidence;
+  });
 }
 
 function collectWeakCraftFields(
@@ -292,6 +347,7 @@ export function validateExemplars(
   const validatedSceneRhythm = validateSection(profile.sceneRhythm);
   const validatedInformationDisclosure = validateSection(profile.informationDisclosure);
   const validatedNarrativePerspective = validateSection(profile.narrativePerspective);
+  const validatedModules = validateCraftModuleEvidence(profile.modules, sourceText);
 
   const fallbackExemplars = validExemplars.length > 0
     ? validExemplars
@@ -310,6 +366,7 @@ export function validateExemplars(
     sceneRhythm: validatedSceneRhythm,
     informationDisclosure: validatedInformationDisclosure,
     narrativePerspective: validatedNarrativePerspective,
+    modules: validatedModules,
     exemplars: fallbackExemplars,
   };
 }
@@ -353,6 +410,11 @@ export class CraftAnalyzerAgent extends BaseAgent {
     );
 
     let profile = await this.parseProfile(response.content, sourceName, language);
+    onProgress?.(
+      language === "zh"
+        ? `首轮已提取 ${profile.modules?.length ?? 0} 个拆文模块，正在检查字段完整性…`
+        : `First pass extracted ${profile.modules?.length ?? 0} breakdown modules; checking completeness…`,
+    );
     const weakFields = collectWeakCraftFields(profile, language);
     if (weakFields.length > 0) {
       onProgress?.(language === "zh" ? "补全不明确的技法字段…" : "Refining weak craft fields…");
@@ -365,14 +427,21 @@ export class CraftAnalyzerAgent extends BaseAgent {
       );
     }
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
-
-    return validateExemplars(profile, text);
+    const validated = validateExemplars(profile, text);
+    const validEvidenceCount = validated.modules?.filter((module) => module.evidence).length ?? 0;
+    onProgress?.(
+      language === "zh"
+        ? `已完成 ${validated.modules?.length ?? 0} 个拆文模块和 ${validated.exemplars.length} 个范例校验（有效证据 ${validEvidenceCount} 个）`
+        : `Validated ${validated.modules?.length ?? 0} modules and ${validated.exemplars.length} exemplars (${validEvidenceCount} evidence excerpts)`,
+    );
+    return validated;
   }
 
   private async parseProfile(
     raw: string,
     sourceName: string,
     language: "zh" | "en",
+    fallbackModules?: ReadonlyArray<CraftBreakdownModule>,
   ): Promise<CraftProfile> {
     const jsonPayload = extractFirstJSONObject(raw);
     if (!jsonPayload) {
@@ -381,21 +450,22 @@ export class CraftAnalyzerAgent extends BaseAgent {
 
     const parsed = await this.parseProfileObject(jsonPayload, language);
 
+    const payload = unwrapCraftProfilePayload(parsed);
     const baseProfile = {
       sourceName,
       analyzedAt: new Date().toISOString(),
       language,
-      structure: this.parseSection(parsed.structure, CRAFT_SECTION_SPECS.structure, language) as unknown as CraftStructure,
-      sceneRhythm: this.parseSection(parsed.sceneRhythm, CRAFT_SECTION_SPECS.sceneRhythm, language) as unknown as CraftSceneRhythm,
-      informationDisclosure: this.parseSection(parsed.informationDisclosure, CRAFT_SECTION_SPECS.informationDisclosure, language) as unknown as CraftInformationDisclosure,
-      narrativePerspective: this.parseSection(parsed.narrativePerspective, CRAFT_SECTION_SPECS.narrativePerspective, language) as unknown as CraftNarrativePerspective,
-      exemplars: this.parseExemplars(parsed.exemplars),
+      structure: this.parseSection(pickCraftTopLevelValue(payload, "structure"), CRAFT_SECTION_SPECS.structure, language) as unknown as CraftStructure,
+      sceneRhythm: this.parseSection(pickCraftTopLevelValue(payload, "sceneRhythm"), CRAFT_SECTION_SPECS.sceneRhythm, language) as unknown as CraftSceneRhythm,
+      informationDisclosure: this.parseSection(pickCraftTopLevelValue(payload, "informationDisclosure"), CRAFT_SECTION_SPECS.informationDisclosure, language) as unknown as CraftInformationDisclosure,
+      narrativePerspective: this.parseSection(pickCraftTopLevelValue(payload, "narrativePerspective"), CRAFT_SECTION_SPECS.narrativePerspective, language) as unknown as CraftNarrativePerspective,
+      exemplars: this.parseExemplars(pickCraftTopLevelValue(payload, "exemplars")),
     } satisfies Omit<CraftProfile, "modules">;
-    const modules = normalizeCraftBreakdownModules(parsed.modules);
+    const modules = normalizeCraftBreakdownModules(pickCraftTopLevelValue(payload, "modules"));
 
     return {
       ...baseProfile,
-      modules: modules.length > 0 ? modules : deriveCraftBreakdownModules(baseProfile),
+      modules: modules.length > 0 ? modules : fallbackModules ?? deriveCraftBreakdownModules(baseProfile),
     };
   }
 
@@ -573,7 +643,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.2, maxTokens: 8192 },
     );
 
-    const refined = await this.parseProfile(response.content, sourceName, language);
+    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules);
     if (refined.exemplars.length === 0 && profile.exemplars.length > 0) {
       return {
         ...refined,
@@ -590,9 +660,9 @@ export class CraftAnalyzerAgent extends BaseAgent {
         typeof item === "object" && item !== null,
       )
       .map((item) => ({
-        label: String(item.label ?? ""),
-        tone: String(item.tone ?? ""),
-        excerpt: String(item.excerpt ?? item.text ?? item.content ?? ""),
+        label: String(item.label ?? item.title ?? item.标签 ?? item.标题 ?? ""),
+        tone: String(item.tone ?? item.基调 ?? item.情绪 ?? ""),
+        excerpt: String(item.excerpt ?? item.text ?? item.content ?? item.原文 ?? item.片段 ?? item.证据 ?? ""),
       }))
       .filter((ex) => ex.label && ex.excerpt);
   }

@@ -29,26 +29,26 @@ const CATEGORY_LABELS: Record<"zh" | "en", Record<CraftModuleCategory, string>> 
 
 function normalizeCategory(value: string): CraftModuleCategory {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "opening" || normalized === "openinghook" || normalized === "opening_hook" || normalized === "open") return "opening";
-  if (normalized === "chapter" || normalized === "chapterflow" || normalized === "chapterarc" || normalized === "chapter_arc") return "chapterFlow";
-  if (normalized === "scenerhythm" || normalized === "scene_rhythm" || normalized === "rhythm") return "sceneRhythm";
-  if (normalized === "disclosure" || normalized === "information" || normalized === "informationdisclosure") return "disclosure";
-  if (normalized === "suspense") return "suspense";
-  if (normalized === "perspective" || normalized === "pov") return "perspective";
-  if (normalized === "emotion" || normalized === "emotional" || normalized === "emotionarc") return "emotion";
-  if (normalized === "turningpoint" || normalized === "turning_point" || normalized === "hook") return "turningPoint";
+  if (["opening", "openinghook", "opening_hook", "open", "开篇", "开篇钩子", "开头"].includes(normalized)) return "opening";
+  if (["chapter", "chapterflow", "chapterarc", "chapter_arc", "章节", "章节推进", "章节弧线"].includes(normalized)) return "chapterFlow";
+  if (["scenerhythm", "scene_rhythm", "rhythm", "场景", "场景与节奏", "场景节奏"].includes(normalized)) return "sceneRhythm";
+  if (["disclosure", "information", "informationdisclosure", "信息", "信息披露", "信息释放"].includes(normalized)) return "disclosure";
+  if (["suspense", "悬念", "悬念管理"].includes(normalized)) return "suspense";
+  if (["perspective", "pov", "视角", "叙事视角"].includes(normalized)) return "perspective";
+  if (["emotion", "emotional", "emotionarc", "情绪", "情绪推进"].includes(normalized)) return "emotion";
+  if (["turningpoint", "turning_point", "hook", "转折", "转折与回收", "章末钩子"].includes(normalized)) return "turningPoint";
   return "other";
 }
 
 export function normalizeCraftBreakdownModule(raw: unknown): CraftBreakdownModule | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const item = raw as Record<string, unknown>;
-  const label = String(item.label ?? item.title ?? item.name ?? "").trim();
-  const summary = String(item.summary ?? item.description ?? item.text ?? "").trim();
+  const label = String(item.label ?? item.title ?? item.name ?? item.标题 ?? item.标签 ?? item.名称 ?? "").trim();
+  const summary = String(item.summary ?? item.description ?? item.text ?? item.描述 ?? item.说明 ?? item.摘要 ?? item.概述 ?? "").trim();
   if (!label || !summary) return null;
 
-  const evidence = String(item.evidence ?? item.excerpt ?? item.content ?? "").trim();
-  const category = normalizeCategory(String(item.category ?? item.type ?? item.section ?? ""));
+  const evidence = String(item.evidence ?? item.excerpt ?? item.quote ?? item.quoteText ?? item.content ?? item.证据 ?? item.原文 ?? "").trim();
+  const category = normalizeCategory(String(item.category ?? item.type ?? item.section ?? item.分类 ?? ""));
 
   return {
     category,

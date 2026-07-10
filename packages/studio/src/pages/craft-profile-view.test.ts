@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildCraftDetailModel } from "./CraftManager";
+import { buildCraftDetailModel, craftModuleCategoryLabel } from "./CraftManager";
 
 describe("craft detail model", () => {
+  it("localizes module categories for the detail view", () => {
+    expect(craftModuleCategoryLabel("chapterFlow", "zh")).toBe("章节推进");
+    expect(craftModuleCategoryLabel("chapterFlow", "en")).toBe("Chapter Flow");
+  });
+
   it("surfaces fallback modules and legacy sections together", () => {
     const detail = buildCraftDetailModel({
       sourceName: "测试小说",
