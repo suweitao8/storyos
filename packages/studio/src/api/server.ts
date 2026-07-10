@@ -5795,22 +5795,18 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft List ---
 
   app.get("/api/v1/crafts", async (c) => {
+    const pipelineConfig = await buildPipelineConfig();
+    const pipeline = new PipelineRunner(pipelineConfig);
+    const crafts = await pipeline.listCrafts();
+    let recentCraftId: string | null = null;
+    let recentCraftPreferenceAvailable = true;
     try {
-      const pipelineConfig = await buildPipelineConfig();
-      const pipeline = new PipelineRunner(pipelineConfig);
-      const crafts = await pipeline.listCrafts();
-      let recentCraftId: string | null = null;
-      let recentCraftPreferenceAvailable = true;
-      try {
-        recentCraftId = await getRecentCraftId(root);
-      } catch (error) {
-        recentCraftPreferenceAvailable = false;
-        pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
-      }
-      return c.json({ crafts, recentCraftId, recentCraftPreferenceAvailable });
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
+      recentCraftId = await getRecentCraftId(root);
+    } catch (error) {
+      recentCraftPreferenceAvailable = false;
+      pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
     }
+    return c.json({ crafts, recentCraftId, recentCraftPreferenceAvailable });
   });
 
   // --- Recent Craft Selection ---
@@ -5849,33 +5845,28 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.get("/api/v1/crafts/:id{.+}", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
-    try {
-      const pipeline = new PipelineRunner(await buildPipelineConfig());
-      const profile = await pipeline.loadCraft(id);
-      if (!profile) return c.json({ error: "craft not found" }, 404);
-      return c.json(profile);
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
-    }
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    return c.json(profile);
   });
 
   // --- Craft Delete ---
 
   app.delete("/api/v1/crafts/:id{.+}", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
-    try {
-      const pipelineConfig = await buildPipelineConfig();
-      const pipeline = new PipelineRunner(pipelineConfig);
-      await pipeline.deleteCraft(id);
-      try {
-        await clearRecentCraftIdIfMatches(root, id);
-      } catch (error) {
-        pipelineConfig.logger?.warn(`Failed to clear recent craft preference: ${String(error)}`);
-      }
-      return c.json({ ok: true });
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
+    const pipelineConfig = await buildPipelineConfig();
+    const pipeline = new PipelineRunner(pipelineConfig);
+    if (!await pipeline.loadCraft(id)) {
+      throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     }
+    await pipeline.deleteCraft(id);
+    try {
+      await clearRecentCraftIdIfMatches(root, id);
+    } catch (error) {
+      pipelineConfig.logger?.warn(`Failed to clear recent craft preference: ${String(error)}`);
+    }
+    return c.json({ ok: true });
   });
 
   // --- Import Chapters ---

@@ -538,7 +538,9 @@ describe("createStudioServer daemon lifecycle", () => {
       { id: "craft-1", sourceName: "Existing Craft" },
     ]);
     loadCraftMock.mockImplementation(async (craftId: string) => (
-      craftId === "craft-1" ? { id: craftId, sourceName: "Existing Craft" } : null
+      craftId === "craft-1" || craftId === "craft-2"
+        ? { id: craftId, sourceName: "Existing Craft" }
+        : null
     ));
     deleteCraftMock.mockResolvedValue(undefined);
     pipelineConfigs.length = 0;
@@ -715,7 +717,7 @@ describe("createStudioServer daemon lifecycle", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ craftId: "craft-1" }),
     });
-    const deletion = await app.request("http://localhost/api/v1/crafts/other-craft", {
+    const deletion = await app.request("http://localhost/api/v1/crafts/craft-2", {
       method: "DELETE",
     });
 
@@ -806,6 +808,70 @@ describe("createStudioServer daemon lifecycle", () => {
       error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
     });
     expect(JSON.stringify(body)).not.toContain("internal craft storage detail");
+  });
+
+  it("returns a generic structured error when listing crafts fails internally", async () => {
+    listCraftsMock.mockRejectedValueOnce(new Error("craft list path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft list path detail");
+  });
+
+  it("returns a structured not-found error for missing craft detail and deletion", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const detail = await app.request("http://localhost/api/v1/crafts/missing-craft");
+    const deletion = await app.request("http://localhost/api/v1/crafts/missing-craft", {
+      method: "DELETE",
+    });
+
+    expect(detail.status).toBe(404);
+    expect(deletion.status).toBe(404);
+    const expected = { error: { code: "CRAFT_NOT_FOUND", message: "Craft not found." } };
+    expect(await detail.json()).toEqual(expected);
+    expect(await deletion.json()).toEqual(expected);
+    expect(deleteCraftMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic structured error when loading craft detail fails internally", async () => {
+    loadCraftMock.mockRejectedValueOnce(new Error("craft detail path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft detail path detail");
+  });
+
+  it("returns a generic structured error when deleting a craft fails internally", async () => {
+    deleteCraftMock.mockRejectedValueOnce(new Error("craft delete path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1", {
+      method: "DELETE",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft delete path detail");
   });
 
   it("uses the real core bookId validator in the Studio safety mock", async () => {
