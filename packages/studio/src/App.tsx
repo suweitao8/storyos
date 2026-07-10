@@ -122,6 +122,7 @@ export function App() {
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [languageSaving, setLanguageSaving] = useState(false);
+  const [languageError, setLanguageError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const isDark = theme === "dark";
@@ -154,9 +155,11 @@ export function App() {
   const changeLanguage = async (language: "zh" | "en") => {
     if (languageSaving || language === currentLang) return;
     setLanguageSaving(true);
+    setLanguageError(null);
     try {
       await putApi("/project", { language });
-      await refetchProject();
+    } catch (error) {
+      setLanguageError(error instanceof Error ? error.message : String(error));
     } finally {
       setLanguageSaving(false);
     }
@@ -294,6 +297,11 @@ export function App() {
               >
                 {currentLang === "zh" ? "深色" : "Dark"}
               </button>
+              {languageError ? (
+                <span role="alert" className="ml-2 max-w-52 truncate text-xs text-destructive" title={languageError}>
+                  {languageError}
+                </span>
+              ) : null}
             </div>
           )}
         />
@@ -366,12 +374,7 @@ export function App() {
               <ProjectSettings
                 nav={nav}
                 theme={theme}
-                setTheme={setTheme}
                 lang={currentLang}
-                onLangChange={async (nextLang) => {
-                  await putApi("/project", { language: nextLang });
-                  refetchProject();
-                }}
                 t={t}
               />
             </div>

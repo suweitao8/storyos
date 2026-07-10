@@ -93,12 +93,10 @@ function SettingsCard({
 
 const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
 
-export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }: {
+export function ProjectSettings({ nav, theme, lang, t }: {
   nav: Nav;
   theme: Theme;
-  setTheme: (theme: Theme) => void;
   lang: "zh" | "en";
-  onLangChange: (lang: "zh" | "en") => void;
   t: TFunction;
 }) {
   const c = useColors(theme);
