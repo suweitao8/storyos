@@ -20,7 +20,7 @@ type RuntimeProvider = "openai" | "anthropic" | "custom";
 export function resolveSetupProvider(provider: string, baseUrl: string): RuntimeProvider {
   const normalizedProvider = PROVIDERS.includes(provider.trim() as SetupProvider)
     ? provider.trim() as SetupProvider
-    : "openai";
+    : "anthropic";
   const normalizedUrl = baseUrl.trim().toLowerCase();
   if (normalizedUrl.includes("api.kimi.com/coding")) {
     return "anthropic";
@@ -28,7 +28,7 @@ export function resolveSetupProvider(provider: string, baseUrl: string): Runtime
   if (normalizedProvider === "anthropic" || normalizedProvider === "custom") {
     return normalizedProvider;
   }
-  return "openai";
+  return "anthropic";
 }
 
 export function resolveSetupService(provider: string, baseUrl: string): string | undefined {
@@ -87,14 +87,14 @@ export function buildInteractiveSetupCopy(locale: TuiLocale): InteractiveSetupCo
         scope: "Save scope",
       },
       hints: {
-        provider: "openai / anthropic / kkaiapi / custom (OpenAI-compatible proxy)",
+        provider: "anthropic / openai / kkaiapi / custom (OpenAI-compatible proxy)",
         baseUrl: "Your API endpoint",
         apiKey: "Paste the API key for the selected provider.",
-        model: "e.g. gpt-4o, claude-sonnet-4-20250514, deepseek-chat",
+        model: "e.g. astron-code-latest, claude-sonnet-4-20250514, deepseek-chat",
         scope: "global = all projects, project = this directory only",
       },
       defaults: {
-        provider: "openai",
+        provider: "anthropic",
         baseUrl: "(default)",
         scope: "[global]",
       },
@@ -117,14 +117,14 @@ export function buildInteractiveSetupCopy(locale: TuiLocale): InteractiveSetupCo
       scope: "保存范围",
     },
     hints: {
-      provider: "openai / anthropic / kkaiapi / custom（兼容 OpenAI 的代理）",
+      provider: "anthropic / openai / kkaiapi / custom（兼容 OpenAI 的代理）",
       baseUrl: "你的 API 入口地址",
       apiKey: "粘贴所选服务商的 API Key",
       model: "例如 gpt-5.4、claude-sonnet-4-20250514、deepseek-chat",
       scope: "global = 所有项目，project = 仅当前目录",
     },
     defaults: {
-      provider: "openai",
+      provider: "anthropic",
       baseUrl: "（默认）",
       scope: "[global]",
     },
@@ -269,7 +269,7 @@ async function autoInit(cwd: string): Promise<void> {
     version: "0.1.0",
     language: "zh",
     llm: {
-      provider: process.env.INKOS_LLM_PROVIDER ?? "openai",
+      provider: process.env.INKOS_LLM_PROVIDER ?? "anthropic",
       baseUrl: process.env.INKOS_LLM_BASE_URL ?? "",
       model: process.env.INKOS_LLM_MODEL ?? "",
     },
@@ -295,7 +295,7 @@ async function autoInit(cwd: string): Promise<void> {
       join(cwd, ".env"),
       [
         messages.envTemplateHeader,
-        "INKOS_LLM_PROVIDER=openai",
+        "INKOS_LLM_PROVIDER=anthropic",
         "INKOS_LLM_BASE_URL=",
         "INKOS_LLM_API_KEY=",
         "INKOS_LLM_MODEL=",
@@ -339,7 +339,7 @@ export async function detectModelInfo(projectRoot: string): Promise<ModelInfo | 
   try {
     const config = await loadConfig({ requireApiKey: false, projectRoot });
     const service = config.llm.service?.trim();
-    const provider = service || config.llm.provider || "openai";
+    const provider = service || config.llm.provider || "anthropic";
     const model = config.llm.model?.trim() || "unknown";
     return {
       provider,
@@ -378,7 +378,7 @@ async function parseEnvModel(envPath: string): Promise<ModelInfo | undefined> {
     const key = get("INKOS_LLM_API_KEY");
     if (!key || key.includes("your-api-key")) return undefined;
     return {
-      provider: get("INKOS_LLM_PROVIDER") || "openai",
+      provider: get("INKOS_LLM_PROVIDER") || "anthropic",
       model: get("INKOS_LLM_MODEL") || "unknown",
       baseUrl: get("INKOS_LLM_BASE_URL") || "",
     };

@@ -229,8 +229,8 @@ function buildEnvLLMConfig(options: {
   if (!baseUrl) throw new Error("LLM base URL is required. Set INKOS_LLM_BASE_URL or pass --llm-base-url.");
   if (!model) throw new Error("LLM model is required. Set INKOS_LLM_MODEL or pass --model.");
   return {
-    provider: "openai",
-    service: process.env.INKOS_LLM_SERVICE ?? "custom",
+    provider: process.env.INKOS_LLM_PROVIDER ?? "anthropic",
+    service: process.env.INKOS_LLM_SERVICE ?? "astronCodingPlan",
     configSource: "env",
     baseUrl,
     apiKey: process.env.INKOS_LLM_API_KEY ?? "",

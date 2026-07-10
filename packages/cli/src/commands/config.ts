@@ -92,7 +92,7 @@ configCommand
 configCommand
   .command("set-global")
   .description("Set global LLM config (~/.inkos/.env), shared by all projects")
-  .requiredOption("--provider <provider>", "LLM provider (openai / anthropic)")
+  .requiredOption("--provider <provider>", "LLM provider (anthropic / openai)")
   .requiredOption("--base-url <url>", "API base URL")
   .requiredOption("--api-key <key>", "API key")
   .requiredOption("--model <model>", "Model name")
@@ -181,7 +181,7 @@ configCommand
   .argument("<agent>", `Agent name (${KNOWN_AGENTS.join(", ")})`)
   .argument("<model>", "Model name")
   .option("--base-url <url>", "API base URL (for different provider)")
-  .option("--provider <provider>", "Provider type (openai / anthropic / custom)")
+  .option("--provider <provider>", "Provider type (anthropic / openai / custom)")
   .option("--api-key-env <envVar>", "Env variable name for API key (e.g., PACKYAPI_KEY)")
   .option("--stream", "Enable streaming (default)")
   .option("--no-stream", "Disable streaming")
