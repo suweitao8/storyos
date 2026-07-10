@@ -36,6 +36,24 @@ interface CraftListResponse {
   readonly recentCraftPreferenceAvailable: boolean;
 }
 
+interface BilibiliImportResponse {
+  readonly text: string;
+  readonly detectedName: string;
+  readonly videoInfo: {
+    readonly bvid: string;
+    readonly title: string;
+    readonly duration: number;
+    readonly upName?: string;
+  };
+  readonly subtitleSource: "bili" | "bcut";
+  readonly subtitleCount: number;
+  readonly subtitlePreview: ReadonlyArray<{
+    readonly from: number;
+    readonly to: number;
+    readonly content: string;
+  }>;
+}
+
 interface CraftExemplar {
   readonly label: string;
   readonly tone: string;
@@ -541,6 +559,10 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
+  const [bilibiliUrl, setBilibiliUrl] = useState("");
+  const [bilibiliResult, setBilibiliResult] = useState<BilibiliImportResponse | null>(null);
+  const [importingBilibili, setImportingBilibili] = useState(false);
+  const [bilibiliError, setBilibiliError] = useState("");
   const [sourceName, setSourceName] = useState("");
   const [craftMode, setCraftMode] = useState<"general" | "ghost-story">("general");
   const [extracting, setExtracting] = useState(false);
@@ -597,6 +619,8 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setUploading(true);
     setUploadError("");
     setUploadResult(null);
+    setBilibiliResult(null);
+    setBilibiliError("");
     setExtractError("");
     setCurrentStep("");
     setProgressLogs([]);
@@ -624,8 +648,39 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setUploading(false);
   };
 
+  const handleBilibiliImport = async () => {
+    if (!bilibiliUrl.trim()) return;
+    setImportingBilibili(true);
+    setBilibiliError("");
+    setBilibiliResult(null);
+    setUploadResult(null);
+    setUploadError("");
+    setExtractError("");
+    setCurrentStep("正在读取 B 站视频信息");
+    setProgressLogs(["正在读取 B 站视频信息", "优先查找公开 CC 字幕，不需要 Cookie"]);
+    try {
+      const response = await fetch("/api/v1/craft/bilibili/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: bilibiliUrl.trim() }),
+      });
+      const data = await response.json() as BilibiliImportResponse & { error?: string };
+      if (!response.ok) throw new Error(data.error ?? `字幕获取失败（${response.status}）`);
+      setBilibiliResult(data);
+      setSourceName(normalizeCraftDisplayName(data.detectedName));
+      setCurrentStep(`字幕获取完成，共 ${data.subtitleCount} 条`);
+      setProgressLogs((prev) => [...prev, `字幕获取完成，共 ${data.subtitleCount} 条`]);
+    } catch (e) {
+      setBilibiliError(e instanceof Error ? e.message : String(e));
+      setCurrentStep("B 站字幕获取失败");
+      setProgressLogs((prev) => [...prev, "B 站字幕获取失败"]);
+    } finally {
+      setImportingBilibili(false);
+    }
+  };
+
   const handleExtract = async () => {
-    if (!uploadResult || !sourceName.trim()) return;
+    if ((!uploadResult && !bilibiliResult) || !sourceName.trim()) return;
     const nextSourceName = sourceName.trim();
     activeSourceNameRef.current = nextSourceName;
     setExtracting(true);
@@ -634,7 +689,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setProgressLogs([]);
     try {
       const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
-        text: uploadResult.text,
+        text: bilibiliResult?.text ?? uploadResult?.text ?? "",
         sourceName: nextSourceName,
         language: "zh",
         mode: craftMode,
@@ -646,7 +701,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setExtracting(false);
   };
 
-  const busy = uploading || extracting;
+  const busy = uploading || importingBilibili || extracting;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -665,6 +720,52 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         <p className="text-xs leading-5 text-muted-foreground">
           选择鬼故事模式后，会额外提取恐惧核心、超自然规则、禁忌、线索链、惊吓节奏和结尾余韵，并用于短篇仿写。
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
+        <div>
+          <div className="text-sm font-medium">B 站视频字幕</div>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            只获取字幕，不保存完整视频。不需要 Cookie，优先读取公开 CC 字幕；没有公开字幕时会临时尝试音频识别。
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="url"
+            value={bilibiliUrl}
+            onChange={(event) => setBilibiliUrl(event.target.value)}
+            disabled={busy}
+            placeholder="粘贴 B 站视频链接或 BV 号"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+          <button
+            onClick={() => void handleBilibiliImport()}
+            disabled={!bilibiliUrl.trim() || busy}
+            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm ${c.btnPrimary} disabled:opacity-30`}
+          >
+            {importingBilibili ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+            {importingBilibili ? "获取字幕中" : "获取字幕"}
+          </button>
+        </div>
+        {bilibiliError && (
+          <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {bilibiliError}
+          </div>
+        )}
+        {bilibiliResult && (
+          <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.03] p-3 text-sm">
+            <div className="font-medium">{bilibiliResult.videoInfo.title}</div>
+            <div className="text-xs text-muted-foreground">
+              {bilibiliResult.videoInfo.upName || "未知 UP 主"} · {Math.round(bilibiliResult.videoInfo.duration / 60)} 分钟 ·
+              {bilibiliResult.subtitleSource === "bili" ? " B 站 CC 字幕" : " Bcut 音频识别"} · 共 {bilibiliResult.subtitleCount} 条
+            </div>
+            <div className="max-h-40 overflow-auto rounded-lg border border-border/60 bg-secondary/20 p-2 text-xs leading-5 text-muted-foreground">
+              {bilibiliResult.subtitlePreview.map((entry) => (
+                <div key={`${entry.from}-${entry.to}-${entry.content}`}>[{entry.from.toFixed(1)}s] {entry.content}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* File upload zone */}
@@ -697,15 +798,21 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         ) : uploadResult ? (
           <div className="flex flex-col items-center gap-1 text-sm">
             <FileText size={28} className="text-emerald-500 mb-1" />
-            <span className="font-medium">{normalizeCraftDisplayName(sourceName || uploadResult.detectedName)}</span>
-            <span className="text-xs text-muted-foreground">
-              {t("craft.detectedEncoding")}: {uploadResult.encoding}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {t("craft.chapterInfo")
-                .replace("{total}", String(uploadResult.chapterCount))
-                .replace("{used}", String(uploadResult.usedChapters))}
-            </span>
+            <span className="font-medium">{normalizeCraftDisplayName(sourceName || uploadResult?.detectedName || bilibiliResult?.detectedName || "")}</span>
+            {uploadResult ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {t("craft.detectedEncoding")}: {uploadResult.encoding}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {t("craft.chapterInfo")
+                    .replace("{total}", String(uploadResult.chapterCount))
+                    .replace("{used}", String(uploadResult.usedChapters))}
+                </span>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">B 站字幕已准备</span>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -716,14 +823,14 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         )}
       </button>
 
-      {uploadError && (
+      {uploadError && !bilibiliResult && (
         <div className="px-4 py-2 rounded-lg text-sm bg-destructive/10 text-destructive">
           {uploadError}
         </div>
       )}
 
       {/* Source name + extract button */}
-      {uploadResult && (
+      {(uploadResult || bilibiliResult) && (
         <div className="space-y-4">
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
