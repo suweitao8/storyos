@@ -90,19 +90,17 @@ function renderStaticToolbar(props: PageToolbarProps): StaticToolbar {
 }
 
 describe("PageToolbar", () => {
-  it("renders the title and all provided toolbar regions", () => {
+  it("renders the title and provided toolbar regions", () => {
     const markup = renderStaticToolbar({
       title: "Project",
       leading: React.createElement("span", null, "Back"),
       actions: React.createElement("button", { type: "button" }, "Save"),
-      globalActions: React.createElement("button", { type: "button" }, "More"),
       className: "custom-toolbar",
     }).markup;
 
     expect(markup).toContain("Project");
     expect(markup).toContain("Back");
     expect(markup).toContain("Save");
-    expect(markup).toContain("More");
     expect(markup).toContain("custom-toolbar");
     expect(markup).toContain('class="flex min-w-0 flex-1 items-center gap-3"');
   });

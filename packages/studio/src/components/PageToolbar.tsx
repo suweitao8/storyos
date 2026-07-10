@@ -16,7 +16,6 @@ export type PageToolbarProps = {
   readonly onTabChange?: (tabId: string) => void;
   readonly leading?: ReactNode;
   readonly actions?: ReactNode;
-  readonly globalActions?: ReactNode;
   readonly className?: string;
 };
 
@@ -27,7 +26,6 @@ export function PageToolbar({
   onTabChange,
   leading,
   actions,
-  globalActions,
   className,
 }: PageToolbarProps) {
   return (
@@ -82,7 +80,6 @@ export function PageToolbar({
       )}
 
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-      {globalActions && <div className="ml-auto flex shrink-0 items-center gap-2">{globalActions}</div>}
     </header>
   );
 }
