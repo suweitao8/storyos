@@ -5,7 +5,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
-import { PageToolbar } from "../components/PageToolbar";
+import { usePageToolbar } from "../components/PageToolbar";
 import { normalizeCraftDisplayName } from "./craft-name.js";
 import {
   type CraftTab,
@@ -388,20 +388,18 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     detail: { icon: <FileText size={15} />, label: t("craft.tabDetail"), onClick: openDetailTab },
   };
 
+  usePageToolbar("craft", {
+    tabs: CRAFT_TABS.map((craftTab) => ({
+      id: craftTab,
+      label: tabConfig[craftTab].label,
+      icon: tabConfig[craftTab].icon,
+    })),
+    activeTab: tab,
+    onTabChange: (craftTab) => tabConfig[craftTab as CraftTab]?.onClick(),
+  });
+
   return (
     <div className={CRAFT_LAYOUT_CLASSES.content}>
-
-      <PageToolbar
-        tabs={CRAFT_TABS.map((craftTab) => ({
-          id: craftTab,
-          label: tabConfig[craftTab].label,
-          icon: tabConfig[craftTab].icon,
-        }))}
-        activeTab={tab}
-        onTabChange={(craftTab) => tabConfig[craftTab as CraftTab]?.onClick()}
-        className="border-b-0 px-0"
-      />
-
       {/* Tab content */}
       {tab === "list" && (
         craftsLoading ? (
