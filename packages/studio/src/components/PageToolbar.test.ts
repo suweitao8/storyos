@@ -9,6 +9,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & ElementProps;
 
 type StaticButton = {
   className: string;
+  disabled: boolean;
   getAttribute: (name: "aria-current") => string | null;
   click: () => void;
 };
@@ -26,6 +27,10 @@ const tabs: PageToolbarTab[] = [
 function getTextContent(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join("");
   }
 
   if (!React.isValidElement<ElementProps>(node)) {
@@ -66,11 +71,16 @@ function renderStaticToolbar(props: PageToolbarProps): StaticToolbar {
 
       return {
         className: button.props.className ?? "",
+        disabled: button.props.disabled === true,
         getAttribute(attribute) {
           const value = attribute === "aria-current" ? button.props[attribute] : undefined;
           return value == null ? null : String(value);
         },
         click() {
+          if (button.props.disabled) {
+            return;
+          }
+
           if (typeof button.props.onClick !== "function") {
             throw new Error(`Button is not interactive: ${name}`);
           }
@@ -125,5 +135,30 @@ describe("PageToolbar", () => {
     view.getByRole("button", { name: "Settings" }).click();
 
     expect(onTabChange).toHaveBeenCalledWith("settings");
+  });
+
+  it("renders tab icons and prevents disabled tab activation", () => {
+    const onTabChange = vi.fn();
+    const view = renderStaticToolbar({
+      tabs: [
+        {
+          id: "overview",
+          label: "Overview",
+          icon: React.createElement("svg", { "aria-hidden": "true" }),
+        },
+        { id: "settings", label: "Settings", disabled: true },
+      ],
+      activeTab: "overview",
+      onTabChange,
+    });
+    const settings = view.getByRole("button", { name: "Settings" });
+
+    expect(view.markup).toContain("<svg aria-hidden=\"true\"></svg>");
+    expect(settings.disabled).toBe(true);
+    expect(settings.className).toContain("disabled:opacity-50");
+
+    settings.click();
+
+    expect(onTabChange).not.toHaveBeenCalled();
   });
 });

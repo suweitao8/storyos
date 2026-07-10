@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 export type PageToolbarTab = {
   id: string;
   label: ReactNode;
+  icon?: ReactNode;
+  disabled?: boolean;
 };
 
 export type PageToolbarProps = {
@@ -54,14 +56,22 @@ export function PageToolbar({
                     key={tab.id}
                     type="button"
                     aria-current={isActive ? "page" : undefined}
+                    disabled={tab.disabled}
                     className={cn(
-                      "shrink-0 px-3 py-2 text-sm font-medium transition-colors",
+                      "inline-flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                       isActive
                         ? "border-b-2 border-primary text-primary"
-                        : "text-muted-foreground hover:text-foreground",
+                        : tab.disabled
+                          ? "text-muted-foreground"
+                          : "text-muted-foreground hover:text-foreground",
                     )}
-                    onClick={() => onTabChange?.(tab.id)}
+                    onClick={tab.disabled ? undefined : () => onTabChange?.(tab.id)}
                   >
+                    {tab.icon != null && (
+                      <span aria-hidden="true" className="inline-flex shrink-0 items-center">
+                        {tab.icon}
+                      </span>
+                    )}
                     {tab.label}
                   </button>
                 );
