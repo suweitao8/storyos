@@ -5,11 +5,19 @@ export type CraftNavigationState = {
   selectedCraftId: string | null;
 };
 
+function isValidCraftId(craftId: string): boolean {
+  return craftId.trim().length > 0;
+}
+
 export function resolveInitialCraftState(
   recentCraftId: string | null,
   availableCraftIds: ReadonlyArray<string>,
 ): CraftNavigationState {
-  if (recentCraftId && availableCraftIds.includes(recentCraftId)) {
+  if (
+    recentCraftId &&
+    isValidCraftId(recentCraftId) &&
+    availableCraftIds.includes(recentCraftId)
+  ) {
     return { tab: "detail", selectedCraftId: recentCraftId };
   }
 
@@ -20,10 +28,12 @@ export function resolveAfterCraftDelete(
   deletedCraftId: string,
   remainingCraftIds: ReadonlyArray<string>,
 ): CraftNavigationState {
-  void deletedCraftId;
-
-  const nextCraftId = remainingCraftIds.at(-1);
-  if (nextCraftId) {
+  const nextCraftId = [...remainingCraftIds]
+    .reverse()
+    .find(
+      (craftId) => isValidCraftId(craftId) && craftId !== deletedCraftId,
+    );
+  if (nextCraftId !== undefined) {
     return { tab: "detail", selectedCraftId: nextCraftId };
   }
 

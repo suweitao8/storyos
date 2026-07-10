@@ -26,6 +26,13 @@ describe("resolveInitialCraftState", () => {
       selectedCraftId: null,
     });
   });
+
+  it("falls back to the list for a whitespace-only recent craft ID", () => {
+    expect(resolveInitialCraftState("  ", ["craft-1"])).toEqual({
+      tab: "list",
+      selectedCraftId: null,
+    });
+  });
 });
 
 describe("resolveAfterCraftDelete", () => {
@@ -38,6 +45,27 @@ describe("resolveAfterCraftDelete", () => {
 
   it("returns to the list after deleting the last craft", () => {
     expect(resolveAfterCraftDelete("craft-1", [])).toEqual({
+      tab: "list",
+      selectedCraftId: null,
+    });
+  });
+
+  it("filters out the deleted craft if it is still present in remaining IDs", () => {
+    expect(resolveAfterCraftDelete("craft-2", ["craft-1", "craft-2"])).toEqual({
+      tab: "detail",
+      selectedCraftId: "craft-1",
+    });
+  });
+
+  it("skips empty and whitespace-only remaining IDs", () => {
+    expect(resolveAfterCraftDelete("craft-1", ["", "  ", "craft-2", "\t"])).toEqual({
+      tab: "detail",
+      selectedCraftId: "craft-2",
+    });
+  });
+
+  it("returns to the list when all remaining IDs are empty or whitespace", () => {
+    expect(resolveAfterCraftDelete("craft-1", ["", "  ", "\n"])).toEqual({
       tab: "list",
       selectedCraftId: null,
     });
