@@ -168,6 +168,57 @@ describe("CraftAnalyzerAgent", () => {
     expect(profile.narrativePerspective.narrationDialogueRatio).toBe("叙述略多于对话");
   });
 
+  it("unwraps Chinese writing-craft payloads and maps their top-level section aliases", async () => {
+    const response = JSON.stringify({
+      写作模式: {
+        结构手法: {
+          开篇模式: "先抛出异常，再补充背景。",
+          单章弧线: "从异常推进到新的线索。",
+          章末钩子: "在新疑问处收束。",
+        },
+        场景与节奏: {
+          场景切换: "用动作和感官细节硬切。",
+          节奏曲线: "先缓后急。",
+          冲突升级: "从试探逐层升级到正面对抗。",
+        },
+        信息披露: {
+          伏笔密度: "每章至少埋下一个可回收线索。",
+          信息释放: "先给局部事实，再延后真相。",
+          悬念管理: "旧疑问解决时立即引出新疑问。",
+        },
+        叙事视角: {
+          POV策略: "贴近主角感知的第三人称。",
+          叙述对话比例: "叙述多于对话。",
+          叙事距离: "高压场景贴近，解释段落稍微拉远。",
+        },
+        拆文模块: [
+          { 分类: "悬念", 标题: "疑问递进", 描述: "每次回答只揭开一层信息。" },
+        ],
+        范例: [{ 标签: "开篇证据", 基调: "紧张", 原文: "异常事件出现。".repeat(12) }],
+      },
+    });
+    const agent = new StubCraftAnalyzerAgent([response]);
+
+    const sourceText = `第1章 开局\n${"异常事件出现。".repeat(12)}`;
+    const profile = await agent.analyze(sourceText, "中文字段测试", "zh");
+
+    expect(profile.structure.openingPattern).toBe("先抛出异常，再补充背景。");
+    expect(profile.sceneRhythm.pacingCurve).toBe("先缓后急。");
+    expect(profile.informationDisclosure.suspenseManagement).toBe("旧疑问解决时立即引出新疑问。");
+    expect(profile.narrativePerspective.povStrategy).toBe("贴近主角感知的第三人称。");
+    expect(profile.exemplars).toContainEqual({
+      label: "开篇证据",
+      tone: "紧张",
+      excerpt: "异常事件出现。".repeat(12),
+    });
+    expect(profile.modules).toContainEqual({
+      category: "suspense",
+      label: "疑问递进",
+      summary: "每次回答只揭开一层信息。",
+      evidence: undefined,
+    });
+  });
+
   it("falls back to a JSON-repair pass when deterministic sanitization is insufficient", async () => {
     const malformed = `{
   "structure": {
@@ -447,6 +498,45 @@ describe("CraftAnalyzerAgent", () => {
       "场景与节奏",
       "信息披露",
       "叙事视角",
+    ]);
+  });
+
+  it("removes module evidence that is not a verbatim source excerpt", () => {
+    const excerpt = "这是一段足够长的原文证据，用来证明一个写作手法如何在具体场景中发生，并且必须能够在原文中完整找到。".repeat(2);
+    const profile = validateExemplars({
+      sourceName: "证据校验",
+      analyzedAt: new Date().toISOString(),
+      language: "zh",
+      structure: {
+        openingPattern: "具体开篇",
+        chapterArc: "具体推进",
+        endingHookType: "具体收尾",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "具体切换",
+        pacingCurve: "具体节奏",
+        conflictEscalation: "具体升级",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "具体伏笔",
+        informationReleaseRhythm: "具体释放",
+        suspenseManagement: "具体悬念",
+      },
+      narrativePerspective: {
+        povStrategy: "具体视角",
+        narrationDialogueRatio: "具体比例",
+        narrativeDistance: "具体距离",
+      },
+      modules: [
+        { category: "opening", label: "有效证据", summary: "保留有效证据。", evidence: excerpt },
+        { category: "opening", label: "拼接证据", summary: "丢弃拼接证据。", evidence: `${excerpt.slice(0, 60)}……${excerpt.slice(-60)}` },
+      ],
+      exemplars: [],
+    }, excerpt);
+
+    expect(profile.modules).toEqual([
+      { category: "opening", label: "有效证据", summary: "保留有效证据。", evidence: excerpt },
+      { category: "opening", label: "拼接证据", summary: "丢弃拼接证据。" },
     ]);
   });
 

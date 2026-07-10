@@ -45,6 +45,38 @@ interface CraftModule {
   readonly evidence?: string;
 }
 
+const CRAFT_CATEGORY_LABELS: Record<"zh" | "en", Record<CraftModule["category"], string>> = {
+  zh: {
+    opening: "开篇",
+    chapterFlow: "章节推进",
+    sceneRhythm: "场景与节奏",
+    disclosure: "信息释放",
+    suspense: "悬念管理",
+    perspective: "叙事视角",
+    emotion: "情绪推进",
+    turningPoint: "转折与回收",
+    other: "其他",
+  },
+  en: {
+    opening: "Opening",
+    chapterFlow: "Chapter Flow",
+    sceneRhythm: "Scene & Rhythm",
+    disclosure: "Information Release",
+    suspense: "Suspense",
+    perspective: "Perspective",
+    emotion: "Emotion",
+    turningPoint: "Turning Point",
+    other: "Other",
+  },
+};
+
+export function craftModuleCategoryLabel(
+  category: CraftModule["category"],
+  language: "zh" | "en",
+): string {
+  return CRAFT_CATEGORY_LABELS[language][category];
+}
+
 interface CraftProfile {
   readonly sourceName: string;
   readonly analyzedAt: string;
@@ -651,7 +683,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-semibold">{module.label}</div>
                 <span className="text-[11px] rounded-full bg-secondary/30 px-2 py-0.5 text-muted-foreground">
-                  {module.category}
+                  {craftModuleCategoryLabel(module.category, profile.language)}
                 </span>
               </div>
               <div className="text-sm leading-6 text-foreground/90">{module.summary}</div>
