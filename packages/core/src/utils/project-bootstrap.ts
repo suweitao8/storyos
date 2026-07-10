@@ -65,7 +65,7 @@ function buildProjectEnvTemplate(globalConfigured: boolean): string {
       "# Global config at ~/.inkos/.env will be used by default.",
       "# Switch Studio to 'Use Studio config' if you want per-project service settings.",
       "# Uncomment below to override for this project only:",
-      "# INKOS_LLM_PROVIDER=openai",
+      "# INKOS_LLM_PROVIDER=anthropic",
       "# INKOS_LLM_BASE_URL=",
       "# INKOS_LLM_API_KEY=",
       "# INKOS_LLM_MODEL=",

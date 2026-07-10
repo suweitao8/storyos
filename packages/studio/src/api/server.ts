@@ -1813,7 +1813,7 @@ function syncTopLevelLlmMirror(llm: Record<string, unknown>): void {
   if (!selectedEntry) return;
 
   const preset = resolveServicePreset(selectedEntry.service);
-  llm.provider = resolveServiceProviderFamily(selectedEntry.service) ?? "openai";
+  llm.provider = resolveServiceProviderFamily(selectedEntry.service) ?? "anthropic";
   llm.baseUrl = selectedEntry.baseUrl ?? preset?.baseUrl ?? "";
 
   const defaultModel = typeof llm.defaultModel === "string" ? llm.defaultModel.trim() : "";
@@ -2433,7 +2433,7 @@ async function probeServiceCapabilities(args: {
   for (const model of modelCandidates) {
     for (const plan of buildProbePlans(args.preferredApiFormat, args.preferredStream)) {
       const client = createLLMClient({
-        provider: resolveServiceProviderFamily(baseService) ?? "openai",
+        provider: resolveServiceProviderFamily(baseService) ?? "anthropic",
         service: baseService,
         configSource: "studio",
         baseUrl: args.baseUrl,
@@ -3510,7 +3510,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
     const baseService = isCustomServiceId(service) ? "custom" : service;
     const apiKeyOptional = isApiKeyOptionalForEndpoint({
-      provider: resolveServiceProviderFamily(baseService) ?? "openai",
+      provider: resolveServiceProviderFamily(baseService) ?? "anthropic",
       baseUrl: resolvedBaseUrl,
     });
     if (!apiKey?.trim() && !apiKeyOptional) {
@@ -3659,7 +3659,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const resolvedBaseUrl = await resolveConfiguredServiceBaseUrl(root, service);
     const baseService = isCustomServiceId(service) ? "custom" : service;
     const apiKeyOptional = isApiKeyOptionalForEndpoint({
-      provider: resolveServiceProviderFamily(baseService) ?? "openai",
+      provider: resolveServiceProviderFamily(baseService) ?? "anthropic",
       baseUrl: resolvedBaseUrl,
     });
 

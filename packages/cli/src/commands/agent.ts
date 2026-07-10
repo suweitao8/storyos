@@ -53,7 +53,7 @@ export const agentCommand = new Command("agent")
           projectRoot: root,
           model: client._piModel
             ? client._piModel
-            : { provider: config.llm.provider ?? "openai", modelId: config.llm.model },
+            : { provider: config.llm.provider ?? "anthropic", modelId: config.llm.model },
           apiKey: client._apiKey,
         },
         fullInstruction,

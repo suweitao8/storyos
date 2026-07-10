@@ -495,7 +495,7 @@ function serviceEntryKey(entry: ServiceConfigEntry): string {
 
 function deriveProviderFromService(service: string): "anthropic" | "openai" | "custom" {
   if (service === "custom") return "custom";
-  return resolveServiceProviderFamily(service) ?? "openai";
+  return resolveServiceProviderFamily(service) ?? "anthropic";
 }
 
 function warnIfStudioIgnoresEnv(layers: LLMEnvLayers, diagnostics: MutableDiagnostics): void {
@@ -517,7 +517,7 @@ function warnIfStaleTopLevel(
 }
 
 function fillNoopLLMDefaults(llm: Record<string, unknown>): void {
-  if (typeof llm.provider !== "string" || llm.provider.length === 0) llm.provider = "openai";
+  if (typeof llm.provider !== "string" || llm.provider.length === 0) llm.provider = "anthropic";
   if (typeof llm.baseUrl !== "string" || llm.baseUrl.length === 0) llm.baseUrl = "https://example.invalid/v1";
   if (typeof llm.model !== "string" || llm.model.length === 0) llm.model = "noop-model";
   if (typeof llm.apiKey !== "string") llm.apiKey = "";

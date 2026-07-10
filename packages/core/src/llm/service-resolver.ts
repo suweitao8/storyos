@@ -36,7 +36,7 @@ export async function resolveServiceModel(
   const baseService = service.startsWith("custom:") ? "custom" : service;
   const preset = resolveServicePreset(baseService);
   const endpoint = getEndpoint(baseService);
-  const piProvider = baseService === "ollama" ? "ollama" : resolveServicePiProvider(baseService) ?? "openai";
+  const piProvider = baseService === "ollama" ? "ollama" : resolveServicePiProvider(baseService) ?? "anthropic";
   const apiType = service.startsWith("custom:")
     ? (customApiFormat === "responses" ? "openai-responses" : "openai-completions")
     : (preset?.api ?? "openai-completions");
