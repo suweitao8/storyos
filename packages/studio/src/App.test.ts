@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveActiveBookId, deriveStartupGate, isBookCreateChatRoute } from "./App";
+import { deriveActiveBookId, deriveStartupGate, getRouteToolbarTitle, isBookCreateChatRoute } from "./App";
 
 describe("deriveActiveBookId", () => {
   it("returns the current book across book-centered routes", () => {
@@ -21,6 +21,21 @@ describe("isBookCreateChatRoute", () => {
   it("routes new-book creation through chat instead of the standalone form page", () => {
     expect(isBookCreateChatRoute({ page: "book-create" })).toBe(true);
     expect(isBookCreateChatRoute({ page: "book", bookId: "alpha" })).toBe(false);
+  });
+});
+
+describe("getRouteToolbarTitle", () => {
+  it("returns stable Chinese titles for primary pages", () => {
+    expect(getRouteToolbarTitle({ page: "services" }, "zh")).toBe("模型配置");
+    expect(getRouteToolbarTitle({ page: "craft" }, "zh")).toBe("写作模式");
+    expect(getRouteToolbarTitle({ page: "import" }, "zh")).toBe("导入");
+    expect(getRouteToolbarTitle({ page: "book", bookId: "book-1" }, "zh")).toBe("写作");
+  });
+
+  it("returns English titles without embedding route identifiers", () => {
+    expect(getRouteToolbarTitle({ page: "project-settings" }, "en")).toBe("Settings");
+    expect(getRouteToolbarTitle({ page: "service-detail", serviceId: "xfyun" }, "en")).toBe("Service Configuration");
+    expect(getRouteToolbarTitle({ page: "chapter", bookId: "book-1", chapterNumber: 4 }, "en")).toBe("Chapter Reader");
   });
 });
 
