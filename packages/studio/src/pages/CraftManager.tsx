@@ -1,11 +1,16 @@
-import { useCallback, useRef, useState } from "react";
-import { fetchJson, useApi, postApi } from "../hooks/use-api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchJson, putApi, useApi, postApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
 import { normalizeCraftDisplayName } from "./craft-name.js";
+import {
+  type CraftTab,
+  resolveAfterCraftDelete,
+  resolveInitialCraftState,
+} from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import {
   Wand2, BookOpen, Trash2, ChevronRight,
@@ -21,6 +26,12 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
+}
+
+interface CraftListResponse {
+  readonly crafts: ReadonlyArray<CraftMeta>;
+  readonly recentCraftId: string | null;
+  readonly recentCraftPreferenceAvailable: boolean;
 }
 
 interface CraftExemplar {
@@ -109,8 +120,6 @@ interface CraftProfile {
   readonly exemplars: ReadonlyArray<CraftExemplar>;
 }
 
-type CraftTab = "list" | "create" | "detail";
-
 interface Nav { toDashboard: () => void }
 
 interface SseState {
@@ -178,6 +187,10 @@ export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
   };
 }
 
+export function craftListRowClassName(isSelected: boolean, cardStatic: string): string {
+  return `border ${isSelected ? "border-primary/50 bg-primary/5" : cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`;
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -187,21 +200,65 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const [tab, setTab] = useState<CraftTab>("list");
   const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
   const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
-  const { data: craftsData, refetch } = useApi<{ crafts: ReadonlyArray<CraftMeta> }>("/crafts");
+  const initialNavigationAppliedRef = useRef(false);
+  const { data: craftsData, loading: craftsLoading, refetch, mutate } = useApi<CraftListResponse>("/crafts");
 
   const crafts = craftsData?.crafts ?? [];
+
+  useEffect(() => {
+    if (craftsLoading || !craftsData || initialNavigationAppliedRef.current) return;
+    initialNavigationAppliedRef.current = true;
+    if (!craftsData.recentCraftPreferenceAvailable) return;
+
+    const initialState = resolveInitialCraftState(
+      craftsData.recentCraftId,
+      craftsData.crafts.map((craft) => craft.id),
+    );
+    setTab(initialState.tab);
+    setSelectedCraftId(initialState.selectedCraftId);
+  }, [craftsData, craftsLoading]);
 
   const openDetail = (craftId: string) => {
     setSelectedCraftId(craftId);
     setNewProfile(null);
     setTab("detail");
+    void putApi("/crafts/recent", { craftId }).catch(() => undefined);
   };
 
-  const handleCreated = async (profile: CraftProfile) => {
+  const handleCreated = async (profile: CraftProfile, craftId: string) => {
     setNewProfile(profile);
-    setSelectedCraftId(null);
+    setSelectedCraftId(craftId);
     setTab("detail");
+    try {
+      await putApi("/crafts/recent", { craftId });
+    } catch {
+      // The profile is still usable if preference persistence is unavailable.
+    }
     await refetch();
+  };
+
+  const handleDelete = async (deletedCraftId: string) => {
+    try {
+      await fetchJson(`/crafts/${deletedCraftId}`, { method: "DELETE" });
+      const latest = await fetchJson<CraftListResponse>("/crafts");
+      mutate(latest);
+
+      const nextState = resolveAfterCraftDelete(
+        deletedCraftId,
+        latest.crafts.map((craft) => craft.id),
+      );
+      setTab(nextState.tab);
+      setSelectedCraftId(nextState.selectedCraftId);
+      setNewProfile(null);
+
+      if (nextState.selectedCraftId) {
+        await putApi("/crafts/recent", { craftId: nextState.selectedCraftId }).catch(() => undefined);
+      } else if (latest.crafts.length === 0) {
+        await fetchJson("/crafts/recent", { method: "DELETE" }).catch(() => undefined);
+      }
+    } catch {
+      // Keep the current view intact when deletion or refresh fails.
+    }
   };
 
   return (
@@ -211,35 +268,39 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       <div className="mx-auto flex w-fit gap-1 border-b border-border">
         <TabButton
           active={tab === "list"}
-          onClick={() => { setTab("list"); void refetch(); }}
+          onClick={() => { setTab("list"); setNewProfile(null); void refetch(); }}
           icon={<BookOpen size={15} />}
           label={t("craft.tabList")}
         />
         <TabButton
           active={tab === "create"}
-          onClick={() => setTab("create")}
+          onClick={() => { setTab("create"); setNewProfile(null); }}
           icon={<Plus size={15} />}
           label={t("craft.tabCreate")}
         />
-        {tab === "detail" && (
-          <TabButton
-            active
-            icon={<FileText size={15} />}
-            label={t("craft.tabDetail")}
-          />
-        )}
+        <TabButton
+          active={tab === "detail"}
+          onClick={() => setTab("detail")}
+          icon={<FileText size={15} />}
+          label={t("craft.tabDetail")}
+        />
       </div>
 
       {/* Tab content */}
       {tab === "list" && (
-        <CraftList
-          crafts={crafts}
-          c={c}
-          t={t}
-          onNew={() => setTab("create")}
-          onOpen={openDetail}
-          onDelete={async (id) => { await fetchJson(`/crafts/${id}`, { method: "DELETE" }); await refetch(); }}
-        />
+        craftsLoading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+        ) : (
+          <CraftList
+            crafts={crafts}
+            selectedCraftId={selectedCraftId}
+            c={c}
+            t={t}
+            onNew={() => { setNewProfile(null); setTab("create"); }}
+            onOpen={openDetail}
+            onDelete={handleDelete}
+          />
+        )
       )}
 
       {tab === "create" && (
@@ -257,7 +318,8 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
           initialProfile={newProfile}
           c={c}
           t={t}
-          onBack={() => { setTab("list"); void refetch(); }}
+          onBack={() => { setNewProfile(null); setTab("list"); void refetch(); }}
+          onNew={() => { setNewProfile(null); setTab("create"); }}
         />
       )}
     </div>
@@ -294,8 +356,9 @@ function TabButton({ active, onClick, icon, label }: {
 // Tab 1: Craft list
 // ---------------------------------------------------------------------------
 
-function CraftList({ crafts, c, t, onNew, onOpen, onDelete }: {
+function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
   crafts: ReadonlyArray<CraftMeta>;
+  selectedCraftId: string | null;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onNew: () => void;
@@ -332,7 +395,10 @@ function CraftList({ crafts, c, t, onNew, onOpen, onDelete }: {
         </button>
       </div>
       {crafts.map((craft) => (
-        <div key={craft.id} className={`border ${c.cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`}>
+        <div
+          key={craft.id}
+          className={craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)}
+        >
           <button onClick={() => onOpen(craft.id)} className="flex items-center gap-3 flex-1 text-left">
             <ChevronRight size={16} className="text-muted-foreground" />
             <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
@@ -367,7 +433,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   c: ReturnType<typeof useColors>;
   t: TFunction;
   sse: SseState;
-  onSuccess: (profile: CraftProfile) => void;
+  onSuccess: (profile: CraftProfile, craftId: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeSourceNameRef = useRef<string | null>(null);
@@ -470,7 +536,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         sourceName: nextSourceName,
         language: "zh",
       });
-      onSuccess(result.profile);
+      onSuccess(result.profile, result.craftId);
     } catch (e) {
       setExtractError(e instanceof Error ? e.message : String(e));
     }
@@ -609,12 +675,13 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 // Tab 3: Detail
 // ---------------------------------------------------------------------------
 
-function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
+function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onBack: () => void;
+  onNew: () => void;
 }) {
   const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
   const [loading, setLoading] = useState(!initialProfile && !!craftId);
@@ -645,8 +712,22 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack }: {
 
   if (!profile) {
     return (
-      <div className="text-center py-12 text-sm text-muted-foreground">
-        {t("craft.noProfiles")}
+      <div className="space-y-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">{t("craft.noProfiles")}</p>
+        <div className="flex justify-center gap-3">
+          <button
+            onClick={onBack}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            {t("craft.backToList")}
+          </button>
+          <button
+            onClick={onNew}
+            className={`rounded-lg px-3 py-1.5 text-sm ${c.btnPrimary}`}
+          >
+            {t("craft.newProfile")}
+          </button>
+        </div>
       </div>
     );
   }

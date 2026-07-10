@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildCraftDetailModel, craftModuleCategoryLabel } from "./CraftManager";
+import {
+  buildCraftDetailModel,
+  craftListRowClassName,
+  craftModuleCategoryLabel,
+} from "./CraftManager";
+
+describe("craft list selection", () => {
+  it("highlights only the selected craft row", () => {
+    expect(craftListRowClassName(true, "border-border")).toContain("bg-primary/5");
+    expect(craftListRowClassName(false, "border-border")).toContain("border-border");
+    expect(craftListRowClassName(false, "border-border")).not.toContain("bg-primary/5");
+  });
+});
 
 describe("craft detail model", () => {
   it("localizes module categories for the detail view", () => {
