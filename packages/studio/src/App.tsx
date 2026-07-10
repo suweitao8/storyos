@@ -30,7 +30,7 @@ import { useTheme } from "./hooks/use-theme";
 import { useI18n } from "./hooks/use-i18n";
 import { setAppLanguage, tr } from "./lib/app-language";
 import { postApi, putApi, useApi } from "./hooks/use-api";
-import { PageToolbar } from "./components/PageToolbar";
+import { PageToolbar, PageToolbarProvider, usePageToolbarState } from "./components/PageToolbar";
 import { useChatStore, type ChatSessionKind } from "./store/chat";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
@@ -109,6 +109,18 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessio
       };
 
   return titles[route.page];
+}
+
+function AppPageToolbar({ title }: { readonly title: string }) {
+  const toolbar = usePageToolbarState();
+  return (
+    <PageToolbar
+      title={title}
+      tabs={toolbar.tabs}
+      activeTab={toolbar.activeTab}
+      onTabChange={toolbar.onTabChange}
+    />
+  );
 }
 
 export function deriveStartupGate(input: {
@@ -242,7 +254,8 @@ export function App() {
   }
 
   return (
-    <div className="h-screen bg-background text-foreground flex overflow-hidden font-sans">
+    <PageToolbarProvider>
+      <div className="h-screen bg-background text-foreground flex overflow-hidden font-sans">
       {/* Left Sidebar */}
       <Sidebar nav={nav} activePage={activePage} sse={sse} t={t} />
 
@@ -251,9 +264,7 @@ export function App() {
         {/* Header Strip — kept as a thin divider; navigation lives in the sidebar */}
         <div className="h-px shrink-0 border-b border-border/40" />
 
-        <PageToolbar
-          title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
-        />
+        <AppPageToolbar title={getRouteToolbarTitle(route, currentLang, activeSessionKind)} />
 
         {/* Main Content Area */}
         <main className="flex-1 relative overflow-y-auto scroll-smooth">
@@ -412,6 +423,7 @@ export function App() {
           )}
         </main>
       </div>
-    </div>
+      </div>
+    </PageToolbarProvider>
   );
 }

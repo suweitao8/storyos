@@ -7,7 +7,7 @@ import { useColors } from "../hooks/use-colors";
 import { tr } from "../lib/app-language";
 import { FileInput, BookCopy, Feather, BookMarked } from "lucide-react";
 import { waitForStudioBookReady } from "../lib/book-ready";
-import { PageToolbar } from "../components/PageToolbar";
+import { usePageToolbar } from "../components/PageToolbar";
 
 interface BookSummary {
   readonly id: string;
@@ -137,16 +137,14 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
     { id: "spinoff", label: t("import.spinoff"), icon: <BookMarked size={14} /> },
   ];
 
+  usePageToolbar("import", {
+    tabs,
+    activeTab: tab,
+    onTabChange: (nextTab) => { setTab(nextTab as Tab); setStatus(""); },
+  });
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-
-      <PageToolbar
-        tabs={tabs}
-        activeTab={tab}
-        onTabChange={(nextTab) => { setTab(nextTab as Tab); setStatus(""); }}
-        className="border-b-0 px-0"
-      />
-
       {/* Tab content */}
       <div className={`border ${c.cardStatic} rounded-lg p-6 space-y-4`}>
         {tab === "chapters" && (

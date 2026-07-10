@@ -1,4 +1,13 @@
-import type { ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -18,6 +27,58 @@ export type PageToolbarProps = {
   readonly actions?: ReactNode;
   readonly className?: string;
 };
+
+export type PageToolbarRegistration = Pick<PageToolbarProps, "tabs" | "activeTab" | "onTabChange">;
+
+type RegisteredPageToolbar = PageToolbarRegistration & { readonly ownerId: string };
+
+type PageToolbarContextValue = {
+  readonly registration: RegisteredPageToolbar | null;
+  readonly register: (ownerId: string, registration: PageToolbarRegistration) => void;
+  readonly unregister: (ownerId: string) => void;
+};
+
+const PageToolbarContext = createContext<PageToolbarContextValue | null>(null);
+
+export function PageToolbarProvider({ children }: { readonly children: ReactNode }) {
+  const [registration, setRegistration] = useState<RegisteredPageToolbar | null>(null);
+  const register = useCallback((ownerId: string, next: PageToolbarRegistration) => {
+    setRegistration({ ownerId, ...next });
+  }, []);
+  const unregister = useCallback((ownerId: string) => {
+    setRegistration((current) => current?.ownerId === ownerId ? null : current);
+  }, []);
+  const value = useMemo(() => ({ registration, register, unregister }), [registration, register, unregister]);
+
+  return <PageToolbarContext.Provider value={value}>{children}</PageToolbarContext.Provider>;
+}
+
+export function usePageToolbarState(): PageToolbarRegistration {
+  const context = useContext(PageToolbarContext);
+  if (!context) throw new Error("usePageToolbarState must be used within PageToolbarProvider");
+  return context.registration ?? {};
+}
+
+export function usePageToolbar(ownerId: string, registration: PageToolbarRegistration): void {
+  const context = useContext(PageToolbarContext);
+  if (!context) throw new Error("usePageToolbar must be used within PageToolbarProvider");
+  const { register, unregister } = context;
+
+  const latestRegistrationRef = useRef(registration);
+  latestRegistrationRef.current = registration;
+  const tabsSignature = registration.tabs
+    ?.map((tab) => `${tab.id}:${String(tab.label)}:${tab.disabled ? "disabled" : "enabled"}`)
+    .join("|") ?? "";
+
+  useEffect(() => {
+    register(ownerId, {
+      tabs: registration.tabs,
+      activeTab: registration.activeTab,
+      onTabChange: (tabId) => latestRegistrationRef.current.onTabChange?.(tabId),
+    });
+    return () => unregister(ownerId);
+  }, [register, unregister, ownerId, registration.activeTab, tabsSignature]);
+}
 
 export function PageToolbar({
   title,
