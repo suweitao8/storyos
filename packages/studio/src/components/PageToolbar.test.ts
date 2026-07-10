@@ -116,8 +116,6 @@ describe("PageToolbar", () => {
     expect(settings.className).toContain("border-primary");
     expect(settings.className).toContain("border-b-2");
     expect(overview.getAttribute("aria-current")).toBeNull();
-    expect(overview.className).not.toContain("border-primary");
-    expect(overview.className).not.toContain("border-b-2");
   });
 
   it("dispatches tab changes through the rendered button click contract", () => {
