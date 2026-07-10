@@ -7,6 +7,7 @@ import { useColors } from "../hooks/use-colors";
 import { tr } from "../lib/app-language";
 import { FileInput, BookCopy, Feather, BookMarked } from "lucide-react";
 import { waitForStudioBookReady } from "../lib/book-ready";
+import { PageToolbar } from "../components/PageToolbar";
 
 interface BookSummary {
   readonly id: string;
@@ -15,7 +16,8 @@ interface BookSummary {
 
 interface Nav { toDashboard: () => void; toBook: (bookId: string) => void }
 
-type Tab = "chapters" | "canon" | "fanfic" | "spinoff";
+export const IMPORT_TABS = ["chapters", "canon", "fanfic", "spinoff"] as const;
+type Tab = typeof IMPORT_TABS[number];
 
 export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: Theme; t: TFunction; initialTab?: Tab }) {
   const c = useColors(theme);
@@ -128,7 +130,7 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
     setLoading(false);
   };
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const tabs: ReadonlyArray<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: "chapters", label: t("import.chapters"), icon: <FileInput size={14} /> },
     { id: "canon", label: t("import.canon"), icon: <BookCopy size={14} /> },
     { id: "fanfic", label: t("import.fanfic"), icon: <Feather size={14} /> },
@@ -138,20 +140,12 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
 
-      {/* Tabs */}
-      <div className="mx-auto flex w-fit gap-1 rounded-lg bg-secondary/30 p-1">
-        {tabs.map((tb) => (
-          <button
-            key={tb.id}
-            onClick={() => { setTab(tb.id); setStatus(""); }}
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
-              tab === tb.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tb.icon} {tb.label}
-          </button>
-        ))}
-      </div>
+      <PageToolbar
+        tabs={tabs}
+        activeTab={tab}
+        onTabChange={(nextTab) => { setTab(nextTab as Tab); setStatus(""); }}
+        className="border-b-0 px-0"
+      />
 
       {/* Tab content */}
       <div className={`border ${c.cardStatic} rounded-lg p-6 space-y-4`}>
