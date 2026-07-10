@@ -3,7 +3,6 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 
 const require = createRequire(import.meta.url);
-const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
 
 const RECENT_CRAFT_KEY = "recent_craft_id";
 const CREATE_TABLE_SQL = `
@@ -14,11 +13,18 @@ const CREATE_TABLE_SQL = `
   )
 `;
 
-type Database = InstanceType<typeof DatabaseSync>;
+type Database = import("node:sqlite").DatabaseSync;
 
 async function withDatabase<T>(projectRoot: string, operation: (database: Database) => T): Promise<T> {
   const inkosDirectory = join(projectRoot, ".inkos");
   await mkdir(inkosDirectory, { recursive: true });
+
+  let DatabaseSync: typeof import("node:sqlite").DatabaseSync;
+  try {
+    ({ DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite"));
+  } catch (error) {
+    throw new Error("Studio preferences require Node 22 or newer with node:sqlite support.", { cause: error });
+  }
 
   const database = new DatabaseSync(join(inkosDirectory, "studio.db"));
   try {

@@ -10,7 +10,13 @@ import {
 } from "./studio-preferences-db";
 
 const require = createRequire(import.meta.url);
-const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
+const sqlite = (() => {
+  try {
+    return require("node:sqlite") as typeof import("node:sqlite");
+  } catch {
+    return null;
+  }
+})();
 const projectRoots: string[] = [];
 
 afterEach(async () => {
@@ -23,8 +29,9 @@ async function createProjectRoot() {
   return projectRoot;
 }
 
-describe("studio preferences database", () => {
+describe.skipIf(sqlite === null)("studio preferences database", () => {
   it("creates the project database and returns null when no recent craft exists", async () => {
+    if (sqlite === null) return;
     const projectRoot = await createProjectRoot();
 
     expect(await getRecentCraftId(projectRoot)).toBeNull();
@@ -32,7 +39,7 @@ describe("studio preferences database", () => {
     const databasePath = join(projectRoot, ".inkos", "studio.db");
     expect(await readFile(databasePath)).toBeInstanceOf(Buffer);
 
-    const database = new DatabaseSync(databasePath);
+    const database = new sqlite.DatabaseSync(databasePath);
     try {
       const table = database
         .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'studio_preferences'")
