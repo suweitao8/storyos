@@ -65,3 +65,11 @@ export function clearRecentCraftId(projectRoot: string): Promise<void> {
       .run(RECENT_CRAFT_KEY);
   });
 }
+
+export function clearRecentCraftIdIfMatches(projectRoot: string, craftId: string): Promise<void> {
+  return withDatabase(projectRoot, (database) => {
+    database
+      .prepare("DELETE FROM studio_preferences WHERE key = ? AND value = ?")
+      .run(RECENT_CRAFT_KEY, craftId);
+  });
+}

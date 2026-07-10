@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   clearRecentCraftId,
+  clearRecentCraftIdIfMatches,
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db";
@@ -70,6 +71,17 @@ describe.skipIf(sqlite === null)("studio preferences database", () => {
     expect(await getRecentCraftId(projectRoot)).toBeNull();
 
     await clearRecentCraftId(projectRoot);
+    expect(await getRecentCraftId(projectRoot)).toBeNull();
+  });
+
+  it("clears the recent craft id only when it still matches", async () => {
+    const projectRoot = await createProjectRoot();
+    await setRecentCraftId(projectRoot, "craft-001");
+
+    await clearRecentCraftIdIfMatches(projectRoot, "craft-002");
+    expect(await getRecentCraftId(projectRoot)).toBe("craft-001");
+
+    await clearRecentCraftIdIfMatches(projectRoot, "craft-001");
     expect(await getRecentCraftId(projectRoot)).toBeNull();
   });
 });

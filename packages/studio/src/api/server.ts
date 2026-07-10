@@ -123,6 +123,7 @@ import { ApiError } from "./errors.js";
 import { buildStudioBookConfig } from "./book-create.js";
 import {
   clearRecentCraftId,
+  clearRecentCraftIdIfMatches,
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db.js";
@@ -437,6 +438,13 @@ function normalizeApiBookId(value: unknown, fieldName: string): string | null {
     throw new ApiError(400, "INVALID_BOOK_ID", `Invalid ${fieldName}: "${bookId}"`);
   }
   return bookId;
+}
+
+function normalizeCraftId(value: unknown): string {
+  if (!isSafeBookId(value)) {
+    throw new ApiError(400, "INVALID_CRAFT_ID", "craftId must be a safe non-empty string");
+  }
+  return value;
 }
 
 function nonTextModelMessage(modelId: string, lang: StudioLanguage = "zh"): string {
@@ -5792,12 +5800,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const pipeline = new PipelineRunner(pipelineConfig);
       const crafts = await pipeline.listCrafts();
       let recentCraftId: string | null = null;
+      let recentCraftPreferenceAvailable = true;
       try {
         recentCraftId = await getRecentCraftId(root);
       } catch (error) {
+        recentCraftPreferenceAvailable = false;
         pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
       }
-      return c.json({ crafts, recentCraftId });
+      return c.json({ crafts, recentCraftId, recentCraftPreferenceAvailable });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
     }
@@ -5806,34 +5816,39 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Recent Craft Selection ---
 
   app.put("/api/v1/crafts/recent", async (c) => {
+    let body: unknown;
     try {
-      const { craftId } = await c.req.json<{ craftId?: string }>();
-      if (!craftId?.trim()) return c.json({ error: "craftId is required" }, 400);
-
-      const pipelineConfig = await buildPipelineConfig();
-      const pipeline = new PipelineRunner(pipelineConfig);
-      if (!await pipeline.loadCraft(craftId)) return c.json({ error: "craft not found" }, 404);
-
-      await setRecentCraftId(root, craftId);
-      return c.json({ ok: true });
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
+      body = await c.req.json();
+    } catch {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be valid JSON");
     }
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be an object");
+    }
+
+    const craftId = (body as { craftId?: unknown }).craftId;
+    if (typeof craftId !== "string") {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "craftId must be a string");
+    }
+    const safeCraftId = normalizeCraftId(craftId);
+
+    const pipelineConfig = await buildPipelineConfig();
+    const pipeline = new PipelineRunner(pipelineConfig);
+    if (!await pipeline.loadCraft(safeCraftId)) return c.json({ error: "craft not found" }, 404);
+
+    await setRecentCraftId(root, safeCraftId);
+    return c.json({ ok: true });
   });
 
   app.delete("/api/v1/crafts/recent", async (c) => {
-    try {
-      await clearRecentCraftId(root);
-      return c.json({ ok: true });
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
-    }
+    await clearRecentCraftId(root);
+    return c.json({ ok: true });
   });
 
   // --- Craft Detail ---
 
-  app.get("/api/v1/crafts/:id", async (c) => {
-    const id = c.req.param("id");
+  app.get("/api/v1/crafts/:id{.+}", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
       const profile = await pipeline.loadCraft(id);
@@ -5846,14 +5861,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   // --- Craft Delete ---
 
-  app.delete("/api/v1/crafts/:id", async (c) => {
-    const id = c.req.param("id");
+  app.delete("/api/v1/crafts/:id{.+}", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
     try {
       const pipelineConfig = await buildPipelineConfig();
       const pipeline = new PipelineRunner(pipelineConfig);
       await pipeline.deleteCraft(id);
       try {
-        if (await getRecentCraftId(root) === id) await clearRecentCraftId(root);
+        await clearRecentCraftIdIfMatches(root, id);
       } catch (error) {
         pipelineConfig.logger?.warn(`Failed to clear recent craft preference: ${String(error)}`);
       }
