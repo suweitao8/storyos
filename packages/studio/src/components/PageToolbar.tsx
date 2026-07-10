@@ -55,10 +55,10 @@ export function PageToolbar({
                     type="button"
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                      "shrink-0 px-3 py-2 text-sm font-medium transition-colors",
                       isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                        ? "border-b-2 border-primary text-primary"
+                        : "text-muted-foreground hover:text-foreground",
                     )}
                     onClick={() => onTabChange?.(tab.id)}
                   >
