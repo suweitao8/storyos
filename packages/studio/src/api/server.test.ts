@@ -133,7 +133,7 @@ describe("studio runtime contract", () => {
       await readFile(new URL("../../../../package.json", import.meta.url), "utf-8"),
     ) as { engines?: { node?: string } };
 
-    expect(packageJson.engines?.node).toBe(">=22.0.0");
+    expect(packageJson.engines?.node).toBe(">=22.13.0");
   });
 });
 

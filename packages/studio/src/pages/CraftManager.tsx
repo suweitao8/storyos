@@ -130,6 +130,10 @@ export const CRAFT_LAYOUT_CLASSES = {
   tab: "flex flex-1 items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors",
 } as const;
 
+export function advanceCraftNavigationToken(currentToken: number): number {
+  return currentToken + 1;
+}
+
 interface SseState {
   readonly messages: ReadonlyArray<SSEMessage>;
 }
@@ -248,7 +252,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const initialNavigationAppliedRef = useRef(false);
   const userNavigatedRef = useRef(false);
   const selectedCraftIdRef = useRef<string | null>(null);
-  const deleteOperationRef = useRef(0);
+  const selectionOperationRef = useRef(0);
   const recentCraftWriteChainRef = useRef(Promise.resolve());
   const {
     data: craftsData,
@@ -262,6 +266,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 
   const markUserNavigation = () => {
     userNavigatedRef.current = true;
+    selectionOperationRef.current = advanceCraftNavigationToken(selectionOperationRef.current);
   };
 
   const persistRecentCraft = (craftId: string | null) => {
@@ -314,7 +319,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 
   const handleDelete = async (deletedCraftId: string) => {
     markUserNavigation();
-    const operationId = ++deleteOperationRef.current;
+    const operationId = selectionOperationRef.current;
     try {
       await fetchJson(`/crafts/${deletedCraftId}`, { method: "DELETE" });
       const latest = await fetchJson<CraftListResponse>("/crafts");
@@ -324,7 +329,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
         selectedCraftIdRef.current,
         deletedCraftId,
         operationId,
-        deleteOperationRef.current,
+        selectionOperationRef.current,
       )) return;
 
       const deletion = resolveCraftDeleteSelection(

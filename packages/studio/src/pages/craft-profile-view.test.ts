@@ -6,6 +6,7 @@ import {
   craftListRowClassName,
   craftModuleCategoryLabel,
   resolveCraftDeleteSelection,
+  advanceCraftNavigationToken,
   shouldApplyCraftDeleteFallback,
 } from "./CraftManager";
 
@@ -31,8 +32,12 @@ describe("craft list selection", () => {
 
   it("only applies a delete fallback for the current operation and deleted selection", () => {
     expect(shouldApplyCraftDeleteFallback("craft-new", "craft-deleted", 1, 1)).toBe(false);
-    expect(shouldApplyCraftDeleteFallback("craft-deleted", "craft-deleted", 1, 2)).toBe(false);
     expect(shouldApplyCraftDeleteFallback("craft-deleted", "craft-deleted", 2, 2)).toBe(true);
+  });
+
+  it("invalidates a pending delete fallback when tab navigation advances the selection token", () => {
+    expect(advanceCraftNavigationToken(4)).toBe(5);
+    expect(shouldApplyCraftDeleteFallback("craft-deleted", "craft-deleted", 4, 5)).toBe(false);
   });
 });
 
