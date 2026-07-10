@@ -28,11 +28,9 @@ export function resolveAfterCraftDelete(
   deletedCraftId: string,
   remainingCraftIds: ReadonlyArray<string>,
 ): CraftNavigationState {
-  const nextCraftId = [...remainingCraftIds]
-    .reverse()
-    .find(
-      (craftId) => isValidCraftId(craftId) && craftId !== deletedCraftId,
-    );
+  const nextCraftId = remainingCraftIds.find(
+    (craftId) => isValidCraftId(craftId) && craftId !== deletedCraftId,
+  );
   if (nextCraftId !== undefined) {
     return { tab: "detail", selectedCraftId: nextCraftId };
   }

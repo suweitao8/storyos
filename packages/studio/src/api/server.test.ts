@@ -127,6 +127,16 @@ const probeModelsFromUpstreamMock = vi.fn(async () => [
   { id: "custom-model", name: "custom-model", contextWindow: 0 },
 ]);
 
+describe("studio runtime contract", () => {
+  it("declares the Node runtime required by node:sqlite preferences", async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL("../../../../package.json", import.meta.url), "utf-8"),
+    ) as { engines?: { node?: string } };
+
+    expect(packageJson.engines?.node).toBe(">=22.0.0");
+  });
+});
+
 const logger = {
   child: () => logger,
   info: vi.fn(),
@@ -709,6 +719,10 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("keeps the recent craft selection when another craft is deleted", async () => {
+    listCraftsMock.mockResolvedValueOnce([
+      { id: "craft-2", sourceName: "Other Craft" },
+      { id: "craft-1", sourceName: "Existing Craft" },
+    ]);
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
 
@@ -840,6 +854,24 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(await detail.json()).toEqual(expected);
     expect(await deletion.json()).toEqual(expected);
     expect(deleteCraftMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes a craft whose metadata exists even when its profile is corrupted", async () => {
+    listCraftsMock.mockResolvedValueOnce([
+      { id: "corrupted-craft", sourceName: "Corrupted Craft" },
+    ]);
+    loadCraftMock.mockResolvedValueOnce(null);
+    deleteCraftMock.mockResolvedValueOnce(undefined);
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const deletion = await app.request("http://localhost/api/v1/crafts/corrupted-craft", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    expect(loadCraftMock).not.toHaveBeenCalled();
+    expect(deleteCraftMock).toHaveBeenCalledWith("corrupted-craft");
   });
 
   it("returns a generic structured error when loading craft detail fails internally", async () => {

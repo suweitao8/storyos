@@ -124,6 +124,12 @@ interface Nav { toDashboard: () => void }
 
 export const CRAFT_TABS = ["list", "create", "detail"] as const satisfies ReadonlyArray<CraftTab>;
 
+export const CRAFT_LAYOUT_CLASSES = {
+  content: "w-full space-y-6",
+  tabBar: "flex w-full border-b border-border",
+  tab: "flex flex-1 items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+} as const;
+
 interface SseState {
   readonly messages: ReadonlyArray<SSEMessage>;
 }
@@ -221,6 +227,15 @@ export function resolveCraftDeleteSelection(
   };
 }
 
+export function shouldApplyCraftDeleteFallback(
+  selectedCraftId: string | null,
+  deletedCraftId: string,
+  operationId: number,
+  latestOperationId: number,
+): boolean {
+  return selectedCraftId === deletedCraftId && operationId === latestOperationId;
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -232,6 +247,8 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
   const initialNavigationAppliedRef = useRef(false);
   const userNavigatedRef = useRef(false);
+  const selectedCraftIdRef = useRef<string | null>(null);
+  const deleteOperationRef = useRef(0);
   const recentCraftWriteChainRef = useRef(Promise.resolve());
   const {
     data: craftsData,
@@ -272,11 +289,13 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       craftsData.crafts.map((craft) => craft.id),
     );
     setTab(initialState.tab);
+    selectedCraftIdRef.current = initialState.selectedCraftId;
     setSelectedCraftId(initialState.selectedCraftId);
   }, [craftsData, craftsLoading]);
 
   const openDetail = (craftId: string) => {
     markUserNavigation();
+    selectedCraftIdRef.current = craftId;
     setSelectedCraftId(craftId);
     setNewProfile(null);
     setTab("detail");
@@ -286,6 +305,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const handleCreated = async (profile: CraftProfile, craftId: string) => {
     markUserNavigation();
     setNewProfile(profile);
+    selectedCraftIdRef.current = craftId;
     setSelectedCraftId(craftId);
     setTab("detail");
     await persistRecentCraft(craftId);
@@ -294,19 +314,28 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 
   const handleDelete = async (deletedCraftId: string) => {
     markUserNavigation();
+    const operationId = ++deleteOperationRef.current;
     try {
       await fetchJson(`/crafts/${deletedCraftId}`, { method: "DELETE" });
       const latest = await fetchJson<CraftListResponse>("/crafts");
       mutate(latest);
 
+      if (!shouldApplyCraftDeleteFallback(
+        selectedCraftIdRef.current,
+        deletedCraftId,
+        operationId,
+        deleteOperationRef.current,
+      )) return;
+
       const deletion = resolveCraftDeleteSelection(
-        selectedCraftId,
+        selectedCraftIdRef.current,
         deletedCraftId,
         latest.crafts.map((craft) => craft.id),
       );
       if (!deletion.shouldPersistRecentCraft) return;
 
       setTab(deletion.selectedCraftId ? "detail" : "list");
+      selectedCraftIdRef.current = deletion.selectedCraftId;
       setSelectedCraftId(deletion.selectedCraftId);
       setNewProfile(null);
       await persistRecentCraft(deletion.selectedCraftId);
@@ -340,10 +369,10 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className={CRAFT_LAYOUT_CLASSES.content}>
 
       {/* Tab bar */}
-      <div className="mx-auto flex w-fit gap-1 border-b border-border">
+      <div className={CRAFT_LAYOUT_CLASSES.tabBar}>
         {CRAFT_TABS.map((craftTab) => {
           const config = tabConfig[craftTab];
           return (
@@ -422,7 +451,7 @@ function TabButton({ active, onClick, icon, label }: {
     <button
       onClick={onClick}
       disabled={active && !onClick}
-      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+      className={`${CRAFT_LAYOUT_CLASSES.tab} ${
         active
           ? "border-primary text-primary"
           : "border-transparent text-muted-foreground hover:text-foreground"
