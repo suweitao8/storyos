@@ -173,6 +173,9 @@ const ProposeActionParams = Type.Object({
     reference: Type.Optional(Type.String({
       description: "Optional confirmed reference notes or constraints.",
     })),
+    craftId: Type.Optional(Type.String({
+      description: "Optional craft profile id. When omitted, the most recently selected Studio craft is used.",
+    })),
     storyId: Type.Optional(Type.String({
       description: "Optional confirmed output id under shorts/.",
     })),
@@ -1200,6 +1203,9 @@ const ShortFictionRunParams = Type.Object({
   reference: Type.Optional(Type.String({
     description: "Optional user-provided reference notes or constraints. Do not paste copyrighted source text unless the user explicitly provided it.",
   })),
+  craftId: Type.Optional(Type.String({
+    description: "Optional craft profile id. When omitted, the most recently selected Studio craft is used.",
+  })),
   storyId: Type.Optional(Type.String({
     description: "Optional output id under shorts/. Leave empty to derive from the generated title.",
   })),
@@ -1252,6 +1258,11 @@ export function createShortFictionRunTool(
     ): Promise<AgentToolResult<unknown>> {
       const progress = (message: string) => onUpdate?.(textResult(message));
       const shortPayload = options.actionPayload?.shortRun;
+      const craftId = shortPayload?.craftId ?? params.craftId;
+      const craftProfile = craftId ? (await pipeline.loadCraft(craftId) ?? undefined) : undefined;
+      if (craftId && !craftProfile) {
+        throw new Error(`Craft profile not found: ${craftId}`);
+      }
       const result = await runShortFictionProduction({
         projectRoot,
         direction: shortPayload?.direction ?? params.direction,
@@ -1265,6 +1276,7 @@ export function createShortFictionRunTool(
         },
         ...((shortPayload?.reference ?? params.reference) ? { reference: { text: shortPayload?.reference ?? params.reference! } } : {}),
         storyId: shortPayload?.storyId ?? params.storyId,
+        craftProfile,
         chapterCount: shortPayload?.chapters ?? params.chapters,
         charsPerChapter: shortPayload?.charsPerChapter ?? params.charsPerChapter,
         language: options.language,

@@ -20,6 +20,22 @@ export interface CraftExemplar {
   readonly excerpt: string;
 }
 
+export type CraftMode = "general" | "ghost-story";
+
+/** Horror-specific controls required to reproduce a ghost-story experience. */
+export interface GhostStoryCraft {
+  readonly fearCore: string;
+  readonly supernaturalRules: string;
+  readonly taboos: string;
+  readonly protagonistVulnerability: string;
+  readonly clueSystem: string;
+  readonly revealCadence: string;
+  readonly scareCadence: string;
+  readonly escalationLadder: string;
+  readonly sensoryMotifs: string;
+  readonly endingAftertaste: string;
+}
+
 /** A smaller breakdown card extracted from the reference work. */
 export interface CraftBreakdownModule {
   /** Module category, used for grouping and ordering in the UI. */
@@ -91,11 +107,15 @@ export interface CraftProfile {
   readonly sourceName: string;
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
+  /** General writing craft or a horror-specific imitation profile. */
+  readonly mode?: CraftMode;
 
   readonly structure: CraftStructure;
   readonly sceneRhythm: CraftSceneRhythm;
   readonly informationDisclosure: CraftInformationDisclosure;
   readonly narrativePerspective: CraftNarrativePerspective;
+  /** Present when mode is ghost-story. */
+  readonly ghostStory?: GhostStoryCraft;
 
   /** Optional fine-grained breakdown modules for richer inspection. */
   readonly modules?: ReadonlyArray<CraftBreakdownModule>;
@@ -109,4 +129,5 @@ export interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
+  readonly mode?: CraftMode;
 }
