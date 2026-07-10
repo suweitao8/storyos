@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { buildCraftDetailModel, craftModuleCategoryLabel } from "./CraftManager";
+import {
+  CRAFT_TABS,
+  buildCraftDetailModel,
+  craftListRowClassName,
+  craftModuleCategoryLabel,
+  resolveCraftDeleteSelection,
+} from "./CraftManager";
+
+describe("craft navigation model", () => {
+  it("keeps all three craft tabs permanently available", () => {
+    expect(CRAFT_TABS).toEqual(["list", "create", "detail"]);
+  });
+});
+
+describe("craft list selection", () => {
+  it("keeps the selected craft when deleting a different craft without persisting a fallback", () => {
+    expect(resolveCraftDeleteSelection("craft-1", "craft-2", ["craft-1"])).toEqual({
+      selectedCraftId: "craft-1",
+      shouldPersistRecentCraft: false,
+    });
+  });
+
+  it("highlights only the selected craft row", () => {
+    expect(craftListRowClassName(true, "border-border")).toContain("bg-primary/5");
+    expect(craftListRowClassName(false, "border-border")).toContain("border-border");
+    expect(craftListRowClassName(false, "border-border")).not.toContain("bg-primary/5");
+  });
+});
 
 describe("craft detail model", () => {
   it("localizes module categories for the detail view", () => {

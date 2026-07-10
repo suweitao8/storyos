@@ -20,6 +20,9 @@ const rollbackToChapterMock = vi.fn();
 const saveChapterIndexMock = vi.fn();
 const loadChapterIndexMock = vi.fn();
 const loadBookConfigMock = vi.fn();
+const listCraftsMock = vi.fn();
+const loadCraftMock = vi.fn();
+const deleteCraftMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
 const loadProjectConfigMock = vi.fn();
@@ -193,6 +196,9 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     reviseDraft = reviseDraftMock;
     resyncChapterArtifacts = resyncChapterArtifactsMock;
     writeNextChapter = writeNextChapterMock;
+    listCrafts = listCraftsMock;
+    loadCraft = loadCraftMock;
+    deleteCraft = deleteCraftMock;
   }
 
   class MockConsolidatorAgent {
@@ -401,6 +407,10 @@ describe("createStudioServer daemon lifecycle", () => {
     saveChapterIndexMock.mockReset();
     loadChapterIndexMock.mockReset();
     loadBookConfigMock.mockReset();
+    listCraftsMock.mockReset();
+    loadCraftMock.mockReset();
+    deleteCraftMock.mockReset();
+    logger.warn.mockReset();
     generatePlayImageMock.mockClear();
     await mkdir(join(root, "books", "demo-book", "chapters"), { recursive: true });
     await writeFile(join(root, "books", "demo-book", "chapters", "0003_Demo.md"), "# Demo\n\nBody", "utf-8");
@@ -524,6 +534,15 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     saveChapterIndexMock.mockResolvedValue(undefined);
     rollbackToChapterMock.mockResolvedValue([]);
+    listCraftsMock.mockResolvedValue([
+      { id: "craft-1", sourceName: "Existing Craft" },
+    ]);
+    loadCraftMock.mockImplementation(async (craftId: string) => (
+      craftId === "craft-1" || craftId === "craft-2"
+        ? { id: craftId, sourceName: "Existing Craft" }
+        : null
+    ));
+    deleteCraftMock.mockResolvedValue(undefined);
     pipelineConfigs.length = 0;
     runAgentSessionMock.mockReset();
     abortAgentSessionMock.mockReset();
@@ -590,6 +609,269 @@ describe("createStudioServer daemon lifecycle", () => {
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
     await rm(join(tmpdir(), "inkos-global.env"), { force: true });
+  });
+
+  it("returns a null recent craft id when no craft has been selected", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      crafts: [{ id: "craft-1" }],
+      recentCraftId: null,
+      recentCraftPreferenceAvailable: true,
+    });
+  });
+
+  it("marks the recent craft preference unavailable when its database cannot be read", async () => {
+    await writeFile(join(root, ".inkos"), "not a directory", "utf-8");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      crafts: [{ id: "craft-1" }],
+      recentCraftId: null,
+      recentCraftPreferenceAvailable: false,
+    });
+    expect(logger.warn).toHaveBeenCalledOnce();
+  });
+
+  it("persists an existing recent craft selection", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const save = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+
+    expect(save.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBe("craft-1");
+  });
+
+  it("does not persist a nonexistent recent craft selection", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const save = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "missing-craft" }),
+    });
+
+    expect(save.status).toBe(404);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("clears the recent craft selection through the dedicated delete endpoint", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("clears the recent craft selection when that craft is deleted", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/craft-1", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("keeps the recent craft selection when another craft is deleted", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/craft-2", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBe("craft-1");
+  });
+
+  it.each([
+    "../secret",
+    "craft/slash",
+    "",
+  ])("rejects unsafe craft ids in PUT recent: %s", async (craftId) => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ error: { code: "INVALID_CRAFT_ID" } });
+    expect(loadCraftMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "../secret",
+    "craft/slash",
+  ])("rejects unsafe craft ids in detail and delete routes: %s", async (craftId) => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const pathCraftId = encodeURIComponent(craftId);
+
+    const detail = await app.request(`http://localhost/api/v1/crafts/${pathCraftId}`);
+    const deletion = await app.request(`http://localhost/api/v1/crafts/${pathCraftId}`, {
+      method: "DELETE",
+    });
+
+    expect(detail.status).toBe(400);
+    expect(deletion.status).toBe(400);
+    await expect(detail.json()).resolves.toMatchObject({ error: { code: "INVALID_CRAFT_ID" } });
+    await expect(deletion.json()).resolves.toMatchObject({ error: { code: "INVALID_CRAFT_ID" } });
+    expect(loadCraftMock).not.toHaveBeenCalled();
+    expect(deleteCraftMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["not-json", "INVALID_CRAFT_REQUEST"],
+    ["null", "INVALID_CRAFT_REQUEST"],
+    ["42", "INVALID_CRAFT_REQUEST"],
+    [JSON.stringify({ craftId: 42 }), "INVALID_CRAFT_REQUEST"],
+    [JSON.stringify({ craftId: null }), "INVALID_CRAFT_REQUEST"],
+    [JSON.stringify({ craftId: "" }), "INVALID_CRAFT_ID"],
+  ] as const)("rejects malformed recent craft requests: %s", async (bodyText, code) => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: bodyText,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ error: { code } });
+    expect(JSON.stringify(body)).not.toContain("SyntaxError");
+    expect(loadCraftMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic structured error when saving a recent craft fails internally", async () => {
+    loadCraftMock.mockRejectedValueOnce(new Error("internal craft storage detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("internal craft storage detail");
+  });
+
+  it("returns a generic structured error when listing crafts fails internally", async () => {
+    listCraftsMock.mockRejectedValueOnce(new Error("craft list path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft list path detail");
+  });
+
+  it("returns a structured not-found error for missing craft detail and deletion", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const detail = await app.request("http://localhost/api/v1/crafts/missing-craft");
+    const deletion = await app.request("http://localhost/api/v1/crafts/missing-craft", {
+      method: "DELETE",
+    });
+
+    expect(detail.status).toBe(404);
+    expect(deletion.status).toBe(404);
+    const expected = { error: { code: "CRAFT_NOT_FOUND", message: "Craft not found." } };
+    expect(await detail.json()).toEqual(expected);
+    expect(await deletion.json()).toEqual(expected);
+    expect(deleteCraftMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic structured error when loading craft detail fails internally", async () => {
+    loadCraftMock.mockRejectedValueOnce(new Error("craft detail path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft detail path detail");
+  });
+
+  it("returns a generic structured error when deleting a craft fails internally", async () => {
+    deleteCraftMock.mockRejectedValueOnce(new Error("craft delete path detail"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1", {
+      method: "DELETE",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Unexpected server error." },
+    });
+    expect(JSON.stringify(body)).not.toContain("craft delete path detail");
   });
 
   it("uses the real core bookId validator in the Studio safety mock", async () => {
