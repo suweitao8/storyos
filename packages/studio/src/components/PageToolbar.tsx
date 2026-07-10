@@ -3,21 +3,21 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type PageToolbarTab = {
-  id: string;
-  label: ReactNode;
-  icon?: ReactNode;
-  disabled?: boolean;
+  readonly id: string;
+  readonly label: ReactNode;
+  readonly icon?: ReactNode;
+  readonly disabled?: boolean;
 };
 
 export type PageToolbarProps = {
-  title?: ReactNode;
-  tabs?: readonly PageToolbarTab[];
-  activeTab?: string;
-  onTabChange?: (tabId: string) => void;
-  leading?: ReactNode;
-  actions?: ReactNode;
-  globalActions?: ReactNode;
-  className?: string;
+  readonly title?: ReactNode;
+  readonly tabs?: readonly PageToolbarTab[];
+  readonly activeTab?: string;
+  readonly onTabChange?: (tabId: string) => void;
+  readonly leading?: ReactNode;
+  readonly actions?: ReactNode;
+  readonly globalActions?: ReactNode;
+  readonly className?: string;
 };
 
 export function PageToolbar({
@@ -38,7 +38,7 @@ export function PageToolbar({
       )}
     >
       {(leading || title != null) && (
-        <div className="flex min-w-0 shrink-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {leading}
           {title != null && <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">{title}</h1>}
         </div>

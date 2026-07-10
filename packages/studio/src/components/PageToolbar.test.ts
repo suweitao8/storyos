@@ -10,6 +10,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & ElementProps;
 type StaticButton = {
   className: string;
   disabled: boolean;
+  onClick: ButtonProps["onClick"];
   getAttribute: (name: "aria-current") => string | null;
   click: () => void;
 };
@@ -72,19 +73,15 @@ function renderStaticToolbar(props: PageToolbarProps): StaticToolbar {
       return {
         className: button.props.className ?? "",
         disabled: button.props.disabled === true,
+        onClick: button.props.onClick,
         getAttribute(attribute) {
           const value = attribute === "aria-current" ? button.props[attribute] : undefined;
           return value == null ? null : String(value);
         },
         click() {
-          if (button.props.disabled) {
+          if (typeof button.props.onClick !== "function") {
             return;
           }
-
-          if (typeof button.props.onClick !== "function") {
-            throw new Error(`Button is not interactive: ${name}`);
-          }
-
           button.props.onClick({} as React.MouseEvent<HTMLButtonElement>);
         },
       };
@@ -107,6 +104,7 @@ describe("PageToolbar", () => {
     expect(markup).toContain("Save");
     expect(markup).toContain("More");
     expect(markup).toContain("custom-toolbar");
+    expect(markup).toContain('class="flex min-w-0 flex-1 items-center gap-3"');
   });
 
   it("renders an accessible, horizontally scrollable tab navigation", () => {
@@ -126,6 +124,8 @@ describe("PageToolbar", () => {
     expect(settings.className).toContain("border-primary");
     expect(settings.className).toContain("border-b-2");
     expect(overview.getAttribute("aria-current")).toBeNull();
+    expect(overview.className).not.toContain("border-primary");
+    expect(overview.className).not.toContain("border-b-2");
   });
 
   it("dispatches tab changes through the rendered button click contract", () => {
@@ -156,6 +156,7 @@ describe("PageToolbar", () => {
     expect(view.markup).toContain("<svg aria-hidden=\"true\"></svg>");
     expect(settings.disabled).toBe(true);
     expect(settings.className).toContain("disabled:opacity-50");
+    expect(settings.onClick).toBeUndefined();
 
     settings.click();
 
