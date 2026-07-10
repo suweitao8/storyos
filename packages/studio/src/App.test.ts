@@ -30,12 +30,50 @@ describe("getRouteToolbarTitle", () => {
     expect(getRouteToolbarTitle({ page: "craft" }, "zh")).toBe("写作模式");
     expect(getRouteToolbarTitle({ page: "import" }, "zh")).toBe("导入");
     expect(getRouteToolbarTitle({ page: "book", bookId: "book-1" }, "zh")).toBe("写作");
+    expect(getRouteToolbarTitle({ page: "book-create" }, "zh")).toBe("长篇小说");
+    expect(getRouteToolbarTitle({ page: "chat" }, "zh", "short")).toBe("短篇小说");
+    expect(getRouteToolbarTitle({ page: "chat" }, "zh", "chat")).toBe("聊天");
   });
 
   it("returns English titles without embedding route identifiers", () => {
     expect(getRouteToolbarTitle({ page: "project-settings" }, "en")).toBe("Settings");
     expect(getRouteToolbarTitle({ page: "service-detail", serviceId: "xfyun" }, "en")).toBe("Service Configuration");
     expect(getRouteToolbarTitle({ page: "chapter", bookId: "book-1", chapterNumber: 4 }, "en")).toBe("Chapter Reader");
+    expect(getRouteToolbarTitle({ page: "book-create" }, "en")).toBe("Long Novel");
+    expect(getRouteToolbarTitle({ page: "chat" }, "en", "short")).toBe("Short Story");
+  });
+
+  it("keeps a title for every supported page route", () => {
+    const routes = [
+      { page: "dashboard" },
+      { page: "chat" },
+      { page: "book", bookId: "book-1" },
+      { page: "book-settings", bookId: "book-1" },
+      { page: "book-create" },
+      { page: "services" },
+      { page: "project-settings" },
+      { page: "service-detail", serviceId: "xfyun" },
+      { page: "chapter", bookId: "book-1", chapterNumber: 1 },
+      { page: "analytics", bookId: "book-1" },
+      { page: "truth", bookId: "book-1" },
+      { page: "daemon" },
+      { page: "logs" },
+      { page: "genres" },
+      { page: "craft" },
+      { page: "import" },
+      { page: "radar" },
+      { page: "doctor" },
+      { page: "play", projectId: "play-1" },
+      { page: "film", projectId: "film-1" },
+      { page: "flow", projectId: "flow-1" },
+      { page: "film-author", projectId: "film-1" },
+      { page: "film-studio", projectId: "film-1" },
+    ] as const;
+
+    for (const route of routes) {
+      expect(getRouteToolbarTitle(route, "zh").trim()).not.toBe("");
+      expect(getRouteToolbarTitle(route, "en").trim()).not.toBe("");
+    }
   });
 });
 

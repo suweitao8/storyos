@@ -31,6 +31,7 @@ import { useI18n } from "./hooks/use-i18n";
 import { setAppLanguage, tr } from "./lib/app-language";
 import { postApi, putApi, useApi } from "./hooks/use-api";
 import { PageToolbar } from "./components/PageToolbar";
+import { useChatStore, type ChatSessionKind } from "./store/chat";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
 
@@ -50,14 +51,18 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
   return route.page === "book-create";
 }
 
-export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en"): string {
+export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessionKind?: ChatSessionKind): string {
+  if (route.page === "chat" && sessionKind === "short") {
+    return lang === "zh" ? "短篇小说" : "Short Story";
+  }
+
   const titles = lang === "zh"
     ? {
         dashboard: "项目总览",
         chat: "聊天",
         book: "写作",
         "book-settings": "书籍设置",
-        "book-create": "新建小说",
+        "book-create": "长篇小说",
         services: "模型配置",
         "project-settings": "设置",
         "service-detail": "服务配置",
@@ -82,7 +87,7 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en"): strin
         chat: "Chat",
         book: "Writing",
         "book-settings": "Book Settings",
-        "book-create": "New Book",
+        "book-create": "Long Novel",
         services: "Model Configuration",
         "project-settings": "Settings",
         "service-detail": "Service Configuration",
@@ -119,6 +124,9 @@ export function App() {
   const sse = useSSE();
   const { theme, setTheme } = useTheme();
   const { t, lang: currentLang } = useI18n();
+  const activeSessionKind = useChatStore((state) =>
+    state.activeSessionId ? state.sessions[state.activeSessionId]?.sessionKind : undefined,
+  );
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [ready, setReady] = useState(false);
@@ -244,7 +252,7 @@ export function App() {
         <div className="h-px shrink-0 border-b border-border/40" />
 
         <PageToolbar
-          title={getRouteToolbarTitle(route, currentLang)}
+          title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
         />
 
         {/* Main Content Area */}
