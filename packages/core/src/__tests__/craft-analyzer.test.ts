@@ -295,6 +295,63 @@ describe("CraftAnalyzerAgent", () => {
     expect(profile.exemplars.length).toBe(1);
   });
 
+  it("retries with a compact repair when the first repair response is still malformed", async () => {
+    const malformed = `{
+  "structure": {
+    "openingPattern": "悬念切入",
+    "chapterArc": "递进推进",
+    "endingHookType": "反转留钩"
+  },
+  "sceneRhythm": {
+    "sceneTransitionTechnique": "硬切",
+    "pacingCurve": "先压后放",
+    "conflictEscalation": "层层抬升"
+  },
+  "informationDisclosure": {
+    "foreshadowingDensity": "高",
+    "informationReleaseRhythm": "逐步释放",
+    "suspenseManagement": "短悬念持续叠加"
+  },
+  "narrativePerspective": {
+    "povStrategy": "近距离第三人称",
+    "narrationDialogueRatio": "叙述略多于对话",
+    "narrativeDistance": "贴近主角"
+  },
+  "exemplars": [
+    { "label" "开篇", "tone": "紧张", "excerpt": "异常出现，危险正在逼近。" }
+  ]
+}`;
+    const validCompact = JSON.stringify({
+      structure: {
+        openingPattern: "悬念切入",
+        chapterArc: "递进推进",
+        endingHookType: "反转留钩",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "硬切",
+        pacingCurve: "先压后放",
+        conflictEscalation: "层层抬升",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "高",
+        informationReleaseRhythm: "逐步释放",
+        suspenseManagement: "短悬念持续叠加",
+      },
+      narrativePerspective: {
+        povStrategy: "近距离第三人称",
+        narrationDialogueRatio: "叙述略多于对话",
+        narrativeDistance: "贴近主角",
+      },
+      exemplars: [],
+    });
+    const agent = new StubCraftAnalyzerAgent([malformed, malformed, validCompact]);
+
+    const profile = await agent.analyze("第1章 开局\n异常出现。", "紧凑修复测试", "zh");
+
+    expect(agent.calls).toBe(3);
+    expect(profile.structure.openingPattern).toBe("悬念切入");
+  });
+
   it("retries with a refinement pass when the extracted profile is mostly unspecified", async () => {
     const weak = JSON.stringify({
       structure: {

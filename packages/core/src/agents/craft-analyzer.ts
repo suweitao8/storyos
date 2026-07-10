@@ -530,26 +530,53 @@ export class CraftAnalyzerAgent extends BaseAgent {
       }
     }
 
-    const repaired = await this.repairMalformedProfileJSON(raw, language, lastError);
-    const repairedPayload = extractFirstJSONObject(repaired) ?? repaired;
+    let repairSource = raw;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const repaired = await this.repairMalformedProfileJSON(
+        repairSource,
+        language,
+        lastError,
+        attempt === 1,
+      );
+      const repairedPayload = extractFirstJSONObject(repaired) ?? repaired;
 
-    try {
-      const parsed = JSON.parse(sanitizeCraftJSON(repairedPayload)) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(sanitizeCraftJSON(repairedPayload)) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+        throw new Error("Craft analysis JSON root must be an object");
+      } catch (error) {
+        lastError = error;
+        repairSource = repaired;
       }
-      throw new Error("Craft analysis JSON root must be an object");
-    } catch (error) {
-      throw new Error(`Craft analysis JSON parse error: ${String(error)}`);
     }
+
+    throw new Error(`Craft analysis JSON parse error: ${String(lastError)}`);
   }
 
   private async repairMalformedProfileJSON(
     raw: string,
     language: "zh" | "en",
     parseError: unknown,
+    compact = false,
   ): Promise<string> {
-    this.log?.warn(`[craft] repairing malformed JSON after parse error: ${String(parseError)}`);
+    this.log?.warn(
+      `[craft] repairing malformed JSON${compact ? " with compact fallback" : ""} after parse error: ${String(parseError)}`,
+    );
+    const compactRules = language === "en"
+      ? [
+          "The previous repair was still invalid JSON.",
+          "Return a compact object with only the four required sections and their required fields.",
+          "Use an empty modules array and an empty exemplars array if optional detail is unsafe to preserve.",
+          "Keep each required value concise; omit optional exemplar and evidence fields.",
+        ]
+      : [
+          "上一次修复仍然不是合法 JSON。",
+          "只返回包含四个必需 section 及其必需字段的紧凑对象。",
+          "如果可选细节难以保留，将 modules 和 exemplars 设为空数组。",
+          "每个必填值保持简短，省略可选的 exemplar 和 evidence 字段。",
+        ];
     const systemPrompt = language === "en"
       ? [
           "You repair malformed JSON emitted by another model.",
@@ -557,6 +584,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "Do not add commentary, markdown fences, or new fields.",
           "Preserve the original keys and string values as much as possible.",
           "Only fix JSON syntax issues such as missing commas, trailing commas, or broken escaping.",
+          ...(compact ? compactRules : []),
         ].join("\n")
       : [
           "你是 JSON 修复器，负责修复另一个模型输出的损坏 JSON。",
@@ -564,6 +592,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "不要输出说明、不要加 markdown 代码块、不要新增字段。",
           "尽量保留原有的键和值内容。",
           "只修复 JSON 语法问题，例如漏逗号、多余逗号或转义损坏。",
+          ...(compact ? compactRules : []),
         ].join("\n");
     const userPrompt = language === "en"
       ? `Fix the malformed JSON below and return valid JSON only:\n\n${raw}`
@@ -573,7 +602,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0, maxTokens: 8192 },
+      { temperature: 0, maxTokens: compact ? 4096 : 8192 },
     );
     return response.content;
   }
