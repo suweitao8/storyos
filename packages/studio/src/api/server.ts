@@ -5857,7 +5857,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = normalizeCraftId(c.req.param("id"));
     const pipelineConfig = await buildPipelineConfig();
     const pipeline = new PipelineRunner(pipelineConfig);
-    if (!await pipeline.loadCraft(id)) {
+    const crafts = await pipeline.listCrafts();
+    if (!crafts.some((craft) => craft.id === id)) {
       throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     }
     await pipeline.deleteCraft(id);

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRAFT_LAYOUT_CLASSES,
   CRAFT_TABS,
   buildCraftDetailModel,
   craftListRowClassName,
   craftModuleCategoryLabel,
   resolveCraftDeleteSelection,
+  advanceCraftNavigationToken,
+  shouldApplyCraftDeleteFallback,
 } from "./CraftManager";
 
 describe("craft navigation model", () => {
@@ -25,6 +28,26 @@ describe("craft list selection", () => {
     expect(craftListRowClassName(true, "border-border")).toContain("bg-primary/5");
     expect(craftListRowClassName(false, "border-border")).toContain("border-border");
     expect(craftListRowClassName(false, "border-border")).not.toContain("bg-primary/5");
+  });
+
+  it("only applies a delete fallback for the current operation and deleted selection", () => {
+    expect(shouldApplyCraftDeleteFallback("craft-new", "craft-deleted", 1, 1)).toBe(false);
+    expect(shouldApplyCraftDeleteFallback("craft-deleted", "craft-deleted", 2, 2)).toBe(true);
+  });
+
+  it("invalidates a pending delete fallback when tab navigation advances the selection token", () => {
+    expect(advanceCraftNavigationToken(4)).toBe(5);
+    expect(shouldApplyCraftDeleteFallback("craft-deleted", "craft-deleted", 4, 5)).toBe(false);
+  });
+});
+
+describe("craft manager layout", () => {
+  it("uses the full content width and evenly distributes the tab bar", () => {
+    expect(CRAFT_LAYOUT_CLASSES.content).toContain("w-full");
+    expect(CRAFT_LAYOUT_CLASSES.content).not.toMatch(/\b(?:max-w-3xl|w-fit)\b/);
+    expect(CRAFT_LAYOUT_CLASSES.tabBar).toContain("w-full");
+    expect(CRAFT_LAYOUT_CLASSES.tab).toContain("flex-1");
+    expect(CRAFT_LAYOUT_CLASSES.tabBar).not.toMatch(/\b(?:max-w-3xl|w-fit)\b/);
   });
 });
 

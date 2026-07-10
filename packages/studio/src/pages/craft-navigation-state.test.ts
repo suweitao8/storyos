@@ -36,10 +36,10 @@ describe("resolveInitialCraftState", () => {
 });
 
 describe("resolveAfterCraftDelete", () => {
-  it("selects the last remaining craft after deletion", () => {
-    expect(resolveAfterCraftDelete("craft-2", ["craft-1", "craft-3"])).toEqual({
+  it("selects the newest remaining craft after deletion", () => {
+    expect(resolveAfterCraftDelete("deleted", ["newest", "older"])).toEqual({
       tab: "detail",
-      selectedCraftId: "craft-3",
+      selectedCraftId: "newest",
     });
   });
 
