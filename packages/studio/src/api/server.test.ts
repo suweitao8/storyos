@@ -20,6 +20,9 @@ const rollbackToChapterMock = vi.fn();
 const saveChapterIndexMock = vi.fn();
 const loadChapterIndexMock = vi.fn();
 const loadBookConfigMock = vi.fn();
+const listCraftsMock = vi.fn();
+const loadCraftMock = vi.fn();
+const deleteCraftMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
 const loadProjectConfigMock = vi.fn();
@@ -193,6 +196,9 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     reviseDraft = reviseDraftMock;
     resyncChapterArtifacts = resyncChapterArtifactsMock;
     writeNextChapter = writeNextChapterMock;
+    listCrafts = listCraftsMock;
+    loadCraft = loadCraftMock;
+    deleteCraft = deleteCraftMock;
   }
 
   class MockConsolidatorAgent {
@@ -401,6 +407,9 @@ describe("createStudioServer daemon lifecycle", () => {
     saveChapterIndexMock.mockReset();
     loadChapterIndexMock.mockReset();
     loadBookConfigMock.mockReset();
+    listCraftsMock.mockReset();
+    loadCraftMock.mockReset();
+    deleteCraftMock.mockReset();
     generatePlayImageMock.mockClear();
     await mkdir(join(root, "books", "demo-book", "chapters"), { recursive: true });
     await writeFile(join(root, "books", "demo-book", "chapters", "0003_Demo.md"), "# Demo\n\nBody", "utf-8");
@@ -524,6 +533,13 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     saveChapterIndexMock.mockResolvedValue(undefined);
     rollbackToChapterMock.mockResolvedValue([]);
+    listCraftsMock.mockResolvedValue([
+      { id: "craft-1", sourceName: "Existing Craft" },
+    ]);
+    loadCraftMock.mockImplementation(async (craftId: string) => (
+      craftId === "craft-1" ? { id: craftId, sourceName: "Existing Craft" } : null
+    ));
+    deleteCraftMock.mockResolvedValue(undefined);
     pipelineConfigs.length = 0;
     runAgentSessionMock.mockReset();
     abortAgentSessionMock.mockReset();
@@ -590,6 +606,103 @@ describe("createStudioServer daemon lifecycle", () => {
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
     await rm(join(tmpdir(), "inkos-global.env"), { force: true });
+  });
+
+  it("returns a null recent craft id when no craft has been selected", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      crafts: [{ id: "craft-1" }],
+      recentCraftId: null,
+    });
+  });
+
+  it("persists an existing recent craft selection", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const save = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+
+    expect(save.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBe("craft-1");
+  });
+
+  it("does not persist a nonexistent recent craft selection", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const save = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "missing-craft" }),
+    });
+
+    expect(save.status).toBe(404);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("clears the recent craft selection through the dedicated delete endpoint", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("clears the recent craft selection when that craft is deleted", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/craft-1", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBeNull();
+  });
+
+  it("keeps the recent craft selection when another craft is deleted", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    await app.request("http://localhost/api/v1/crafts/recent", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ craftId: "craft-1" }),
+    });
+    const deletion = await app.request("http://localhost/api/v1/crafts/other-craft", {
+      method: "DELETE",
+    });
+
+    expect(deletion.status).toBe(200);
+    const list = await app.request("http://localhost/api/v1/crafts");
+    expect((await list.json()).recentCraftId).toBe("craft-1");
   });
 
   it("uses the real core bookId validator in the Studio safety mock", async () => {

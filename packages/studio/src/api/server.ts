@@ -121,6 +121,11 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { isSafeBookId } from "./safety.js";
 import { ApiError } from "./errors.js";
 import { buildStudioBookConfig } from "./book-create.js";
+import {
+  clearRecentCraftId,
+  getRecentCraftId,
+  setRecentCraftId,
+} from "./studio-preferences-db.js";
 
 // -- Studio server language (read per request from the project config's `language`) --
 
@@ -5783,9 +5788,43 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.get("/api/v1/crafts", async (c) => {
     try {
-      const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const pipelineConfig = await buildPipelineConfig();
+      const pipeline = new PipelineRunner(pipelineConfig);
       const crafts = await pipeline.listCrafts();
-      return c.json({ crafts });
+      let recentCraftId: string | null = null;
+      try {
+        recentCraftId = await getRecentCraftId(root);
+      } catch (error) {
+        pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
+      }
+      return c.json({ crafts, recentCraftId });
+    } catch (e) {
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  // --- Recent Craft Selection ---
+
+  app.put("/api/v1/crafts/recent", async (c) => {
+    try {
+      const { craftId } = await c.req.json<{ craftId?: string }>();
+      if (!craftId?.trim()) return c.json({ error: "craftId is required" }, 400);
+
+      const pipelineConfig = await buildPipelineConfig();
+      const pipeline = new PipelineRunner(pipelineConfig);
+      if (!await pipeline.loadCraft(craftId)) return c.json({ error: "craft not found" }, 404);
+
+      await setRecentCraftId(root, craftId);
+      return c.json({ ok: true });
+    } catch (e) {
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  app.delete("/api/v1/crafts/recent", async (c) => {
+    try {
+      await clearRecentCraftId(root);
+      return c.json({ ok: true });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
     }
@@ -5810,8 +5849,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.delete("/api/v1/crafts/:id", async (c) => {
     const id = c.req.param("id");
     try {
-      const pipeline = new PipelineRunner(await buildPipelineConfig());
+      const pipelineConfig = await buildPipelineConfig();
+      const pipeline = new PipelineRunner(pipelineConfig);
       await pipeline.deleteCraft(id);
+      try {
+        if (await getRecentCraftId(root) === id) await clearRecentCraftId(root);
+      } catch (error) {
+        pipelineConfig.logger?.warn(`Failed to clear recent craft preference: ${String(error)}`);
+      }
       return c.json({ ok: true });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
