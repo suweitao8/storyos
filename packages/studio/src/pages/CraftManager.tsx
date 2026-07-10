@@ -122,6 +122,8 @@ interface CraftProfile {
 
 interface Nav { toDashboard: () => void }
 
+export const CRAFT_TABS = ["list", "create", "detail"] as const satisfies ReadonlyArray<CraftTab>;
+
 interface SseState {
   readonly messages: ReadonlyArray<SSEMessage>;
 }
@@ -201,14 +203,41 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
   const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
   const initialNavigationAppliedRef = useRef(false);
-  const { data: craftsData, loading: craftsLoading, refetch, mutate } = useApi<CraftListResponse>("/crafts");
+  const userNavigatedRef = useRef(false);
+  const recentCraftWriteChainRef = useRef(Promise.resolve());
+  const {
+    data: craftsData,
+    loading: craftsLoading,
+    error: craftsError,
+    refetch,
+    mutate,
+  } = useApi<CraftListResponse>("/crafts");
 
   const crafts = craftsData?.crafts ?? [];
+
+  const markUserNavigation = () => {
+    userNavigatedRef.current = true;
+  };
+
+  const persistRecentCraft = (craftId: string | null) => {
+    const nextWrite = recentCraftWriteChainRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (craftId) {
+          await putApi("/crafts/recent", { craftId });
+        } else {
+          await fetchJson("/crafts/recent", { method: "DELETE" });
+        }
+      })
+      .catch(() => undefined);
+    recentCraftWriteChainRef.current = nextWrite;
+    return nextWrite;
+  };
 
   useEffect(() => {
     if (craftsLoading || !craftsData || initialNavigationAppliedRef.current) return;
     initialNavigationAppliedRef.current = true;
-    if (!craftsData.recentCraftPreferenceAvailable) return;
+    if (userNavigatedRef.current || !craftsData.recentCraftPreferenceAvailable) return;
 
     const initialState = resolveInitialCraftState(
       craftsData.recentCraftId,
@@ -219,25 +248,24 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   }, [craftsData, craftsLoading]);
 
   const openDetail = (craftId: string) => {
+    markUserNavigation();
     setSelectedCraftId(craftId);
     setNewProfile(null);
     setTab("detail");
-    void putApi("/crafts/recent", { craftId }).catch(() => undefined);
+    void persistRecentCraft(craftId);
   };
 
   const handleCreated = async (profile: CraftProfile, craftId: string) => {
+    markUserNavigation();
     setNewProfile(profile);
     setSelectedCraftId(craftId);
     setTab("detail");
-    try {
-      await putApi("/crafts/recent", { craftId });
-    } catch {
-      // The profile is still usable if preference persistence is unavailable.
-    }
+    await persistRecentCraft(craftId);
     await refetch();
   };
 
   const handleDelete = async (deletedCraftId: string) => {
+    markUserNavigation();
     try {
       await fetchJson(`/crafts/${deletedCraftId}`, { method: "DELETE" });
       const latest = await fetchJson<CraftListResponse>("/crafts");
@@ -251,14 +279,34 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       setSelectedCraftId(nextState.selectedCraftId);
       setNewProfile(null);
 
-      if (nextState.selectedCraftId) {
-        await putApi("/crafts/recent", { craftId: nextState.selectedCraftId }).catch(() => undefined);
-      } else if (latest.crafts.length === 0) {
-        await fetchJson("/crafts/recent", { method: "DELETE" }).catch(() => undefined);
-      }
+      await persistRecentCraft(nextState.selectedCraftId);
     } catch {
       // Keep the current view intact when deletion or refresh fails.
     }
+  };
+
+  const openList = () => {
+    markUserNavigation();
+    setTab("list");
+    setNewProfile(null);
+    void refetch();
+  };
+
+  const openCreate = () => {
+    markUserNavigation();
+    setTab("create");
+    setNewProfile(null);
+  };
+
+  const openDetailTab = () => {
+    markUserNavigation();
+    setTab("detail");
+  };
+
+  const tabConfig: Record<CraftTab, { icon: React.ReactNode; label: string; onClick: () => void }> = {
+    list: { icon: <BookOpen size={15} />, label: t("craft.tabList"), onClick: openList },
+    create: { icon: <Plus size={15} />, label: t("craft.tabCreate"), onClick: openCreate },
+    detail: { icon: <FileText size={15} />, label: t("craft.tabDetail"), onClick: openDetailTab },
   };
 
   return (
@@ -266,37 +314,41 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 
       {/* Tab bar */}
       <div className="mx-auto flex w-fit gap-1 border-b border-border">
-        <TabButton
-          active={tab === "list"}
-          onClick={() => { setTab("list"); setNewProfile(null); void refetch(); }}
-          icon={<BookOpen size={15} />}
-          label={t("craft.tabList")}
-        />
-        <TabButton
-          active={tab === "create"}
-          onClick={() => { setTab("create"); setNewProfile(null); }}
-          icon={<Plus size={15} />}
-          label={t("craft.tabCreate")}
-        />
-        <TabButton
-          active={tab === "detail"}
-          onClick={() => setTab("detail")}
-          icon={<FileText size={15} />}
-          label={t("craft.tabDetail")}
-        />
+        {CRAFT_TABS.map((craftTab) => {
+          const config = tabConfig[craftTab];
+          return (
+            <TabButton
+              key={craftTab}
+              active={tab === craftTab}
+              onClick={config.onClick}
+              icon={config.icon}
+              label={config.label}
+            />
+          );
+        })}
       </div>
 
       {/* Tab content */}
       {tab === "list" && (
         craftsLoading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+        ) : craftsError ? (
+          <div className="space-y-3 py-12 text-center" role="alert">
+            <p className="text-sm text-destructive">加载模式列表失败：{craftsError}</p>
+            <button
+              onClick={() => void refetch()}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              重试
+            </button>
+          </div>
         ) : (
           <CraftList
             crafts={crafts}
             selectedCraftId={selectedCraftId}
             c={c}
             t={t}
-            onNew={() => { setNewProfile(null); setTab("create"); }}
+            onNew={openCreate}
             onOpen={openDetail}
             onDelete={handleDelete}
           />
@@ -318,8 +370,8 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
           initialProfile={newProfile}
           c={c}
           t={t}
-          onBack={() => { setNewProfile(null); setTab("list"); void refetch(); }}
-          onNew={() => { setNewProfile(null); setTab("create"); }}
+          onBack={openList}
+          onNew={openCreate}
         />
       )}
     </div>
@@ -685,27 +737,59 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
 }) {
   const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
   const [loading, setLoading] = useState(!initialProfile && !!craftId);
-  const loadedIdRef = useRef<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load from server if we have an ID but no initial profile.
-  if (craftId && !initialProfile && loadedIdRef.current !== craftId) {
-    loadedIdRef.current = craftId;
-    void (async () => {
-      setLoading(true);
-      try {
-        const data = await fetchJson<CraftProfile>(`/crafts/${craftId}`, { method: "GET" });
-        setProfile(data);
-      } catch {
-        // ignore
-      }
+  const loadProfile = useCallback(async () => {
+    if (!craftId || initialProfile) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchJson<CraftProfile>(`/crafts/${craftId}`, { method: "GET" });
+      setProfile(data);
+    } catch (loadError) {
+      setProfile(null);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
+    } finally {
       setLoading(false);
-    })();
-  }
+    }
+  }, [craftId, initialProfile]);
+
+  useEffect(() => {
+    setProfile(initialProfile);
+    setError(null);
+    if (!craftId || initialProfile) {
+      setLoading(false);
+      return;
+    }
+    void loadProfile();
+  }, [craftId, initialProfile, loadProfile]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 py-12 text-center" role="alert">
+        <p className="text-sm text-destructive">加载模式详情失败：{error}</p>
+        <div className="flex justify-center gap-3">
+          <button
+            onClick={() => void loadProfile()}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            重试
+          </button>
+          <button
+            onClick={onBack}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            {t("craft.backToList")}
+          </button>
+        </div>
       </div>
     );
   }

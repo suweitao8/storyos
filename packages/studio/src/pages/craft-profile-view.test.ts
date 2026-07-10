@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRAFT_TABS,
   buildCraftDetailModel,
   craftListRowClassName,
   craftModuleCategoryLabel,
 } from "./CraftManager";
+
+describe("craft navigation model", () => {
+  it("keeps all three craft tabs permanently available", () => {
+    expect(CRAFT_TABS).toEqual(["list", "create", "detail"]);
+  });
+});
 
 describe("craft list selection", () => {
   it("highlights only the selected craft row", () => {
