@@ -165,6 +165,9 @@ const ProposeActionParams = Type.Object({
     chapterWordCount: Type.Optional(Type.Number({
       description: "Confirmed per-chapter length in the book's native unit.",
     })),
+    craftId: Type.Optional(Type.String({
+      description: "Optional saved writing craft profile id to bind to the new book.",
+    })),
   }, { description: "Structured execution args for action=create_book. Put platform/length here; do not leave them only in instruction text." })),
   shortRun: Type.Optional(Type.Object({
     direction: Type.Optional(Type.String({
@@ -680,6 +683,7 @@ export function createSubAgentTool(
                 status: "outlining" as any,
                 targetChapters: createBookPayload?.targetChapters ?? targetChapters ?? 200,
                 chapterWordCount: createBookPayload?.chapterWordCount ?? chapterWordCount ?? defaultChapterLength(resolvedLanguage),
+                ...(createBookPayload?.craftId ? { craftId: createBookPayload.craftId } : {}),
                 createdAt: now,
                 updatedAt: now,
               },

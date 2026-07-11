@@ -25,6 +25,15 @@ import { ProjectArtifactDrawer } from "../components/chat/ProjectArtifactDrawer"
 import { PlayHud } from "../components/chat/PlayHud";
 import { PlayChoicePanel } from "../components/chat/PlayChoicePanel";
 import { latestPlayChoiceSet } from "../components/chat/play-choices";
+import { usePageToolbar } from "../components/PageToolbar";
+import { StoryCreationPanel } from "./StoryCreationPanel";
+import {
+  buildLongStoryCreationAction,
+  buildShortStoryCreationAction,
+  type CraftOption,
+  type LongStoryCreationInput,
+  type ShortStoryCreationInput,
+} from "./story-creation-state";
 import {
   BotMessageSquare,
   ArrowUp,
@@ -73,6 +82,7 @@ interface Nav {
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toFilm: (projectId: string) => void;
   toFilmStudio: (projectId: string) => void;
+  toCraft?: () => void;
 }
 
 export interface ChatPageProps {
@@ -103,6 +113,12 @@ interface CoverConfigResponse {
   readonly service?: string | null;
   readonly configured?: boolean;
   readonly providers?: ReadonlyArray<{ readonly service: string; readonly connected?: boolean }>;
+}
+
+interface CraftListResponse {
+  readonly crafts: ReadonlyArray<CraftOption>;
+  readonly recentCraftId: string | null;
+  readonly recentCraftPreferenceAvailable: boolean;
 }
 
 const MAX_CHAT_ATTACHMENTS = 8;
@@ -439,6 +455,15 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
       : mode === "book-create" ? "book-create"
       : activeBookId ? "book" : "chat");
+  const storyCreationKind: "long" | "short" | null = currentSessionKind === "book-create"
+    ? "long"
+    : currentSessionKind === "short"
+      ? "short"
+      : null;
+  const [storyTab, setStoryTab] = useState<"create" | "adjust">("create");
+  const [selectedCraftId, setSelectedCraftId] = useState("");
+  const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
+  const crafts = craftsData?.crafts ?? [];
   const playMode = activeSession?.playMode;
   // A play session must pick its playstyle (点着玩 / 自由玩) before chatting.
   const needsPlayModeChoice = currentSessionKind === "play" && !playMode;
@@ -481,6 +506,31 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       .filter((skill): skill is StudioSkill => Boolean(skill)),
     [availableSkills, selectedSkillIds],
   );
+
+  useEffect(() => {
+    if (storyCreationKind) setStoryTab("create");
+  }, [storyCreationKind]);
+
+  useEffect(() => {
+    if (!craftsData) return;
+    setSelectedCraftId((current) => {
+      if (current && craftsData.crafts.some((craft) => craft.id === current)) return current;
+      return craftsData.recentCraftId ?? craftsData.crafts[0]?.id ?? "";
+    });
+  }, [craftsData]);
+
+  usePageToolbar("story-workspace", {
+    tabs: storyCreationKind
+      ? [
+          { id: "create", label: isZh ? "故事创建" : "Story Creation" },
+          { id: "adjust", label: isZh ? "对话调整" : "Chat Refinement" },
+        ]
+      : [],
+    activeTab: storyCreationKind ? storyTab : undefined,
+    onTabChange: (tabId) => {
+      if (tabId === "create" || tabId === "adjust") setStoryTab(tabId);
+    },
+  });
 
   // Derived: is the assistant currently streaming/thinking/executing tools?
   const isStreaming = useMemo(() => {
@@ -854,6 +904,43 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     }
   };
 
+  const handleCraftChange = (craftId: string) => {
+    setSelectedCraftId(craftId);
+    void (craftId
+      ? fetchJson("/crafts/recent", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ craftId }),
+        })
+      : fetchJson("/crafts/recent", { method: "DELETE" }));
+  };
+
+  const handleCreateLong = async (input: LongStoryCreationInput) => {
+    if (!activeSessionId) return;
+    const action = buildLongStoryCreationAction(input);
+    setStoryTab("adjust");
+    await sendMessage(activeSessionId, action.instruction, {
+      activeBookId,
+      sessionKind: "book-create",
+      actionSource: "button",
+      requestedIntent: action.requestedIntent,
+      actionPayload: action.actionPayload,
+    });
+  };
+
+  const handleCreateShort = async (input: ShortStoryCreationInput) => {
+    if (!activeSessionId) return;
+    const action = buildShortStoryCreationAction(input);
+    setStoryTab("adjust");
+    await sendMessage(activeSessionId, action.instruction, {
+      activeBookId,
+      sessionKind: "short",
+      actionSource: "button",
+      requestedIntent: action.requestedIntent,
+      actionPayload: action.actionPayload,
+    });
+  };
+
   const emptyGuidance = (() => {
     if (currentSessionKind === "short") {
       return isZh
@@ -872,6 +959,24 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0 relative">
+      {storyCreationKind && storyTab === "create" ? (
+        <StoryCreationPanel
+          kind={storyCreationKind}
+          theme={theme}
+          isZh={isZh}
+          activeSessionId={activeSessionId}
+          busy={loading}
+          crafts={crafts}
+          craftsLoading={craftsLoading}
+          craftsError={craftsError}
+          selectedCraftId={selectedCraftId}
+          onCraftChange={handleCraftChange}
+          onCreateLong={handleCreateLong}
+          onCreateShort={handleCreateShort}
+          onOpenCraft={nav.toCraft}
+        />
+      ) : (
+        <>
       {/* Message scroll area */}
       <div
         ref={scrollRef}
@@ -1285,6 +1390,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
           imageSettings={playImageSettings}
           sessionTitle={activeSession?.title ?? null}
         />
+      )}
+        </>
       )}
       <ProjectArtifactDrawer />
     </div>
