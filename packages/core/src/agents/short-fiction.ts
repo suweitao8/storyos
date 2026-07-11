@@ -17,12 +17,12 @@ import {
   buildShortFictionWriterUserPrompt,
 } from "../prompts/short-fiction.js";
 
-export const SHORT_FICTION_DEFAULT_CHAPTERS = 12;
-export const SHORT_FICTION_MIN_CHAPTERS = 12;
+export const SHORT_FICTION_DEFAULT_CHAPTERS = 10;
+export const SHORT_FICTION_MIN_CHAPTERS = 10;
 export const SHORT_FICTION_MAX_CHAPTERS = 18;
 export const SHORT_FICTION_DEFAULT_CHARS_PER_CHAPTER = 1000;
 export const SHORT_FICTION_MIN_CHARS_PER_CHAPTER = 900;
-export const SHORT_FICTION_MAX_CHARS_PER_CHAPTER = 1200;
+export const SHORT_FICTION_MAX_CHARS_PER_CHAPTER = 10_000;
 
 // English shorts are calibrated in words, not characters. length-metrics.ts pins
 // the full-length chapter defaults at zh 3000 chars ≈ en 2000 words (a 2/3 ratio),
