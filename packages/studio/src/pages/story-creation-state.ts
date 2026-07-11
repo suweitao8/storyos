@@ -1,5 +1,9 @@
 import type { ActionPayload } from "@actalk/inkos-core";
 
+export const LONG_STORY_CHAPTERS = 100;
+export const FIXED_CHAPTER_WORD_COUNT = 10_000;
+export const SHORT_STORY_CHAPTERS = 10;
+
 export interface CraftOption {
   readonly id: string;
   readonly sourceName: string;
@@ -12,15 +16,11 @@ export interface LongStoryCreationInput {
   readonly direction: string;
   readonly platform: "tomato" | "qidian" | "feilu" | "other";
   readonly language: "zh" | "en";
-  readonly targetChapters: number;
-  readonly chapterWordCount: number;
   readonly craftId?: string;
 }
 
 export interface ShortStoryCreationInput {
   readonly direction: string;
-  readonly chapters: number;
-  readonly charsPerChapter: number;
   readonly craftId?: string;
 }
 
@@ -34,7 +34,7 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
   const direction = input.direction.trim();
   return {
     instruction: [
-      `创建长篇小说《${title}》`,
+      `创建长篇故事《${title}》`,
       `题材：${genre}`,
       `故事方向：${direction}`,
       input.craftId ? "使用所选写作模式生成基础设定，并将模式绑定到书籍。" : "不使用额外写作模式。",
@@ -46,8 +46,8 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
         genre,
         platform: input.platform,
         language: input.language,
-        targetChapters: input.targetChapters,
-        chapterWordCount: input.chapterWordCount,
+        targetChapters: LONG_STORY_CHAPTERS,
+        chapterWordCount: FIXED_CHAPTER_WORD_COUNT,
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },
     },
@@ -61,13 +61,13 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
 } {
   const direction = input.direction.trim();
   return {
-    instruction: `生成短篇小说：${direction}${input.craftId ? "，使用所选写作模式进行原创仿写。" : "。"}`,
+    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式进行原创仿写。" : "。"}`,
     requestedIntent: "short_run",
     actionPayload: {
       shortRun: {
         direction,
-        chapters: input.chapters,
-        charsPerChapter: input.charsPerChapter,
+        chapters: SHORT_STORY_CHAPTERS,
+        charsPerChapter: FIXED_CHAPTER_WORD_COUNT,
         cover: false,
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },

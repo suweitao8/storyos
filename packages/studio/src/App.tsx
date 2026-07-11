@@ -53,7 +53,7 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
 
 export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessionKind?: ChatSessionKind): string {
   if (route.page === "chat" && sessionKind === "short") {
-    return lang === "zh" ? "短篇小说" : "Short Story";
+    return lang === "zh" ? "短篇故事" : "Short Story";
   }
 
   const titles = lang === "zh"
@@ -62,7 +62,7 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessio
         chat: "聊天",
         book: "写作",
         "book-settings": "书籍设置",
-        "book-create": "长篇小说",
+        "book-create": "长篇故事",
         services: "模型配置",
         "project-settings": "设置",
         "service-detail": "服务配置",
