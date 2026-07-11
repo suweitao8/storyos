@@ -37,6 +37,7 @@ export const CreateBookActionPayloadSchema = z.object({
   language: z.enum(["zh", "en"]).optional(),
   targetChapters: z.number().int().min(1).optional(),
   chapterWordCount: z.number().int().min(1).optional(),
+  craftId: z.string().min(1).optional(),
 }).strict();
 
 export const ShortRunActionPayloadSchema = z.object({

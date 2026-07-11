@@ -18,6 +18,7 @@ import { StateValidatorAgent, type ValidationResult, type ValidationWarning } fr
 import { RadarAgent } from "../agents/radar.js";
 import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
+import { buildCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftMode, CraftProfile, CraftMeta } from "../models/craft-profile.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
@@ -740,7 +741,18 @@ export class PipelineRunner {
       `.tmp-book-create-${book.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     );
     const stageLanguage = await this.resolveBookLanguage(book);
-    const effectiveExternalContext = options.externalContext ?? this.config.externalContext;
+    const craftProfile = book.craftId ? await this.loadCraft(book.craftId) : null;
+    if (book.craftId && !craftProfile) {
+      throw new Error(`Craft profile not found: ${book.craftId}`);
+    }
+    const craftGuide = buildCraftGuide(craftProfile ?? undefined);
+    const effectiveExternalContext = [
+      options.externalContext ?? this.config.externalContext,
+      craftGuide,
+    ]
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value))
+      .join("\n\n") || undefined;
 
     this.logStage(stageLanguage, { zh: "生成基础设定", en: "generating foundation" });
     const { profile: gp } = await this.loadGenreProfile(book.genre);
