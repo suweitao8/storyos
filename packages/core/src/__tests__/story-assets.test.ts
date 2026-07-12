@@ -9,7 +9,7 @@ import {
 } from "../models/story-assets.js";
 import { createEmptyStoryAssetManifest as createEmptyStoryAssetManifestFromRoot } from "../index.js";
 import { normalizeStoryAssetImageStatus as normalizeStoryAssetImageStatusFromRoot } from "../index.js";
-import type { StoryAssetImage } from "../index.js";
+import type { StoryAsset, StoryAssetImage } from "../index.js";
 import {
   StoryAssetExtractorAgent as StoryAssetExtractorAgentFromRoot,
   buildStoryAssetExtractionPrompt as buildStoryAssetExtractionPromptFromRoot,
@@ -22,9 +22,68 @@ import {
 } from "../agents/story-assets.js";
 import {
   extractStoryAssets,
+  generateMissingStoryAssetImages,
+  generateStoryAssetImage,
   storyAssetManifestPath,
+  type StoryAssetFileWriter,
+  type StoryAssetImageRuntime,
   type StoryAssetManifestStore,
 } from "../pipeline/story-assets-runner.js";
+
+function makeStoryAssetImage(
+  id: string,
+  status: StoryAssetImage["status"],
+  imagePrompt = `${id} prompt`,
+): StoryAsset {
+  return {
+    id,
+    kind: "character" as const,
+    name: id,
+    summary: `${id} summary`,
+    details: {},
+    imagePrompt,
+    sourceRefs: [],
+    image: { status },
+    createdAt: "2026-07-13T00:00:00.000Z",
+    updatedAt: "2026-07-13T00:00:00.000Z",
+  };
+}
+
+function makeImageManifest(
+  storyId: string,
+  assets: ReturnType<typeof makeStoryAssetImage>[],
+): StoryAssetManifest {
+  return {
+    version: 1,
+    storyId,
+    updatedAt: "2026-07-13T00:00:00.000Z",
+    assets,
+  };
+}
+
+function makeImageDeps(manifest: StoryAssetManifest, runtime: StoryAssetImageRuntime) {
+  let current = structuredClone(manifest);
+  const writes: StoryAssetManifest[] = [];
+  const manifestStore: StoryAssetManifestStore = {
+    readManifest: vi.fn(async () => current),
+    writeManifest: vi.fn(async (_path, next) => {
+      current = structuredClone(next);
+      writes.push(current);
+    }),
+  };
+  const fileWriter: StoryAssetFileWriter = {
+    writeFile: vi.fn(async () => undefined),
+  };
+
+  return {
+    manifestStore,
+    imageRuntime: runtime,
+    fileWriter,
+    clock: () => "2026-07-13T01:00:00.000Z",
+    writes,
+    getManifest: () => current,
+  };
+}
 
 describe("story asset contract helpers", () => {
   it("normalizes story asset kinds across Chinese and English aliases", () => {
@@ -648,5 +707,168 @@ describe("story asset text extraction", () => {
     expect(StoryAssetExtractorAgentFromRoot).toBe(StoryAssetExtractorAgent);
     expect(buildStoryAssetExtractionPromptFromRoot).toBe(buildStoryAssetExtractionPrompt);
     expect(extractStoryAssetsFromRoot).toBe(extractStoryAssets);
+  });
+});
+
+describe("story asset image lifecycle", () => {
+  it("persists generating before writing a ready image path", async () => {
+    const manifest = makeImageManifest("story-image", [makeStoryAssetImage("character_1", "missing")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("image"), extension: "png" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const result = await generateStoryAssetImage({
+      storyId: "story-image",
+      storyType: "book",
+      assetId: "character_1",
+      ...deps,
+    });
+
+    expect(deps.writes[0]?.assets[0]?.image).toEqual({ status: "generating" });
+    expect(deps.fileWriter.writeFile).toHaveBeenCalledWith(
+      "books/story-image/assets/images/character_1.png",
+      Buffer.from("image"),
+    );
+    expect(result).toMatchObject({
+      assetId: "character_1",
+      status: "ready",
+      path: "books/story-image/assets/images/character_1.png",
+    });
+    expect(deps.getManifest().assets[0]?.image).toEqual({
+      status: "ready",
+      path: "books/story-image/assets/images/character_1.png",
+      generatedAt: "2026-07-13T01:00:00.000Z",
+    });
+  });
+
+  it("skips ready assets while returning a result for every batch asset", async () => {
+    const manifest = makeImageManifest("story-batch", [
+      { ...makeStoryAssetImage("ready_asset", "ready"), image: { status: "ready", path: "assets/images/ready_asset.png" } },
+      makeStoryAssetImage("missing_asset", "missing"),
+    ]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("image"), extension: "jpg" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const results = await generateMissingStoryAssetImages({
+      storyId: "story-batch",
+      storyType: "short",
+      ...deps,
+    });
+
+    expect(runtime.generateImage).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([
+      {
+        assetId: "ready_asset",
+        status: "skipped",
+        path: "assets/images/ready_asset.png",
+      },
+      expect.objectContaining({ assetId: "missing_asset", status: "ready" }),
+    ]);
+  });
+
+  it("continues batch generation after one asset fails", async () => {
+    const manifest = makeImageManifest("story-partial", [
+      makeStoryAssetImage("first_asset", "missing"),
+      makeStoryAssetImage("second_asset", "missing"),
+    ]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn()
+        .mockRejectedValueOnce(new Error("first asset failed"))
+        .mockResolvedValueOnce({ buffer: Buffer.from("second image"), extension: "png" }),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const results = await generateMissingStoryAssetImages({
+      storyId: "story-partial",
+      storyType: "short",
+      ...deps,
+    });
+
+    expect(results).toEqual([
+      { assetId: "first_asset", status: "error", error: "first asset failed" },
+      {
+        assetId: "second_asset",
+        status: "ready",
+        path: "shorts/story-partial/assets/images/second_asset.png",
+      },
+    ]);
+    expect(deps.fileWriter.writeFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists an image error without losing the image prompt", async () => {
+    const manifest = makeImageManifest("story-error", [makeStoryAssetImage("scene_1", "missing", "keep this prompt")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => {
+        throw new Error("provider unavailable");
+      }),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const result = await generateStoryAssetImage({
+      storyId: "story-error",
+      storyType: "short",
+      assetId: "scene_1",
+      ...deps,
+    });
+
+    expect(result).toEqual({ assetId: "scene_1", status: "error", error: "provider unavailable" });
+    expect(deps.getManifest().assets[0]).toMatchObject({
+      imagePrompt: "keep this prompt",
+      image: { status: "error", error: "provider unavailable" },
+    });
+    expect(deps.fileWriter.writeFile).not.toHaveBeenCalled();
+  });
+
+  it("retries an error asset and persists the next successful image", async () => {
+    const manifest = makeImageManifest("story-retry", [makeStoryAssetImage("prop_1", "error", "retry prompt")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn()
+        .mockRejectedValueOnce(new Error("temporary failure"))
+        .mockResolvedValueOnce({ buffer: Buffer.from("retry image"), extension: "png" }),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const first = await generateStoryAssetImage({
+      storyId: "story-retry",
+      storyType: "short",
+      assetId: "prop_1",
+      ...deps,
+    });
+    const second = await generateStoryAssetImage({
+      storyId: "story-retry",
+      storyType: "short",
+      assetId: "prop_1",
+      ...deps,
+    });
+
+    expect(first).toMatchObject({ status: "error", error: "temporary failure" });
+    expect(second).toMatchObject({
+      assetId: "prop_1",
+      status: "ready",
+      path: "shorts/story-retry/assets/images/prop_1.png",
+    });
+    expect(runtime.generateImage).toHaveBeenCalledTimes(2);
+    expect(deps.getManifest().assets[0]?.image.status).toBe("ready");
+    expect(deps.getManifest().assets[0]?.imagePrompt).toBe("retry prompt");
+  });
+
+  it("rejects asset ids that could escape the story image directory", async () => {
+    const manifest = makeImageManifest("story-safe", [makeStoryAssetImage("safe", "missing")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("image"), extension: "png" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    await expect(generateStoryAssetImage({
+      storyId: "story-safe",
+      storyType: "short",
+      assetId: "../outside",
+      ...deps,
+    })).rejects.toThrow(/unsafe|invalid/i);
+    expect(runtime.generateImage).not.toHaveBeenCalled();
+    expect(deps.fileWriter.writeFile).not.toHaveBeenCalled();
   });
 });
