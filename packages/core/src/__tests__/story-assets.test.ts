@@ -4,9 +4,11 @@ import {
   mergeStoryAssets,
   normalizeStoryAssetKind,
   normalizeStoryAssetName,
+  normalizeStoryAssetImageStatus,
   type StoryAssetManifest,
 } from "../models/story-assets.js";
 import { createEmptyStoryAssetManifest as createEmptyStoryAssetManifestFromRoot } from "../index.js";
+import { normalizeStoryAssetImageStatus as normalizeStoryAssetImageStatusFromRoot } from "../index.js";
 import type { StoryAssetImage } from "../index.js";
 
 describe("story asset contract helpers", () => {
@@ -21,6 +23,15 @@ describe("story asset contract helpers", () => {
     expect(normalizeStoryAssetKind("物件")).toBe("prop");
     expect(normalizeStoryAssetKind("prop")).toBe("prop");
     expect(normalizeStoryAssetKind("")).toBeUndefined();
+    expect(normalizeStoryAssetKind("constructor")).toBeUndefined();
+    expect(normalizeStoryAssetKind("__proto__")).toBeUndefined();
+  });
+
+  it("normalizes image status values", () => {
+    expect(normalizeStoryAssetImageStatus("ready")).toBe("ready");
+    expect(normalizeStoryAssetImageStatus("  generating ")).toBe("generating");
+    expect(normalizeStoryAssetImageStatus("bad")).toBeUndefined();
+    expect(normalizeStoryAssetImageStatusFromRoot("error")).toBe("error");
   });
 
   it("normalizes story asset names and rejects blank input", () => {
@@ -39,6 +50,23 @@ describe("story asset contract helpers", () => {
       updatedAt: "2026-07-13T00:00:00.000Z",
       assets: [],
     });
+  });
+
+  it("rejects invalid manifest metadata instead of returning illegal manifests", () => {
+    expect(() => createEmptyStoryAssetManifest("", "2026-07-13T00:00:00.000Z")).toThrow(/storyId/i);
+    expect(() => createEmptyStoryAssetManifest("story-1", "   ")).toThrow(/updatedAt/i);
+    expect(() =>
+      mergeStoryAssets(
+        { version: 1, storyId: "", updatedAt: "2026-07-13T00:00:00.000Z", assets: [] },
+        [],
+      ),
+    ).toThrow(/story asset manifest storyId/i);
+    expect(() =>
+      mergeStoryAssets(
+        { version: 1, storyId: "story-1", updatedAt: "", assets: [] },
+        [],
+      ),
+    ).toThrow(/story asset manifest updatedAt/i);
   });
 
   it("merges assets while preserving omitted details/source refs and ready image state", () => {
@@ -91,6 +119,51 @@ describe("story asset contract helpers", () => {
       },
       createdAt: "2026-07-13T00:00:00.000Z",
       updatedAt: "2026-07-13T01:00:00.000Z",
+    });
+  });
+
+  it("treats null draft fields as missing and preserves existing values consistently", () => {
+    const existing: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-null",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        {
+          id: "scene_old",
+          kind: "scene",
+          name: "大厅",
+          summary: "旧摘要",
+          details: { mood: "calm" },
+          imagePrompt: "旧提示",
+          sourceRefs: ["chapter-1"],
+          image: { status: "error", error: "boom" },
+          createdAt: "2026-07-13T00:00:00.000Z",
+          updatedAt: "2026-07-13T00:00:00.000Z",
+        },
+      ],
+    };
+
+    const merged = mergeStoryAssets(
+      existing,
+      [
+        {
+          kind: "场景",
+          name: "大厅",
+          summary: null,
+          imagePrompt: null,
+          details: null,
+          sourceRefs: null,
+        },
+      ],
+      "2026-07-13T01:00:00.000Z",
+    );
+
+    expect(merged.assets[0]).toMatchObject({
+      summary: "旧摘要",
+      details: { mood: "calm" },
+      imagePrompt: "旧提示",
+      sourceRefs: ["chapter-1"],
+      image: { status: "error", error: "boom" },
     });
   });
 
@@ -174,8 +247,40 @@ describe("story asset contract helpers", () => {
   });
 
   it("keeps distinct ids for names that only differ by path separators", () => {
+    const manifestWithDuplicateIds: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-ids",
+      updatedAt: "2026-07-13T02:00:00.000Z",
+      assets: [
+        {
+          id: "duplicate-id",
+          kind: "prop",
+          name: "甲",
+          summary: "",
+          details: {},
+          imagePrompt: "",
+          sourceRefs: [],
+          image: { status: "missing" },
+          createdAt: "2026-07-13T02:00:00.000Z",
+          updatedAt: "2026-07-13T02:00:00.000Z",
+        },
+        {
+          id: "duplicate-id",
+          kind: "scene",
+          name: "乙",
+          summary: "",
+          details: {},
+          imagePrompt: "",
+          sourceRefs: [],
+          image: { status: "generating" },
+          createdAt: "2026-07-13T02:00:00.000Z",
+          updatedAt: "2026-07-13T02:00:00.000Z",
+        },
+      ],
+    };
+
     const merged = mergeStoryAssets(
-      createEmptyStoryAssetManifest("story-ids", "2026-07-13T02:00:00.000Z"),
+      manifestWithDuplicateIds,
       [
         { kind: "prop", name: "a/b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] },
         { kind: "prop", name: "a\\b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] },
@@ -183,8 +288,17 @@ describe("story asset contract helpers", () => {
       "2026-07-13T03:00:00.000Z",
     );
 
-    expect(merged.assets).toHaveLength(2);
-    expect(new Set(merged.assets.map((asset) => asset.id)).size).toBe(2);
+    expect(merged.assets).toHaveLength(4);
+    expect(new Set(merged.assets.map((asset) => asset.id)).size).toBe(4);
+    expect(merged.assets.find((asset) => asset.kind === "prop" && asset.name === "a/b")?.id).not.toBe(
+      merged.assets.find((asset) => asset.kind === "prop" && asset.name === "a\\b")?.id,
+    );
+    expect(
+      merged.assets.filter((asset) => asset.id === "duplicate-id"),
+    ).toHaveLength(1);
+    expect(
+      mergeStoryAssets(manifestWithDuplicateIds, [], "2026-07-13T03:00:00.000Z").assets.map((asset) => asset.id),
+    ).toEqual(merged.assets.slice(0, 2).map((asset) => asset.id));
   });
 
   it("drops malformed external JSON inputs without TypeError and keeps inputs immutable", () => {
@@ -246,5 +360,6 @@ describe("story asset contract helpers", () => {
 
     expect(image.status).toBe("missing");
     expect(createEmptyStoryAssetManifestFromRoot("story-root").version).toBe(1);
+    expect(normalizeStoryAssetImageStatusFromRoot("ready")).toBe("ready");
   });
 });

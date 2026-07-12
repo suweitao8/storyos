@@ -40,29 +40,28 @@ export interface StoryAssetManifest {
   assets: StoryAsset[];
 }
 
-const STORY_ASSET_KIND_ALIASES: Readonly<Record<string, StoryAssetKind>> = {
-  character: "character",
-  char: "character",
-  people: "character",
-  person: "character",
-  人物: "character",
-  角色: "character",
-  人设: "character",
-  scene: "scene",
-  scenery: "scene",
-  location: "scene",
-  place: "scene",
-  场景: "scene",
-  地点: "scene",
-  环境: "scene",
-  prop: "prop",
-  object: "prop",
-  item: "prop",
-  物件: "prop",
-  物品: "prop",
-  道具: "prop",
-  器物: "prop",
-};
+const STORY_ASSET_KIND_ALIASES = Object.create(null) as Record<string, StoryAssetKind>;
+STORY_ASSET_KIND_ALIASES.character = "character";
+STORY_ASSET_KIND_ALIASES.char = "character";
+STORY_ASSET_KIND_ALIASES.people = "character";
+STORY_ASSET_KIND_ALIASES.person = "character";
+STORY_ASSET_KIND_ALIASES.人物 = "character";
+STORY_ASSET_KIND_ALIASES.角色 = "character";
+STORY_ASSET_KIND_ALIASES.人设 = "character";
+STORY_ASSET_KIND_ALIASES.scene = "scene";
+STORY_ASSET_KIND_ALIASES.scenery = "scene";
+STORY_ASSET_KIND_ALIASES.location = "scene";
+STORY_ASSET_KIND_ALIASES.place = "scene";
+STORY_ASSET_KIND_ALIASES.场景 = "scene";
+STORY_ASSET_KIND_ALIASES.地点 = "scene";
+STORY_ASSET_KIND_ALIASES.环境 = "scene";
+STORY_ASSET_KIND_ALIASES.prop = "prop";
+STORY_ASSET_KIND_ALIASES.object = "prop";
+STORY_ASSET_KIND_ALIASES.item = "prop";
+STORY_ASSET_KIND_ALIASES.物件 = "prop";
+STORY_ASSET_KIND_ALIASES.物品 = "prop";
+STORY_ASSET_KIND_ALIASES.道具 = "prop";
+STORY_ASSET_KIND_ALIASES.器物 = "prop";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -76,6 +75,10 @@ function normalizeKindLookupKey(kind: string): string {
   return kind.trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
+function hasStoryAssetKindAlias(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(STORY_ASSET_KIND_ALIASES, key);
+}
+
 function readString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -83,6 +86,15 @@ function readString(value: unknown): string {
 function normalizeOptionalString(value: unknown): string | undefined {
   const cleaned = readString(value).trim();
   return cleaned ? cleaned : undefined;
+}
+
+function normalizeRequiredString(value: unknown, label: string): string {
+  const cleaned = normalizeOptionalString(value);
+  if (!cleaned) {
+    throw new Error(`Invalid ${label}.`);
+  }
+
+  return cleaned;
 }
 
 function normalizeDetailsValue(value: unknown): Record<string, string> {
@@ -112,6 +124,55 @@ function normalizeSourceRefsValue(value: unknown): string[] {
   }
 
   return value.map(normalizeOptionalString).filter((item): item is string => Boolean(item));
+}
+
+function normalizeDraftStringField(
+  draft: Record<string, unknown>,
+  key: "summary" | "imagePrompt",
+  existing: StoryAsset | undefined,
+): string {
+  if (!hasOwn(draft, key)) {
+    return existing?.[key] ?? "";
+  }
+
+  const raw = draft[key];
+  if (raw === null || raw === undefined) {
+    return existing?.[key] ?? "";
+  }
+
+  return normalizeOptionalString(raw) ?? "";
+}
+
+function normalizeDraftDetailsField(
+  draft: Record<string, unknown>,
+  existing: StoryAsset | undefined,
+): Record<string, string> {
+  if (!hasOwn(draft, "details")) {
+    return existing ? { ...existing.details } : {};
+  }
+
+  const raw = draft.details;
+  if (raw === null || raw === undefined) {
+    return existing ? { ...existing.details } : {};
+  }
+
+  return normalizeDetailsValue(raw);
+}
+
+function normalizeDraftSourceRefsField(
+  draft: Record<string, unknown>,
+  existing: StoryAsset | undefined,
+): string[] {
+  if (!hasOwn(draft, "sourceRefs")) {
+    return existing ? [...existing.sourceRefs] : [];
+  }
+
+  const raw = draft.sourceRefs;
+  if (raw === null || raw === undefined) {
+    return existing ? [...existing.sourceRefs] : [];
+  }
+
+  return normalizeSourceRefsValue(raw);
 }
 
 function normalizeImageValue(value: unknown): StoryAssetImage | undefined {
@@ -159,6 +220,36 @@ function normalizeAssetKey(kind: StoryAssetKind, name: string): string {
 function createStoryAssetId(kind: StoryAssetKind, name: string): string {
   const digest = createHash("sha1").update(`${kind}\0${name}`, "utf8").digest("hex").slice(0, 12);
   return `${kind}_${digest}`;
+}
+
+function createCollisionStoryAssetId(baseId: string, assetKey: string, occurrenceIndex: number): string {
+  const digest = createHash("sha1")
+    .update(`${baseId}\0${assetKey}\0${occurrenceIndex}`, "utf8")
+    .digest("hex")
+    .slice(0, 10);
+  return `${baseId}__${digest}`;
+}
+
+function allocateUniqueStoryAssetId(
+  baseId: string,
+  assetKey: string,
+  occurrenceIndex: number,
+  usedIds: Set<string>,
+): string {
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
+
+  let candidate = createCollisionStoryAssetId(baseId, assetKey, occurrenceIndex);
+  let salt = 1;
+  while (usedIds.has(candidate)) {
+    candidate = createCollisionStoryAssetId(baseId, `${assetKey}:${salt}`, occurrenceIndex + salt);
+    salt += 1;
+  }
+
+  usedIds.add(candidate);
+  return candidate;
 }
 
 function normalizeStoredStoryAsset(value: unknown): StoryAsset | undefined {
@@ -215,11 +306,8 @@ function normalizeStoredManifest(input: unknown): StoryAssetManifest {
     throw new Error("Invalid story asset manifest version.");
   }
 
-  const storyId = normalizeOptionalString(input.storyId);
-  const updatedAt = normalizeOptionalString(input.updatedAt);
-  if (!storyId || !updatedAt) {
-    throw new Error("Invalid story asset manifest metadata.");
-  }
+  const storyId = normalizeRequiredString(input.storyId, "story asset manifest storyId");
+  const updatedAt = normalizeRequiredString(input.updatedAt, "story asset manifest updatedAt");
 
   const assets = Array.isArray(input.assets)
     ? input.assets.flatMap((asset) => {
@@ -234,27 +322,6 @@ function normalizeStoredManifest(input: unknown): StoryAssetManifest {
     updatedAt,
     assets,
   };
-}
-
-function draftValueOrExisting(
-  draft: Record<string, unknown>,
-  key: "summary" | "details" | "imagePrompt" | "sourceRefs",
-  existing: StoryAsset | undefined,
-): unknown {
-  if (!hasOwn(draft, key)) {
-    switch (key) {
-      case "summary":
-        return existing?.summary;
-      case "details":
-        return existing?.details;
-      case "imagePrompt":
-        return existing?.imagePrompt;
-      case "sourceRefs":
-        return existing?.sourceRefs;
-    }
-  }
-
-  return draft[key];
 }
 
 function normalizeDraftAsset(
@@ -280,24 +347,20 @@ function normalizeDraftAsset(
 
   const key = normalizeAssetKey(kind, name);
   const existing = existingByKey.get(key);
-  const sourceRefsInput = draftValueOrExisting(draft, "sourceRefs", existing);
-  const detailsInput = draftValueOrExisting(draft, "details", existing);
-  const summaryInput = draftValueOrExisting(draft, "summary", existing);
-  const imagePromptInput = draftValueOrExisting(draft, "imagePrompt", existing);
+  const summary = normalizeDraftStringField(draft, "summary", existing);
+  const imagePrompt = normalizeDraftStringField(draft, "imagePrompt", existing);
+  const details = normalizeDraftDetailsField(draft, existing);
+  const sourceRefs = normalizeDraftSourceRefsField(draft, existing);
 
   const image: StoryAssetImage = existing ? cloneStoryAssetImage(existing.image) : { status: "missing" };
   return {
     id: existing?.id ?? createStoryAssetId(kind, name),
     kind,
     name,
-    summary: normalizeOptionalString(summaryInput) ?? "",
-    details: isRecord(detailsInput) ? normalizeDetailsValue(detailsInput) : existing?.details ? { ...existing.details } : {},
-    imagePrompt: normalizeOptionalString(imagePromptInput) ?? "",
-    sourceRefs: Array.isArray(sourceRefsInput)
-      ? normalizeSourceRefsValue(sourceRefsInput)
-      : existing?.sourceRefs
-        ? [...existing.sourceRefs]
-        : [],
+    summary,
+    details,
+    imagePrompt,
+    sourceRefs,
     image,
     createdAt: existing?.createdAt ?? updatedAt,
     updatedAt,
@@ -314,7 +377,8 @@ export function normalizeStoryAssetKind(kind: unknown): StoryAssetKind | undefin
     return undefined;
   }
 
-  return STORY_ASSET_KIND_ALIASES[normalizeKindLookupKey(raw)];
+  const lookup = normalizeKindLookupKey(raw);
+  return hasStoryAssetKindAlias(lookup) ? STORY_ASSET_KIND_ALIASES[lookup] : undefined;
 }
 
 export function normalizeStoryAssetImageStatus(status: unknown): StoryAssetImageStatus | undefined {
@@ -347,12 +411,31 @@ export function createEmptyStoryAssetManifest(
   storyId: string,
   updatedAt = new Date().toISOString(),
 ): StoryAssetManifest {
+  const safeStoryId = normalizeRequiredString(storyId, "story asset manifest storyId");
+  const safeUpdatedAt = normalizeRequiredString(updatedAt, "story asset manifest updatedAt");
   return {
     version: 1,
-    storyId,
-    updatedAt,
+    storyId: safeStoryId,
+    updatedAt: safeUpdatedAt,
     assets: [],
   };
+}
+
+function assignUniqueAssetIds(assets: StoryAsset[]): StoryAsset[] {
+  const usedIds = new Set<string>();
+  const seenBaseIds = new Map<string, number>();
+
+  return assets.map((asset) => {
+    const baseId = normalizeOptionalString(asset.id) ?? createStoryAssetId(asset.kind, asset.name);
+    const occurrenceIndex = seenBaseIds.get(baseId) ?? 0;
+    seenBaseIds.set(baseId, occurrenceIndex + 1);
+
+    const id = allocateUniqueStoryAssetId(baseId, normalizeAssetKey(asset.kind, asset.name), occurrenceIndex, usedIds);
+    return {
+      ...asset,
+      id,
+    };
+  });
 }
 
 export function mergeStoryAssets(
@@ -386,10 +469,14 @@ export function mergeStoryAssets(
     assetsByKey.set(key, next);
   }
 
+  const assets = assignUniqueAssetIds(
+    orderedKeys.map((key) => assetsByKey.get(key)).filter((asset): asset is StoryAsset => Boolean(asset)),
+  );
+
   return {
     version: 1,
     storyId: safeManifest.storyId,
     updatedAt,
-    assets: orderedKeys.map((key) => assetsByKey.get(key)).filter((asset): asset is StoryAsset => Boolean(asset)),
+    assets,
   };
 }
