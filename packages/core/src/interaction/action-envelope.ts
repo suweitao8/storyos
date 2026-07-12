@@ -38,6 +38,7 @@ export const CreateBookActionPayloadSchema = z.object({
   targetChapters: z.number().int().min(1).optional(),
   chapterWordCount: z.number().int().min(1).optional(),
   craftId: z.string().min(1).optional(),
+  quick: z.boolean().optional(),
 }).strict();
 
 export const ShortRunActionPayloadSchema = z.object({
@@ -48,6 +49,7 @@ export const ShortRunActionPayloadSchema = z.object({
   chapters: z.number().int().min(1).max(18).optional(),
   charsPerChapter: z.number().int().min(900).max(10_000).optional(),
   cover: z.boolean().optional(),
+  quick: z.boolean().optional(),
 }).strict();
 
 export const PlayStartActionPayloadSchema = z.object({

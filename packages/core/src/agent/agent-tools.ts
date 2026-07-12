@@ -168,6 +168,9 @@ const ProposeActionParams = Type.Object({
     craftId: Type.Optional(Type.String({
       description: "Optional saved writing craft profile id to bind to the new book.",
     })),
+    quick: Type.Optional(Type.Boolean({
+      description: "Use the fast creation path: generate the foundation once without review retries, then refine it in chat.",
+    })),
   }, { description: "Structured execution args for action=create_book. Put platform/length here; do not leave them only in instruction text." })),
   shortRun: Type.Optional(Type.Object({
     direction: Type.Optional(Type.String({
@@ -687,7 +690,10 @@ export function createSubAgentTool(
                 createdAt: now,
                 updatedAt: now,
               },
-              { externalContext: instruction },
+              {
+                externalContext: instruction,
+                ...(createBookPayload?.quick ? { skipFoundationReview: true } : {}),
+              },
             );
             progress(`Architect finished — book "${id}" foundation created.`);
             return textResult(
@@ -1222,6 +1228,9 @@ const ShortFictionRunParams = Type.Object({
   cover: Type.Optional(Type.Boolean({
     description: "Whether to attempt cover image generation after synopsis and cover prompt. Default false; use true only when the user explicitly wants a cover.",
   })),
+  quick: Type.Optional(Type.Boolean({
+    description: "Use the fast creation path: skip outline and draft review passes, then refine the result in chat.",
+  })),
   coverBaseUrl: Type.Optional(Type.String({
     description: "Optional OpenAI-compatible Responses API base URL for cover generation.",
   })),
@@ -1283,6 +1292,7 @@ export function createShortFictionRunTool(
         craftProfile,
         chapterCount: shortPayload?.chapters ?? params.chapters,
         charsPerChapter: shortPayload?.charsPerChapter ?? params.charsPerChapter,
+        quick: shortPayload?.quick === true,
         language: options.language,
         cover: shortPayload?.cover ?? params.cover,
         coverBaseUrl: params.coverBaseUrl,

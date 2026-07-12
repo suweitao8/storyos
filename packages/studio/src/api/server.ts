@@ -2650,6 +2650,93 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   });
 
+  app.get("/api/v1/books/:id/content", async (c) => {
+    const id = c.req.param("id");
+    try {
+      const book = await state.loadBookConfig(id);
+      const bookDir = state.bookDir(id);
+      const storyDir = join(bookDir, "story");
+      const sectionFiles: ReadonlyArray<{ readonly file: string; readonly title: string }> = [
+        { file: "outline/story_frame.md", title: "故事设定" },
+        { file: "outline/volume_map.md", title: "故事走向" },
+        { file: "book_rules.md", title: "写作规则" },
+        { file: "pending_hooks.md", title: "悬念与伏笔" },
+        { file: "current_state.md", title: "当前状态" },
+      ];
+      const sections = (await Promise.all(sectionFiles.map(async ({ file, title }) => {
+        const content = await readFile(join(storyDir, file), "utf-8").catch(() => "");
+        return content.trim() ? { file, title, content } : null;
+      }))).filter((section): section is { file: string; title: string; content: string } => Boolean(section));
+
+      const roleSections: Array<{ file: string; title: string; content: string }> = [];
+      for (const tier of ["主要角色", "次要角色", "major", "minor"]) {
+        const roleDir = join(storyDir, "roles", tier);
+        const files = await readdir(roleDir).catch(() => []);
+        for (const file of files.filter((entry) => entry.endsWith(".md")).sort()) {
+          const content = await readFile(join(roleDir, file), "utf-8").catch(() => "");
+          if (content.trim()) {
+            roleSections.push({
+              file: `roles/${tier}/${file}`,
+              title: `角色：${file.replace(/\.md$/i, "")}`,
+              content,
+            });
+          }
+        }
+      }
+
+      const chapterIndex = await state.loadChapterIndex(id);
+      const chapters = await Promise.all(chapterIndex
+        .slice()
+        .sort((a, b) => a.number - b.number)
+        .map(async (chapter) => {
+          const path = await findChapterFile(root, id, chapter.number);
+          const content = path ? await readFile(path, "utf-8").catch(() => "") : "";
+          return {
+            number: chapter.number,
+            title: chapter.title,
+            status: chapter.status,
+            wordCount: chapter.wordCount,
+            content,
+          };
+        }));
+
+      return c.json({ book, sections: [...sections, ...roleSections], chapters });
+    } catch {
+      return c.json({ error: `Book "${id}" not found` }, 404);
+    }
+  });
+
+  app.get("/api/v1/shorts/:id/content", async (c) => {
+    const id = c.req.param("id");
+    if (!isSafeBookId(id)) return c.json({ error: "Invalid short story id" }, 400);
+
+    const shortDir = join(root, "shorts", id);
+    const readOptional = async (file: string): Promise<string> =>
+      readFile(join(shortDir, file), "utf-8").catch(() => "");
+    const outlineV2 = await readOptional("outline/v002.md");
+    const outline = outlineV2.trim() ? outlineV2 : await readOptional("outline/v001.md");
+    const full = await readOptional("final/full.md");
+    const salesPackage = await readOptional("final/sales-package.md");
+    const coverPrompt = await readOptional("final/cover-prompt.md");
+    if (!outline.trim() && !full.trim()) {
+      return c.json({ error: `Short story "${id}" not found` }, 404);
+    }
+
+    const sections = [
+      outline.trim() ? { file: outlineV2.trim() ? "outline/v002.md" : "outline/v001.md", title: "故事提纲", content: outline } : null,
+      salesPackage.trim() ? { file: "final/sales-package.md", title: "故事包装", content: salesPackage } : null,
+      coverPrompt.trim() ? { file: "final/cover-prompt.md", title: "封面提示词", content: coverPrompt } : null,
+    ].filter((section): section is { file: string; title: string; content: string } => Boolean(section));
+    const chapters = full.trim()
+      ? [{ number: 1, title: "短篇故事", status: "completed", wordCount: full.length, content: full }]
+      : [];
+    return c.json({
+      book: { title: id, genre: "short", chapterWordCount: full.length, targetChapters: 1 },
+      sections,
+      chapters,
+    });
+  });
+
   // --- Genres ---
 
   app.get("/api/v1/genres", async (c) => {

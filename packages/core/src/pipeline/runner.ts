@@ -408,6 +408,8 @@ export interface InitBookOptions {
   readonly externalContext?: string;
   readonly authorIntent?: string;
   readonly currentFocus?: string;
+  /** Skip the expensive reviewer/retry loop for interactive fast creation. */
+  readonly skipFoundationReview?: boolean;
 }
 
 export class PipelineRunner {
@@ -479,6 +481,10 @@ export class PipelineRunner {
   }): Promise<ArchitectOutput> {
     const maxRetries = params.maxRetries ?? this.config.foundationReviewRetries ?? 2;
     let foundation = await params.generate();
+
+    if (maxRetries <= 0) {
+      return foundation;
+    }
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       this.logStage(params.stageLanguage, {
@@ -769,6 +775,7 @@ export class PipelineRunner {
       language: resolvedLanguage,
       stageLanguage,
       targetChapters: book.targetChapters,
+      ...(options.skipFoundationReview ? { maxRetries: 0 } : {}),
     });
     try {
       this.logStage(stageLanguage, { zh: "保存书籍配置", en: "saving book config" });

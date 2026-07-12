@@ -24,6 +24,7 @@ import { ToolExecutionSteps, type ProposedActionDetails } from "../components/ch
 import { ProjectArtifactDrawer } from "../components/chat/ProjectArtifactDrawer";
 import { PlayHud } from "../components/chat/PlayHud";
 import { PlayChoicePanel } from "../components/chat/PlayChoicePanel";
+import { StoryContentPanel } from "../components/chat/StoryContentPanel";
 import { latestPlayChoiceSet } from "../components/chat/play-choices";
 import { usePageToolbar } from "../components/PageToolbar";
 import { StoryCreationPanel } from "./StoryCreationPanel";
@@ -186,6 +187,20 @@ function cancelScrollFrame(id: ScrollFrameId): void {
     return;
   }
   globalThis.clearTimeout(id);
+}
+
+function latestShortStoryId(messages: ReadonlyArray<{ readonly toolExecutions?: ReadonlyArray<{ readonly details?: unknown }> }>): string | null {
+  for (const message of [...messages].reverse()) {
+    for (const execution of [...(message.toolExecutions ?? [])].reverse()) {
+      const details = execution.details;
+      if (!details || typeof details !== "object") continue;
+      const record = details as Record<string, unknown>;
+      if (record.kind === "short_fiction_created" && typeof record.storyId === "string" && record.storyId.trim()) {
+        return record.storyId;
+      }
+    }
+  }
+  return null;
 }
 
 type AssistantRenderItem =
@@ -450,7 +465,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const autoScrollPinnedRef = useRef(true);
 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
-  const hasBook = Boolean(activeBookId);
+  const hasBook = Boolean(activeBookId ?? activeSession?.bookId);
   const currentSessionKind: ChatSessionKind = activeSession?.sessionKind
     ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
       : mode === "book-create" ? "book-create"
@@ -461,6 +476,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       ? "short"
       : null;
   const [storyTab, setStoryTab] = useState<"create" | "adjust">("create");
+  const [storyContentRefreshToken, setStoryContentRefreshToken] = useState(0);
   const [selectedCraftId, setSelectedCraftId] = useState("");
   const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
   const crafts = craftsData?.crafts ?? [];
@@ -499,6 +515,9 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const { data: skillsData, loading: skillsLoading, error: skillsError, refetch: refetchSkills } = useApi<SkillsResponse>("/skills");
   const worldPanelInsetClass = currentSessionKind === "play" && worldPanelOpen ? "lg:pr-[380px]" : "";
+  const storyBookId = activeBookId ?? activeSession?.bookId ?? null;
+  const storyShortId = currentSessionKind === "short" ? latestShortStoryId(messages) : null;
+  const isStoryAdjustment = Boolean(storyCreationKind && storyTab === "adjust");
   const availableSkills = skillsData?.skills ?? [];
   const selectedSkills = useMemo(
     () => selectedSkillIds
@@ -523,7 +542,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     tabs: storyCreationKind
       ? [
           { id: "create", label: isZh ? "故事创建" : "Story Creation" },
-          { id: "adjust", label: isZh ? "对话调整" : "Chat Refinement" },
+          { id: "adjust", label: isZh ? "故事内容" : "Story Content" },
         ]
       : [],
     activeTab: storyCreationKind ? storyTab : undefined,
@@ -774,6 +793,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       requestedSkills,
       attachments,
     });
+    if (isStoryAdjustment) setStoryContentRefreshToken((value) => value + 1);
     setAttachedFiles([]);
     setAttachmentError(null);
     if (requestedSkills?.length) {
@@ -926,6 +946,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
     });
+    setStoryContentRefreshToken((value) => value + 1);
   };
 
   const handleCreateShort = async (input: ShortStoryCreationInput) => {
@@ -939,6 +960,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
     });
+    setStoryContentRefreshToken((value) => value + 1);
   };
 
   const emptyGuidance = (() => {
@@ -976,7 +998,17 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
           onOpenCraft={nav.toCraft}
         />
       ) : (
-        <>
+        <div className={isStoryAdjustment ? "grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]" : "contents"}>
+          {isStoryAdjustment ? (
+            <StoryContentPanel
+              bookId={storyBookId}
+              storyId={storyShortId}
+              theme={theme}
+              isZh={isZh}
+              refreshToken={storyContentRefreshToken}
+            />
+          ) : null}
+          <div className={isStoryAdjustment ? "flex min-h-0 min-w-0 flex-col border-l border-border/40" : "contents"}>
       {/* Message scroll area */}
       <div
         ref={scrollRef}
@@ -1115,7 +1147,9 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
               <Message from="assistant">
                 <MessageContent>
                   <Shimmer className="text-sm" duration={1.5}>
-                    {isZh ? "思考中..." : "Thinking..."}
+                    {isStoryAdjustment && storyBookId === null
+                      ? (isZh ? "正在创建基础故事..." : "Creating the story foundation...")
+                      : (isZh ? "正在处理..." : "Working...")}
                   </Shimmer>
                 </MessageContent>
               </Message>
@@ -1391,7 +1425,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
           sessionTitle={activeSession?.title ?? null}
         />
       )}
-        </>
+          </div>
+        </div>
       )}
       <ProjectArtifactDrawer />
     </div>
