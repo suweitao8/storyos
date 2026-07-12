@@ -144,7 +144,11 @@ function normalizeDraftStringField(
     return existing?.[key] ?? "";
   }
 
-  return raw.trim();
+  if (raw === "") {
+    return "";
+  }
+
+  return normalizeOptionalString(raw) ?? existing?.[key] ?? "";
 }
 
 function normalizeDraftDetailsField(

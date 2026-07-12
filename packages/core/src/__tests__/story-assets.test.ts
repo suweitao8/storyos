@@ -211,6 +211,26 @@ describe("story asset contract helpers", () => {
     });
   });
 
+  it("keeps existing text when a draft only contains whitespace", () => {
+    const existing = createEmptyStoryAssetManifest("story-whitespace", "2026-07-13T00:00:00.000Z");
+    const seeded = mergeStoryAssets(
+      existing,
+      [{ kind: "scene", name: "Hall", summary: "Existing", imagePrompt: "Existing prompt" }],
+      "2026-07-13T00:30:00.000Z",
+    );
+
+    const merged = mergeStoryAssets(
+      seeded,
+      [{ kind: "scene", name: "Hall", summary: "   ", imagePrompt: "\t" }],
+      "2026-07-13T01:00:00.000Z",
+    );
+
+    expect(merged.assets[0]).toMatchObject({
+      summary: "Existing",
+      imagePrompt: "Existing prompt",
+    });
+  });
+
   it("ignores illegal draft field types instead of blanking existing values", () => {
     const existing: StoryAssetManifest = {
       version: 1,
