@@ -121,4 +121,42 @@ describe("story asset contract helpers", () => {
       ],
     });
   });
+
+  it("deduplicates duplicate drafts across alias and spacing variants", () => {
+    const merged = mergeStoryAssets(
+      createEmptyStoryAssetManifest("story-dup", "2026-07-13T02:00:00.000Z"),
+      [
+        {
+          kind: "人物",
+          name: "  阿玲  ",
+          summary: "第一版摘要",
+          details: { outfit: "蓝裙子" },
+          imagePrompt: "第一版提示",
+          sourceRefs: ["chapter-1"],
+        },
+        {
+          kind: "角色",
+          name: "阿玲",
+          summary: "第二版摘要",
+          details: { outfit: "红裙子" },
+          imagePrompt: "第二版提示",
+          sourceRefs: ["chapter-2"],
+        },
+      ],
+      "2026-07-13T03:00:00.000Z",
+    );
+
+    expect(merged.assets).toHaveLength(1);
+    expect(merged.assets[0]).toMatchObject({
+      kind: "character",
+      name: "阿玲",
+      summary: "第二版摘要",
+      details: { outfit: "红裙子" },
+      imagePrompt: "第二版提示",
+      sourceRefs: ["chapter-2"],
+      image: {
+        status: "missing",
+      },
+    });
+  });
 });
