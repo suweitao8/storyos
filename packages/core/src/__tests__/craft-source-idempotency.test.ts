@@ -1,0 +1,64 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
+import { PipelineRunner } from "../pipeline/runner.js";
+import type { CraftProfile } from "../models/craft-profile.js";
+
+const profile: CraftProfile = {
+  sourceName: "测试视频",
+  analyzedAt: "2026-07-13T00:00:00.000Z",
+  language: "zh",
+  mode: "ghost-story",
+  worldview: "规则世界",
+  storyOutline: "故事骨架",
+  structure: { openingPattern: "异常", chapterArc: "升级", endingHookType: "悬念" },
+  sceneRhythm: { sceneTransitionTechnique: "硬切", pacingCurve: "前快后紧", conflictEscalation: "逐层升级" },
+  informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "逐层", suspenseManagement: "延迟回答" },
+  narrativePerspective: { povStrategy: "近景", narrationDialogueRatio: "叙述主导", narrativeDistance: "近" },
+  ghostStory: {
+    fearCore: "未知",
+    supernaturalRules: "规则",
+    taboos: "禁忌",
+    protagonistVulnerability: "脆弱点",
+    clueSystem: "线索",
+    revealCadence: "揭示",
+    scareCadence: "惊吓",
+    escalationLadder: "升级",
+    sensoryMotifs: "声音",
+    endingAftertaste: "余韵",
+  },
+  exemplars: [],
+};
+
+describe("video craft source idempotency", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("reuses the existing craft directory when the same BVID is reparsed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-craft-idempotency-"));
+    try {
+      vi.spyOn(CraftAnalyzerAgent.prototype, "analyze").mockResolvedValue(profile);
+      const runner = new PipelineRunner({
+        client: {
+          provider: "openai",
+          apiFormat: "chat",
+          stream: false,
+          defaults: { temperature: 0, maxTokens: 1000, thinkingBudget: 0 },
+        } as never,
+        model: "test-model",
+        projectRoot: root,
+      });
+
+      const first = await runner.analyzeCraft("字幕一", "测试视频", "zh", "ghost-story", "bilibili", "https://www.bilibili.com/video/BV1YBTb6sEEr/?x=1");
+      const second = await runner.analyzeCraft("字幕二", "测试视频", "zh", "ghost-story", "bilibili", "BV1YBTb6sEEr");
+
+      expect(second.craftId).toBe(first.craftId);
+      expect(await readdir(join(root, "crafts"))).toEqual([first.craftId]);
+      const meta = JSON.parse(await readFile(join(root, "crafts", first.craftId, "meta.json"), "utf8")) as { sourceRef?: string };
+      expect(meta.sourceRef).toBe("BV1YBTb6sEEr");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

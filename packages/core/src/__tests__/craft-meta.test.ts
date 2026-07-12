@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCraftMetaSummary } from "../models/craft-profile.js";
+import { buildCraftMetaSummary, normalizeCraftSourceRef } from "../models/craft-profile.js";
+
+describe("normalizeCraftSourceRef", () => {
+  it("uses the BVID as the stable key for equivalent Bilibili URLs", () => {
+    expect(normalizeCraftSourceRef(
+      "bilibili",
+      "https://www.bilibili.com/video/BV1YBTb6sEEr/?spm_id_from=333",
+    )).toBe("BV1YBTb6sEEr");
+    expect(normalizeCraftSourceRef("bilibili", "BV1YBTb6sEEr")).toBe("BV1YBTb6sEEr");
+  });
+});
 
 describe("buildCraftMetaSummary", () => {
   it("prefers the extracted story outline and normalizes it for a card", () => {

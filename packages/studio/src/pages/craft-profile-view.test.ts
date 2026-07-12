@@ -58,6 +58,15 @@ describe("craft source entrypoints", () => {
       mode: "ghost-story",
     });
   });
+
+  it("carries a stable source reference for video reparsing", () => {
+    expect(buildCraftAnalyzePayload({
+      type: "bilibili",
+      text: "字幕",
+      detectedName: "测试视频",
+      sourceRef: "BV1YBTb6sEEr",
+    }, "ghost-story").sourceRef).toBe("BV1YBTb6sEEr");
+  });
 });
 
 describe("craft navigation model", () => {

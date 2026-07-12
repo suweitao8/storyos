@@ -202,8 +202,24 @@ export interface CraftMeta {
   readonly mode?: CraftMode;
   /** Where the reference content came from. Older metadata may omit this. */
   readonly sourceType?: "bilibili" | "novel";
+  /** Stable source identity used to reparse instead of creating duplicates. */
+  readonly sourceRef?: string;
   /** Short story summary shown in the craft list card. */
   readonly summary?: string;
+}
+
+export function normalizeCraftSourceRef(
+  sourceType: CraftMeta["sourceType"],
+  sourceRef: string | undefined,
+): string | undefined {
+  const trimmed = sourceRef?.trim();
+  if (!trimmed) return undefined;
+  if (sourceType === "bilibili") {
+    const bvid = trimmed.match(/(?:^|\/)(BV[0-9A-Za-z]+)(?:[/?#]|$)/u)?.[1]
+      ?? trimmed.match(/^(BV[0-9A-Za-z]+)$/u)?.[1];
+    return bvid;
+  }
+  return trimmed;
 }
 
 export function buildCraftMetaSummary(
