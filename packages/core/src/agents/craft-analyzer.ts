@@ -400,19 +400,50 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
     .sort((left, right) => left.position - right.position || left.order - right.order);
 
   const originalizationRulesValue = pickVideoValue(source, "originalizationRules");
-  const originalizationRules = Array.isArray(originalizationRulesValue)
+  const parsedOriginalizationRules = Array.isArray(originalizationRulesValue)
     ? originalizationRulesValue.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim())
     : typeof originalizationRulesValue === "string" && originalizationRulesValue.trim()
       ? [originalizationRulesValue.trim()]
       : [];
+  const originalizationRules = parsedOriginalizationRules.length > 0
+    ? parsedOriginalizationRules
+    : [
+        "重新设计人物身份、关系、地点和叙述视角，不沿用原视频专有名词。",
+        "重新设计因果链、规则机制、场面细节和结尾，只迁移节拍功能、相对位置与情绪间距。",
+        "不得复用原视频的连续事件顺序、独特对白或可识别表达。",
+      ];
+
+  const normalizedReversals = reversals.map((reversal) => {
+    if (reversal.setupBeatOrders.length >= 2) return reversal;
+    const setupBeatOrders = beats
+      .filter((beat) => beat.position < reversal.position)
+      .slice(-2)
+      .map((beat) => beat.order);
+    return setupBeatOrders.length > 0 ? { ...reversal, setupBeatOrders } : reversal;
+  });
+
+  const payoffCandidates = beats.filter((beat) =>
+    ["payoff", "falseVictory", "climax", "ending", "reversal"].includes(beat.kind),
+  );
+  const derivedPayoffs = payoffCandidates
+    .filter((beat) => !payoffs.some((payoff) => Math.abs(payoff.position - beat.position) < 0.01))
+    .map((beat, index): CraftPayoff => ({
+      order: payoffs.length + index + 1,
+      position: beat.position,
+      setup: `在 ${Math.round(beat.position * 100)}% 前完成对应伏笔与压力积累。`,
+      release: beat.event,
+      costOrConsequence: "在新故事中重新设计选择代价与后果。",
+      emotionalEffect: beat.emotionalEffect,
+    }));
+  const normalizedPayoffs = [...payoffs, ...derivedPayoffs].slice(0, 8);
 
   return {
     logline: videoText(source, "logline", "未说明"),
     audiencePromise: videoText(source, "audiencePromise", "未说明"),
     outline: videoText(source, "outline", "未说明"),
     beats,
-    reversals,
-    payoffs,
+    reversals: normalizedReversals,
+    payoffs: normalizedPayoffs,
     pacingCurve: videoText(source, "pacingCurve", "未说明"),
     hookStrategy: videoText(source, "hookStrategy", "未说明"),
     climaxStrategy: videoText(source, "climaxStrategy", "未说明"),
