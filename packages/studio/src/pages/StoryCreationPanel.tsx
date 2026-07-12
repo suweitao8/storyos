@@ -5,7 +5,6 @@ import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
 import {
   buildDefaultStoryDirection,
-  LONG_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
@@ -158,11 +157,7 @@ export function StoryCreationPanel({
             <span>{isZh ? "故事方向" : "Story direction"}</span>
             <textarea value={longDirection} onChange={(event) => setLongDirection(event.target.value)} rows={5} placeholder={isZh ? "写清楚世界、主角压力、核心冲突和你想要的情绪回报" : "Describe the world, protagonist pressure, core conflict, and payoff"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
           </label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-sm">
-              <div className="text-muted-foreground">{isZh ? "固定章数" : "Fixed chapters"}</div>
-              <div className="mt-1 font-medium">{isZh ? `${LONG_STORY_CHAPTERS} 章，共约 ${LONG_STORY_CHAPTERS * Number(chapterWordCount)} 字` : `${LONG_STORY_CHAPTERS} chapters, about ${LONG_STORY_CHAPTERS * Number(chapterWordCount)} words total`}</div>
-            </div>
+          <div className="grid gap-4">
             <label className="space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">

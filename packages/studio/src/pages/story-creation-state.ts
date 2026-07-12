@@ -62,7 +62,7 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
       createBook: {
         title,
         genre,
-        platform: input.platform ?? "other",
+        platform: input.platform ?? "qidian",
         language: input.language,
         targetChapters: LONG_STORY_CHAPTERS,
         chapterWordCount: input.chapterWordCount,
