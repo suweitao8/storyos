@@ -45,7 +45,7 @@ export const ShortRunActionPayloadSchema = z.object({
   reference: z.string().min(1).optional(),
   craftId: z.string().min(1).optional(),
   storyId: z.string().min(1).optional(),
-  chapters: z.number().int().min(10).max(18).optional(),
+  chapters: z.number().int().min(1).max(18).optional(),
   charsPerChapter: z.number().int().min(900).max(10_000).optional(),
   cover: z.boolean().optional(),
 }).strict();

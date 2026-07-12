@@ -7,11 +7,11 @@ import {
 import { ShortRunActionPayloadSchema } from "../interaction/action-envelope.js";
 
 describe("fixed story lengths", () => {
-  it("accepts ten chapters and rejects the old twelve-chapter minimum", () => {
-    expect(SHORT_FICTION_MIN_CHAPTERS).toBe(10);
-    expect(SHORT_FICTION_DEFAULT_CHAPTERS).toBe(10);
+  it("accepts one chapter and rejects zero chapters", () => {
+    expect(SHORT_FICTION_MIN_CHAPTERS).toBe(1);
+    expect(SHORT_FICTION_DEFAULT_CHAPTERS).toBe(1);
     expect(SHORT_FICTION_MAX_CHAPTERS).toBe(18);
-    expect(ShortRunActionPayloadSchema.parse({ chapters: 10 }).chapters).toBe(10);
-    expect(() => ShortRunActionPayloadSchema.parse({ chapters: 9 })).toThrow();
+    expect(ShortRunActionPayloadSchema.parse({ chapters: 1 }).chapters).toBe(1);
+    expect(() => ShortRunActionPayloadSchema.parse({ chapters: 0 })).toThrow();
   });
 });

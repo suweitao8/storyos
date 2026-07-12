@@ -1,8 +1,8 @@
 import type { ActionPayload } from "@actalk/inkos-core";
 
-export const LONG_STORY_CHAPTERS = 100;
-export const FIXED_CHAPTER_WORD_COUNT = 10_000;
-export const SHORT_STORY_CHAPTERS = 10;
+export const LONG_STORY_CHAPTERS = 10;
+export const SHORT_STORY_CHAPTERS = 1;
+export const STORY_WORD_COUNT_OPTIONS = [1_000, 2_000, 5_000, 10_000] as const;
 
 export interface CraftOption {
   readonly id: string;
@@ -16,11 +16,13 @@ export interface LongStoryCreationInput {
   readonly direction: string;
   readonly platform: "tomato" | "qidian" | "feilu" | "other";
   readonly language: "zh" | "en";
+  readonly chapterWordCount: number;
   readonly craftId?: string;
 }
 
 export interface ShortStoryCreationInput {
   readonly direction: string;
+  readonly chapterWordCount: number;
   readonly craftId?: string;
 }
 
@@ -47,7 +49,7 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
         platform: input.platform,
         language: input.language,
         targetChapters: LONG_STORY_CHAPTERS,
-        chapterWordCount: FIXED_CHAPTER_WORD_COUNT,
+        chapterWordCount: input.chapterWordCount,
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },
     },
@@ -67,7 +69,7 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
       shortRun: {
         direction,
         chapters: SHORT_STORY_CHAPTERS,
-        charsPerChapter: FIXED_CHAPTER_WORD_COUNT,
+        charsPerChapter: input.chapterWordCount,
         cover: false,
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },
