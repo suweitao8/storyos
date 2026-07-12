@@ -22,7 +22,8 @@ export const SHORT_FICTION_MIN_CHAPTERS = 1;
 export const SHORT_FICTION_MAX_CHAPTERS = 18;
 export const SHORT_FICTION_DEFAULT_CHARS_PER_CHAPTER = 1000;
 export const SHORT_FICTION_MIN_CHARS_PER_CHAPTER = 900;
-export const SHORT_FICTION_MAX_CHARS_PER_CHAPTER = 10_000;
+// Video-derived craft profiles can recommend more than the fixed 10,000 option.
+export const SHORT_FICTION_MAX_CHARS_PER_CHAPTER = 100_000;
 
 // English shorts are calibrated in words, not characters. length-metrics.ts pins
 // the full-length chapter defaults at zh 3000 chars ≈ en 2000 words (a 2/3 ratio),

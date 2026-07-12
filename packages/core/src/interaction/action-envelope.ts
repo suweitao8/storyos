@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PlayModeSchema, type PlayMode } from "./session.js";
 import { StoryNodeSchema } from "../interactive-film/graph-schema.js";
+import { SHORT_FICTION_MAX_CHARS_PER_CHAPTER } from "../agents/short-fiction.js";
 
 export const ActionSourceSchema = z.enum(["free-text", "button", "slash", "quick-action"]);
 export type ActionSource = z.infer<typeof ActionSourceSchema>;
@@ -47,7 +48,7 @@ export const ShortRunActionPayloadSchema = z.object({
   craftId: z.string().min(1).optional(),
   storyId: z.string().min(1).optional(),
   chapters: z.number().int().min(1).max(18).optional(),
-  charsPerChapter: z.number().int().min(900).max(10_000).optional(),
+  charsPerChapter: z.number().int().min(900).max(SHORT_FICTION_MAX_CHARS_PER_CHAPTER).optional(),
   cover: z.boolean().optional(),
   quick: z.boolean().optional(),
 }).strict();
