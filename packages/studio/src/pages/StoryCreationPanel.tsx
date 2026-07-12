@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUp, Loader2, Wand2 } from "lucide-react";
 import type { Theme } from "../hooks/use-theme";
 import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
 import {
+  buildDefaultStoryDirection,
   LONG_STORY_CHAPTERS,
   SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
@@ -61,6 +62,16 @@ export function StoryCreationPanel({
 
   const selectedCraft = crafts.find((craft) => craft.id === selectedCraftId);
   const hasCraftSelection = Boolean(selectedCraftId && selectedCraft);
+
+  useEffect(() => {
+    if (!selectedCraft) return;
+    const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
+    if (kind === "long") {
+      setLongDirection((current) => current.trim() ? current : defaultDirection);
+    } else {
+      setShortDirection((current) => current.trim() ? current : defaultDirection);
+    }
+  }, [isZh, kind, selectedCraft]);
   const canCreate = Boolean(
     activeSessionId
       && (kind === "long"

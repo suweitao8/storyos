@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDefaultStoryDirection,
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
   LONG_STORY_CHAPTERS,
@@ -8,6 +9,14 @@ import {
 } from "./story-creation-state";
 
 describe("story creation actions", () => {
+  it("builds an editable original direction for the selected craft", () => {
+    const direction = buildDefaultStoryDirection({ id: "ghost", sourceName: "reference", mode: "ghost-story" }, "short", true);
+
+    expect(direction).toContain("完全原创");
+    expect(direction).toContain("不得复制参考作品");
+    expect(direction).toContain("第二次敲门");
+  });
+
   it("exposes the supported per-chapter word-count settings", () => {
     expect(STORY_WORD_COUNT_OPTIONS).toEqual([1_000, 2_000, 5_000, 10_000]);
   });
