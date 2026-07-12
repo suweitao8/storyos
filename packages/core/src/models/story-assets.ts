@@ -140,7 +140,11 @@ function normalizeDraftStringField(
     return existing?.[key] ?? "";
   }
 
-  return normalizeOptionalString(raw) ?? "";
+  if (typeof raw !== "string") {
+    return existing?.[key] ?? "";
+  }
+
+  return normalizeOptionalString(raw) ?? existing?.[key] ?? "";
 }
 
 function normalizeDraftDetailsField(
@@ -153,6 +157,10 @@ function normalizeDraftDetailsField(
 
   const raw = draft.details;
   if (raw === null || raw === undefined) {
+    return existing ? { ...existing.details } : {};
+  }
+
+  if (!isRecord(raw)) {
     return existing ? { ...existing.details } : {};
   }
 
@@ -169,6 +177,10 @@ function normalizeDraftSourceRefsField(
 
   const raw = draft.sourceRefs;
   if (raw === null || raw === undefined) {
+    return existing ? [...existing.sourceRefs] : [];
+  }
+
+  if (!Array.isArray(raw)) {
     return existing ? [...existing.sourceRefs] : [];
   }
 
@@ -443,6 +455,7 @@ export function mergeStoryAssets(
   drafts: readonly unknown[],
   updatedAt = new Date().toISOString(),
 ): StoryAssetManifest {
+  const safeUpdatedAt = normalizeRequiredString(updatedAt, "story asset manifest updatedAt");
   const safeManifest = normalizeStoredManifest(manifest);
   const assetsByKey = new Map<string, StoryAsset>();
   const orderedKeys: string[] = [];
@@ -457,7 +470,7 @@ export function mergeStoryAssets(
   }
 
   for (const draft of Array.isArray(drafts) ? drafts : []) {
-    const next = normalizeDraftAsset(draft, assetsByKey, updatedAt);
+    const next = normalizeDraftAsset(draft, assetsByKey, safeUpdatedAt);
     if (!next) {
       continue;
     }
@@ -476,7 +489,7 @@ export function mergeStoryAssets(
   return {
     version: 1,
     storyId: safeManifest.storyId,
-    updatedAt,
+    updatedAt: safeUpdatedAt,
     assets,
   };
 }

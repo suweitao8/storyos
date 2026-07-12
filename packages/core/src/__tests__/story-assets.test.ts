@@ -55,6 +55,8 @@ describe("story asset contract helpers", () => {
   it("rejects invalid manifest metadata instead of returning illegal manifests", () => {
     expect(() => createEmptyStoryAssetManifest("", "2026-07-13T00:00:00.000Z")).toThrow(/storyId/i);
     expect(() => createEmptyStoryAssetManifest("story-1", "   ")).toThrow(/updatedAt/i);
+    expect(() => mergeStoryAssets({ version: 1, storyId: "story-1", updatedAt: "2026-07-13T00:00:00.000Z", assets: [] }, [], null as unknown as string)).toThrow(/updatedAt/i);
+    expect(() => mergeStoryAssets({ version: 1, storyId: "story-1", updatedAt: "2026-07-13T00:00:00.000Z", assets: [] }, [], 123 as unknown as string)).toThrow(/updatedAt/i);
     expect(() =>
       mergeStoryAssets(
         { version: 1, storyId: "", updatedAt: "2026-07-13T00:00:00.000Z", assets: [] },
@@ -164,6 +166,51 @@ describe("story asset contract helpers", () => {
       imagePrompt: "旧提示",
       sourceRefs: ["chapter-1"],
       image: { status: "error", error: "boom" },
+    });
+  });
+
+  it("ignores illegal draft field types instead of blanking existing values", () => {
+    const existing: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-illegal",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        {
+          id: "character_keep",
+          kind: "character",
+          name: "阿玲",
+          summary: "旧摘要",
+          details: { outfit: "蓝裙子" },
+          imagePrompt: "旧提示",
+          sourceRefs: ["chapter-1"],
+          image: { status: "ready", path: "assets/images/character_keep.png" },
+          createdAt: "2026-07-13T00:00:00.000Z",
+          updatedAt: "2026-07-13T00:00:00.000Z",
+        },
+      ],
+    };
+
+    const merged = mergeStoryAssets(
+      existing,
+      [
+        {
+          kind: "角色",
+          name: "阿玲",
+          summary: 123,
+          imagePrompt: { prompt: "bad" },
+          details: 42,
+          sourceRefs: { refs: ["bad"] },
+        },
+      ],
+      "2026-07-13T01:00:00.000Z",
+    );
+
+    expect(merged.assets[0]).toMatchObject({
+      summary: "旧摘要",
+      details: { outfit: "蓝裙子" },
+      imagePrompt: "旧提示",
+      sourceRefs: ["chapter-1"],
+      image: { status: "ready", path: "assets/images/character_keep.png" },
     });
   });
 
@@ -299,6 +346,42 @@ describe("story asset contract helpers", () => {
     expect(
       mergeStoryAssets(manifestWithDuplicateIds, [], "2026-07-13T03:00:00.000Z").assets.map((asset) => asset.id),
     ).toEqual(merged.assets.slice(0, 2).map((asset) => asset.id));
+  });
+
+  it("renames generated ids when they collide with existing explicit ids", () => {
+    const generatedId = mergeStoryAssets(
+      createEmptyStoryAssetManifest("story-generate", "2026-07-13T02:00:00.000Z"),
+      [{ kind: "prop", name: "a/b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] }],
+      "2026-07-13T03:00:00.000Z",
+    ).assets[0].id;
+
+    const merged = mergeStoryAssets(
+      {
+        version: 1,
+        storyId: "story-collision",
+        updatedAt: "2026-07-13T02:00:00.000Z",
+        assets: [
+          {
+            id: generatedId,
+            kind: "scene",
+            name: "占位",
+            summary: "",
+            details: {},
+            imagePrompt: "",
+            sourceRefs: [],
+            image: { status: "missing" },
+            createdAt: "2026-07-13T02:00:00.000Z",
+            updatedAt: "2026-07-13T02:00:00.000Z",
+          },
+        ],
+      },
+      [{ kind: "prop", name: "a/b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] }],
+      "2026-07-13T03:00:00.000Z",
+    );
+
+    expect(merged.assets).toHaveLength(2);
+    expect(new Set(merged.assets.map((asset) => asset.id)).size).toBe(2);
+    expect(merged.assets[1].id).not.toBe(generatedId);
   });
 
   it("drops malformed external JSON inputs without TypeError and keeps inputs immutable", () => {
