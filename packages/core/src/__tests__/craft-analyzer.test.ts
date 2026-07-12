@@ -169,6 +169,47 @@ describe("CraftAnalyzerAgent", () => {
     expect(buildCraftGuide(profile)).toContain("Do not reuse the reference's three-event chain");
   });
 
+  it("normalizes Chinese video rhythm field aliases without losing plot evidence", async () => {
+    const response = JSON.stringify({
+      worldview: "一个社区把安全建立在集体沉默上。",
+      storyOutline: "调查者从异常现场进入群体秘密，最后发现沉默本身就是代价。",
+      structure: { openingPattern: "异常先行", chapterArc: "调查升级", endingHookType: "物证悬念" },
+      sceneRhythm: { sceneTransitionTechnique: "硬切", pacingCurve: "前快后紧", conflictEscalation: "由现场到群体" },
+      informationDisclosure: { foreshadowingDensity: "每段一个线索", informationReleaseRhythm: "逐层揭示", suspenseManagement: "回答旧问题并制造新问题" },
+      narrativePerspective: { povStrategy: "近距离观察", narrationDialogueRatio: "叙述主导", narrativeDistance: "冷静克制" },
+      videoStory: {
+        "一句话梗概": "调查者发现所有证人都在重复同一个不存在的时间。",
+        "观看承诺": "快速推进的悬疑调查与连续认知翻转。",
+        "视频大纲": "从异常现场开始，经过证词矛盾和物证回收，在最后一次翻转中重写观众对第一幕的理解。",
+        "节拍": [
+          { "序号": 1, "类型": "hook", "位置": "10%", "时间": "00:00-00:20", "内容": "证人说出不存在的时间", "功能": "开场钩子", "情绪影响": "不安" },
+        ],
+        "反转点": [
+          { "序号": 1, "时间点": "60%", "触发点": "物证与证词同时失效", "表面认知": "证人记错了", "反转内容": "所有证人被同一规则改写", "线索回收": "第一幕的时间标记其实是规则提示", "观众情绪": "震惊", "铺垫节拍": [1] },
+        ],
+        "爽点": [
+          { "序号": 1, "位置": "80%", "铺垫": "主角保留了原始记录", "释放": "用记录反证集体口供", "后果": "主角成为规则的下一个目标", "观众情绪": "释放后不安" },
+        ],
+        "节奏曲线": "10%钩子，60%反转，80%释放，95%余波",
+        "钩子策略": "先给具体异常再解释背景",
+        "高潮设计": "用一次有代价的选择完成反证",
+        "结尾余韵": "真相闭合但规则仍在运行",
+        "原创化约束": ["重写人物、地点、规则和因果链", "不得复用原视频的连续事件顺序"],
+      },
+      modules: [],
+      exemplars: [],
+    });
+    const agent = new StubCraftAnalyzerAgent([response]);
+    const profile = await agent.analyze("[0.0s-1.0s] 字幕", "视频别名测试", "zh", undefined, "general", "bilibili");
+
+    expect(profile.videoStory?.logline).toContain("不存在的时间");
+    expect(profile.videoStory?.beats[0]?.event).toContain("证人说出");
+    expect(profile.videoStory?.reversals[0]?.position).toBe(0.6);
+    expect(profile.videoStory?.reversals[0]?.reveal).toContain("同一规则");
+    expect(profile.videoStory?.payoffs[0]?.release).toContain("反证");
+    expect(profile.videoStory?.originalizationRules).toHaveLength(2);
+  });
+
   it("sanitizes malformed JSON when exemplar objects are missing commas", async () => {
     const malformed = `{
   "structure": {

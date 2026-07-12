@@ -91,7 +91,7 @@ const VIDEO_STORY_ALIASES: Record<string, ReadonlyArray<string>> = {
   hookStrategy: ["hookStrategy", "openingHook", "开场钩子", "钩子策略"],
   climaxStrategy: ["climaxStrategy", "高潮策略", "高潮设计"],
   endingAftertaste: ["endingAftertaste", "endingEffect", "结尾余韵", "结尾效果"],
-  originalizationRules: ["originalizationRules", "originalityRules", "原创化规则", "仿写约束", "改写规则"],
+  originalizationRules: ["originalizationRules", "originalityRules", "原创化规则", "原创化约束", "原创要求", "仿写约束", "改写规则"],
 };
 
 const VIDEO_BEAT_KINDS: ReadonlySet<string> = new Set([
@@ -322,6 +322,13 @@ function videoText(raw: Record<string, unknown>, key: string, fallback: string):
 }
 
 function videoNumber(value: unknown): number {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.endsWith("%")) {
+      const percentage = Number(trimmed.slice(0, -1));
+      if (Number.isFinite(percentage)) return Math.max(0, Math.min(1, percentage / 100));
+    }
+  }
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number)) return 0;
   return Math.max(0, Math.min(1, number > 1 && number <= 100 ? number / 100 : number));
@@ -351,13 +358,13 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
     .map((item, index): CraftBeat => ({
       order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
       kind: videoKind(item.kind ?? item.type ?? item.类型),
-      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置 ?? item.比例 ?? item.进度 ?? item.时间点 ?? item.时间位置),
       ...(videoItemText(item, ["timeRange", "timestamp", "time", "时间段", "时间"]) ? {
         timeRange: videoItemText(item, ["timeRange", "timestamp", "time", "时间段", "时间"]),
       } : {}),
-      event: videoItemText(item, ["event", "plot", "事件", "剧情"]) || "未说明",
-      function: videoItemText(item, ["function", "purpose", "narrativeFunction", "叙事功能", "作用"]) || "未说明",
-      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "emotionalImpact", "情绪效果", "情绪"]) || "未说明",
+      event: videoItemText(item, ["event", "plot", "content", "description", "事件", "剧情", "剧情事件", "内容", "情节"]) || "未说明",
+      function: videoItemText(item, ["function", "purpose", "narrativeFunction", "叙事功能", "功能", "作用", "叙事作用"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "emotionalImpact", "情绪效果", "情绪影响", "观众情绪", "情绪"]) || "未说明",
       ...(videoItemText(item, ["evidence", "clue", "证据", "依据"]) ? {
         evidence: videoItemText(item, ["evidence", "clue", "证据", "依据"]).slice(0, 100),
       } : {}),
@@ -367,12 +374,12 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
   const reversals = videoObjectList(pickVideoValue(source, "reversals"))
     .map((item, index): CraftReversal => ({
       order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
-      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
-      trigger: videoItemText(item, ["trigger", "cause", "触发", "触发条件"]) || "未说明",
-      apparentTruth: videoItemText(item, ["apparentTruth", "setupTruth", "表面真相", "原先认知"]) || "未说明",
-      reveal: videoItemText(item, ["reveal", "truth", "揭示", "真相"]) || "未说明",
-      reinterpretedClues: videoItemText(item, ["reinterpretedClues", "clues", "线索重释", "重新解释的线索"]) || "未说明",
-      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪"]) || "未说明",
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置 ?? item.比例 ?? item.进度 ?? item.时间点 ?? item.时间位置),
+      trigger: videoItemText(item, ["trigger", "cause", "触发", "触发条件", "触发点"]) || "未说明",
+      apparentTruth: videoItemText(item, ["apparentTruth", "setupTruth", "表面真相", "表面认知", "原先认知"]) || "未说明",
+      reveal: videoItemText(item, ["reveal", "truth", "揭示", "真相", "反转内容"]) || "未说明",
+      reinterpretedClues: videoItemText(item, ["reinterpretedClues", "clues", "线索重释", "线索回收", "重新解释的线索"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪影响", "观众情绪", "情绪"]) || "未说明",
       setupBeatOrders: Array.isArray(item.setupBeatOrders)
         ? item.setupBeatOrders.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))
         : Array.isArray(item.setupBeats)
@@ -384,11 +391,11 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
   const payoffs = videoObjectList(pickVideoValue(source, "payoffs"))
     .map((item, index): CraftPayoff => ({
       order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
-      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置 ?? item.比例 ?? item.进度 ?? item.时间点 ?? item.时间位置),
       setup: videoItemText(item, ["setup", "plant", "铺垫", "前置铺垫"]) || "未说明",
       release: videoItemText(item, ["release", "payoff", "爽点", "释放"]) || "未说明",
       costOrConsequence: videoItemText(item, ["costOrConsequence", "consequence", "cost", "代价", "后果"]) || "未说明",
-      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪影响", "观众情绪", "情绪"]) || "未说明",
     }))
     .sort((left, right) => left.position - right.position || left.order - right.order);
 
