@@ -233,6 +233,8 @@ function normalizeCraftFieldKey(value: string): string {
 }
 
 const CRAFT_TOP_LEVEL_ALIASES: Record<string, ReadonlyArray<string>> = {
+  worldview: ["worldview", "worldView", "world", "setting", "worldRules", "世界观", "世界设定", "世界规则", "背景设定"],
+  storyOutline: ["storyOutline", "outline", "storySkeleton", "plotSkeleton", "故事大纲", "故事骨架", "情节骨架", "故事结构"],
   structure: ["structure", "结构", "结构手法", "开篇与结构", "故事结构"],
   sceneRhythm: ["sceneRhythm", "sceneAndRhythm", "场景与节奏", "场景节奏", "场景手法"],
   informationDisclosure: ["informationDisclosure", "informationRelease", "信息披露", "信息释放", "信息手法"],
@@ -270,6 +272,19 @@ function unwrapCraftProfilePayload(raw: Record<string, unknown>): Record<string,
 
 function pickCraftTopLevelValue(raw: Record<string, unknown>, key: string): unknown {
   return pickCraftObjectValue(raw, CRAFT_TOP_LEVEL_ALIASES[key] ?? [key]);
+}
+
+function pickCraftTopLevelText(raw: Record<string, unknown>, key: string): string | undefined {
+  const value = pickCraftTopLevelValue(raw, key);
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const text = Object.values(value as Record<string, unknown>)
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .join("\n")
+      .trim();
+    if (text) return text;
+  }
+  return undefined;
 }
 
 function isWeakCraftValue(value: string, language: "zh" | "en"): boolean {
@@ -478,6 +493,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
       analyzedAt: new Date().toISOString(),
       language,
       mode,
+      ...(pickCraftTopLevelText(payload, "worldview") ? { worldview: pickCraftTopLevelText(payload, "worldview") } : {}),
+      ...(pickCraftTopLevelText(payload, "storyOutline") ? { storyOutline: pickCraftTopLevelText(payload, "storyOutline") } : {}),
       structure: this.parseSection(pickCraftTopLevelValue(payload, "structure"), CRAFT_SECTION_SPECS.structure, language) as unknown as CraftStructure,
       sceneRhythm: this.parseSection(pickCraftTopLevelValue(payload, "sceneRhythm"), CRAFT_SECTION_SPECS.sceneRhythm, language) as unknown as CraftSceneRhythm,
       informationDisclosure: this.parseSection(pickCraftTopLevelValue(payload, "informationDisclosure"), CRAFT_SECTION_SPECS.informationDisclosure, language) as unknown as CraftInformationDisclosure,
@@ -707,13 +724,18 @@ export class CraftAnalyzerAgent extends BaseAgent {
     );
 
     const refined = await this.parseProfile(response.content, sourceName, language, profile.modules, mode);
+    const preserved = {
+      ...refined,
+      ...(refined.worldview ? {} : profile.worldview ? { worldview: profile.worldview } : {}),
+      ...(refined.storyOutline ? {} : profile.storyOutline ? { storyOutline: profile.storyOutline } : {}),
+    };
     if (refined.exemplars.length === 0 && profile.exemplars.length > 0) {
       return {
-        ...refined,
+        ...preserved,
         exemplars: profile.exemplars,
       };
     }
-    return refined;
+    return preserved;
   }
 
   private parseExemplars(raw: unknown): CraftProfile["exemplars"] {

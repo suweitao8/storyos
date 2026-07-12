@@ -57,5 +57,7 @@ describe("story creation actions", () => {
       cover: false,
       quick: true,
     });
+    expect(action.instruction).toContain("世界观、故事大纲和写作手法");
+    expect(action.instruction).toContain("不复制原作");
   });
 });

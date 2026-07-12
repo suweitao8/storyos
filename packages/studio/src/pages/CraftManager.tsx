@@ -113,6 +113,8 @@ interface CraftProfile {
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
   readonly mode?: "general" | "ghost-story";
+  readonly worldview?: string;
+  readonly storyOutline?: string;
   readonly structure: {
     readonly openingPattern: string;
     readonly chapterArc: string;
@@ -182,6 +184,8 @@ interface CraftDetailModel {
   readonly exemplarCount: number;
   readonly modules: ReadonlyArray<CraftModule>;
   readonly legacySections: ReadonlyArray<CraftLegacySection>;
+  readonly worldview?: string;
+  readonly storyOutline?: string;
 }
 
 export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
@@ -191,6 +195,8 @@ export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
     moduleCount: modules.length,
     exemplarCount: profile.exemplars.length,
     modules,
+    worldview: profile.worldview,
+    storyOutline: profile.storyOutline,
     legacySections: [
       {
         title: "结构手法",
@@ -1017,6 +1023,23 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
           </span>
         </div>
       </div>
+
+      {(detail.worldview || detail.storyOutline) && (
+        <section className="grid gap-3 md:grid-cols-2">
+          {detail.worldview && (
+            <div className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">世界观</h3>
+              <p className="text-sm leading-6 whitespace-pre-wrap">{detail.worldview}</p>
+            </div>
+          )}
+          {detail.storyOutline && (
+            <div className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">故事大纲</h3>
+              <p className="text-sm leading-6 whitespace-pre-wrap">{detail.storyOutline}</p>
+            </div>
+          )}
+        </section>
+      )}
 
       {profile.mode === "ghost-story" && profile.ghostStory && (
         <section className="space-y-3 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">

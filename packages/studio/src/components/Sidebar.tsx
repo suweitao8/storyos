@@ -6,6 +6,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { tr } from "../lib/app-language";
 import { setProjectChatSessionId } from "../pages/chat-page-state";
 import { useChatStore } from "../store/chat";
+import { isShortSidebarItemActive } from "./sidebar-navigation-state";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Dialog,
@@ -312,7 +313,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
             <CreateItem
               icon={<ScrollText size={16} />}
               label={t("nav.createShort")}
-              active={activeSession?.sessionKind === "short"}
+              active={isShortSidebarItemActive(activePage, activeSession?.sessionKind)}
               onClick={() => launchProjectMode("short")}
             />
             <CreateItem icon={<BookOpen size={16} />} label={t("nav.craft")} active={activePage === "craft"} onClick={nav.toCraft} />
