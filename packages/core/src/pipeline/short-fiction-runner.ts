@@ -63,6 +63,8 @@ export interface ShortFictionRunOptions {
   readonly coverModel?: string;
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
+  /** Generate one usable draft without outline/draft review passes. */
+  readonly quick?: boolean;
   readonly onProgress?: (message: string) => void;
   /** Optional writing craft profile to guide technique imitation. */
   readonly craftProfile?: CraftProfile;
@@ -199,29 +201,33 @@ async function produceShort(
     baseDir = join(outDir, storyId);
     await writeText(root, join(baseDir, "outline", "v001.md"), outlineV1.rawContent);
 
-    options.onProgress?.("Reviewing outline...");
-    const outlineReviewer = new ShortFictionOutlineReviewerAgent(options.runtimes.outlineReview);
-    const outlineReview = await outlineReviewer.reviewOutline({
-      direction: options.direction,
-      outline: outlineV1,
-      reference: options.reference,
-      language,
-    });
-    await writeText(root, join(baseDir, "reviews", "outline-v001.md"), outlineReview);
+    if (options.quick) {
+      outlineMarkdown = outlineV1.rawContent;
+    } else {
+      options.onProgress?.("Reviewing outline...");
+      const outlineReviewer = new ShortFictionOutlineReviewerAgent(options.runtimes.outlineReview);
+      const outlineReview = await outlineReviewer.reviewOutline({
+        direction: options.direction,
+        outline: outlineV1,
+        reference: options.reference,
+        language,
+      });
+      await writeText(root, join(baseDir, "reviews", "outline-v001.md"), outlineReview);
 
-    options.onProgress?.("Revising outline once...");
-    const outlineReviser = new ShortFictionOutlineReviserAgent(options.runtimes.planner);
-    const outlineV2 = await outlineReviser.reviseOutline({
-      direction: options.direction,
-      outline: outlineV1,
-      review: outlineReview,
-      reference: options.reference,
-      chapterCount,
-      charsPerChapter,
-      language,
-    });
-    await writeText(root, join(baseDir, "outline", "v002.md"), outlineV2.rawContent);
-    outlineMarkdown = outlineV2.rawContent;
+      options.onProgress?.("Revising outline once...");
+      const outlineReviser = new ShortFictionOutlineReviserAgent(options.runtimes.planner);
+      const outlineV2 = await outlineReviser.reviseOutline({
+        direction: options.direction,
+        outline: outlineV1,
+        review: outlineReview,
+        reference: options.reference,
+        chapterCount,
+        charsPerChapter,
+        language,
+      });
+      await writeText(root, join(baseDir, "outline", "v002.md"), outlineV2.rawContent);
+      outlineMarkdown = outlineV2.rawContent;
+    }
   }
 
   let finalDraft: ShortFictionBatchDraft;
@@ -261,6 +267,8 @@ async function produceShort(
     validateShortFictionDraftForFinal(draftV1, { expectedChapters: chapterCount });
     await writeDraftArtifacts(root, baseDir, "v001", draftV1, language);
 
+    finalDraft = draftV1;
+    if (!options.quick) {
     options.onProgress?.("Reviewing full draft...");
     const draftReviewer = new ShortFictionDraftReviewerAgent(options.runtimes.draftReview);
     const draftReview = await draftReviewer.reviewDraft({
@@ -273,7 +281,6 @@ async function produceShort(
     });
     await writeText(root, join(baseDir, "reviews", "draft-v001.md"), draftReview);
 
-    finalDraft = draftV1;
     options.onProgress?.("Revising full draft once...");
     const reviser = new ShortFictionDraftReviserAgent(options.runtimes.revise);
     try {
@@ -310,6 +317,7 @@ async function produceShort(
             "",
             revisionWarning,
           ].join("\n"));
+    }
     }
 
     await writeFinalArtifacts(root, baseDir, finalDraft, language);

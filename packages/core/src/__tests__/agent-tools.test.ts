@@ -574,6 +574,34 @@ describe("agent deterministic writing tools", () => {
     );
   });
 
+  it("passes quick creation through without invoking the foundation review loop", async () => {
+    const pipeline = {
+      initBook: vi.fn(async () => undefined),
+    };
+    const tool = createSubAgentTool(pipeline as never, null, undefined, {
+      actionPayload: {
+        createBook: {
+          title: "快速故事",
+          quick: true,
+        },
+      },
+    });
+
+    await tool.execute("tool-quick-book", {
+      agent: "architect",
+      title: "快速故事",
+      instruction: "创建一个基础故事",
+    } as any);
+
+    expect(pipeline.initBook).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        externalContext: "创建一个基础故事",
+        skipFoundationReview: true,
+      }),
+    );
+  });
+
   it("derives the confirmed book id from the confirmed title instead of model-supplied bookId", async () => {
     const pipeline = {
       initBook: vi.fn(async () => undefined),
