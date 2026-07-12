@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createEmptyStoryAssetManifest,
   mergeStoryAssets,
@@ -10,6 +10,21 @@ import {
 import { createEmptyStoryAssetManifest as createEmptyStoryAssetManifestFromRoot } from "../index.js";
 import { normalizeStoryAssetImageStatus as normalizeStoryAssetImageStatusFromRoot } from "../index.js";
 import type { StoryAssetImage } from "../index.js";
+import {
+  StoryAssetExtractorAgent as StoryAssetExtractorAgentFromRoot,
+  buildStoryAssetExtractionPrompt as buildStoryAssetExtractionPromptFromRoot,
+  extractStoryAssets as extractStoryAssetsFromRoot,
+} from "../index.js";
+import {
+  StoryAssetExtractorAgent,
+  buildStoryAssetExtractionPrompt,
+  parseStoryAssetExtractionResponse,
+} from "../agents/story-assets.js";
+import {
+  extractStoryAssets,
+  storyAssetManifestPath,
+  type StoryAssetManifestStore,
+} from "../pipeline/story-assets-runner.js";
 
 describe("story asset contract helpers", () => {
   it("normalizes story asset kinds across Chinese and English aliases", () => {
@@ -506,5 +521,132 @@ describe("story asset contract helpers", () => {
     expect(image.status).toBe("missing");
     expect(createEmptyStoryAssetManifestFromRoot("story-root").version).toBe(1);
     expect(normalizeStoryAssetImageStatusFromRoot("ready")).toBe("ready");
+  });
+});
+
+describe("story asset text extraction", () => {
+  it("includes settings, outline, and story content in the extraction prompt", () => {
+    const prompt = buildStoryAssetExtractionPrompt({
+      settings: "设定：雾港城禁止夜间点灯。",
+      outline: "大纲：阿玲在旧码头寻找账本。",
+      content: "正文：她把银色怀表放在潮湿的木箱上。",
+    });
+
+    expect(prompt).toContain("设定：雾港城禁止夜间点灯。");
+    expect(prompt).toContain("大纲：阿玲在旧码头寻找账本。");
+    expect(prompt).toContain("正文：她把银色怀表放在潮湿的木箱上。");
+    expect(prompt).toContain("JSON");
+  });
+
+  it("parses a fenced JSON response with Chinese and English kind aliases", () => {
+    const drafts = parseStoryAssetExtractionResponse("```json\n" + `
+{
+  "characters": [{ "kind": "人物", "name": "阿玲", "summary": "守夜人", "imagePrompt": "cinematic portrait" }],
+  "scenes": [{ "kind": "location", "name": "旧码头", "summary": "潮湿码头", "imagePrompt": "misty harbor" }],
+  "props": [{ "kind": "道具", "name": "银色怀表", "summary": "停在午夜的怀表", "imagePrompt": "silver pocket watch" }]
+}
+` + "```\n");
+
+    expect(drafts).toHaveLength(3);
+    expect(drafts.map((draft) => draft.kind)).toEqual(["character", "scene", "prop"]);
+    expect(drafts.every((draft) => typeof draft.summary === "string" && draft.summary.length > 0)).toBe(true);
+    expect(drafts.every((draft) => typeof draft.imagePrompt === "string" && draft.imagePrompt.length > 0)).toBe(true);
+  });
+
+  it("throws a clear error for invalid JSON instead of fabricating assets", () => {
+    expect(() => parseStoryAssetExtractionResponse("not json")).toThrow(/story asset.*json|json.*story asset/i);
+  });
+
+  it("coalesces duplicate names and aliases into one draft", () => {
+    const drafts = parseStoryAssetExtractionResponse(JSON.stringify({
+      characters: [
+        {
+          kind: "character",
+          name: "Mara",
+          aliases: ["林默"],
+          summary: "冷静的调查员",
+          sourceRefs: ["settings"],
+          imagePrompt: "realistic investigator portrait",
+        },
+        {
+          kind: "人物",
+          name: "林默",
+          summary: "在雾港追查旧案",
+          sourceRefs: ["content:chapter-1"],
+          imagePrompt: "dark coat and harbor fog",
+        },
+      ],
+      scenes: [],
+      props: [],
+    }));
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]).toMatchObject({ kind: "character", name: "Mara" });
+    expect(drafts[0]?.sourceRefs).toEqual(["settings", "content:chapter-1"]);
+    expect(drafts[0]?.summary).toContain("雾港");
+  });
+
+  it("returns an empty draft list when the model returns no assets", () => {
+    expect(parseStoryAssetExtractionResponse('{ "characters": [], "scenes": [], "props": [] }')).toEqual([]);
+  });
+
+  it("uses only the injected text model and never invokes image generation", async () => {
+    const imageRuntime = vi.fn();
+    const textModel = vi.fn(async () => JSON.stringify({
+      characters: [{ kind: "character", name: "阿玲", summary: "守夜人", imagePrompt: "portrait" }],
+      scenes: [],
+      props: [],
+    }));
+    const store: StoryAssetManifestStore = {
+      readManifest: vi.fn(async () => undefined),
+      writeManifest: vi.fn(async () => undefined),
+    };
+
+    const result = await extractStoryAssets({
+      storyId: "story-text-only",
+      storyType: "short",
+      settings: "设定",
+      outline: "大纲",
+      content: "正文",
+      textModel,
+      manifestStore: store,
+    });
+
+    expect(textModel).toHaveBeenCalledTimes(1);
+    expect(imageRuntime).not.toHaveBeenCalled();
+    expect(result.manifest.assets[0]?.image).toEqual({ status: "missing" });
+    expect(store.writeManifest).toHaveBeenCalledWith(
+      "shorts/story-text-only/assets/manifest.json",
+      result.manifest,
+    );
+  });
+
+  it.each([
+    ["book", "books/long-story/assets/manifest.json"],
+    ["short", "shorts/short-story/assets/manifest.json"],
+  ] as const)("writes the manifest to the %s story path", async (storyType, expectedPath) => {
+    const store: StoryAssetManifestStore = {
+      readManifest: vi.fn(async () => undefined),
+      writeManifest: vi.fn(async () => undefined),
+    };
+
+    await extractStoryAssets({
+      storyId: storyType === "book" ? "long-story" : "short-story",
+      storyType,
+      settings: "",
+      outline: "",
+      content: "",
+      textModel: async () => '{ "characters": [], "scenes": [], "props": [] }',
+      manifestStore: store,
+    });
+
+    expect(storyAssetManifestPath(storyType, storyType === "book" ? "long-story" : "short-story")).toBe(expectedPath);
+    expect(store.writeManifest).toHaveBeenCalledWith(expectedPath, expect.any(Object));
+  });
+
+  it("exports the extraction API from the core root entry", () => {
+    expect(StoryAssetExtractorAgentFromRoot).toBe(StoryAssetExtractorAgent);
+    expect(buildStoryAssetExtractionPromptFromRoot).toBe(buildStoryAssetExtractionPrompt);
+    expect(extractStoryAssetsFromRoot).toBe(extractStoryAssets);
   });
 });

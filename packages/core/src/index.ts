@@ -2,6 +2,26 @@
 export { type BookConfig, type Platform, type Genre, type BookStatus, type FanficMode, type ChapterReviewMode, type RevisionGate, BookConfigSchema, PlatformSchema, GenreSchema, BookStatusSchema, FanficModeSchema, normalizePlatformId, normalizePlatformOrOther, resolveChapterReviewMode, resolveRevisionGate } from "./models/book.js";
 export { type ChapterMeta, type ChapterStatus, ChapterMetaSchema, ChapterStatusSchema } from "./models/chapter.js";
 export { type StoryAssetKind, type StoryAssetImageStatus, type StoryAssetImage, type StoryAsset, type StoryAssetDraft, type StoryAssetManifest, createEmptyStoryAssetManifest, normalizeStoryAssetKind, normalizeStoryAssetName, normalizeStoryAssetImageStatus, mergeStoryAssets } from "./models/story-assets.js";
+export {
+  STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT,
+  StoryAssetExtractorAgent,
+  StoryAssetParseError,
+  buildStoryAssetExtractionPrompt,
+  parseStoryAssetExtractionResponse,
+  type StoryAssetExtractionSource,
+  type StoryAssetTextModel,
+  type StoryAssetTextModelOptions,
+} from "./agents/story-assets.js";
+export {
+  extractStoryAssets,
+  normalizeStoryAssetStoryType,
+  storyAssetManifestPath,
+  type ExtractStoryAssetsInput,
+  type ExtractStoryAssetsResult,
+  type StoryAssetManifestStore,
+  type StoryAssetStoryType,
+  type StoryAssetStoryTypeInput,
+} from "./pipeline/story-assets-runner.js";
 export { type ProjectConfig, type LLMConfig, type NotifyChannel, type DetectionConfig, type QualityGates, type FoundationConfig, type WritingConfig, type AgentLLMOverride, type InputGovernanceMode, type ResearchSearchConfig, ProjectConfigSchema, LLMConfigSchema, AgentLLMOverrideSchema, DetectionConfigSchema, QualityGatesSchema, FoundationConfigSchema, WritingConfigSchema, InputGovernanceModeSchema, ResearchSearchConfigSchema } from "./models/project.js";
 export { type CurrentState, type ParticleLedger, type PendingHooks, type PendingHook, type LedgerEntry } from "./models/state.js";
 export { type GenreProfile, type ParsedGenreProfile, GenreProfileSchema, parseGenreProfile } from "./models/genre-profile.js";
