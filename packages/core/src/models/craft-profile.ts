@@ -84,6 +84,15 @@ export interface CraftPayoff {
   readonly emotionalEffect: string;
 }
 
+export interface CraftWordCountEstimate {
+  readonly recommended: number;
+  readonly min: number;
+  readonly max: number;
+  readonly sourceCharacterCount: number;
+  readonly sourceDurationSeconds?: number;
+  readonly rationale: string;
+}
+
 /** Video-only breakdown used to transfer narrative rhythm without copying expression. */
 export interface VideoStoryCraft {
   readonly logline: string;
@@ -97,6 +106,8 @@ export interface VideoStoryCraft {
   readonly climaxStrategy: string;
   readonly endingAftertaste: string;
   readonly originalizationRules: ReadonlyArray<string>;
+  /** Deterministic prose-length recommendation derived from the video source. */
+  readonly wordCountEstimate?: CraftWordCountEstimate;
 }
 
 /** A smaller breakdown card extracted from the reference work. */
@@ -206,6 +217,8 @@ export interface CraftMeta {
   readonly sourceRef?: string;
   /** Short story summary shown in the craft list card. */
   readonly summary?: string;
+  /** Recommended per-chapter length for story creation, when available. */
+  readonly recommendedWordCount?: number;
 }
 
 export function normalizeCraftSourceRef(

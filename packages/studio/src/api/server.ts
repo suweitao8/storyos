@@ -5886,13 +5886,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft Analyze (writing technique profile) ---
 
   app.post("/api/v1/craft/analyze", async (c) => {
-    const { text, sourceName, language, mode, sourceType, sourceRef } = await c.req.json<{
+    const { text, sourceName, language, mode, sourceType, sourceRef, sourceDurationSeconds } = await c.req.json<{
       text: string;
       sourceName: string;
       language?: "zh" | "en";
       mode?: CraftMode;
       sourceType?: "bilibili" | "novel";
       sourceRef?: string;
+      sourceDurationSeconds?: number;
     }>();
     if (!text?.trim()) return c.json({ error: "text is required" }, 400);
     if (!sourceName?.trim()) return c.json({ error: "sourceName is required" }, 400);
@@ -5908,6 +5909,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         craftMode,
         sourceType === "bilibili" ? "bilibili" : "novel",
         sourceRef,
+        sourceDurationSeconds,
       );
       broadcast("craft:complete", { craftId, sourceName });
       return c.json({ craftId, profile });

@@ -31,6 +31,7 @@ interface CraftMeta {
   readonly mode?: "general" | "ghost-story";
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
+  readonly recommendedWordCount?: number;
 }
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
@@ -86,7 +87,7 @@ export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: 
 ];
 
 export function buildCraftAnalyzePayload(
-  source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string },
+  source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string; sourceDurationSeconds?: number },
   mode: "general" | "ghost-story",
 ) {
   return {
@@ -96,6 +97,9 @@ export function buildCraftAnalyzePayload(
     language: "zh" as const,
     mode,
     ...(source.sourceRef?.trim() ? { sourceRef: source.sourceRef.trim() } : {}),
+    ...(source.sourceDurationSeconds && source.sourceDurationSeconds > 0
+      ? { sourceDurationSeconds: source.sourceDurationSeconds }
+      : {}),
   };
 }
 
@@ -577,6 +581,11 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
             <span className="rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[11px] text-muted-foreground">
               {craftSourceTypeLabel(craft.sourceType)}
             </span>
+            {craft.recommendedWordCount ? (
+              <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] text-primary">
+                建议约 {craft.recommendedWordCount.toLocaleString()} 字
+              </span>
+            ) : null}
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button
@@ -675,6 +684,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     text: string;
     detectedName: string;
     sourceRef?: string;
+    sourceDurationSeconds?: number;
   }) => {
     const sourceName = normalizeCraftDisplayName(source.detectedName);
     activeSourceNameRef.current = sourceName;
@@ -767,6 +777,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         text: data.text,
         detectedName: data.detectedName,
         sourceRef: data.videoInfo.bvid,
+        sourceDurationSeconds: data.videoInfo.duration,
       });
     } catch (e) {
       setBilibiliError(e instanceof Error ? e.message : String(e));
@@ -1099,6 +1110,22 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
+            {detail.videoStory.wordCountEstimate && (
+              <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">建议小说字数</div>
+                  <div className="text-lg font-semibold text-primary">
+                    约 {detail.videoStory.wordCountEstimate.recommended.toLocaleString()} 字
+                  </div>
+                </div>
+                <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                  建议范围：{detail.videoStory.wordCountEstimate.min.toLocaleString()} - {detail.videoStory.wordCountEstimate.max.toLocaleString()} 字
+                </div>
+                <div className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {detail.videoStory.wordCountEstimate.rationale}
+                </div>
+              </div>
+            )}
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               {[
                 ["一句话梗概", detail.videoStory.logline],
