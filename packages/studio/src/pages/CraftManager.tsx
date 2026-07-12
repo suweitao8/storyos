@@ -28,11 +28,24 @@ interface CraftMeta {
   readonly createdAt: string;
   readonly language: "zh" | "en";
   readonly mode?: "general" | "ghost-story";
+  readonly sourceType?: CraftSourceType;
+  readonly summary?: string;
 }
 
-export const CRAFT_LIST_GRID_CLASS = "grid gap-4 sm:grid-cols-2";
+export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
 
-export function craftCardDescription(craft: Pick<CraftMeta, "mode">): string {
+export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): string {
+  const typeLabel = craft.mode === "ghost-story" ? "鬼故事" : "通用";
+  return `${normalizeCraftDisplayName(craft.sourceName)} · ${typeLabel}`;
+}
+
+export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
+  return sourceType === "bilibili" ? "视频解析" : "小说解析";
+}
+
+export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
+  const summary = craft.summary?.trim();
+  if (summary) return summary;
   return craft.mode === "ghost-story"
     ? "提取恐惧核心、超自然规则、线索系统与惊吓节奏"
     : "提取开篇结构、场景节奏、信息释放与叙事视角";
@@ -76,6 +89,7 @@ export function buildCraftAnalyzePayload(
   return {
     text: source.text,
     sourceName: normalizeCraftDisplayName(source.detectedName),
+    sourceType: source.type,
     language: "zh" as const,
     mode,
   };
@@ -552,10 +566,10 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
           className={craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)}
         >
           <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-6 text-left">
-            <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
-            {craft.mode === "ghost-story" && (
-              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">鬼故事</span>
-            )}
+            <span className="font-medium text-sm">{craftCardTitle(craft)}</span>
+            <span className="rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[11px] text-muted-foreground">
+              {craftSourceTypeLabel(craft.sourceType)}
+            </span>
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button

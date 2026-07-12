@@ -19,7 +19,7 @@ import { RadarAgent } from "../agents/radar.js";
 import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
 import { buildCraftGuide } from "../agents/craft-prompts.js";
-import type { CraftMode, CraftProfile, CraftMeta } from "../models/craft-profile.js";
+import { buildCraftMetaSummary, type CraftMode, type CraftProfile, type CraftMeta } from "../models/craft-profile.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
 import { analyzeSensitiveWords } from "../agents/sensitive-words.js";
@@ -677,6 +677,7 @@ export class PipelineRunner {
     sourceName: string,
     language: "zh" | "en" = "zh",
     mode: CraftMode = "general",
+    sourceType: "bilibili" | "novel" = "novel",
   ): Promise<{ craftId: string; profile: CraftProfile }> {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
@@ -693,6 +694,8 @@ export class PipelineRunner {
       createdAt: new Date().toISOString(),
       language,
       mode,
+      sourceType,
+      summary: buildCraftMetaSummary(profile),
     };
 
     await writeFile(join(craftsDir, "craft_profile.json"), JSON.stringify(profile, null, 2), "utf-8");
