@@ -26,6 +26,7 @@ describe("craft card list presentation", () => {
     expect(craftCardTitle({ sourceName: "测试故事", mode: "ghost-story" })).toBe("测试故事 · 鬼故事");
     expect(craftSourceTypeLabel("bilibili")).toBe("视频解析");
     expect(craftSourceTypeLabel("novel")).toBe("小说解析");
+    expect(craftSourceTypeLabel(undefined)).toBe("来源未记录");
   });
 
   it("shows the extracted story summary instead of only a generic mode hint", () => {

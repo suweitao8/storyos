@@ -714,7 +714,14 @@ export class PipelineRunner {
         if (!entry.isDirectory()) continue;
         try {
           const raw = await readFile(join(craftsRoot, entry.name, "meta.json"), "utf-8");
-          metas.push(JSON.parse(raw) as CraftMeta);
+          const meta = JSON.parse(raw) as CraftMeta;
+          if (!meta.summary) {
+            const profile = await this.loadCraft(entry.name);
+            const summary = profile ? buildCraftMetaSummary(profile) : "";
+            metas.push(summary ? { ...meta, summary } : meta);
+          } else {
+            metas.push(meta);
+          }
         } catch {
           // skip broken entries
         }

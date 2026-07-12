@@ -40,7 +40,9 @@ export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): s
 }
 
 export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
-  return sourceType === "bilibili" ? "视频解析" : "小说解析";
+  if (sourceType === "bilibili") return "视频解析";
+  if (sourceType === "novel") return "小说解析";
+  return "来源未记录";
 }
 
 export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
