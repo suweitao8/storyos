@@ -11,6 +11,11 @@ import type {
   CraftNarrativePerspective,
   CraftMode,
   GhostStoryCraft,
+  CraftBeat,
+  CraftBeatKind,
+  CraftReversal,
+  CraftPayoff,
+  VideoStoryCraft,
 } from "../models/craft-profile.js";
 
 // ---------------------------------------------------------------------------
@@ -74,6 +79,25 @@ const CRAFT_SECTION_SPECS: Record<string, ReadonlyArray<CraftFieldSpec>> = {
     { key: "endingAftertaste", aliases: ["\u7ed3\u5c3e\u4f59\u97f5", "endingAfterglow", "aftertaste", "endingEffect"] },
   ],
 };
+
+const VIDEO_STORY_ALIASES: Record<string, ReadonlyArray<string>> = {
+  logline: ["logline", "premise", "一句话梗概", "核心命题"],
+  audiencePromise: ["audiencePromise", "viewerPromise", "观看承诺", "受众承诺"],
+  outline: ["outline", "videoOutline", "视频大纲", "视频故事大纲"],
+  beats: ["beats", "storyBeats", "节拍", "剧情节拍", "时间线"],
+  reversals: ["reversals", "turningPoints", "turns", "反转", "反转点", "剧情反转"],
+  payoffs: ["payoffs", "releases", "爽点", "高潮回收", "情绪释放"],
+  pacingCurve: ["pacingCurve", "rhythmCurve", "节奏曲线", "节奏"],
+  hookStrategy: ["hookStrategy", "openingHook", "开场钩子", "钩子策略"],
+  climaxStrategy: ["climaxStrategy", "高潮策略", "高潮设计"],
+  endingAftertaste: ["endingAftertaste", "endingEffect", "结尾余韵", "结尾效果"],
+  originalizationRules: ["originalizationRules", "originalityRules", "原创化规则", "仿写约束", "改写规则"],
+};
+
+const VIDEO_BEAT_KINDS: ReadonlySet<string> = new Set([
+  "hook", "setup", "incitingIncident", "conflict", "foreshadowing", "payoff",
+  "reversal", "falseVictory", "climax", "ending", "cta", "other",
+]);
 
 const WEAK_CRAFT_PATTERNS: Record<"zh" | "en", ReadonlyArray<RegExp>> = {
   zh: [
@@ -241,6 +265,7 @@ const CRAFT_TOP_LEVEL_ALIASES: Record<string, ReadonlyArray<string>> = {
   narrativePerspective: ["narrativePerspective", "narrativePOV", "叙事视角", "叙事", "视角手法"],
   ghostStory: ["ghostStory", "ghostCraft", "horrorCraft", "鬼故事模式", "恐怖机制", "恐怖故事手法"],
   modules: ["modules", "module", "breakdownModules", "拆文模块", "写作模块", "模块"],
+  videoStory: ["videoStory", "videoCraft", "videoRhythm", "视频模式", "视频节奏", "视频拆解", "视频故事"],
   exemplars: ["exemplars", "exemplar", "范例", "代表片段", "范例片段"],
 };
 
@@ -285,6 +310,108 @@ function pickCraftTopLevelText(raw: Record<string, unknown>, key: string): strin
     if (text) return text;
   }
   return undefined;
+}
+
+function pickVideoValue(raw: Record<string, unknown>, key: string): unknown {
+  return pickCraftObjectValue(raw, VIDEO_STORY_ALIASES[key] ?? [key]);
+}
+
+function videoText(raw: Record<string, unknown>, key: string, fallback: string): string {
+  const value = pickVideoValue(raw, key);
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function videoNumber(value: unknown): number {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(1, number > 1 && number <= 100 ? number / 100 : number));
+}
+
+function videoKind(value: unknown): CraftBeatKind {
+  const normalized = String(value ?? "other").trim();
+  return VIDEO_BEAT_KINDS.has(normalized) ? normalized as CraftBeatKind : "other";
+}
+
+function videoObjectList(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> =>
+    typeof item === "object" && item !== null && !Array.isArray(item),
+  );
+}
+
+function videoItemText(item: Record<string, unknown>, candidates: ReadonlyArray<string>): string {
+  const value = pickCraftObjectValue(item, candidates);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const source = raw as Record<string, unknown>;
+  const beats = videoObjectList(pickVideoValue(source, "beats"))
+    .map((item, index): CraftBeat => ({
+      order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
+      kind: videoKind(item.kind ?? item.type ?? item.类型),
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
+      ...(videoItemText(item, ["timeRange", "timestamp", "time", "时间段", "时间"]) ? {
+        timeRange: videoItemText(item, ["timeRange", "timestamp", "time", "时间段", "时间"]),
+      } : {}),
+      event: videoItemText(item, ["event", "plot", "事件", "剧情"]) || "未说明",
+      function: videoItemText(item, ["function", "purpose", "narrativeFunction", "叙事功能", "作用"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "emotionalImpact", "情绪效果", "情绪"]) || "未说明",
+      ...(videoItemText(item, ["evidence", "clue", "证据", "依据"]) ? {
+        evidence: videoItemText(item, ["evidence", "clue", "证据", "依据"]).slice(0, 100),
+      } : {}),
+    }))
+    .sort((left, right) => left.position - right.position || left.order - right.order);
+
+  const reversals = videoObjectList(pickVideoValue(source, "reversals"))
+    .map((item, index): CraftReversal => ({
+      order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
+      trigger: videoItemText(item, ["trigger", "cause", "触发", "触发条件"]) || "未说明",
+      apparentTruth: videoItemText(item, ["apparentTruth", "setupTruth", "表面真相", "原先认知"]) || "未说明",
+      reveal: videoItemText(item, ["reveal", "truth", "揭示", "真相"]) || "未说明",
+      reinterpretedClues: videoItemText(item, ["reinterpretedClues", "clues", "线索重释", "重新解释的线索"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪"]) || "未说明",
+      setupBeatOrders: Array.isArray(item.setupBeatOrders)
+        ? item.setupBeatOrders.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))
+        : Array.isArray(item.setupBeats)
+          ? item.setupBeats.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))
+          : [],
+    }))
+    .sort((left, right) => left.position - right.position || left.order - right.order);
+
+  const payoffs = videoObjectList(pickVideoValue(source, "payoffs"))
+    .map((item, index): CraftPayoff => ({
+      order: Math.max(1, Number(item.order ?? item.index ?? index + 1) || index + 1),
+      position: videoNumber(item.position ?? item.ratio ?? item.progress ?? item.位置),
+      setup: videoItemText(item, ["setup", "plant", "铺垫", "前置铺垫"]) || "未说明",
+      release: videoItemText(item, ["release", "payoff", "爽点", "释放"]) || "未说明",
+      costOrConsequence: videoItemText(item, ["costOrConsequence", "consequence", "cost", "代价", "后果"]) || "未说明",
+      emotionalEffect: videoItemText(item, ["emotionalEffect", "emotion", "情绪效果", "情绪"]) || "未说明",
+    }))
+    .sort((left, right) => left.position - right.position || left.order - right.order);
+
+  const originalizationRulesValue = pickVideoValue(source, "originalizationRules");
+  const originalizationRules = Array.isArray(originalizationRulesValue)
+    ? originalizationRulesValue.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim())
+    : typeof originalizationRulesValue === "string" && originalizationRulesValue.trim()
+      ? [originalizationRulesValue.trim()]
+      : [];
+
+  return {
+    logline: videoText(source, "logline", "未说明"),
+    audiencePromise: videoText(source, "audiencePromise", "未说明"),
+    outline: videoText(source, "outline", "未说明"),
+    beats,
+    reversals,
+    payoffs,
+    pacingCurve: videoText(source, "pacingCurve", "未说明"),
+    hookStrategy: videoText(source, "hookStrategy", "未说明"),
+    climaxStrategy: videoText(source, "climaxStrategy", "未说明"),
+    endingAftertaste: videoText(source, "endingAftertaste", "未说明"),
+    originalizationRules,
+  };
 }
 
 function isWeakCraftValue(value: string, language: "zh" | "en"): boolean {
@@ -420,6 +547,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     language: "zh" | "en",
     onProgress?: (message: string) => void,
     mode: CraftMode = "general",
+    sourceType: "bilibili" | "novel" = "novel",
   ): Promise<CraftProfile> {
     onProgress?.(language === "zh" ? "分割章节…" : "Splitting chapters…");
     const chapters = splitCraftChapters(text);
@@ -433,8 +561,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
     const sample = truncateChapters(sampleChapters);
 
     onProgress?.(language === "zh" ? "分析写作手法…" : "Analyzing writing craft…");
-    const systemPrompt = buildCraftAnalysisSystemPrompt(language, mode);
-    const userPrompt = buildCraftAnalysisUserPrompt(sample, language, mode);
+    const systemPrompt = buildCraftAnalysisSystemPrompt(language, mode, sourceType);
+    const userPrompt = buildCraftAnalysisUserPrompt(sample, language, mode, sourceType);
 
     const response = await this.chat(
       [
@@ -444,14 +572,20 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.3, maxTokens: 8192 },
     );
 
-    let profile = await this.parseProfile(response.content, sourceName, language, undefined, mode);
+    let profile = await this.parseProfile(response.content, sourceName, language, undefined, mode, sourceType);
     onProgress?.(
       language === "zh"
         ? `首轮已提取 ${profile.modules?.length ?? 0} 个拆文模块，正在检查字段完整性…`
         : `First pass extracted ${profile.modules?.length ?? 0} breakdown modules; checking completeness…`,
     );
     const weakFields = collectWeakCraftFields(profile, language);
-    if (weakFields.length > 0) {
+    const videoNeedsRefine = sourceType === "bilibili" && (
+      !profile.videoStory
+      || profile.videoStory.beats.length < 8
+      || profile.videoStory.reversals.length < 2
+      || profile.videoStory.payoffs.length < 3
+    );
+    if (weakFields.length > 0 || videoNeedsRefine) {
       onProgress?.(language === "zh" ? "补全不明确的技法字段…" : "Refining weak craft fields…");
       profile = await this.refineWeakCraftProfile(
         sample,
@@ -460,6 +594,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
         profile,
         weakFields,
         mode,
+        sourceType,
+        videoNeedsRefine,
       );
     }
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
@@ -479,15 +615,17 @@ export class CraftAnalyzerAgent extends BaseAgent {
     language: "zh" | "en",
     fallbackModules?: ReadonlyArray<CraftBreakdownModule>,
     mode: CraftMode = "general",
+    sourceType: "bilibili" | "novel" = "novel",
   ): Promise<CraftProfile> {
     const jsonPayload = extractFirstJSONObject(raw);
     if (!jsonPayload) {
       throw new Error("Craft analysis did not return valid JSON");
     }
 
-    const parsed = await this.parseProfileObject(jsonPayload, language, mode);
+    const parsed = await this.parseProfileObject(jsonPayload, language, mode, sourceType);
 
     const payload = unwrapCraftProfilePayload(parsed);
+    const videoStory = parseVideoStory(pickCraftTopLevelValue(payload, "videoStory"));
     const baseProfile = {
       sourceName,
       analyzedAt: new Date().toISOString(),
@@ -502,6 +640,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       ...(mode === "ghost-story"
         ? { ghostStory: this.parseSection(pickCraftTopLevelValue(payload, "ghostStory") ?? {}, CRAFT_SECTION_SPECS.ghostStory, language) as unknown as GhostStoryCraft }
         : {}),
+      ...(videoStory ? { videoStory } : {}),
       exemplars: this.parseExemplars(pickCraftTopLevelValue(payload, "exemplars")),
     } satisfies Omit<CraftProfile, "modules">;
     const modules = normalizeCraftBreakdownModules(pickCraftTopLevelValue(payload, "modules"));
@@ -558,6 +697,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     raw: string,
     language: "zh" | "en",
     mode: CraftMode = "general",
+    sourceType: "bilibili" | "novel" = "novel",
   ): Promise<Record<string, unknown>> {
     const candidates = [raw, sanitizeCraftJSON(raw)];
     let lastError: unknown = null;
@@ -582,6 +722,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
         lastError,
         attempt === 1,
         mode,
+        sourceType,
       );
       const repairedPayload = extractFirstJSONObject(repaired) ?? repaired;
 
@@ -606,6 +747,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     parseError: unknown,
     compact = false,
     mode: CraftMode = "general",
+    sourceType: "bilibili" | "novel" = "novel",
   ): Promise<string> {
     const requiredSections = mode === "ghost-story" ? "six" : "four";
     const requiredSectionsZh = mode === "ghost-story" ? "六个" : "四个";
@@ -633,6 +775,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "Preserve the original keys and string values as much as possible.",
           "Only fix JSON syntax issues such as missing commas, trailing commas, or broken escaping.",
           ...(mode === "ghost-story" ? ["Preserve the required ghostStory object and all ten of its fields."] : []),
+          ...(sourceType === "bilibili" ? ["Preserve the videoStory object when present, including beats, reversals, payoffs, and originalizationRules."] : []),
           ...(compact ? compactRules : []),
         ].join("\n")
       : [
@@ -664,9 +807,13 @@ export class CraftAnalyzerAgent extends BaseAgent {
     profile: CraftProfile,
     weakFields: ReadonlyArray<WeakCraftField>,
     mode: CraftMode,
+    sourceType: "bilibili" | "novel",
+    videoNeedsRefine = false,
   ): Promise<CraftProfile> {
-    const weakFieldList = weakFields
-      .map((field) => `- ${field.section}.${field.key}: ${field.value}`)
+    const weakFieldList = [
+      ...weakFields.map((field) => `- ${field.section}.${field.key}: ${field.value}`),
+      ...(videoNeedsRefine ? ["- videoStory: expand the timestamp-aligned beats, reversals, payoffs, and originalizationRules"] : []),
+    ]
       .join("\n");
 
     const systemPrompt = language === "en"
@@ -677,6 +824,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "Do not use placeholders such as \"Not specified\", \"Unknown\", or \"N/A\".",
           "If the pattern is implicit, infer the dominant technique from repeated evidence.",
           "Keep strong fields and valid exemplar text unless you can make them more precise without changing meaning.",
+          ...(sourceType === "bilibili" ? ["If videoStory is incomplete, expand it to 8-14 beats, 2-5 reversals, and 3-8 payoffs with normalized positions and originalizationRules."] : []),
           "Output JSON only.",
         ].join("\n")
       : [
@@ -723,7 +871,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.2, maxTokens: 8192 },
     );
 
-    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules, mode);
+    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules, mode, sourceType);
     const preserved = {
       ...refined,
       ...(refined.worldview ? {} : profile.worldview ? { worldview: profile.worldview } : {}),

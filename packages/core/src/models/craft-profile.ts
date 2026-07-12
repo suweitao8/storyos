@@ -36,6 +36,69 @@ export interface GhostStoryCraft {
   readonly endingAftertaste: string;
 }
 
+/** A normalized story beat extracted from a timestamped video transcript. */
+export type CraftBeatKind =
+  | "hook"
+  | "setup"
+  | "incitingIncident"
+  | "conflict"
+  | "foreshadowing"
+  | "payoff"
+  | "reversal"
+  | "falseVictory"
+  | "climax"
+  | "ending"
+  | "cta"
+  | "other";
+
+export interface CraftBeat {
+  readonly order: number;
+  readonly kind: CraftBeatKind;
+  /** Normalized source position between 0 and 1. */
+  readonly position: number;
+  readonly timeRange?: string;
+  readonly event: string;
+  readonly function: string;
+  readonly emotionalEffect: string;
+  /** A short evidence label or excerpt, never a long copied transcript. */
+  readonly evidence?: string;
+}
+
+export interface CraftReversal {
+  readonly order: number;
+  readonly position: number;
+  readonly trigger: string;
+  readonly apparentTruth: string;
+  readonly reveal: string;
+  readonly reinterpretedClues: string;
+  readonly emotionalEffect: string;
+  readonly setupBeatOrders: ReadonlyArray<number>;
+}
+
+export interface CraftPayoff {
+  readonly order: number;
+  readonly position: number;
+  readonly setup: string;
+  readonly release: string;
+  readonly costOrConsequence: string;
+  readonly emotionalEffect: string;
+}
+
+/** Video-only breakdown used to transfer narrative rhythm without copying expression. */
+export interface VideoStoryCraft {
+  readonly logline: string;
+  readonly audiencePromise: string;
+  readonly outline: string;
+  readonly beats: ReadonlyArray<CraftBeat>;
+  readonly reversals: ReadonlyArray<CraftReversal>;
+  readonly payoffs: ReadonlyArray<CraftPayoff>;
+  readonly pacingCurve: string;
+  readonly hookStrategy: string;
+  readonly climaxStrategy: string;
+  readonly endingAftertaste: string;
+  readonly originalizationRules: ReadonlyArray<string>;
+}
+
 /** A smaller breakdown card extracted from the reference work. */
 export interface CraftBreakdownModule {
   /** Module category, used for grouping and ordering in the UI. */
@@ -121,6 +184,8 @@ export interface CraftProfile {
   readonly narrativePerspective: CraftNarrativePerspective;
   /** Present when mode is ghost-story. */
   readonly ghostStory?: GhostStoryCraft;
+  /** Present when the source is a timestamped video transcript. */
+  readonly videoStory?: VideoStoryCraft;
 
   /** Optional fine-grained breakdown modules for richer inspection. */
   readonly modules?: ReadonlyArray<CraftBreakdownModule>;

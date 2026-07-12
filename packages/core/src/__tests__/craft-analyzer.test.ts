@@ -125,6 +125,50 @@ describe("CraftAnalyzerAgent", () => {
     expect(buildCraftGuide(profile)).toContain("超自然规则");
   });
 
+  it("extracts video rhythm beats, reversals, payoffs, and originalization constraints", async () => {
+    const response = JSON.stringify({
+      worldview: "A small town hides a rule that trades public safety for private sacrifice.",
+      storyOutline: "A newcomer tests an ordinary rule, discovers a hidden cost, and turns the rule against its keeper.",
+      structure: { openingPattern: "Immediate anomaly", chapterArc: "Escalating tests", endingHookType: "Reframed threat" },
+      sceneRhythm: { sceneTransitionTechnique: "Hard cuts after discoveries", pacingCurve: "Calm, pressure, release, second peak", conflictEscalation: "Each failed escape narrows the options" },
+      informationDisclosure: { foreshadowingDensity: "One concrete clue per beat", informationReleaseRhythm: "Question, partial answer, new question", suspenseManagement: "Delay the rule's cost until action is irreversible" },
+      narrativePerspective: { povStrategy: "Close first person", narrationDialogueRatio: "Narration leads", narrativeDistance: "Immediate sensory distance" },
+      videoStory: {
+        logline: "A newcomer enters a town where every rescue creates a debt.",
+        audiencePromise: "Fast supernatural mystery with escalating rule-based dread and a final reframe.",
+        outline: "Hook the anomaly, establish the rule, force a test, expose the hidden cost, then pay it at the climax.",
+        beats: [
+          { order: 1, kind: "hook", position: 0.04, timeRange: "00:00-00:18", event: "An impossible warning appears in an ordinary place.", function: "Create an immediate question", emotionalEffect: "Unease", evidence: "warning in an ordinary place" },
+          { order: 2, kind: "setup", position: 0.18, timeRange: "00:18-01:20", event: "The protagonist learns a rule and its apparent benefit.", function: "Make the rule usable", emotionalEffect: "Curiosity", evidence: "learns a rule" },
+          { order: 3, kind: "reversal", position: 0.54, timeRange: "03:10-03:35", event: "The rescue is revealed to transfer the danger.", function: "Reinterpret earlier clues", emotionalEffect: "Shock", evidence: "transfer the danger" },
+          { order: 4, kind: "climax", position: 0.86, timeRange: "05:05-05:40", event: "The protagonist chooses the costly loophole.", function: "Deliver the emotional release", emotionalEffect: "Dread and catharsis", evidence: "costly loophole" },
+        ],
+        reversals: [
+          { order: 1, position: 0.54, trigger: "The rescued person repeats the warning.", apparentTruth: "The rule protects victims.", reveal: "The rule moves the danger to the rescuer.", reinterpretedClues: "The repeated warning and missing time now point to a transfer.", emotionalEffect: "Shock", setupBeatOrders: [1, 2] },
+        ],
+        payoffs: [
+          { order: 1, position: 0.86, setup: "The rule's loophole was planted in the warning.", release: "The protagonist uses the loophole at a personal cost.", costOrConsequence: "The town is safe but the protagonist becomes the new warning.", emotionalEffect: "Catharsis with aftertaste" },
+        ],
+        pacingCurve: "0-20% hook and question; 20-50% pressure; 50-65% reversal; 65-90% rapid escalation; 90-100% consequence.",
+        hookStrategy: "Open on a concrete anomaly before explaining the world.",
+        climaxStrategy: "Resolve the rule through a costly choice, not exposition.",
+        endingAftertaste: "The answer closes the mystery while leaving the mechanism active.",
+        originalizationRules: ["Replace all identities, settings, and supernatural rules.", "Do not reuse the reference's three-event chain or distinctive wording."],
+      },
+      modules: [],
+      exemplars: [],
+    });
+
+    const agent = new StubCraftAnalyzerAgent([response]);
+    const profile = await agent.analyze("[0.0s-1.0s] warning\n[1.0s-2.0s] rule", "video-test", "en", undefined, "ghost-story", "bilibili");
+
+    expect(profile.videoStory?.beats).toHaveLength(4);
+    expect(profile.videoStory?.reversals[0]?.position).toBe(0.54);
+    expect(profile.videoStory?.payoffs[0]?.setup).toContain("loophole");
+    expect(buildCraftGuide(profile)).toContain("Transfer the reference video's beat functions");
+    expect(buildCraftGuide(profile)).toContain("Do not reuse the reference's three-event chain");
+  });
+
   it("sanitizes malformed JSON when exemplar objects are missing commas", async () => {
     const malformed = `{
   "structure": {
