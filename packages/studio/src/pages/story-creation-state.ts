@@ -30,7 +30,7 @@ export interface LongStoryCreationInput {
   readonly title: string;
   readonly genre: string;
   readonly direction: string;
-  readonly platform: "tomato" | "qidian" | "feilu" | "other";
+  readonly platform?: "tomato" | "qidian" | "feilu" | "other";
   readonly language: "zh" | "en";
   readonly chapterWordCount: number;
   readonly craftId?: string;
@@ -62,7 +62,7 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
       createBook: {
         title,
         genre,
-        platform: input.platform,
+        platform: input.platform ?? "other",
         language: input.language,
         targetChapters: LONG_STORY_CHAPTERS,
         chapterWordCount: input.chapterWordCount,
