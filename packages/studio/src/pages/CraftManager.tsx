@@ -239,7 +239,7 @@ export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
 }
 
 export function craftListRowClassName(isSelected: boolean, cardStatic: string): string {
-  return `border ${isSelected ? "border-primary/50 bg-primary/5" : cardStatic} rounded-lg px-4 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors cursor-pointer`;
+  return `relative min-h-40 border ${isSelected ? "border-primary/50 bg-primary/5" : cardStatic} rounded-2xl p-5 flex flex-col gap-4 hover:bg-secondary/20 transition-colors cursor-pointer`;
 }
 
 export function resolveCraftDeleteSelection(
@@ -506,7 +506,7 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <div className="flex justify-end">
         <button
           onClick={onNew}
@@ -516,12 +516,13 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
           {t("craft.newProfile")}
         </button>
       </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {crafts.map((craft) => (
         <div
           key={craft.id}
           className={craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)}
         >
-          <button onClick={() => onOpen(craft.id)} className="flex items-center gap-3 flex-1 text-left">
+          <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-8 text-left">
             <ChevronRight size={16} className="text-muted-foreground" />
             <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
             {craft.mode === "ghost-story" && (
@@ -532,12 +533,13 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); void onDelete(craft.id); }}
-            className="text-muted-foreground hover:text-destructive transition-colors"
+            className="absolute right-4 top-4 text-muted-foreground hover:text-destructive transition-colors"
           >
             <Trash2 size={14} />
           </button>
         </div>
       ))}
+      </div>
     </div>
   );
 }

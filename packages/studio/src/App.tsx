@@ -370,7 +370,7 @@ export function App() {
             </div>
           )}
           {route.page === "craft" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className="w-full px-6 py-8 md:px-8 lg:py-10 fade-in">
               <CraftManager nav={nav} theme={theme} t={t} sse={sse} />
             </div>
           )}
