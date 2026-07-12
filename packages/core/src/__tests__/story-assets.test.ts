@@ -6,6 +6,8 @@ import {
   normalizeStoryAssetName,
   type StoryAssetManifest,
 } from "../models/story-assets.js";
+import { createEmptyStoryAssetManifest as createEmptyStoryAssetManifestFromRoot } from "../index.js";
+import type { StoryAssetImage } from "../index.js";
 
 describe("story asset contract helpers", () => {
   it("normalizes story asset kinds across Chinese and English aliases", () => {
@@ -26,8 +28,12 @@ describe("story asset contract helpers", () => {
     expect(() => normalizeStoryAssetName("   ")).toThrow(/empty/i);
   });
 
-  it("creates an empty story asset manifest", () => {
-    expect(createEmptyStoryAssetManifest("story-1", "2026-07-13T00:00:00.000Z")).toEqual({
+  it("creates an empty story asset manifest from both model and root entry", () => {
+    const direct = createEmptyStoryAssetManifest("story-1", "2026-07-13T00:00:00.000Z");
+    const fromRoot = createEmptyStoryAssetManifestFromRoot("story-1", "2026-07-13T00:00:00.000Z");
+
+    expect(direct).toEqual(fromRoot);
+    expect(fromRoot).toEqual({
       version: 1,
       storyId: "story-1",
       updatedAt: "2026-07-13T00:00:00.000Z",
@@ -35,14 +41,14 @@ describe("story asset contract helpers", () => {
     });
   });
 
-  it("merges assets by normalized kind and name while keeping ready images", () => {
+  it("merges assets while preserving omitted details/source refs and ready image state", () => {
     const existing: StoryAssetManifest = {
       version: 1,
       storyId: "story-1",
       updatedAt: "2026-07-13T00:00:00.000Z",
       assets: [
         {
-          id: "character_a-ling",
+          id: "character_old",
           kind: "character",
           name: "阿玲",
           summary: "旧版摘要",
@@ -51,9 +57,58 @@ describe("story asset contract helpers", () => {
           sourceRefs: ["chapter-1"],
           image: {
             status: "ready",
-            path: "assets/images/character_a-ling.png",
+            path: "assets/images/character_old.png",
             generatedAt: "2026-07-13T00:00:00.000Z",
           },
+          createdAt: "2026-07-13T00:00:00.000Z",
+          updatedAt: "2026-07-13T00:00:00.000Z",
+        },
+      ],
+    };
+
+    const draft = {
+      kind: "人物",
+      name: "  阿玲  ",
+      summary: "更新后的摘要",
+      imagePrompt: "更新后的图提示",
+    };
+
+    const merged = mergeStoryAssets(existing, [draft], "2026-07-13T01:00:00.000Z");
+
+    expect(merged.assets).toHaveLength(1);
+    expect(merged.assets[0]).toMatchObject({
+      id: "character_old",
+      kind: "character",
+      name: "阿玲",
+      summary: "更新后的摘要",
+      details: { outfit: "蓝裙子" },
+      imagePrompt: "更新后的图提示",
+      sourceRefs: ["chapter-1"],
+      image: {
+        status: "ready",
+        path: "assets/images/character_old.png",
+        generatedAt: "2026-07-13T00:00:00.000Z",
+      },
+      createdAt: "2026-07-13T00:00:00.000Z",
+      updatedAt: "2026-07-13T01:00:00.000Z",
+    });
+  });
+
+  it("clears details and source refs when the draft explicitly provides empty values", () => {
+    const existing: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-2",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        {
+          id: "prop_old",
+          kind: "prop",
+          name: "信件",
+          summary: "旧摘要",
+          details: { owner: "A" },
+          imagePrompt: "旧提示",
+          sourceRefs: ["chapter-1"],
+          image: { status: "generating" },
           createdAt: "2026-07-13T00:00:00.000Z",
           updatedAt: "2026-07-13T00:00:00.000Z",
         },
@@ -64,61 +119,21 @@ describe("story asset contract helpers", () => {
       existing,
       [
         {
-          kind: "人物",
-          name: "  阿玲  ",
-          summary: "更新后的摘要",
-          details: { outfit: "红裙子" },
-          imagePrompt: "更新后的图提示",
-          sourceRefs: ["chapter-3"],
-        },
-        {
-          kind: "scene",
-          name: "  雨夜小巷 ",
-          summary: "新的场景",
+          kind: "道具",
+          name: "信件",
+          summary: "新摘要",
           details: {},
-          imagePrompt: "雨夜小巷，霓虹反光",
           sourceRefs: [],
+          imagePrompt: "新提示",
         },
       ],
       "2026-07-13T01:00:00.000Z",
     );
 
-    expect(merged).toEqual({
-      version: 1,
-      storyId: "story-1",
-      updatedAt: "2026-07-13T01:00:00.000Z",
-      assets: [
-        {
-          id: "character_a-ling",
-          kind: "character",
-          name: "阿玲",
-          summary: "更新后的摘要",
-          details: { outfit: "红裙子" },
-          imagePrompt: "更新后的图提示",
-          sourceRefs: ["chapter-3"],
-          image: {
-            status: "ready",
-            path: "assets/images/character_a-ling.png",
-            generatedAt: "2026-07-13T00:00:00.000Z",
-          },
-          createdAt: "2026-07-13T00:00:00.000Z",
-          updatedAt: "2026-07-13T01:00:00.000Z",
-        },
-        {
-          id: "scene_雨夜小巷",
-          kind: "scene",
-          name: "雨夜小巷",
-          summary: "新的场景",
-          details: {},
-          imagePrompt: "雨夜小巷，霓虹反光",
-          sourceRefs: [],
-          image: {
-            status: "missing",
-          },
-          createdAt: "2026-07-13T01:00:00.000Z",
-          updatedAt: "2026-07-13T01:00:00.000Z",
-        },
-      ],
+    expect(merged.assets[0]).toMatchObject({
+      details: {},
+      sourceRefs: [],
+      image: { status: "generating" },
     });
   });
 
@@ -154,9 +169,82 @@ describe("story asset contract helpers", () => {
       details: { outfit: "红裙子" },
       imagePrompt: "第二版提示",
       sourceRefs: ["chapter-2"],
-      image: {
-        status: "missing",
-      },
+      image: { status: "missing" },
     });
+  });
+
+  it("keeps distinct ids for names that only differ by path separators", () => {
+    const merged = mergeStoryAssets(
+      createEmptyStoryAssetManifest("story-ids", "2026-07-13T02:00:00.000Z"),
+      [
+        { kind: "prop", name: "a/b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] },
+        { kind: "prop", name: "a\\b", summary: "", details: {}, imagePrompt: "", sourceRefs: [] },
+      ],
+      "2026-07-13T03:00:00.000Z",
+    );
+
+    expect(merged.assets).toHaveLength(2);
+    expect(new Set(merged.assets.map((asset) => asset.id)).size).toBe(2);
+  });
+
+  it("drops malformed external JSON inputs without TypeError and keeps inputs immutable", () => {
+    const manifest = {
+      version: 1,
+      storyId: "story-safe",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        null,
+        {
+          id: "bad",
+          kind: "character",
+          name: "坏输入",
+        },
+        {
+          id: "good",
+          kind: "scene",
+          name: "大厅",
+          summary: "原始摘要",
+          details: { mood: "calm" },
+          imagePrompt: "大厅",
+          sourceRefs: ["chapter-1"],
+          image: { status: "error", error: "boom" },
+          createdAt: "2026-07-13T00:00:00.000Z",
+          updatedAt: "2026-07-13T00:00:00.000Z",
+        },
+      ],
+    } as const;
+
+    const draft = {
+      kind: "场景",
+      name: "大厅",
+      summary: "更新摘要",
+      imagePrompt: "更新提示",
+    } as const;
+
+    const manifestBefore = structuredClone(manifest);
+    const draftBefore = structuredClone(draft);
+
+    const merged = mergeStoryAssets(manifest, [null, draft], "2026-07-13T01:00:00.000Z");
+
+    expect(merged.assets).toHaveLength(1);
+    expect(merged.assets[0]).toMatchObject({
+      id: "good",
+      kind: "scene",
+      name: "大厅",
+      summary: "更新摘要",
+      details: { mood: "calm" },
+      imagePrompt: "更新提示",
+      sourceRefs: ["chapter-1"],
+      image: { status: "error", error: "boom" },
+    });
+    expect(manifest).toEqual(manifestBefore);
+    expect(draft).toEqual(draftBefore);
+  });
+
+  it("exports public helpers and types from the root entry", () => {
+    const image: StoryAssetImage = { status: "missing" };
+
+    expect(image.status).toBe("missing");
+    expect(createEmptyStoryAssetManifestFromRoot("story-root").version).toBe(1);
   });
 });
