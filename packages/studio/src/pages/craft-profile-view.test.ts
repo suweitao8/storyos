@@ -67,6 +67,15 @@ describe("craft source entrypoints", () => {
       sourceRef: "BV1YBTb6sEEr",
     }, "ghost-story").sourceRef).toBe("BV1YBTb6sEEr");
   });
+
+  it("carries the video duration for word-count estimation", () => {
+    expect(buildCraftAnalyzePayload({
+      type: "bilibili",
+      text: "字幕",
+      detectedName: "测试视频",
+      sourceDurationSeconds: 1260,
+    }, "general").sourceDurationSeconds).toBe(1260);
+  });
 });
 
 describe("craft navigation model", () => {

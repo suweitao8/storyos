@@ -2,6 +2,7 @@ import type { AgentContext } from "./base.js";
 import { BaseAgent } from "./base.js";
 import { buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./craft-prompts.js";
 import { deriveCraftBreakdownModules, normalizeCraftBreakdownModules } from "./craft-breakdown.js";
+import { estimateVideoNovelWordCount } from "../craft/video-word-count.js";
 import type {
   CraftProfile,
   CraftBreakdownModule,
@@ -678,6 +679,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
     onProgress?: (message: string) => void,
     mode: CraftMode = "general",
     sourceType: "bilibili" | "novel" = "novel",
+    sourceDurationSeconds?: number,
   ): Promise<CraftProfile> {
     onProgress?.(language === "zh" ? "分割章节…" : "Splitting chapters…");
     const chapters = splitCraftChapters(text);
@@ -736,7 +738,19 @@ export class CraftAnalyzerAgent extends BaseAgent {
         ? `已完成 ${validated.modules?.length ?? 0} 个拆文模块和 ${validated.exemplars.length} 个范例校验（有效证据 ${validEvidenceCount} 个）`
         : `Validated ${validated.modules?.length ?? 0} modules and ${validated.exemplars.length} exemplars (${validEvidenceCount} evidence excerpts)`,
     );
-    return validated;
+    if (sourceType !== "bilibili" || !validated.videoStory) return validated;
+    return {
+      ...validated,
+      videoStory: {
+        ...validated.videoStory,
+        wordCountEstimate: estimateVideoNovelWordCount(
+          text,
+          mode,
+          sourceDurationSeconds,
+          language,
+        ),
+      },
+    };
   }
 
   private async parseProfile(

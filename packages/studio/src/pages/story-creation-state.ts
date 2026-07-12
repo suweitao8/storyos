@@ -4,10 +4,22 @@ export const LONG_STORY_CHAPTERS = 10;
 export const SHORT_STORY_CHAPTERS = 1;
 export const STORY_WORD_COUNT_OPTIONS = [1_000, 2_000, 5_000, 10_000] as const;
 
+export function buildStoryWordCountOptions(recommendedWordCount?: number): number[] {
+  return Array.from(new Set([
+    ...STORY_WORD_COUNT_OPTIONS,
+    ...(recommendedWordCount && recommendedWordCount > 0 ? [recommendedWordCount] : []),
+  ])).sort((left, right) => left - right);
+}
+
+export function resolveDefaultStoryWordCount(recommendedWordCount?: number): number {
+  return recommendedWordCount && recommendedWordCount > 0 ? recommendedWordCount : 10_000;
+}
+
 export interface CraftOption {
   readonly id: string;
   readonly sourceName: string;
   readonly mode?: "general" | "ghost-story";
+  readonly recommendedWordCount?: number;
 }
 
 export function buildDefaultStoryDirection(

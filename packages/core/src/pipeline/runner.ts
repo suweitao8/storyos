@@ -679,11 +679,12 @@ export class PipelineRunner {
     mode: CraftMode = "general",
     sourceType: "bilibili" | "novel" = "novel",
     sourceRef?: string,
+    sourceDurationSeconds?: number,
   ): Promise<{ craftId: string; profile: CraftProfile }> {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
       this.config.logger?.info(`[craft] ${msg}`);
-    }, mode, sourceType);
+    }, mode, sourceType, sourceDurationSeconds);
 
     const normalizedSourceRef = normalizeCraftSourceRef(sourceType, sourceRef);
     const existingCraft = normalizedSourceRef
@@ -705,6 +706,9 @@ export class PipelineRunner {
       sourceType,
       ...(normalizedSourceRef ? { sourceRef: normalizedSourceRef } : {}),
       summary: buildCraftMetaSummary(profile),
+      ...(profile.videoStory?.wordCountEstimate?.recommended
+        ? { recommendedWordCount: profile.videoStory.wordCountEstimate.recommended }
+        : {}),
     };
 
     await writeFile(join(craftsDir, "craft_profile.json"), JSON.stringify(profile, null, 2), "utf-8");
@@ -724,10 +728,15 @@ export class PipelineRunner {
         try {
           const raw = await readFile(join(craftsRoot, entry.name, "meta.json"), "utf-8");
           const meta = JSON.parse(raw) as CraftMeta;
-          if (!meta.summary) {
+          if (!meta.summary || meta.recommendedWordCount === undefined) {
             const profile = await this.loadCraft(entry.name);
             const summary = profile ? buildCraftMetaSummary(profile) : "";
-            metas.push(summary ? { ...meta, summary } : meta);
+            const recommendedWordCount = profile?.videoStory?.wordCountEstimate?.recommended;
+            metas.push({
+              ...meta,
+              ...(summary ? { summary } : {}),
+              ...(recommendedWordCount ? { recommendedWordCount } : {}),
+            });
           } else {
             metas.push(meta);
           }

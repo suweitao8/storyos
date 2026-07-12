@@ -5,7 +5,8 @@ import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
 import {
   buildDefaultStoryDirection,
-  STORY_WORD_COUNT_OPTIONS,
+  buildStoryWordCountOptions,
+  resolveDefaultStoryWordCount,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
 } from "./story-creation-state";
@@ -62,6 +63,12 @@ export function StoryCreationPanel({
       setShortDirection((current) => current.trim() ? current : defaultDirection);
     }
   }, [isZh, kind, selectedCraft]);
+
+  useEffect(() => {
+    setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
+  }, [selectedCraftId, selectedCraft?.recommendedWordCount]);
+
+  const wordCountOptions = buildStoryWordCountOptions(selectedCraft?.recommendedWordCount);
   const canCreate = Boolean(
     activeSessionId
       && (kind === "long"
@@ -161,8 +168,15 @@ export function StoryCreationPanel({
             <label className="space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-                {STORY_WORD_COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}</option>)}
+                {wordCountOptions.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
               </select>
+              {selectedCraft?.recommendedWordCount ? (
+                <p className="text-xs leading-5 text-primary">
+                  {isZh
+                    ? `已按当前模式默认：约 ${selectedCraft.recommendedWordCount.toLocaleString()} 字`
+                    : `Defaulted from this mode: about ${selectedCraft.recommendedWordCount.toLocaleString()} words`}
+                </p>
+              ) : null}
             </label>
           </div>
         </div>
@@ -177,8 +191,15 @@ export function StoryCreationPanel({
             <label className="space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-                {STORY_WORD_COUNT_OPTIONS.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}</option>)}
+                {wordCountOptions.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
               </select>
+              {selectedCraft?.recommendedWordCount ? (
+                <p className="text-xs leading-5 text-primary">
+                  {isZh
+                    ? `已按当前模式默认：约 ${selectedCraft.recommendedWordCount.toLocaleString()} 字`
+                    : `Defaulted from this mode: about ${selectedCraft.recommendedWordCount.toLocaleString()} words`}
+                </p>
+              ) : null}
             </label>
           </div>
         </div>

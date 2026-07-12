@@ -6,7 +6,8 @@ export { type CurrentState, type ParticleLedger, type PendingHooks, type Pending
 export { type GenreProfile, type ParsedGenreProfile, GenreProfileSchema, parseGenreProfile } from "./models/genre-profile.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
-export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta } from "./models/craft-profile.js";
+export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";
+export { estimateVideoNovelWordCount } from "./craft/video-word-count.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {
   type RuntimeStateLanguage,

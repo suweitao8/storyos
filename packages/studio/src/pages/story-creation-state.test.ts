@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDefaultStoryDirection,
+  buildStoryWordCountOptions,
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
   LONG_STORY_CHAPTERS,
   SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
+  resolveDefaultStoryWordCount,
 } from "./story-creation-state";
 
 describe("story creation actions", () => {
@@ -19,6 +21,12 @@ describe("story creation actions", () => {
 
   it("exposes the supported per-chapter word-count settings", () => {
     expect(STORY_WORD_COUNT_OPTIONS).toEqual([1_000, 2_000, 5_000, 10_000]);
+  });
+
+  it("adds the selected craft recommendation without removing fixed choices", () => {
+    expect(buildStoryWordCountOptions(42_900)).toEqual([1_000, 2_000, 5_000, 10_000, 42_900]);
+    expect(resolveDefaultStoryWordCount(42_900)).toBe(42_900);
+    expect(resolveDefaultStoryWordCount()).toBe(10_000);
   });
 
   it("binds the selected craft to long-form book creation", () => {
