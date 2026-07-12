@@ -10,7 +10,21 @@ import {
   shouldApplyCraftDeleteFallback,
   CRAFT_SOURCE_TYPES,
   buildCraftAnalyzePayload,
+  CRAFT_LIST_GRID_CLASS,
+  craftCardDescription,
 } from "./CraftManager";
+
+describe("craft card list presentation", () => {
+  it("uses a two-column grid without the previous three-column expansion", () => {
+    expect(CRAFT_LIST_GRID_CLASS).toContain("sm:grid-cols-2");
+    expect(CRAFT_LIST_GRID_CLASS).not.toContain("xl:grid-cols-3");
+  });
+
+  it("provides a concise description for each craft mode", () => {
+    expect(craftCardDescription({ mode: "ghost-story" })).toContain("恐惧核心");
+    expect(craftCardDescription({ mode: "general" })).toContain("场景节奏");
+  });
+});
 
 describe("craft source entrypoints", () => {
   it("exposes the two automatic creation sources in a stable order", () => {

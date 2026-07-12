@@ -14,8 +14,8 @@ import {
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import {
-  Wand2, BookOpen, Trash2, ChevronRight,
-  Plus, FileUp, Loader2, ArrowLeft, FileText,
+  Wand2, BookOpen, Trash2,
+  Plus, FileUp, Loader2, FileText,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -28,6 +28,14 @@ interface CraftMeta {
   readonly createdAt: string;
   readonly language: "zh" | "en";
   readonly mode?: "general" | "ghost-story";
+}
+
+export const CRAFT_LIST_GRID_CLASS = "grid gap-4 sm:grid-cols-2";
+
+export function craftCardDescription(craft: Pick<CraftMeta, "mode">): string {
+  return craft.mode === "ghost-story"
+    ? "提取恐惧核心、超自然规则、线索系统与惊吓节奏"
+    : "提取开篇结构、场景节奏、信息释放与叙事视角";
 }
 
 interface CraftListResponse {
@@ -485,7 +493,6 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
           initialProfile={newProfile}
           c={c}
           t={t}
-          onBack={openList}
           onNew={openCreate}
         />
       )}
@@ -508,47 +515,48 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
 }) {
   if (crafts.length === 0) {
     return (
-      <div className="space-y-4">
-        <div className="border border-dashed border-border/40 rounded-xl p-12 text-center">
-          <Wand2 size={32} className="mx-auto text-muted-foreground/40 mb-3" />
-          <p className="text-sm text-muted-foreground mb-4">{t("craft.noProfiles")}</p>
-          <button
-            onClick={onNew}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg ${c.btnPrimary}`}
-          >
-            <Plus size={14} />
-            {t("craft.newProfile")}
-          </button>
+      <div className={CRAFT_LIST_GRID_CLASS}>
+        <button
+          onClick={onNew}
+          className="relative min-h-40 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.03] p-5 text-left transition-colors hover:bg-primary/[0.08]"
+        >
+          <Plus size={18} className="mb-4 text-primary" />
+          <div className="text-sm font-semibold">{t("craft.newProfile")}</div>
+          <div className="mt-2 text-xs leading-5 text-muted-foreground">
+            上传小说文件或输入 B 站视频链接，自动创建写作模式
+          </div>
+        </button>
+        <div className="min-h-40 rounded-2xl border border-dashed border-border/40 p-5 text-center">
+          <Wand2 size={28} className="mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t("craft.noProfiles")}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex justify-end">
-        <button
-          onClick={onNew}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg ${c.btnPrimary}`}
-        >
-          <Plus size={14} />
-          {t("craft.newProfile")}
-        </button>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className={CRAFT_LIST_GRID_CLASS}>
+      <button
+        onClick={onNew}
+        className="relative min-h-40 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.03] p-5 text-left transition-colors hover:bg-primary/[0.08]"
+      >
+        <Plus size={18} className="mb-4 text-primary" />
+        <div className="text-sm font-semibold">{t("craft.newProfile")}</div>
+        <div className="mt-2 text-xs leading-5 text-muted-foreground">
+          上传小说文件或输入 B 站视频链接，自动创建写作模式
+        </div>
+      </button>
       {crafts.map((craft) => (
         <div
           key={craft.id}
           className={craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)}
         >
-          <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-8 text-left">
-            <ChevronRight size={16} className="text-muted-foreground" />
+          <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-6 text-left">
             <span className="font-medium text-sm">{normalizeCraftDisplayName(craft.sourceName)}</span>
             {craft.mode === "ghost-story" && (
               <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">鬼故事</span>
             )}
-            <span className="text-xs text-muted-foreground">{craft.language}</span>
-            <span className="text-xs text-muted-foreground">{new Date(craft.createdAt).toLocaleDateString()}</span>
+            <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); void onDelete(craft.id); }}
@@ -558,7 +566,6 @@ function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
           </button>
         </div>
       ))}
-      </div>
     </div>
   );
 }
@@ -949,12 +956,11 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 // Tab 3: Detail
 // ---------------------------------------------------------------------------
 
-function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
+function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
   c: ReturnType<typeof useColors>;
   t: TFunction;
-  onBack: () => void;
   onNew: () => void;
 }) {
   const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
@@ -1005,12 +1011,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
           >
             重试
           </button>
-          <button
-            onClick={onBack}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("craft.backToList")}
-          </button>
         </div>
       </div>
     );
@@ -1020,13 +1020,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
     return (
       <div className="space-y-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">{t("craft.noProfiles")}</p>
-        <div className="flex justify-center gap-3">
-          <button
-            onClick={onBack}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("craft.backToList")}
-          </button>
+        <div className="flex justify-center">
           <button
             onClick={onNew}
             className={`rounded-lg px-3 py-1.5 text-sm ${c.btnPrimary}`}
@@ -1042,14 +1036,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onBack, onNew }: {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-sm">
-          <ArrowLeft size={16} />
-          {t("craft.backToList")}
-        </button>
-      </div>
-
       <div className="space-y-2">
         <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
