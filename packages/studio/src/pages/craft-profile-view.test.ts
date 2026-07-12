@@ -26,6 +26,8 @@ describe("craft list selection", () => {
 
   it("highlights only the selected craft row", () => {
     expect(craftListRowClassName(true, "border-border")).toContain("bg-primary/5");
+    expect(craftListRowClassName(true, "border-border")).toContain("rounded-2xl");
+    expect(craftListRowClassName(true, "border-border")).toContain("flex-col");
     expect(craftListRowClassName(false, "border-border")).toContain("border-border");
     expect(craftListRowClassName(false, "border-border")).not.toContain("bg-primary/5");
   });

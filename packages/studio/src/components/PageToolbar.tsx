@@ -96,16 +96,22 @@ export function PageToolbar({
         className,
       )}
     >
-      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-2">
+      <div className="relative flex w-full min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-2">
       {(leading || title != null) && (
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className={cn(
+          "flex min-w-0 items-center gap-3",
+          tabs.length > 0 ? "absolute left-0 max-md:static" : "flex-1",
+        )}>
           {leading}
           {title != null && <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">{title}</h1>}
         </div>
       )}
 
       {tabs.length > 0 && (
-        <nav aria-label="页面导航" className="flex min-w-0 flex-1 justify-center">
+        <nav aria-label="页面导航" className={cn(
+          "flex min-w-0 justify-center",
+          tabs.length > 0 ? "w-full max-md:w-auto max-md:flex-1" : "flex-1",
+        )}>
           <div data-testid="page-toolbar-tabs" className="min-w-0 max-w-full overflow-x-auto">
             <div className="flex min-w-max items-center justify-center gap-1">
               {tabs.map((tab) => {
@@ -141,7 +147,14 @@ export function PageToolbar({
         </nav>
       )}
 
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className={cn(
+          "flex shrink-0 items-center gap-2",
+          tabs.length > 0 ? "absolute right-0 max-md:static" : "",
+        )}>
+          {actions}
+        </div>
+      )}
       </div>
     </header>
   );
