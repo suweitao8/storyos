@@ -80,7 +80,7 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
 } {
   const direction = input.direction.trim();
   return {
-    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式进行原创仿写。" : "。"}`,
+    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式提取的世界观、故事大纲和写作手法进行原创仿写，重新设计人物、地点、因果链与结局，不复制原作。" : "。"}`,
     requestedIntent: "short_run",
     actionPayload: {
       shortRun: {

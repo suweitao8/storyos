@@ -62,6 +62,8 @@ describe("craft detail model", () => {
       sourceName: "测试小说",
       analyzedAt: new Date().toISOString(),
       language: "zh",
+      worldview: "封闭社区以记忆交换通行资格。",
+      storyOutline: "外来者在危机中进入社区，触犯规则后必须付出代价并重新定义规则。",
       structure: {
         openingPattern: "先抛异常事件，再补背景。",
         chapterArc: "单章从异状到加码。",
@@ -87,6 +89,8 @@ describe("craft detail model", () => {
 
     expect(detail.moduleCount).toBeGreaterThanOrEqual(8);
     expect(detail.legacySections).toHaveLength(4);
+    expect(detail.worldview).toContain("封闭社区");
+    expect(detail.storyOutline).toContain("外来者");
     expect(detail.modules[0]?.label).toBe("开篇钩子");
     expect(detail.modules.some((item) => item.label.includes("悬念"))).toBe(true);
   });

@@ -110,6 +110,11 @@ export interface CraftProfile {
   /** General writing craft or a horror-specific imitation profile. */
   readonly mode?: CraftMode;
 
+  /** Reusable world rules and setting logic extracted from the reference. */
+  readonly worldview?: string;
+  /** Generalized story skeleton extracted from the reference. */
+  readonly storyOutline?: string;
+
   readonly structure: CraftStructure;
   readonly sceneRhythm: CraftSceneRhythm;
   readonly informationDisclosure: CraftInformationDisclosure;

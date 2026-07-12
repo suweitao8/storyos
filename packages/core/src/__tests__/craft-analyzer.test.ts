@@ -74,6 +74,8 @@ describe("CraftAnalyzerAgent", () => {
     const prompt = buildCraftAnalysisSystemPrompt("zh");
 
     expect(prompt).toContain("modules");
+    expect(prompt).toContain("worldview");
+    expect(prompt).toContain("storyOutline");
     expect(prompt).toContain("6-10");
     expect(prompt).toContain("推进章节");
     expect(prompt).toContain("悬念管理");
@@ -86,6 +88,8 @@ describe("CraftAnalyzerAgent", () => {
     expect(prompt).toContain("禁止把原文的独特句子");
 
     const response = JSON.stringify({
+      worldview: "A closed community trades memories for access to forbidden places.",
+      storyOutline: "An outsider enters during a crisis, learns the rule, breaks it to save someone, and pays a public cost before the rule is redefined.",
       structure: { openingPattern: "异常先行", chapterArc: "线索递进", endingHookType: "新禁忌" },
       sceneRhythm: { sceneTransitionTechnique: "感官硬切", pacingCurve: "缓慢压迫后骤然收紧", conflictEscalation: "从异常到规则失效" },
       informationDisclosure: { foreshadowingDensity: "每章一个核心线索", informationReleaseRhythm: "逐层揭示", suspenseManagement: "回答旧疑问并制造新疑问" },
@@ -110,6 +114,11 @@ describe("CraftAnalyzerAgent", () => {
     const profile = await agent.analyze("第1章 开始\n异常出现", "鬼故事测试", "zh", undefined, "ghost-story");
 
     expect(profile.mode).toBe("ghost-story");
+    expect(profile.worldview).toContain("closed community");
+    expect(profile.storyOutline).toContain("outsider enters");
+    const guide = buildCraftGuide(profile);
+    expect(guide).toContain("closed community");
+    expect(guide).toContain("outsider enters");
     expect(profile.ghostStory?.fearCore).toContain("本人");
     expect(profile.ghostStory?.escalationLadder).toContain("身份反转");
     expect(buildCraftGuide(profile)).toContain("鬼故事仿写约束");
