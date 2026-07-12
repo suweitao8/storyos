@@ -5,7 +5,11 @@ import { formatCraftBreakdownModules } from "./craft-breakdown.js";
 // Craft analysis prompts
 // ---------------------------------------------------------------------------
 
-export function buildCraftAnalysisSystemPrompt(language: "zh" | "en", mode: CraftMode = "general"): string {
+export function buildCraftAnalysisSystemPrompt(
+  language: "zh" | "en",
+  mode: CraftMode = "general",
+  sourceType: "bilibili" | "novel" = "novel",
+): string {
   const ghostStoryInstructions = mode === "ghost-story"
     ? language === "en"
       ? [
@@ -36,14 +40,38 @@ export function buildCraftAnalysisSystemPrompt(language: "zh" | "en", mode: Craf
         "storyOutline \u63d0\u53d6\u4ece\u5f00\u7bc7\u60c5\u5883\u5230\u538b\u529b\u3001\u51b2\u7a81\u3001\u5347\u7ea7\u3001\u8f6c\u6298\u3001\u9ad8\u6f6e\u548c\u56de\u62a5\u7684\u6982\u62ec\u6545\u4e8b\u9aa8\u67b6\uff0c\u4e0d\u5f97\u590d\u5236\u539f\u4f5c\u7684\u60c5\u8282\u3001\u4eba\u7269\u3001\u63aa\u8f9e\u6216\u4e8b\u4ef6\u987a\u5e8f\u3002",
       ];
 
+  const videoInstructions = sourceType === "bilibili"
+    ? language === "en"
+      ? [
+          "This is a timestamped video transcript. Add a required top-level `videoStory` object.",
+          "Extract 8-14 ordered beats with normalized positions from 0 to 1 and source time ranges when available. Cover hook, setup, inciting incident, pressure, foreshadowing, reversal, false victory, climax, and ending when supported.",
+          "Extract 2-5 reversals and connect at least two setup beat orders to every reveal. Extract 3-8 payoffs with setup, release, cost or consequence, and emotional effect.",
+          "Preserve rhythm and emotional spacing with relative positions, not the reference's events or wording.",
+          "Evidence must be short labels or transcript snippets under 100 characters. Never copy dialogue, distinctive sentences, names, or a contiguous plot sequence.",
+          "Add originalizationRules requiring new identities, setting, causal chain, supernatural mechanism, scene details, and ending. Transfer beat functions and positions only.",
+        ]
+      : [
+          "这是带时间轴的视频字幕，必须新增顶层 videoStory 对象。",
+          "提取 8-14 个按时间排序的剧情节拍，position 必须是 0-1 的相对位置，并在字幕有时间时填写 timeRange；尽量覆盖开场钩子、设定、诱发事件、压力、伏笔、反转、假胜利、高潮和结尾。",
+          "提取 2-5 个反转；每个反转至少关联两个铺垫节拍，并写清表面认知、新真相、重释线索和情绪效果；另提取 3-8 个爽点或情绪释放点。",
+          "用百分比或时间位置保留原视频的节奏与情绪间距，但绝不保留原事件、人物、对白或表达。",
+          "evidence 只能是 100 字以内的短标签或字幕证据，禁止复制对白、独特句子、专有名词和连续事件链。",
+          "originalizationRules 必须要求重新设计人物、场景、因果链、超自然机制、场面细节和结尾；生成时只能迁移节拍功能与相对位置。",
+        ]
+    : [];
+
   if (language === "en") {
     return [
       "You are a writing-craft analyst. Given excerpts from a novel, extract the author's storytelling techniques, not just surface prose style.",
       "Focus on how the author structures chapters, opens scenes, escalates conflict, releases information, manages suspense, and controls narrative perspective.",
       "Also extract two generation-ready top-level fields: `worldview` and `storyOutline`.",
       mode === "ghost-story"
-        ? "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, ghostStory, modules, and exemplars."
-        : "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, modules, and exemplars.",
+        ? sourceType === "bilibili"
+          ? "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, ghostStory, videoStory, modules, and exemplars."
+          : "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, ghostStory, modules, and exemplars."
+        : sourceType === "bilibili"
+          ? "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, videoStory, modules, and exemplars."
+          : "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, modules, and exemplars.",
       "Use these exact English top-level keys; do not translate the section names or wrap the object in another profile key.",
       "`worldview` must describe reusable world rules, setting logic, social or supernatural mechanisms, and atmosphere. Remove names, places, and other proper nouns from the reference.",
       "`storyOutline` must describe a generalized story skeleton: opening situation, protagonist pressure, core conflict, escalation, turning points, climax, and ending payoff. Do not copy the reference's characters, exact plot, event order, or wording.",
@@ -61,6 +89,7 @@ export function buildCraftAnalysisSystemPrompt(language: "zh" | "en", mode: Craf
       "Output ONLY the JSON object, with no markdown fences and no commentary.",
       ...worldviewStoryInstructions,
       ...ghostStoryInstructions,
+      ...videoInstructions,
     ].join("\n");
   }
 
@@ -86,6 +115,7 @@ export function buildCraftAnalysisSystemPrompt(language: "zh" | "en", mode: Craf
     "只输出 JSON 对象，不要 markdown 代码块，不要解释。",
     ...worldviewStoryInstructions,
     ...ghostStoryInstructions,
+    ...videoInstructions,
   ].join("\n");
 }
 
@@ -93,6 +123,7 @@ export function buildCraftAnalysisUserPrompt(
   sample: string,
   language: "zh" | "en",
   mode: CraftMode = "general",
+  sourceType: "bilibili" | "novel" = "novel",
 ): string {
   if (language === "en") {
     return [
@@ -104,6 +135,7 @@ export function buildCraftAnalysisUserPrompt(
       "Analyze the writing craft in the excerpts above and output the craft profile JSON.",
       "The profile must include a reusable worldview and a generalized storyOutline for creating an original story.",
       ...(mode === "ghost-story" ? ["The profile must include the required ghostStory object and make every field operational for generating an original ghost story."] : []),
+      ...(sourceType === "bilibili" ? ["The profile must include videoStory with timestamp-aligned beats, reversals, payoffs, pacing, and explicit originalization rules."] : []),
     ].join("\n");
   }
 
@@ -180,6 +212,30 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
       `- 感官母题: ${h.sensoryMotifs}`,
       `- 结尾余韵: ${h.endingAftertaste}`,
       "生成时必须重新设计人物、地点、因果链和具体事件，只借鉴上述机制。",
+    );
+  }
+  if (craftProfile.videoStory) {
+    const v = craftProfile.videoStory;
+    lines.push(
+      "",
+      "## Video rhythm transfer guide",
+      "Transfer the reference video's beat functions, relative positions, escalation spacing, reversals, and payoff timing only. Do not reuse its expression, identities, setting, causal chain, or contiguous event sequence.",
+      `- Logline: ${v.logline}`,
+      `- Audience promise: ${v.audiencePromise}`,
+      `- Outline: ${v.outline}`,
+      `- Pacing curve: ${v.pacingCurve}`,
+      `- Hook strategy: ${v.hookStrategy}`,
+      `- Climax strategy: ${v.climaxStrategy}`,
+      `- Ending aftertaste: ${v.endingAftertaste}`,
+      "### Beat timeline",
+      ...v.beats.map((beat) => `- ${Math.round(beat.position * 100)}%${beat.timeRange ? ` (${beat.timeRange})` : ""} [${beat.kind}] ${beat.event} | function: ${beat.function} | emotion: ${beat.emotionalEffect}`),
+      "### Reversals",
+      ...v.reversals.map((reversal) => `- ${Math.round(reversal.position * 100)}%: apparent truth ${reversal.apparentTruth}; reveal ${reversal.reveal}; reinterpret clues ${reversal.reinterpretedClues}; setup beats ${reversal.setupBeatOrders.join(", ")}`),
+      "### Payoffs",
+      ...v.payoffs.map((payoff) => `- ${Math.round(payoff.position * 100)}%: setup ${payoff.setup}; release ${payoff.release}; cost/consequence ${payoff.costOrConsequence}; emotion ${payoff.emotionalEffect}`),
+      "### Originalization rules",
+      ...v.originalizationRules.map((rule) => `- ${rule}`),
+      "Before drafting, create new characters, setting, causal chain, supernatural mechanism, scene details, and ending. Preserve only the pacing map and narrative function.",
     );
   }
   return lines.join("\n");

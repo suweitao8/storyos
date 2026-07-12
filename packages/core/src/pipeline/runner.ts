@@ -682,7 +682,7 @@ export class PipelineRunner {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
       this.config.logger?.info(`[craft] ${msg}`);
-    }, mode);
+    }, mode, sourceType);
 
     const craftId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);

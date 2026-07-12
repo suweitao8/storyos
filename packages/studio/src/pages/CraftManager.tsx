@@ -13,6 +13,7 @@ import {
   resolveInitialCraftState,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
+import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import {
   Wand2, BookOpen, Trash2,
   Plus, FileUp, Loader2, FileText,
@@ -194,6 +195,7 @@ interface CraftProfile {
     readonly sensoryMotifs: string;
     readonly endingAftertaste: string;
   };
+  readonly videoStory?: VideoStoryCraft;
   readonly modules?: ReadonlyArray<CraftModule>;
   readonly exemplars: ReadonlyArray<CraftExemplar>;
 }
@@ -229,6 +231,7 @@ interface CraftDetailModel {
   readonly legacySections: ReadonlyArray<CraftLegacySection>;
   readonly worldview?: string;
   readonly storyOutline?: string;
+  readonly videoStory?: VideoStoryCraft;
 }
 
 export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
@@ -240,6 +243,7 @@ export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
     modules,
     worldview: profile.worldview,
     storyOutline: profile.storyOutline,
+    videoStory: profile.videoStory,
     legacySections: [
       {
         title: "结构手法",
@@ -1079,6 +1083,88 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
             <div className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">故事大纲</h3>
               <p className="text-sm leading-6 whitespace-pre-wrap">{detail.storyOutline}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {detail.videoStory && (
+        <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {[
+                ["一句话梗概", detail.videoStory.logline],
+                ["观众承诺", detail.videoStory.audiencePromise],
+                ["节奏曲线", detail.videoStory.pacingCurve],
+                ["开场钩子", detail.videoStory.hookStrategy],
+                ["高潮策略", detail.videoStory.climaxStrategy],
+                ["结尾余韵", detail.videoStory.endingAftertaste],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                  <div className="text-xs font-medium text-muted-foreground">{label}</div>
+                  <div className="mt-1 text-sm leading-6">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 rounded-xl border border-border/60 bg-background/40 p-3">
+              <div className="text-xs font-medium text-muted-foreground">视频大纲</div>
+              <div className="mt-1 whitespace-pre-wrap text-sm leading-6">{detail.videoStory.outline}</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">节拍时间线</div>
+            <div className="space-y-2">
+              {detail.videoStory.beats.map((beat) => (
+                <div key={`${beat.order}-${beat.position}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{Math.round(beat.position * 100)}%</span>
+                    {beat.timeRange && <span className="text-muted-foreground">{beat.timeRange}</span>}
+                    <span className="rounded-full bg-secondary/30 px-2 py-0.5 text-muted-foreground">{beat.kind}</span>
+                  </div>
+                  <div className="mt-2 text-sm font-medium">{beat.event}</div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">功能：{beat.function} · 情绪：{beat.emotionalEffect}</div>
+                  {beat.evidence && <div className="mt-1 text-xs text-muted-foreground">证据：{beat.evidence}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+              <div className="mb-2 text-xs font-medium text-muted-foreground">反转节点</div>
+              <div className="space-y-2">
+                {detail.videoStory.reversals.map((reversal) => (
+                  <div key={`${reversal.order}-${reversal.position}`} className="text-sm leading-6">
+                    <div className="font-medium">{Math.round(reversal.position * 100)}% · {reversal.reveal}</div>
+                    <div className="text-xs text-muted-foreground">表面认知：{reversal.apparentTruth}</div>
+                    <div className="text-xs text-muted-foreground">触发：{reversal.trigger} · 重释线索：{reversal.reinterpretedClues}</div>
+                    <div className="text-xs text-muted-foreground">铺垫节拍：{reversal.setupBeatOrders.join("、") || "未记录"} · 情绪：{reversal.emotionalEffect}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+              <div className="mb-2 text-xs font-medium text-muted-foreground">爽点与情绪释放</div>
+              <div className="space-y-2">
+                {detail.videoStory.payoffs.map((payoff) => (
+                  <div key={`${payoff.order}-${payoff.position}`} className="text-sm leading-6">
+                    <div className="font-medium">{Math.round(payoff.position * 100)}% · {payoff.release}</div>
+                    <div className="text-xs text-muted-foreground">铺垫：{payoff.setup}</div>
+                    <div className="text-xs text-muted-foreground">代价/后果：{payoff.costOrConsequence} · 情绪：{payoff.emotionalEffect}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {detail.videoStory.originalizationRules.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-3">
+              <div className="mb-2 text-xs font-medium text-amber-700 dark:text-amber-300">原创化约束</div>
+              <ul className="space-y-1 text-sm leading-6">
+                {detail.videoStory.originalizationRules.map((rule) => <li key={rule}>· {rule}</li>)}
+              </ul>
             </div>
           )}
         </section>
