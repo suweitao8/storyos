@@ -8,7 +8,30 @@ import {
   resolveCraftDeleteSelection,
   advanceCraftNavigationToken,
   shouldApplyCraftDeleteFallback,
+  CRAFT_SOURCE_TYPES,
+  buildCraftAnalyzePayload,
 } from "./CraftManager";
+
+describe("craft source entrypoints", () => {
+  it("exposes the two automatic creation sources in a stable order", () => {
+    expect(CRAFT_SOURCE_TYPES).toEqual([
+      { value: "bilibili", label: "B 站视频链接" },
+      { value: "novel", label: "小说文本文件" },
+    ]);
+  });
+
+  it.each([
+    ["bilibili", "字幕内容", "鬼故事视频"],
+    ["novel", "小说正文", "示例小说"],
+  ] as const)("builds the shared analyze payload for %s", (type, text, detectedName) => {
+    expect(buildCraftAnalyzePayload({ type, text, detectedName }, "ghost-story")).toEqual({
+      text,
+      sourceName: detectedName,
+      language: "zh",
+      mode: "ghost-story",
+    });
+  });
+});
 
 describe("craft navigation model", () => {
   it("keeps all three craft tabs permanently available", () => {

@@ -54,6 +54,25 @@ interface BilibiliImportResponse {
   }>;
 }
 
+export type CraftSourceType = "bilibili" | "novel";
+
+export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: string }> = [
+  { value: "bilibili", label: "B 站视频链接" },
+  { value: "novel", label: "小说文本文件" },
+];
+
+export function buildCraftAnalyzePayload(
+  source: { type: CraftSourceType; text: string; detectedName: string },
+  mode: "general" | "ghost-story",
+) {
+  return {
+    text: source.text,
+    sourceName: normalizeCraftDisplayName(source.detectedName),
+    language: "zh" as const,
+    mode,
+  };
+}
+
 interface CraftExemplar {
   readonly label: string;
   readonly tone: string;
@@ -571,7 +590,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [bilibiliResult, setBilibiliResult] = useState<BilibiliImportResponse | null>(null);
   const [importingBilibili, setImportingBilibili] = useState(false);
   const [bilibiliError, setBilibiliError] = useState("");
-  const [sourceName, setSourceName] = useState("");
+  const [sourceType, setSourceType] = useState<CraftSourceType>("novel");
   const [craftMode, setCraftMode] = useState<"general" | "ghost-story">("general");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
@@ -623,6 +642,42 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 
   useNewSSEMessages(sse.messages, handleProgressEvent);
 
+  const runExtraction = useCallback(async (source: {
+    type: CraftSourceType;
+    text: string;
+    detectedName: string;
+  }) => {
+    const sourceName = normalizeCraftDisplayName(source.detectedName);
+    activeSourceNameRef.current = sourceName;
+    setExtracting(true);
+    setExtractError("");
+    setCurrentStep(t("craft.progressWaiting"));
+    setProgressLogs((prev) => [...prev, t("craft.progressWaiting")].slice(-12));
+    try {
+      const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
+        ...buildCraftAnalyzePayload(source, craftMode),
+      });
+      onSuccess(result.profile, result.craftId);
+    } catch (e) {
+      setExtractError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExtracting(false);
+    }
+  }, [craftMode, onSuccess, t]);
+
+  const handleSourceTypeChange = (nextSourceType: CraftSourceType) => {
+    if (busy) return;
+    setSourceType(nextSourceType);
+    setUploadError("");
+    setUploadResult(null);
+    setBilibiliError("");
+    setBilibiliResult(null);
+    setExtractError("");
+    setCurrentStep("");
+    setProgressLogs([]);
+    activeSourceNameRef.current = null;
+  };
+
   const handleFile = async (file: File) => {
     setUploading(true);
     setUploadError("");
@@ -649,11 +704,12 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       }
       const data: UploadResponse = await response.json();
       setUploadResult(data);
-      setSourceName(normalizeCraftDisplayName(data.detectedName));
+      await runExtraction({ type: "novel", text: data.text, detectedName: data.detectedName });
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleBilibiliImport = async () => {
@@ -675,9 +731,9 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       const data = await response.json() as BilibiliImportResponse & { error?: string };
       if (!response.ok) throw new Error(data.error ?? `字幕获取失败（${response.status}）`);
       setBilibiliResult(data);
-      setSourceName(normalizeCraftDisplayName(data.detectedName));
       setCurrentStep(`字幕获取完成，共 ${data.subtitleCount} 条`);
       setProgressLogs((prev) => [...prev, `字幕获取完成，共 ${data.subtitleCount} 条`]);
+      await runExtraction({ type: "bilibili", text: data.text, detectedName: data.detectedName });
     } catch (e) {
       setBilibiliError(e instanceof Error ? e.message : String(e));
       setCurrentStep("B 站字幕获取失败");
@@ -687,32 +743,10 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     }
   };
 
-  const handleExtract = async () => {
-    if ((!uploadResult && !bilibiliResult) || !sourceName.trim()) return;
-    const nextSourceName = sourceName.trim();
-    activeSourceNameRef.current = nextSourceName;
-    setExtracting(true);
-    setExtractError("");
-    setCurrentStep(t("craft.progressWaiting"));
-    setProgressLogs([]);
-    try {
-      const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
-        text: bilibiliResult?.text ?? uploadResult?.text ?? "",
-        sourceName: nextSourceName,
-        language: "zh",
-        mode: craftMode,
-      });
-      onSuccess(result.profile, result.craftId);
-    } catch (e) {
-      setExtractError(e instanceof Error ? e.message : String(e));
-    }
-    setExtracting(false);
-  };
-
   const busy = uploading || importingBilibili || extracting;
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-2">
         <label htmlFor="craft-mode" className="text-sm font-medium">模式类型</label>
         <select
@@ -730,6 +764,32 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         </p>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="模式来源">
+        {CRAFT_SOURCE_TYPES.map((source) => {
+          const selected = sourceType === source.value;
+          return (
+            <button
+              key={source.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => handleSourceTypeChange(source.value)}
+              disabled={busy}
+              className={`rounded-2xl border p-4 text-left transition-colors ${selected
+                ? "border-primary/60 bg-primary/5"
+                : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
+            >
+              <div className="text-sm font-semibold">{source.label}</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                {source.value === "bilibili"
+                  ? "提取视频字幕并自动生成写作模式"
+                  : "上传小说文本并自动解析写作模式"}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {sourceType === "bilibili" && (
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
         <div>
           <div className="text-sm font-medium">B 站视频字幕</div>
@@ -775,7 +835,10 @@ function CraftCreate({ c, t, sse, onSuccess }: {
           </div>
         )}
       </div>
+      )}
 
+      {sourceType === "novel" && (
+        <>
       {/* File upload zone */}
       <input
         ref={fileInputRef}
@@ -806,7 +869,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         ) : uploadResult ? (
           <div className="flex flex-col items-center gap-1 text-sm">
             <FileText size={28} className="text-emerald-500 mb-1" />
-            <span className="font-medium">{normalizeCraftDisplayName(sourceName || uploadResult?.detectedName || bilibiliResult?.detectedName || "")}</span>
+            <span className="font-medium">{normalizeCraftDisplayName(uploadResult.detectedName)}</span>
             {uploadResult ? (
               <>
                 <span className="text-xs text-muted-foreground">
@@ -836,31 +899,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
           {uploadError}
         </div>
       )}
-
-      {/* Source name + extract button */}
-      {(uploadResult || bilibiliResult) && (
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-              {t("craft.sourceNameLabel")}
-            </label>
-            <input
-              type="text"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm focus:outline-none focus:border-primary"
-            />
-          </div>
-
-          <button
-            onClick={handleExtract}
-            disabled={!sourceName.trim() || busy}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg ${c.btnPrimary} disabled:opacity-30`}
-          >
-            {extracting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-            {extracting ? t("craft.extracting") : t("craft.extract")}
-          </button>
-        </div>
+        </>
       )}
 
       {extractError && (
