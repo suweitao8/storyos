@@ -210,6 +210,47 @@ describe("CraftAnalyzerAgent", () => {
     expect(profile.videoStory?.originalizationRules).toHaveLength(2);
   });
 
+  it("fills missing reversal and payoff details from linked beats instead of showing placeholders", async () => {
+    const response = JSON.stringify({
+      worldview: "规则世界",
+      storyOutline: "调查者沿着线索进入更深的秘密。",
+      structure: { openingPattern: "异常", chapterArc: "升级", endingHookType: "悬念" },
+      sceneRhythm: { sceneTransitionTechnique: "硬切", pacingCurve: "先缓后紧", conflictEscalation: "逐层升级" },
+      informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "逐层", suspenseManagement: "延迟回答" },
+      narrativePerspective: { povStrategy: "近景", narrationDialogueRatio: "叙述主导", narrativeDistance: "近" },
+      videoStory: {
+        beats: [
+          { order: 1, kind: "开场钩子", position: 0.1, event: "异常警报响起", function: "制造问题", emotionalEffect: "不安" },
+          { order: 2, kind: "铺垫", position: 0.35, event: "主角发现旧记录", function: "埋下线索", emotionalEffect: "好奇" },
+          { order: 3, kind: "高潮", position: 0.72, event: "规则反噬主角", function: "完成情绪释放", emotionalEffect: "恐惧" },
+          { order: 4, kind: "结尾", position: 0.92, event: "新的警报再次响起", function: "留下余韵", emotionalEffect: "不安延续" },
+        ],
+        reversals: [
+          { order: 1, setupBeatOrders: [1, 2], emotionalEffect: "认知翻转" },
+        ],
+        payoffs: [
+          { order: 1, position: 0.72 },
+        ],
+      },
+      modules: [],
+      exemplars: [],
+    });
+    const agent = new StubCraftAnalyzerAgent([response]);
+    const profile = await agent.analyze("[0.0s-1.0s] 字幕", "缺字段测试", "zh", undefined, "general", "bilibili");
+    const reversal = profile.videoStory?.reversals[0];
+    const payoff = profile.videoStory?.payoffs[0];
+
+    expect(profile.videoStory?.beats[0]?.kind).toBe("hook");
+    expect(reversal?.position).toBeGreaterThan(0);
+    expect(reversal?.reveal).toContain("规则反噬");
+    expect(reversal?.trigger).toContain("旧记录");
+    expect(payoff?.release).toContain("规则反噬");
+    expect(payoff?.setup).not.toBe("未说明");
+    expect(payoff?.emotionalEffect).toContain("恐惧");
+    expect(profile.videoStory?.logline).not.toBe("未说明");
+    expect(profile.videoStory?.originalizationRules.length).toBeGreaterThan(0);
+  });
+
   it("sanitizes malformed JSON when exemplar objects are missing commas", async () => {
     const malformed = `{
   "structure": {
