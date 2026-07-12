@@ -336,7 +336,23 @@ function videoNumber(value: unknown): number {
 
 function videoKind(value: unknown): CraftBeatKind {
   const normalized = String(value ?? "other").trim();
-  return VIDEO_BEAT_KINDS.has(normalized) ? normalized as CraftBeatKind : "other";
+  if (VIDEO_BEAT_KINDS.has(normalized)) return normalized as CraftBeatKind;
+  const aliases: Record<string, CraftBeatKind> = {
+    "开场钩子": "hook",
+    "钩子": "hook",
+    "设定": "setup",
+    "诱发事件": "incitingIncident",
+    "冲突": "conflict",
+    "铺垫": "foreshadowing",
+    "伏笔": "foreshadowing",
+    "爽点": "payoff",
+    "反转": "reversal",
+    "假胜利": "falseVictory",
+    "高潮": "climax",
+    "结尾": "ending",
+    "行动号召": "cta",
+  };
+  return aliases[normalized] ?? "other";
 }
 
 function videoObjectList(value: unknown): Array<Record<string, unknown>> {
@@ -349,6 +365,10 @@ function videoObjectList(value: unknown): Array<Record<string, unknown>> {
 function videoItemText(item: Record<string, unknown>, candidates: ReadonlyArray<string>): string {
   const value = pickCraftObjectValue(item, candidates);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isMissingVideoText(value: string): boolean {
+  return !value.trim() || value.trim() === "未说明";
 }
 
 function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
@@ -414,12 +434,37 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
       ];
 
   const normalizedReversals = reversals.map((reversal) => {
-    if (reversal.setupBeatOrders.length >= 2) return reversal;
-    const setupBeatOrders = beats
-      .filter((beat) => beat.position < reversal.position)
-      .slice(-2)
-      .map((beat) => beat.order);
-    return setupBeatOrders.length > 0 ? { ...reversal, setupBeatOrders } : reversal;
+    const setupBeatOrders = reversal.setupBeatOrders.length >= 2
+      ? reversal.setupBeatOrders
+      : beats.filter((beat) => beat.position < reversal.position).slice(-2).map((beat) => beat.order);
+    const setupBeats = setupBeatOrders
+      .map((order) => beats.find((beat) => beat.order === order))
+      .filter((beat): beat is CraftBeat => Boolean(beat));
+    const lastSetup = setupBeats[setupBeats.length - 1];
+    const nextBeat = lastSetup
+      ? beats.find((beat) => beat.order > lastSetup.order)
+      : undefined;
+    const inferredPosition = nextBeat?.position ?? lastSetup?.position ?? reversal.position;
+    return {
+      ...reversal,
+      position: reversal.position > 0 ? reversal.position : inferredPosition,
+      setupBeatOrders,
+      trigger: isMissingVideoText(reversal.trigger)
+        ? lastSetup?.event ?? "前置线索触发认知变化"
+        : reversal.trigger,
+      apparentTruth: isMissingVideoText(reversal.apparentTruth)
+        ? lastSetup ? `${lastSetup.function}：${lastSetup.event}` : "观众根据前置线索形成的判断"
+        : reversal.apparentTruth,
+      reveal: isMissingVideoText(reversal.reveal)
+        ? nextBeat?.event ?? lastSetup?.event ?? "前置判断被重新解释"
+        : reversal.reveal,
+      reinterpretedClues: isMissingVideoText(reversal.reinterpretedClues)
+        ? `铺垫节拍 ${setupBeatOrders.join("、") || "未记录"} 在此处被重新解释`
+        : reversal.reinterpretedClues,
+      emotionalEffect: isMissingVideoText(reversal.emotionalEffect)
+        ? nextBeat?.emotionalEffect ?? "认知翻转"
+        : reversal.emotionalEffect,
+    };
   });
 
   const payoffCandidates = beats.filter((beat) =>
@@ -435,19 +480,66 @@ function parseVideoStory(raw: unknown): VideoStoryCraft | undefined {
       costOrConsequence: "在新故事中重新设计选择代价与后果。",
       emotionalEffect: beat.emotionalEffect,
     }));
-  const normalizedPayoffs = [...payoffs, ...derivedPayoffs].slice(0, 8);
+  const normalizedPayoffs = [...payoffs, ...derivedPayoffs].slice(0, 8).map((payoff) => {
+    const beat = beats.reduce<CraftBeat | undefined>((closest, candidate) => {
+      if (!closest) return candidate;
+      return Math.abs(candidate.position - payoff.position) < Math.abs(closest.position - payoff.position)
+        ? candidate
+        : closest;
+    }, undefined);
+    return {
+      ...payoff,
+      setup: isMissingVideoText(payoff.setup)
+        ? `在 ${Math.round(payoff.position * 100)}% 前完成 ${beat?.function ?? "线索与压力"} 的积累`
+        : payoff.setup,
+      release: isMissingVideoText(payoff.release)
+        ? beat?.event ?? "情绪压力在此处释放"
+        : payoff.release,
+      costOrConsequence: isMissingVideoText(payoff.costOrConsequence)
+        ? "该节点把故事推入下一层压力，具体代价需在新故事中重新设计"
+        : payoff.costOrConsequence,
+      emotionalEffect: isMissingVideoText(payoff.emotionalEffect)
+        ? beat?.emotionalEffect ?? beat?.function ?? "情绪释放"
+        : payoff.emotionalEffect,
+    };
+  });
+
+  const firstBeat = beats[0];
+  const lastBeat = beats[beats.length - 1];
+  const climaxBeat = beats.find((beat) => ["climax", "reversal", "ending"].includes(beat.kind)) ?? lastBeat;
+  const logline = videoText(source, "logline", "");
+  const audiencePromise = videoText(source, "audiencePromise", "");
+  const outline = videoText(source, "outline", "");
+  const pacingCurve = videoText(source, "pacingCurve", "");
+  const hookStrategy = videoText(source, "hookStrategy", "");
+  const climaxStrategy = videoText(source, "climaxStrategy", "");
+  const endingAftertaste = videoText(source, "endingAftertaste", "");
 
   return {
-    logline: videoText(source, "logline", "未说明"),
-    audiencePromise: videoText(source, "audiencePromise", "未说明"),
-    outline: videoText(source, "outline", "未说明"),
+    logline: isMissingVideoText(logline)
+      ? `${firstBeat?.event ?? "异常出现"}，最终发展为${lastBeat?.event ?? "新的悬念"}`
+      : logline,
+    audiencePromise: isMissingVideoText(audiencePromise)
+      ? "以连续线索、认知反转和逐级升级维持观看张力"
+      : audiencePromise,
+    outline: isMissingVideoText(outline)
+      ? beats.map((beat) => `${Math.round(beat.position * 100)}% ${beat.event}`).join("；").slice(0, 1200)
+      : outline,
     beats,
     reversals: normalizedReversals,
     payoffs: normalizedPayoffs,
-    pacingCurve: videoText(source, "pacingCurve", "未说明"),
-    hookStrategy: videoText(source, "hookStrategy", "未说明"),
-    climaxStrategy: videoText(source, "climaxStrategy", "未说明"),
-    endingAftertaste: videoText(source, "endingAftertaste", "未说明"),
+    pacingCurve: isMissingVideoText(pacingCurve)
+      ? `开场 ${Math.round((firstBeat?.position ?? 0) * 100)}%；高潮/反转 ${Math.round((climaxBeat?.position ?? 0) * 100)}%；结尾 ${Math.round((lastBeat?.position ?? 1) * 100)}%`
+      : pacingCurve,
+    hookStrategy: isMissingVideoText(hookStrategy)
+      ? `${firstBeat?.function ?? "先给出具体异常"}：${firstBeat?.event ?? "先展示异常，再解释背景"}`
+      : hookStrategy,
+    climaxStrategy: isMissingVideoText(climaxStrategy)
+      ? `${climaxBeat?.function ?? "通过反转释放压力"}：${climaxBeat?.event ?? "在高压节点完成认知翻转"}`
+      : climaxStrategy,
+    endingAftertaste: isMissingVideoText(endingAftertaste)
+      ? `${lastBeat?.event ?? "留下新的线索"}，让已闭合的问题继续产生余波`
+      : endingAftertaste,
     originalizationRules,
   };
 }
