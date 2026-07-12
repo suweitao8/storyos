@@ -6,7 +6,6 @@ import type { CraftOption } from "./story-creation-state";
 import {
   buildDefaultStoryDirection,
   LONG_STORY_CHAPTERS,
-  SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
@@ -30,13 +29,6 @@ interface StoryCreationPanelProps {
   readonly onOpenCraft?: () => void;
 }
 
-const LONG_PLATFORMS = [
-  { value: "tomato" as const, zh: "番茄小说", en: "Tomato" },
-  { value: "qidian" as const, zh: "起点中文网", en: "Qidian" },
-  { value: "feilu" as const, zh: "飞卢", en: "Feilu" },
-  { value: "other" as const, zh: "其他", en: "Other" },
-];
-
 export function StoryCreationPanel({
   kind,
   theme,
@@ -56,7 +48,6 @@ export function StoryCreationPanel({
   const [longTitle, setLongTitle] = useState("");
   const [longGenre, setLongGenre] = useState("");
   const [longDirection, setLongDirection] = useState("");
-  const [longPlatform, setLongPlatform] = useState<LongStoryCreationInput["platform"]>("tomato");
   const [chapterWordCount, setChapterWordCount] = useState("10000");
   const [shortDirection, setShortDirection] = useState("");
 
@@ -86,7 +77,6 @@ export function StoryCreationPanel({
         title: longTitle,
         genre: longGenre,
         direction: longDirection,
-        platform: longPlatform,
         language: isZh ? "zh" : "en",
         chapterWordCount: Number(chapterWordCount),
         ...(hasCraftSelection ? { craftId: selectedCraftId } : {}),
@@ -154,7 +144,7 @@ export function StoryCreationPanel({
       {kind === "long" ? (
         <div className="space-y-4 rounded-2xl border border-border/60 bg-card/70 p-5">
           <div className="text-sm font-semibold">{isZh ? "长篇故事基础信息" : "Long-story basics"}</div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span>{isZh ? "书名" : "Title"}</span>
               <input value={longTitle} onChange={(event) => setLongTitle(event.target.value)} placeholder={isZh ? "例如：夜港账本" : "e.g. The Night Harbor Ledger"} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary" />
@@ -169,12 +159,6 @@ export function StoryCreationPanel({
             <textarea value={longDirection} onChange={(event) => setLongDirection(event.target.value)} rows={5} placeholder={isZh ? "写清楚世界、主角压力、核心冲突和你想要的情绪回报" : "Describe the world, protagonist pressure, core conflict, and payoff"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
           </label>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm">
-              <span>{isZh ? "平台" : "Platform"}</span>
-              <select value={longPlatform} onChange={(event) => setLongPlatform(event.target.value as LongStoryCreationInput["platform"])} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-                {LONG_PLATFORMS.map((platform) => <option key={platform.value} value={platform.value}>{isZh ? platform.zh : platform.en}</option>)}
-              </select>
-            </label>
             <div className="rounded-lg border border-border/60 bg-secondary/20 px-3 py-2 text-sm">
               <div className="text-muted-foreground">{isZh ? "固定章数" : "Fixed chapters"}</div>
               <div className="mt-1 font-medium">{isZh ? `${LONG_STORY_CHAPTERS} 章，共约 ${LONG_STORY_CHAPTERS * Number(chapterWordCount)} 字` : `${LONG_STORY_CHAPTERS} chapters, about ${LONG_STORY_CHAPTERS * Number(chapterWordCount)} words total`}</div>
@@ -194,11 +178,7 @@ export function StoryCreationPanel({
             <span>{isZh ? "故事方向" : "Story direction"}</span>
             <textarea value={shortDirection} onChange={(event) => setShortDirection(event.target.value)} rows={6} placeholder={isZh ? "例如：一名守夜人接到来自已故邻居的电话，逐步发现小区的门牌会改变记忆" : "e.g. A night watchman receives a call from a dead neighbor"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
           </label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border border-border/60 bg-secondary/20 px-3 py-3 text-sm">
-              <div className="text-muted-foreground">{isZh ? "固定章数" : "Fixed chapters"}</div>
-              <div className="mt-1 font-medium">{isZh ? `${SHORT_STORY_CHAPTERS} 章` : `${SHORT_STORY_CHAPTERS} chapter`}</div>
-            </div>
+          <div className="grid gap-4">
             <label className="space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">

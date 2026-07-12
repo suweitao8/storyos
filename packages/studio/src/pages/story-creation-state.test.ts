@@ -26,7 +26,6 @@ describe("story creation actions", () => {
       title: "夜港账本",
       genre: "悬疑",
       direction: "一名巡夜人发现港口的失踪记录会提前一天出现",
-      platform: "tomato",
       language: "zh",
       chapterWordCount: 10_000,
       craftId: "craft-ghost",
@@ -35,6 +34,7 @@ describe("story creation actions", () => {
     expect(action.requestedIntent).toBe("create_book");
     expect(action.actionPayload.createBook?.craftId).toBe("craft-ghost");
     expect(action.actionPayload.createBook?.targetChapters).toBe(LONG_STORY_CHAPTERS);
+    expect(action.actionPayload.createBook?.platform).toBe("other");
     expect(action.actionPayload.createBook?.chapterWordCount).toBe(10_000);
     expect(LONG_STORY_CHAPTERS * 10_000).toBe(100_000);
     expect(action.instruction).toContain("使用所选写作模式");
