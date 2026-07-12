@@ -103,6 +103,7 @@ describe("PageToolbar", () => {
     expect(markup).toContain("Save");
     expect(markup).toContain("custom-toolbar");
     expect(markup).toContain('class="flex min-w-0 flex-1 items-center gap-3"');
+    expect(markup).toContain("mx-auto flex w-full max-w-4xl");
   });
 
   it("renders an accessible, horizontally scrollable tab navigation", () => {
@@ -111,6 +112,7 @@ describe("PageToolbar", () => {
     expect(markup).toContain('aria-label="页面导航"');
     expect(markup).toContain('data-testid="page-toolbar-tabs"');
     expect(markup).toContain("overflow-x-auto");
+    expect(markup).toContain("justify-center");
   });
 
   it("applies active semantics and underline only to the Settings tab", () => {

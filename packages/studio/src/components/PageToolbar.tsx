@@ -92,10 +92,11 @@ export function PageToolbar({
   return (
     <header
       className={cn(
-        "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/60 px-4 py-3",
+        "min-w-0 border-b border-border/60 px-4 py-3",
         className,
       )}
     >
+      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-wrap items-center justify-center gap-x-4 gap-y-2">
       {(leading || title != null) && (
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {leading}
@@ -104,9 +105,9 @@ export function PageToolbar({
       )}
 
       {tabs.length > 0 && (
-        <nav aria-label="页面导航" className="min-w-0 flex-1">
-          <div data-testid="page-toolbar-tabs" className="min-w-0 overflow-x-auto">
-            <div className="flex min-w-max items-center gap-1">
+        <nav aria-label="页面导航" className="flex min-w-0 flex-1 justify-center">
+          <div data-testid="page-toolbar-tabs" className="min-w-0 max-w-full overflow-x-auto">
+            <div className="flex min-w-max items-center justify-center gap-1">
               {tabs.map((tab) => {
                 const isActive = tab.id === activeTab;
 
@@ -141,6 +142,7 @@ export function PageToolbar({
       )}
 
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>
     </header>
   );
 }
