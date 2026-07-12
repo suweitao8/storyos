@@ -152,7 +152,7 @@ async function produceShort(
     SHORT_FICTION_MIN_CHAPTERS,
     SHORT_FICTION_MAX_CHAPTERS,
   );
-  // charsPerChapter is the language's native unit: zh chars (900-10000) or en words (600-800).
+  // charsPerChapter is the language's native unit; Studio sends one of 1000/2000/5000/10000 for zh.
   const charsPerChapter = language === "en"
     ? boundedInteger(
         options.charsPerChapter,
