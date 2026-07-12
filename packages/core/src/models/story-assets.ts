@@ -144,7 +144,7 @@ function normalizeDraftStringField(
     return existing?.[key] ?? "";
   }
 
-  return normalizeOptionalString(raw) ?? existing?.[key] ?? "";
+  return raw.trim();
 }
 
 function normalizeDraftDetailsField(

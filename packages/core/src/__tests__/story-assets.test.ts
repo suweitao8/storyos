@@ -169,6 +169,48 @@ describe("story asset contract helpers", () => {
     });
   });
 
+  it("allows explicit empty strings to clear summary and imagePrompt", () => {
+    const existing: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-clear",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        {
+          id: "scene_clear",
+          kind: "scene",
+          name: "Grand Hall",
+          summary: "Old summary",
+          details: { mood: "calm" },
+          imagePrompt: "Old image prompt",
+          sourceRefs: ["chapter-1"],
+          image: { status: "ready", path: "assets/images/scene_clear.png" },
+          createdAt: "2026-07-13T00:00:00.000Z",
+          updatedAt: "2026-07-13T00:00:00.000Z",
+        },
+      ],
+    };
+
+    const merged = mergeStoryAssets(
+      existing,
+      [
+        {
+          kind: "scene",
+          name: "Grand Hall",
+          summary: "",
+          imagePrompt: "",
+        },
+      ],
+      "2026-07-13T01:00:00.000Z",
+    );
+
+    expect(merged.assets[0]).toMatchObject({
+      summary: "",
+      imagePrompt: "",
+      details: { mood: "calm" },
+      sourceRefs: ["chapter-1"],
+    });
+  });
+
   it("ignores illegal draft field types instead of blanking existing values", () => {
     const existing: StoryAssetManifest = {
       version: 1,
