@@ -5886,12 +5886,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft Analyze (writing technique profile) ---
 
   app.post("/api/v1/craft/analyze", async (c) => {
-    const { text, sourceName, language, mode, sourceType } = await c.req.json<{
+    const { text, sourceName, language, mode, sourceType, sourceRef } = await c.req.json<{
       text: string;
       sourceName: string;
       language?: "zh" | "en";
       mode?: CraftMode;
       sourceType?: "bilibili" | "novel";
+      sourceRef?: string;
     }>();
     if (!text?.trim()) return c.json({ error: "text is required" }, 400);
     if (!sourceName?.trim()) return c.json({ error: "sourceName is required" }, 400);
@@ -5906,6 +5907,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         language ?? "zh",
         craftMode,
         sourceType === "bilibili" ? "bilibili" : "novel",
+        sourceRef,
       );
       broadcast("craft:complete", { craftId, sourceName });
       return c.json({ craftId, profile });
@@ -5928,6 +5930,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     } catch (error) {
       recentCraftPreferenceAvailable = false;
       pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
+    }
+    if (recentCraftId && !crafts.some((craft) => craft.id === recentCraftId)) {
+      try {
+        await clearRecentCraftId(root);
+        recentCraftId = null;
+      } catch (error) {
+        pipelineConfig.logger?.warn(`Failed to clear stale recent craft preference: ${String(error)}`);
+      }
     }
     return c.json({ crafts, recentCraftId, recentCraftPreferenceAvailable });
   });

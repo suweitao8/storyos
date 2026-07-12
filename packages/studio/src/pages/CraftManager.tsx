@@ -86,7 +86,7 @@ export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: 
 ];
 
 export function buildCraftAnalyzePayload(
-  source: { type: CraftSourceType; text: string; detectedName: string },
+  source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string },
   mode: "general" | "ghost-story",
 ) {
   return {
@@ -95,6 +95,7 @@ export function buildCraftAnalyzePayload(
     sourceType: source.type,
     language: "zh" as const,
     mode,
+    ...(source.sourceRef?.trim() ? { sourceRef: source.sourceRef.trim() } : {}),
   };
 }
 
@@ -673,6 +674,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     type: CraftSourceType;
     text: string;
     detectedName: string;
+    sourceRef?: string;
   }) => {
     const sourceName = normalizeCraftDisplayName(source.detectedName);
     activeSourceNameRef.current = sourceName;
@@ -760,7 +762,12 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       setBilibiliResult(data);
       setCurrentStep(`字幕获取完成，共 ${data.subtitleCount} 条`);
       setProgressLogs((prev) => [...prev, `字幕获取完成，共 ${data.subtitleCount} 条`]);
-      await runExtraction({ type: "bilibili", text: data.text, detectedName: data.detectedName });
+      await runExtraction({
+        type: "bilibili",
+        text: data.text,
+        detectedName: data.detectedName,
+        sourceRef: data.videoInfo.bvid,
+      });
     } catch (e) {
       setBilibiliError(e instanceof Error ? e.message : String(e));
       setCurrentStep("B 站字幕获取失败");

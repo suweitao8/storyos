@@ -19,7 +19,7 @@ import { RadarAgent } from "../agents/radar.js";
 import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
 import { buildCraftGuide } from "../agents/craft-prompts.js";
-import { buildCraftMetaSummary, type CraftMode, type CraftProfile, type CraftMeta } from "../models/craft-profile.js";
+import { buildCraftMetaSummary, normalizeCraftSourceRef, type CraftMode, type CraftProfile, type CraftMeta } from "../models/craft-profile.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
 import { analyzeSensitiveWords } from "../agents/sensitive-words.js";
@@ -678,23 +678,32 @@ export class PipelineRunner {
     language: "zh" | "en" = "zh",
     mode: CraftMode = "general",
     sourceType: "bilibili" | "novel" = "novel",
+    sourceRef?: string,
   ): Promise<{ craftId: string; profile: CraftProfile }> {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
       this.config.logger?.info(`[craft] ${msg}`);
     }, mode, sourceType);
 
-    const craftId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const normalizedSourceRef = normalizeCraftSourceRef(sourceType, sourceRef);
+    const existingCraft = normalizedSourceRef
+      ? (await this.listCrafts()).find((craft) =>
+          craft.sourceType === sourceType
+          && normalizeCraftSourceRef(craft.sourceType, craft.sourceRef) === normalizedSourceRef,
+        )
+      : undefined;
+    const craftId = existingCraft?.id ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);
     await mkdir(craftsDir, { recursive: true });
 
     const meta: CraftMeta = {
       id: craftId,
       sourceName,
-      createdAt: new Date().toISOString(),
+      createdAt: existingCraft?.createdAt ?? new Date().toISOString(),
       language,
       mode,
       sourceType,
+      ...(normalizedSourceRef ? { sourceRef: normalizedSourceRef } : {}),
       summary: buildCraftMetaSummary(profile),
     };
 
