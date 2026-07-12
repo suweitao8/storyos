@@ -10,6 +10,22 @@ export interface CraftOption {
   readonly mode?: "general" | "ghost-story";
 }
 
+export function buildDefaultStoryDirection(
+  craft: CraftOption,
+  kind: "long" | "short",
+  isZh: boolean,
+): string {
+  if (!isZh) {
+    return craft.mode === "ghost-story"
+      ? `Create an original ${kind === "long" ? "long-form" : "short"} ghost story using the selected craft's suspense rhythm, supernatural rules, clue escalation, and lingering aftertaste. A night-shift maintenance worker discovers that the elevator stops at a nonexistent 13th floor at 2:17 a.m.; each visit shows a resident who will disappear the next day. The protagonist must obey the rule that the second knock must never be answered and uncover why the building has erased one family from every record. Do not copy the reference work's characters, plot, wording, or scenes.`
+      : `Create an original ${kind === "long" ? "long-form" : "short"} story using the selected craft's pacing, viewpoint, conflict escalation, and chapter hooks. A records clerk finds tomorrow's incident reports in a sealed archive and realizes the next report describes a disaster involving someone close to them. They must choose between exposing the system and protecting the person named in the report. Do not copy the reference work's characters, plot, wording, or scenes.`;
+  }
+
+  return craft.mode === "ghost-story"
+    ? `参考已选写作模式的悬念节奏、灵异规则、线索递进和余味，创作一个完全原创的${kind === "long" ? "长篇" : "短篇"}鬼故事：一名夜班维修员发现，每到凌晨 2 点 17 分，电梯都会停在不存在的 13 楼，监控里出现的住户会在第二天失踪。主角必须遵守“第二次敲门绝不能回应”的规则，并查出整栋楼为何从所有记录中抹去了一个家庭。不得复制参考作品的人物、情节、措辞或场景。`
+    : `参考已选写作模式的叙事节奏、视角安排、冲突升级和章节钩子，创作一个完全原创的${kind === "long" ? "长篇" : "短篇"}故事：一名档案员在封存库里发现了明天才会发生的事故报告，并确认下一份报告写着身边重要之人的名字。主角必须在揭露这套系统和保护报告中的人之间作出选择。不得复制参考作品的人物、情节、措辞或场景。`;
+}
+
 export interface LongStoryCreationInput {
   readonly title: string;
   readonly genre: string;
