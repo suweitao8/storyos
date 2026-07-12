@@ -135,4 +135,15 @@ export interface CraftMeta {
   readonly createdAt: string;
   readonly language: "zh" | "en";
   readonly mode?: CraftMode;
+  /** Where the reference content came from. Older metadata may omit this. */
+  readonly sourceType?: "bilibili" | "novel";
+  /** Short story summary shown in the craft list card. */
+  readonly summary?: string;
+}
+
+export function buildCraftMetaSummary(
+  profile: Pick<CraftProfile, "storyOutline" | "worldview">,
+): string {
+  const raw = profile.storyOutline?.trim() || profile.worldview?.trim() || "";
+  return raw.replace(/\s+/gu, " ").slice(0, 140);
 }

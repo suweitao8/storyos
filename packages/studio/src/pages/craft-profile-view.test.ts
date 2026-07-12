@@ -11,18 +11,29 @@ import {
   CRAFT_SOURCE_TYPES,
   buildCraftAnalyzePayload,
   CRAFT_LIST_GRID_CLASS,
+  craftCardTitle,
+  craftSourceTypeLabel,
   craftCardDescription,
 } from "./CraftManager";
 
 describe("craft card list presentation", () => {
   it("uses a two-column grid without the previous three-column expansion", () => {
-    expect(CRAFT_LIST_GRID_CLASS).toContain("sm:grid-cols-2");
-    expect(CRAFT_LIST_GRID_CLASS).not.toContain("xl:grid-cols-3");
+    expect(CRAFT_LIST_GRID_CLASS).toContain("xl:grid-cols-4");
+    expect(CRAFT_LIST_GRID_CLASS).not.toContain("sm:grid-cols-2");
   });
 
-  it("provides a concise description for each craft mode", () => {
-    expect(craftCardDescription({ mode: "ghost-story" })).toContain("恐惧核心");
-    expect(craftCardDescription({ mode: "general" })).toContain("场景节奏");
+  it("shows the craft type after the title and the source type separately", () => {
+    expect(craftCardTitle({ sourceName: "测试故事", mode: "ghost-story" })).toBe("测试故事 · 鬼故事");
+    expect(craftSourceTypeLabel("bilibili")).toBe("视频解析");
+    expect(craftSourceTypeLabel("novel")).toBe("小说解析");
+  });
+
+  it("shows the extracted story summary instead of only a generic mode hint", () => {
+    expect(craftCardDescription({
+      mode: "ghost-story",
+      summary: "夜班维修员在停电的旧楼里发现每层电梯都通向同一间不存在的房间。",
+    })).toContain("夜班维修员");
+    expect(craftCardDescription({ mode: "general", summary: "  " })).toContain("场景节奏");
   });
 });
 
@@ -41,6 +52,7 @@ describe("craft source entrypoints", () => {
     expect(buildCraftAnalyzePayload({ type, text, detectedName }, "ghost-story")).toEqual({
       text,
       sourceName: detectedName,
+      sourceType: type,
       language: "zh",
       mode: "ghost-story",
     });
