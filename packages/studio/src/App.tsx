@@ -32,6 +32,7 @@ import { postApi, putApi, useApi } from "./hooks/use-api";
 import { PageToolbar, PageToolbarProvider, usePageToolbarState } from "./components/PageToolbar";
 import { useChatStore, type ChatSessionKind } from "./store/chat";
 import { getLastSelectedShortStoryId, setLastSelectedShortStoryId } from "./pages/chat-page-state";
+import { resolveDefaultCraftSelection } from "./pages/craft-navigation-state";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
 
@@ -124,6 +125,11 @@ type ToolbarStory = {
   readonly title: string;
 };
 
+type ToolbarCraft = {
+  readonly id: string;
+  readonly sourceName: string;
+};
+
 export function resolveActiveShortStoryId(input: {
   readonly route: HashRoute;
   readonly sessionKind?: ChatSessionKind;
@@ -157,17 +163,18 @@ export function resolveActiveStoryTitle(input: {
   readonly shorts: ReadonlyArray<ToolbarStory>;
 }): string | undefined {
   const route = input.route;
+  const noContent = input.lang === "en" ? "No content" : "无内容";
 
   if (route.page === "book") {
-    return input.books.find((book) => book.id === route.bookId)?.title;
+    return input.books.find((book) => book.id === route.bookId)?.title ?? noContent;
   }
 
   if (route.page === "short") {
-    return input.shorts.find((story) => story.id === route.shortId)?.title;
+    return input.shorts.find((story) => story.id === route.shortId)?.title ?? noContent;
   }
 
   if (route.page === "chat" && input.sessionKind === "short") {
-    return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title;
+    return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title ?? noContent;
   }
 
   if (route.page === "book-create") {
@@ -175,7 +182,24 @@ export function resolveActiveStoryTitle(input: {
     return activeBook?.title ?? (input.lang !== "en" ? "无内容" : "No content");
   }
 
+  if (route.page === "craft") {
+    return noContent;
+  }
+
   return undefined;
+}
+
+export function resolveActiveCraftTitle(input: {
+  readonly crafts: ReadonlyArray<ToolbarCraft>;
+  readonly recentCraftId?: string | null;
+  readonly lang?: "zh" | "en";
+}): string {
+  const craftId = resolveDefaultCraftSelection(
+    input.crafts.map((craft) => craft.id),
+    input.recentCraftId ?? null,
+  );
+  return input.crafts.find((craft) => craft.id === craftId)?.sourceName
+    ?? (input.lang === "en" ? "No content" : "无内容");
 }
 
 function AppPageToolbar({
@@ -221,6 +245,10 @@ export function App() {
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const { data: booksForToolbar } = useApi<{ books: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/books");
   const { data: shortsForToolbar } = useApi<{ shorts: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/shorts");
+  const { data: craftsForToolbar } = useApi<{
+    readonly crafts: ReadonlyArray<ToolbarCraft>;
+    readonly recentCraftId: string | null;
+  }>("/crafts");
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [ready, setReady] = useState(false);
   const [recentShortStoryId, setRecentShortStoryId] = useState<string | null>(() =>
@@ -323,6 +351,13 @@ export function App() {
     books: booksForToolbar?.books ?? [],
     shorts: shortsForToolbar?.shorts ?? [],
   });
+  const toolbarStoryTitle = route.page === "craft"
+    ? resolveActiveCraftTitle({
+      crafts: craftsForToolbar?.crafts ?? [],
+      recentCraftId: craftsForToolbar?.recentCraftId,
+      lang: currentLang,
+    })
+    : activeStoryTitle;
 
   if (startupGate === "error") {
     return (
@@ -383,7 +418,7 @@ export function App() {
 
         <AppPageToolbar
           title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
-          activeStoryTitle={activeStoryTitle}
+          activeStoryTitle={toolbarStoryTitle}
         />
 
         {/* Main Content Area */}
