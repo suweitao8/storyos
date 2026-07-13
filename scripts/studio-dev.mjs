@@ -1,0 +1,148 @@
+import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { findAvailablePortPair, createRuntimeConfig } from "./worktree-runtime.mjs";
+import { readWorktreeContext } from "./worktree-guard.mjs";
+
+const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+export async function ensureRuntimeDirectories(config) {
+  await Promise.all([
+    mkdir(config.logDir, { recursive: true }),
+    mkdir(config.screenshotDir, { recursive: true }),
+    mkdir(config.projectRuntimeDir, { recursive: true }),
+  ]);
+  return {
+    logDir: config.logDir,
+    screenshotDir: config.screenshotDir,
+    projectRuntimeDir: config.projectRuntimeDir,
+  };
+}
+
+export function buildStudioLaunchPlan({
+  projectRoot,
+  studioRoot,
+  config,
+  command = process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+  baseEnv = process.env,
+}) {
+  const commonEnv = {
+    ...baseEnv,
+    INKOS_PROJECT_ROOT: projectRoot,
+    INKOS_STUDIO_PORT: String(config.serverPort),
+    INKOS_STUDIO_CLIENT_PORT: String(config.clientPort),
+  };
+
+  return {
+    api: {
+      command,
+      args: ["exec", "tsx", "watch", "--clear-screen=false", "src/api/index.ts"],
+      cwd: studioRoot,
+      env: commonEnv,
+      stdoutPath: resolve(config.logDir, "server.out.log"),
+      stderrPath: resolve(config.logDir, "server.err.log"),
+    },
+    client: {
+      command,
+      args: ["exec", "vite", "--host", "--port", String(config.clientPort)],
+      cwd: studioRoot,
+      env: commonEnv,
+      stdoutPath: resolve(config.logDir, "client.out.log"),
+      stderrPath: resolve(config.logDir, "client.err.log"),
+    },
+  };
+}
+
+function spawnPlannedProcess(entry, spawnProcess) {
+  const child = spawnProcess(entry.command, entry.args, {
+    cwd: entry.cwd,
+    env: entry.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout?.pipe(createWriteStream(entry.stdoutPath, { flags: "a" }));
+  child.stderr?.pipe(createWriteStream(entry.stderrPath, { flags: "a" }));
+  return child;
+}
+
+function killChild(child) {
+  if (child && !child.killed) child.kill();
+}
+
+export async function startStudio({
+  projectRoot,
+  branch,
+  env = process.env,
+  spawnProcess = spawn,
+}) {
+  let config = createRuntimeConfig({ branch, projectRoot, env });
+  const hasExplicitPorts = env.INKOS_STUDIO_CLIENT_PORT || env.INKOS_STUDIO_PORT;
+  if (!hasExplicitPorts) {
+    const ports = await findAvailablePortPair({ preferredClientPort: config.clientPort });
+    config = { ...config, ...ports };
+  }
+
+  await ensureRuntimeDirectories(config);
+  const plan = buildStudioLaunchPlan({
+    projectRoot,
+    studioRoot: resolve(projectRoot, "packages", "studio"),
+    config,
+    baseEnv: env,
+  });
+
+  const api = spawnPlannedProcess(plan.api, spawnProcess);
+  let client;
+  try {
+    client = spawnPlannedProcess(plan.client, spawnProcess);
+  } catch (error) {
+    killChild(api);
+    throw error;
+  }
+
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    killChild(client);
+    killChild(api);
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+
+  return {
+    config,
+    plan,
+    children: { api, client },
+    shutdown,
+    dispose() {
+      process.off("SIGINT", shutdown);
+      process.off("SIGTERM", shutdown);
+    },
+  };
+}
+
+async function waitForStudioExit(children) {
+  return new Promise((resolveExit) => {
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolveExit(code ?? 1);
+    };
+    children.api.once("exit", finish);
+    children.client.once("exit", finish);
+  });
+}
+
+if (process.argv[1] && process.argv[1].endsWith("studio-dev.mjs")) {
+  const context = readWorktreeContext(process.cwd());
+  const session = await startStudio({
+    projectRoot: context.worktreePath,
+    branch: context.branch,
+  });
+  const exitCode = await waitForStudioExit(session.children);
+  session.shutdown();
+  session.dispose();
+  process.exitCode = exitCode;
+}

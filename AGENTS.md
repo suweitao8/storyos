@@ -45,14 +45,12 @@
 ## Studio 重启
 
 - 每次 finish-worktree 合并回 master 后，如果改动涉及 Studio 前端或后端代码，必须立刻自动重启 Studio，不要询问用户。
+- 开发或启动 Studio 前先在当前 worktree 执行 `pnpm worktree:check`；用 `pnpm worktree:runtime` 查看当前任务的端口和运行目录。
 - 重启步骤：
-  1. 杀掉占用 4567/4569 端口的旧进程（`netstat -ano | grep ":456[79].*LISTENING"` 取 PID，`taskkill //PID <pid> //F`）。
+  1. 根据 `pnpm worktree:runtime` 输出，杀掉占用当前任务 Studio 端口的旧进程；如果端口已被占用且进程是 Studio 相关的 tsx/vite，先杀再启。
   2. 在主 checkout 执行 `pnpm install`（确保新依赖到位）。
-  3. 在 `packages/studio` 目录下用 Git Bash 启动（日志统一写到 `.studio-live/` 目录）：
-     - API: `INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../.. npx tsx watch --clear-screen=false src/api/index.ts > ../../.studio-live/server.out.log 2> ../../.studio-live/server.err.log &`
-     - 前端: `npx vite --host --port 4567 > ../../.studio-live/client.out.log 2> ../../.studio-live/client.err.log &`
-  4. 等待 5 秒，确认端口监听成功。
-- 如果端口已被占用且进程是 Studio 相关的 tsx/vite，先杀再启。
+  3. 在当前 worktree 根目录执行 `pnpm --dir packages/studio dev`；启动器会自动分配可用端口，并把日志写入 `.studio-live/<task-slug>/`。
+  4. 等待 5 秒，确认 `pnpm worktree:runtime` 输出的端口监听成功。
 - 不要等用户催，合并完就重启。
 
 ## 验证要求

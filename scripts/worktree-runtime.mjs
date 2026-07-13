@@ -1,5 +1,6 @@
 import { createServer } from "node:net";
 import { resolve } from "node:path";
+import { readWorktreeContext } from "./worktree-guard.mjs";
 
 const DEFAULT_CLIENT_PORT = 4600;
 const PORT_SLOT_COUNT = 90;
@@ -89,7 +90,8 @@ export async function findAvailablePortPair({
 }
 
 if (process.argv[1] && process.argv[1].endsWith("worktree-runtime.mjs")) {
-  const branch = process.env.GIT_BRANCH ?? "";
-  const projectRoot = process.env.INKOS_PROJECT_ROOT ?? process.cwd();
+  const context = readWorktreeContext(process.cwd());
+  const branch = process.env.GIT_BRANCH ?? context.branch;
+  const projectRoot = process.env.INKOS_PROJECT_ROOT ?? context.worktreePath;
   console.log(JSON.stringify(createRuntimeConfig({ branch, projectRoot }), null, 2));
 }
