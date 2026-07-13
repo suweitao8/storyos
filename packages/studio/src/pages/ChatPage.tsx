@@ -29,6 +29,7 @@ import { usePageToolbar } from "../components/PageToolbar";
 import { StoryCreationPanel } from "./StoryCreationPanel";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
+import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
 import {
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
@@ -81,6 +82,7 @@ import { buildStoryWorkspaceTabs, resolveStoryWorkspaceStage } from "./story-wor
 interface Nav {
   toDashboard: () => void;
   toBook: (id: string) => void;
+  toShort?: (id: string) => void;
   toServices: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toFilm: (projectId: string) => void;
@@ -126,8 +128,8 @@ interface CraftListResponse {
 }
 
 export interface ChatPageStoryWorkspace {
-  readonly view: "creation" | "settings" | "assets" | "adjust";
-  readonly activeStage: "settings" | "assets" | "adjust";
+  readonly view: "creation" | "list" | "settings" | "assets" | "adjust";
+  readonly activeStage: "list" | "settings" | "assets" | "adjust";
   readonly kind: "book" | "short" | null;
   readonly storyId: string | null;
 }
@@ -151,11 +153,11 @@ export function resolveChatPageStoryWorkspace(input: {
   const needsCreation = input.sessionKind === "book-create" ? !input.bookId : input.sessionKind === "short" ? !input.shortId : false;
   const enabledStage = !isStorySession
     ? "adjust"
-    : needsCreation ? "settings"
-      : activeStage === "assets" || activeStage === "adjust" ? activeStage : "settings";
+    : needsCreation && activeStage !== "list" ? "settings"
+      : activeStage === "list" || activeStage === "assets" || activeStage === "adjust" ? activeStage : "settings";
 
   return {
-    view: !isStorySession ? "adjust" : needsCreation ? "creation" : enabledStage,
+    view: !isStorySession ? "adjust" : activeStage === "list" ? "list" : needsCreation ? "creation" : enabledStage,
     activeStage: enabledStage,
     kind,
     storyId,
@@ -524,6 +526,8 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
   } | null>(null);
   const [selectedCraftId, setSelectedCraftId] = useState("");
   const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
+  const { data: booksData, loading: booksLoading, error: booksError } = useApi<{ books: ReadonlyArray<StoryListRecord> }>("/books");
+  const { data: shortsData, loading: shortsLoading, error: shortsError } = useApi<{ shorts: ReadonlyArray<StoryListRecord> }>("/shorts");
   const crafts = craftsData?.crafts ?? [];
   const playMode = activeSession?.playMode;
   // A play session must pick its playstyle (点着玩 / 自由玩) before chatting.
@@ -596,6 +600,19 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       setStoryWorkspaceStage(resolveStoryWorkspaceStage(tabId));
     },
   });
+
+  const storyListKind = storyWorkspace.kind ?? (storyCreationKind === "short" ? "short" : "book");
+  const storyListRecords = storyListKind === "short" ? shortsData?.shorts ?? [] : booksData?.books ?? [];
+  const storyListLoading = storyListKind === "short" ? shortsLoading : booksLoading;
+  const storyListError = storyListKind === "short" ? shortsError : booksError;
+  const selectStoryFromList = (storyId: string) => {
+    setStoryWorkspaceStage("settings");
+    if (storyListKind === "short") {
+      nav.toShort?.(storyId);
+    } else {
+      nav.toBook(storyId);
+    }
+  };
 
   // Derived: is the assistant currently streaming/thinking/executing tools?
   const isStreaming = useMemo(() => {
@@ -1084,6 +1101,16 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           onCreateLong={handleCreateLong}
           onCreateShort={handleCreateShort}
           onOpenCraft={nav.toCraft}
+        />
+      ) : storyWorkspace.view === "list" ? (
+        <StoryListPanel
+          kind={storyListKind}
+          records={storyListRecords}
+          activeId={storyWorkspace.storyId}
+          loading={storyListLoading}
+          error={storyListError}
+          isZh={isZh}
+          onSelect={selectStoryFromList}
         />
       ) : storyWorkspace.view === "settings" ? (
         <StorySettingsPanel

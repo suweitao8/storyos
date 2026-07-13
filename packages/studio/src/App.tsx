@@ -115,7 +115,7 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessio
   return titles[route.page];
 }
 
-function AppPageToolbar({ title }: { readonly title: string }) {
+function AppPageToolbar({ title, activeStoryTitle }: { readonly title: string; readonly activeStoryTitle?: string }) {
   const toolbar = usePageToolbarState();
   return (
     <PageToolbar
@@ -123,6 +123,15 @@ function AppPageToolbar({ title }: { readonly title: string }) {
       tabs={toolbar.tabs}
       activeTab={toolbar.activeTab}
       onTabChange={toolbar.onTabChange}
+      actions={activeStoryTitle ? (
+        <span
+          data-testid="active-story-title"
+          className="max-w-[240px] truncate rounded-full border border-border/70 bg-secondary/35 px-3 py-1 text-xs text-muted-foreground"
+          title={activeStoryTitle}
+        >
+          {activeStoryTitle}
+        </span>
+      ) : undefined}
     />
   );
 }
@@ -144,6 +153,8 @@ export function App() {
     state.activeSessionId ? state.sessions[state.activeSessionId]?.sessionKind : undefined,
   );
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
+  const { data: booksForToolbar } = useApi<{ books: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/books");
+  const { data: shortsForToolbar } = useApi<{ shorts: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/shorts");
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -213,6 +224,11 @@ export function App() {
         : route.page;
 
   const startupGate = deriveStartupGate({ ready, projectError });
+  const activeStoryTitle = route.page === "book"
+    ? booksForToolbar?.books.find((book) => book.id === route.bookId)?.title
+    : route.page === "short"
+      ? shortsForToolbar?.shorts.find((story) => story.id === route.shortId)?.title
+      : undefined;
 
   if (startupGate === "error") {
     return (
@@ -271,7 +287,10 @@ export function App() {
         {/* Header Strip — kept as a thin divider; navigation lives in the sidebar */}
         <div className="h-px shrink-0 border-b border-border/40" />
 
-        <AppPageToolbar title={getRouteToolbarTitle(route, currentLang, activeSessionKind)} />
+        <AppPageToolbar
+          title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
+          activeStoryTitle={activeStoryTitle}
+        />
 
         {/* Main Content Area */}
         <main className="flex-1 relative overflow-y-auto scroll-smooth">

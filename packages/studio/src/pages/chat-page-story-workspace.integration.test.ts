@@ -36,6 +36,18 @@ describe("ChatPage story workspace integration", () => {
       kind: "book",
       storyId: "night-harbor",
     });
+
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "book-create",
+      stage: "list",
+      bookId: null,
+      shortId: null,
+    })).toMatchObject({
+      view: "list",
+      activeStage: "list",
+      kind: "book",
+      storyId: null,
+    });
   });
 
   it("routes short-story ids through assets and keeps invalid stages on settings", () => {

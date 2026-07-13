@@ -1,6 +1,7 @@
 import type { PageToolbarTab } from "../components/PageToolbar";
 
 export type StoryWorkspaceStage =
+  | "list"
   | "settings"
   | "assets"
   | "adjust"
@@ -9,6 +10,7 @@ export type StoryWorkspaceStage =
   | "video";
 
 export const STORY_WORKSPACE_STAGES = [
+  "list",
   "settings",
   "assets",
   "adjust",
@@ -18,6 +20,7 @@ export const STORY_WORKSPACE_STAGES = [
 ] as const satisfies ReadonlyArray<StoryWorkspaceStage>;
 
 const STORY_WORKSPACE_STAGE_LABELS: Readonly<Record<StoryWorkspaceStage, { readonly zh: string; readonly en: string }>> = {
+  list: { zh: "故事列表", en: "Story list" },
   settings: { zh: "故事设定", en: "Story Settings" },
   assets: { zh: "故事资产", en: "Story Assets" },
   adjust: { zh: "对话调整", en: "Chat Adjustment" },

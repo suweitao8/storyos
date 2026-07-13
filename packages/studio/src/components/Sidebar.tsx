@@ -310,7 +310,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
               {t("nav.createSection")}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-1">
+          <div className="space-y-1">
             <CreateItem icon={<BookPlus size={16} />} label={t("nav.createNovel")} active={activePage === "book-create"} onClick={handleOpenBookCreate} />
             <CreateItem
               icon={<ScrollText size={16} />}
@@ -531,6 +531,8 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </>
         )}
 
+        {false && (
+          <>
         <div>
           <SectionHeader label={tr("长篇故事", "Long stories")} expanded={myBooksExpanded} onToggle={() => setMyBooksExpanded((value) => !value)} />
           <Collapse open={myBooksExpanded}>
@@ -568,6 +570,9 @@ export function Sidebar({ nav, activePage, sse, t }: {
             </div>
           </Collapse>
         </div>
+
+          </>
+        )}
 
         {/* System Section */}
         <div>
