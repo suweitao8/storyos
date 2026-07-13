@@ -125,7 +125,9 @@ type ToolbarStory = {
 
 export function resolveActiveStoryTitle(input: {
   readonly route: HashRoute;
+  readonly lang?: "zh" | "en";
   readonly sessionKind?: ChatSessionKind;
+  readonly activeBookId?: string | null;
   readonly activeShortStoryId?: string | null;
   readonly books: ReadonlyArray<ToolbarStory>;
   readonly shorts: ReadonlyArray<ToolbarStory>;
@@ -142,6 +144,11 @@ export function resolveActiveStoryTitle(input: {
 
   if (route.page === "chat" && input.sessionKind === "short") {
     return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title;
+  }
+
+  if (route.page === "book-create" || route.page === "craft") {
+    const activeBook = input.books.find((book) => book.id === input.activeBookId) ?? input.books[0];
+    return activeBook?.title ?? (input.lang !== "en" ? "无内容" : "No content");
   }
 
   return undefined;
@@ -263,7 +270,9 @@ export function App() {
     : null;
   const activeStoryTitle = resolveActiveStoryTitle({
     route,
+    lang: currentLang,
     sessionKind: activeSessionKind,
+    activeBookId: activeSession?.bookId,
     activeShortStoryId,
     books: booksForToolbar?.books ?? [],
     shorts: shortsForToolbar?.shorts ?? [],
