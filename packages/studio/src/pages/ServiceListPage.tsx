@@ -78,15 +78,6 @@ function ReadonlyValue({ value }: { value: string }) {
   );
 }
 
-function StatusBadge({ connected }: { connected: boolean | undefined }) {
-  if (!connected) return null;
-  return (
-    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-      {tr("已连接", "Connected")}
-    </span>
-  );
-}
-
 function CoverConfigCard() {
   const [providers, setProviders] = useState<readonly ProviderInfo[]>([]);
   const [service, setService] = useState("grsai");
@@ -249,10 +240,6 @@ function CoverConfigCard() {
 
   return (
     <section className="space-y-5 rounded-xl border border-border/50 bg-card/50 p-5">
-      <div className="flex justify-end">
-        <StatusBadge connected={selected?.connected} />
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2">
         <Field label={tr("服务商", "Provider")}>
           <ReadonlyValue value={selected?.label ?? ""} />
@@ -492,10 +479,6 @@ function VoiceConfigCard() {
 
   return (
     <section className="space-y-5 rounded-xl border border-border/50 bg-card/50 p-5">
-      <div className="flex justify-end">
-        <StatusBadge connected={selected?.connected} />
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2">
         <Field label={tr("服务商", "Provider")}>
           <ReadonlyValue value={selected?.label ?? ""} />
