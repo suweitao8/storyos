@@ -68,6 +68,13 @@ export interface ShortStoryCreationInput {
   readonly craftId?: string;
 }
 
+export interface StoryDirectionGenerationInput {
+  readonly craftId: string;
+  readonly kind: "long" | "short";
+  readonly language: "zh" | "en";
+  readonly previousDirection?: string;
+}
+
 export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
   readonly instruction: string;
   readonly requestedIntent: "create_book";

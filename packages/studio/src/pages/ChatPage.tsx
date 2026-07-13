@@ -1,4 +1,4 @@
-import { memo, useRef, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useRef, useEffect, useMemo, useState } from "react";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
@@ -36,6 +36,7 @@ import {
   type CraftOption,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
+  type StoryDirectionGenerationInput,
 } from "./story-creation-state";
 import {
   BotMessageSquare,
@@ -1027,6 +1028,18 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       : fetchJson("/crafts/recent", { method: "DELETE" }));
   };
 
+  const handleGenerateStoryDirection = useCallback(async (input: StoryDirectionGenerationInput) => {
+    const result = await fetchJson<{ direction: string }>(
+      `/crafts/${encodeURIComponent(input.craftId)}/story-direction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    return result.direction;
+  }, []);
+
   const requestStoryAssetExtraction = async (kind: "book" | "short", storyId: string) => {
     try {
       await fetchJson(buildStoryAssetExtractionPath(kind, storyId), { method: "POST" });
@@ -1124,6 +1137,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           onCraftChange={handleCraftChange}
           onCreateLong={handleCreateLong}
           onCreateShort={handleCreateShort}
+          onGenerateDirection={handleGenerateStoryDirection}
           onOpenCraft={nav.toCraft}
         />
       ) : storyWorkspace.view === "list" ? (
