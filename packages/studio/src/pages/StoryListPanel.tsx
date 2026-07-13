@@ -92,27 +92,16 @@ export function StoryListPanel({
 }: StoryListPanelProps) {
   const status = resolveStoryListStatus({ loading, error, records });
   const items = buildStoryListItems(kind, records, activeId, onSelect);
-  const title = kind === "book"
-    ? (isZh ? "长篇故事" : "Long stories")
-    : kind === "short"
-      ? (isZh ? "短篇故事" : "Short stories")
-      : (isZh ? "写作模式" : "Writing modes");
 
   return (
     <section className="flex h-full min-w-0 flex-col px-6 py-6 md:px-10">
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {isZh ? "选择内容" : "Select content"}
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h2>
-        </div>
-        {status === "ready" && (
+      {status === "ready" && (
+        <div className="mb-5 flex justify-end">
           <span className="text-xs text-muted-foreground">
             {isZh ? `${items.length} 项` : `${items.length} items`}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {status === "loading" && (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
