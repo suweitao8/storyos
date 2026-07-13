@@ -798,6 +798,12 @@ export class CraftAnalyzerAgent extends BaseAgent {
         sourceType,
         videoNeedsRefine,
       );
+      const remainingWeakFields = collectWeakCraftFields(profile, language);
+      if (remainingWeakFields.length > 0) {
+        this.log?.warn(
+          `[craft] refinement still has ${remainingWeakFields.length} unspecified technique fields: ${remainingWeakFields.map((field) => `${field.section}.${field.key}`).join(", ")}`,
+        );
+      }
     }
     onProgress?.(language === "zh" ? "校验范例片段…" : "Validating exemplars…");
     const validated = validateExemplars(profile, text);
@@ -890,6 +896,17 @@ export class CraftAnalyzerAgent extends BaseAgent {
     field: CraftFieldSpec,
     language: "zh" | "en",
   ): string {
+    const value = this.findCraftFieldValue(raw, field);
+    if (value) return value;
+
+    this.log?.info(`[craft] first-pass field '${field.key}' is missing; it will be refined from the source excerpts`);
+    return CRAFT_SECTION_FALLBACKS[language];
+  }
+
+  private findCraftFieldValue(
+    raw: Record<string, unknown>,
+    field: CraftFieldSpec,
+  ): string | undefined {
     const lookup = new Map<string, string>();
     for (const [key, value] of Object.entries(raw)) {
       if (typeof value !== "string" || !value.trim()) continue;
@@ -901,9 +918,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
       const value = lookup.get(normalizeCraftFieldKey(candidate));
       if (value) return value;
     }
-
-    this.log?.warn(`[craft] missing field '${field.key}', using fallback`);
-    return CRAFT_SECTION_FALLBACKS[language];
+    return undefined;
   }
 
   private async parseProfileObject(
@@ -1032,7 +1047,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
     const systemPrompt = language === "en"
       ? [
           "You refine an extracted craft profile from novel excerpts.",
-          "Return one valid JSON object with the exact same schema as the input profile.",
+          "Return one valid JSON patch containing only the sections and fields listed for rewriting.",
+          "Do not repeat or regenerate modules, exemplars, video beats, or unrelated sections unless they are explicitly listed.",
           "Rewrite vague fields into concrete, evidence-based craft descriptions grounded in the excerpts.",
           "Do not use placeholders such as \"Not specified\", \"Unknown\", or \"N/A\".",
           "If the pattern is implicit, infer the dominant technique from repeated evidence.",
@@ -1042,7 +1058,8 @@ export class CraftAnalyzerAgent extends BaseAgent {
         ].join("\n")
       : [
           "你负责精炼一份从小说节选中提取出来的写作模式。",
-          "只返回一个合法 JSON 对象,并严格保持与输入 profile 相同的结构。",
+          "只返回一个合法 JSON 补丁对象，只包含下面列出的待重写 section 和字段。",
+          "不要重复生成 modules、exemplars、视频节拍或未列出的 section，避免覆盖已有结果。",
           "把含糊或占位的字段改写成基于节选证据的具体技法描述。",
           "不要再输出“未明确说明”“未知”“N/A”之类的占位词。",
           "如果某种模式没有被原文直接点明,就根据重复出现的写法推断主导手法。",
@@ -1056,10 +1073,6 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "",
           sample,
           "",
-          "## Current Profile JSON",
-          "",
-          JSON.stringify(profile, null, 2),
-          "",
           "## Fields That Must Be Rewritten",
           weakFieldList,
         ].join("\n")
@@ -1068,11 +1081,7 @@ export class CraftAnalyzerAgent extends BaseAgent {
           "",
           sample,
           "",
-          "## 当前写作模式 JSON",
-          "",
-          JSON.stringify(profile, null, 2),
-          "",
-          "## 必须重写的字段",
+          "## 必须重写的字段（只返回这些字段所在的 section）",
           weakFieldList,
         ].join("\n");
 
@@ -1084,19 +1093,95 @@ export class CraftAnalyzerAgent extends BaseAgent {
       { temperature: 0.2, maxTokens: 8192 },
     );
 
-    const refined = await this.parseProfile(response.content, sourceName, language, profile.modules, mode, sourceType);
-    const preserved = {
-      ...refined,
-      ...(refined.worldview ? {} : profile.worldview ? { worldview: profile.worldview } : {}),
-      ...(refined.storyOutline ? {} : profile.storyOutline ? { storyOutline: profile.storyOutline } : {}),
+    const refinedPayload = await this.parseRefinementPatch(response.content, language, mode, sourceType);
+    return this.mergeRefinementPatch(profile, refinedPayload, weakFields, language, videoNeedsRefine);
+  }
+
+  private async parseRefinementPatch(
+    raw: string,
+    language: "zh" | "en",
+    mode: CraftMode,
+    sourceType: "bilibili" | "novel",
+  ): Promise<Record<string, unknown>> {
+    const jsonPayload = extractFirstJSONObject(raw);
+    if (!jsonPayload) throw new Error("Craft refinement did not return valid JSON");
+    return unwrapCraftProfilePayload(await this.parseProfileObject(jsonPayload, language, mode, sourceType));
+  }
+
+  private mergeRefinementPatch(
+    profile: CraftProfile,
+    patch: Record<string, unknown>,
+    weakFields: ReadonlyArray<WeakCraftField>,
+    language: "zh" | "en",
+    videoNeedsRefine: boolean,
+  ): CraftProfile {
+    const weakSections = new Set(weakFields.map((field) => field.section));
+    const mergeSection = (
+      current: Record<string, unknown>,
+      section: keyof typeof CRAFT_SECTION_SPECS,
+    ): Record<string, unknown> => {
+      if (!weakSections.has(section)) return current;
+      const raw = pickCraftTopLevelValue(patch, section);
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return current;
+
+      const next = { ...current };
+      for (const field of CRAFT_SECTION_SPECS[section]) {
+        const value = this.findCraftFieldValue(raw as Record<string, unknown>, field);
+        if (value && !isWeakCraftValue(value, language)) next[field.key] = value;
+      }
+      const exemplar = (raw as Record<string, unknown>).exemplar;
+      if (typeof exemplar === "string" && exemplar.trim()) next.exemplar = exemplar.trim();
+      return next;
     };
-    if (refined.exemplars.length === 0 && profile.exemplars.length > 0) {
-      return {
-        ...preserved,
-        exemplars: profile.exemplars,
-      };
+
+    const structure = mergeSection(profile.structure as unknown as Record<string, unknown>, "structure");
+    const sceneRhythm = mergeSection(profile.sceneRhythm as unknown as Record<string, unknown>, "sceneRhythm");
+    const informationDisclosure = mergeSection(profile.informationDisclosure as unknown as Record<string, unknown>, "informationDisclosure");
+    const narrativePerspective = mergeSection(profile.narrativePerspective as unknown as Record<string, unknown>, "narrativePerspective");
+    const ghostStory = profile.ghostStory && weakSections.has("ghostStory")
+      ? mergeSection(
+        profile.ghostStory as unknown as Record<string, unknown>,
+        "ghostStory",
+      )
+      : undefined;
+
+    const refinedWorldview = pickCraftTopLevelText(patch, "worldview");
+    const refinedStoryOutline = pickCraftTopLevelText(patch, "storyOutline");
+    const worldview = refinedWorldview && !isWeakCraftValue(refinedWorldview, language)
+      ? refinedWorldview
+      : profile.worldview;
+    const storyOutline = refinedStoryOutline && !isWeakCraftValue(refinedStoryOutline, language)
+      ? refinedStoryOutline
+      : profile.storyOutline;
+
+    let videoStory: VideoStoryCraft | undefined;
+    if (videoNeedsRefine && profile.videoStory) {
+      const refinedVideoStory = parseVideoStory(pickCraftTopLevelValue(patch, "videoStory"));
+      if (refinedVideoStory) {
+        videoStory = {
+          ...profile.videoStory,
+          ...refinedVideoStory,
+          beats: refinedVideoStory.beats.length > 0 ? refinedVideoStory.beats : profile.videoStory.beats,
+          reversals: refinedVideoStory.reversals.length > 0 ? refinedVideoStory.reversals : profile.videoStory.reversals,
+          payoffs: refinedVideoStory.payoffs.length > 0 ? refinedVideoStory.payoffs : profile.videoStory.payoffs,
+          originalizationRules: refinedVideoStory.originalizationRules.length > 0
+            ? refinedVideoStory.originalizationRules
+            : profile.videoStory.originalizationRules,
+        };
+      }
     }
-    return preserved;
+
+    return {
+      ...profile,
+      structure: structure as unknown as CraftStructure,
+      sceneRhythm: sceneRhythm as unknown as CraftSceneRhythm,
+      informationDisclosure: informationDisclosure as unknown as CraftInformationDisclosure,
+      narrativePerspective: narrativePerspective as unknown as CraftNarrativePerspective,
+      ...(ghostStory ? { ghostStory: ghostStory as unknown as GhostStoryCraft } : {}),
+      ...(worldview ? { worldview } : {}),
+      ...(storyOutline ? { storyOutline } : {}),
+      ...(videoStory ? { videoStory } : {}),
+    };
   }
 
   private parseExemplars(raw: unknown): CraftProfile["exemplars"] {

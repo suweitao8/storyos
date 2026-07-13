@@ -98,6 +98,10 @@ export function buildCraftAnalysisSystemPrompt(
           ? "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, videoStory, modules, and exemplars."
           : "Output a single JSON object with these top-level sections: worldview, storyOutline, structure, sceneRhythm, informationDisclosure, narrativePerspective, modules, and exemplars.",
       "Use these exact English top-level keys; do not translate the section names or wrap the object in another profile key.",
+      "The structure object must include openingPattern, chapterArc, and endingHookType.",
+      "The sceneRhythm object must include sceneTransitionTechnique, pacingCurve, and conflictEscalation.",
+      "The informationDisclosure object must include foreshadowingDensity, informationReleaseRhythm, and suspenseManagement.",
+      "The narrativePerspective object must include povStrategy, narrationDialogueRatio, and narrativeDistance.",
       "`worldview` must describe reusable world rules, setting logic, social or supernatural mechanisms, and atmosphere. Remove names, places, and other proper nouns from the reference.",
       "`storyOutline` must describe a generalized story skeleton: opening situation, protagonist pressure, core conflict, escalation, turning points, climax, and ending payoff. Do not copy the reference's characters, exact plot, event order, or wording.",
       "Every required field must be concrete, evidence-based, and grounded in the excerpts. Do not output placeholders like \"Not specified\", \"Unknown\", or \"N/A\".",
@@ -124,9 +128,15 @@ export function buildCraftAnalysisSystemPrompt(
     "重点分析作者如何开篇、如何推进章节、如何切换场景、如何推进节奏、如何释放信息、如何维持悬念（悬念管理）、如何控制叙述视角与情绪转折。",
     "\u9664\u4e0a\u8ff0\u5206\u7c7b\u5916\uff0c\u5fc5\u987b\u540c\u65f6\u8f93\u51fa worldview \u548c storyOutline \u4e24\u4e2a\u9876\u5c42\u5b57\u6bb5\uff0c\u5206\u522b\u8868\u793a\u53ef\u590d\u7528\u7684\u4e16\u754c\u89c4\u5219\u4e0e\u6982\u62ec\u6545\u4e8b\u9aa8\u67b6\u3002",
     mode === "ghost-story"
-      ? "输出一个 JSON 对象，包含六个顶层部分：structure、sceneRhythm、informationDisclosure、narrativePerspective、ghostStory、modules。"
-      : "输出一个 JSON 对象，包含五个顶层部分：structure、sceneRhythm、informationDisclosure、narrativePerspective、modules。",
+      ? "输出一个 JSON 对象，必须包含 worldview、storyOutline、structure、sceneRhythm、informationDisclosure、narrativePerspective、ghostStory、modules、exemplars；不能省略任何 section。"
+      : sourceType === "bilibili"
+        ? "输出一个 JSON 对象，必须包含 worldview、storyOutline、structure、sceneRhythm、informationDisclosure、narrativePerspective、videoStory、modules、exemplars；不能省略任何 section。"
+        : "输出一个 JSON 对象，必须包含 worldview、storyOutline、structure、sceneRhythm、informationDisclosure、narrativePerspective、modules、exemplars；不能省略任何 section。",
     "顶层键必须严格使用这些英文名称，不要把 section 名称翻译成中文，也不要再套一层写作模式或 profile 对象。",
+    "structure 必须同时包含 openingPattern、chapterArc、endingHookType。",
+    "sceneRhythm 必须同时包含 sceneTransitionTechnique、pacingCurve、conflictEscalation。",
+    "informationDisclosure 必须同时包含 foreshadowingDensity、informationReleaseRhythm、suspenseManagement。",
+    "narrativePerspective 必须同时包含 povStrategy、narrationDialogueRatio、narrativeDistance。",
     "每个必填字段都必须是具体、基于原文证据的描述，不要输出“未明确说明”“未知”“N/A”这类占位词。",
     "如果原文没有直接点明某个模式，就根据重复出现的写法推断出主导手法，并把它写清楚。",
     "`modules` 数组要包含 6-10 个更细的拆文卡片。每个卡片都必须包含 `category`、`label`、`summary`，并可选 `evidence`。",
