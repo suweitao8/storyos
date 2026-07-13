@@ -51,13 +51,23 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
   return route.page === "book-create";
 }
 
-export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessionKind?: ChatSessionKind): string {
+function appendActiveStoryTitle(title: string, activeStoryTitle?: string): string {
+  const storyTitle = activeStoryTitle?.trim();
+  return storyTitle ? `${title} - ${storyTitle}` : title;
+}
+
+export function getRouteToolbarTitle(
+  route: HashRoute,
+  lang: "zh" | "en",
+  sessionKind?: ChatSessionKind,
+  activeStoryTitle?: string,
+): string {
   if (route.page === "chat" && sessionKind === "short") {
-    return lang === "zh" ? "短篇故事" : "Short Story";
+    return appendActiveStoryTitle(lang === "zh" ? "短篇故事" : "Short Story", activeStoryTitle);
   }
 
   if (route.page === "short") {
-    return lang === "zh" ? "\u77ed\u7bc7\u6545\u4e8b" : "Short Story";
+    return appendActiveStoryTitle(lang === "zh" ? "短篇故事" : "Short Story", activeStoryTitle);
   }
 
   const titles = lang === "zh"
@@ -112,10 +122,10 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessio
         "film-studio": "Creation Wizard",
       };
 
-  return titles[route.page];
+  return appendActiveStoryTitle(titles[route.page], activeStoryTitle);
 }
 
-function AppPageToolbar({ title, activeStoryTitle }: { readonly title: string; readonly activeStoryTitle?: string }) {
+function AppPageToolbar({ title }: { readonly title: string }) {
   const toolbar = usePageToolbarState();
   return (
     <PageToolbar
@@ -123,15 +133,6 @@ function AppPageToolbar({ title, activeStoryTitle }: { readonly title: string; r
       tabs={toolbar.tabs}
       activeTab={toolbar.activeTab}
       onTabChange={toolbar.onTabChange}
-      actions={activeStoryTitle ? (
-        <span
-          data-testid="active-story-title"
-          className="max-w-[240px] truncate rounded-full border border-border/70 bg-secondary/35 px-3 py-1 text-xs text-muted-foreground"
-          title={activeStoryTitle}
-        >
-          {activeStoryTitle}
-        </span>
-      ) : undefined}
     />
   );
 }
@@ -288,8 +289,7 @@ export function App() {
         <div className="h-px shrink-0 border-b border-border/40" />
 
         <AppPageToolbar
-          title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
-          activeStoryTitle={activeStoryTitle}
+          title={getRouteToolbarTitle(route, currentLang, activeSessionKind, activeStoryTitle)}
         />
 
         {/* Main Content Area */}

@@ -35,6 +35,15 @@ describe("getRouteToolbarTitle", () => {
     expect(getRouteToolbarTitle({ page: "chat" }, "zh", "chat")).toBe("聊天");
   });
 
+  it("appends the active story title to story pages", () => {
+    expect(getRouteToolbarTitle({ page: "short", shortId: "short-1" }, "zh", undefined, "鬼吹灯")).toBe("短篇故事 - 鬼吹灯");
+    expect(getRouteToolbarTitle({ page: "book", bookId: "book-1" }, "zh", undefined, "夜港账本")).toBe("写作 - 夜港账本");
+  });
+
+  it("does not append an empty active story title", () => {
+    expect(getRouteToolbarTitle({ page: "short", shortId: "short-1" }, "zh", undefined, "  ")).toBe("短篇故事");
+  });
+
   it("returns English titles without embedding route identifiers", () => {
     expect(getRouteToolbarTitle({ page: "project-settings" }, "en")).toBe("Settings");
     expect(getRouteToolbarTitle({ page: "service-detail", serviceId: "xfyun" }, "en")).toBe("Service Configuration");
