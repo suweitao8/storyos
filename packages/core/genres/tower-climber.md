@@ -1,41 +1,41 @@
 ---
-name: Tower Climbing
+name: 攀塔
 id: tower-climber
-language: en
-chapterTypes: ["Floor Challenge", "Progression", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["楼层挑战", "升级", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: true
 eraResearch: false
-pacingRule: "Each floor arc spans 3-8 chapters: introduction, exploration, confrontation, advancement. Difficulty must escalate visibly between floors."
-satisfactionTypes: ["Floor Cleared", "Boss Defeated", "New Ability Gained", "Floor Secret Discovered", "Rival Surpassed", "Summit Progress"]
+pacingRule: "每层弧线跨度3-8章：引入、探索、对抗、进阶。楼层之间难度必须肉眼可见地递增。"
+satisfactionTypes: ["通关楼层", "击败Boss", "获得新能力", "发现楼层秘密", "超越对手", "登顶进度"]
 auditDimensions: [1,2,3,4,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Floors that are cosmetic reskins of each other — each floor must present materially different challenges
-- Floor difficulty that doesn't escalate predictably — readers must understand power requirements
-- No clear summit goal — readers need to know what success at the top looks like
-- Horizontal progression (going sideways) instead of vertical climbing
-- Skipping floors without earned justification
-- Boss fights that are won through deus ex machina instead of preparation and growth
+- 楼层只是换皮的重复——每层必须呈现实质不同的挑战
+- 楼层难度没有可预期的递增——读者必须理解战力要求
+- 没有清晰的登顶目标——读者需要知道塔顶的成功是什么样的
+- 水平发展（横向移动）而非垂直攀登
+- 没有合理理由就跳层
+- Boss战靠机械降神获胜，而非准备和成长
 
-## Floor Design Rules
+## 楼层设计规则
 
-- Each floor must introduce a distinct biome, challenge type, or rule set
-- Floor transitions are natural progression checkpoints — use them for stat gains, ability unlocks, or narrative reveals
-- Environmental detail matters: readers experience each floor as a new world
-- Floor bosses or trials must test something the climber learned on that floor
-- Difficulty tiers should be transparent to readers — they should anticipate what the next floor demands
-- Allow brief rest/preparation between floors for character moments and strategic planning
+- 每层必须引入独特的生态、挑战类型或规则体系
+- 楼层转换是自然的进度检查点——用于属性增长、能力解锁或叙事揭示
+- 环境细节很重要：读者把每一层当作一个新世界来体验
+- 楼层Boss或试炼必须检验攀登者在该层学到的东西
+- 难度阶级应对读者透明——他们应该能预判下一层需要什么
+- 允许楼层之间短暂休息/准备，用于角色互动和战略规划
 
-## Pacing Guidance
+## 节奏指引
 
-- Floor introduction: establish new environment, threats, and rules (1-2 chapters)
-- Exploration and problem-solving: MC adapts to floor's unique challenges (1-3 chapters)
-- Confrontation: floor boss, puzzle, or trial that tests everything learned (1-2 chapters)
-- Advancement: reward, brief respite, foreshadowing of next floor (0.5-1 chapter)
-- Early floors move fast (2-3 chapters each) to hook readers with progression
-- Later floors slow down (5-8 chapters) as complexity and stakes increase
-- The summit should feel like a destination worth the climb — seed hints about what awaits throughout
+- 楼层引入：建立新环境、威胁和规则（1-2章）
+- 探索和解决问题：主角适应楼层独特挑战（1-3章）
+- 对抗：楼层Boss、谜题或试炼，检验所学一切（1-2章）
+- 进阶：奖励、短暂喘息、下一层伏笔（0.5-1章）
+- 前期楼层节奏快（每层2-3章），用进度感钩住读者
+- 后期楼层放慢（5-8章），复杂度和风险递增
+- 塔顶应该感觉是一个值得攀登的目的地——全程埋下关于登顶后所见的暗示
