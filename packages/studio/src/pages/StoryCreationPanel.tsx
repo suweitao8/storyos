@@ -17,6 +17,7 @@ import {
   buildStoryWordCountOptions,
   formatStoryWordCount,
   resolveDefaultStoryWordCount,
+  shouldAutoGenerateShortStorySeed,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
   type StoryDirectionGenerationInput,
@@ -25,7 +26,7 @@ import {
 export type { CraftOption } from "./story-creation-state";
 
 export const STORY_CREATION_LAYOUT_CLASSES = {
-  workspace: "mx-auto flex h-full w-full max-w-[1440px] flex-col overflow-y-auto px-4 py-6 md:px-8 xl:px-10",
+  workspace: "flex h-full w-full min-w-0 flex-col overflow-y-auto px-4 py-6 md:px-8 xl:px-10",
   columns: "grid min-h-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]",
 } as const;
 
@@ -44,6 +45,7 @@ interface StoryCreationPanelProps {
   readonly onCreateShort: (input: ShortStoryCreationInput) => Promise<void>;
   readonly onGenerateDirection?: (input: StoryDirectionGenerationInput) => Promise<string>;
   readonly onGenerateSeed?: (input: StorySeedGenerationInput, onEvent: (event: StorySeedStreamEvent) => void) => Promise<StorySeed>;
+  readonly onSaveSeed?: (craftId: string, seed: StorySeed) => Promise<void>;
   readonly onOpenCraft?: () => void;
 }
 
@@ -62,6 +64,7 @@ export function StoryCreationPanel({
   onCreateShort,
   onGenerateDirection,
   onGenerateSeed,
+  onSaveSeed,
   onOpenCraft,
 }: StoryCreationPanelProps) {
   const c = useColors(theme);
@@ -86,11 +89,24 @@ export function StoryCreationPanel({
 
   useEffect(() => {
     if (kind === "short") {
+      if (craftsLoading) {
+        setShortSeedStatus("idle");
+        return;
+      }
       if (selectedCraft) setShortDirection(buildDefaultStoryDirection(selectedCraft, kind, isZh));
+      const cachedSeed = selectedCraft?.storySeed;
+      if (cachedSeed) {
+        setShortSeed(cachedSeed);
+        setShortDirection(serializeStorySeed(cachedSeed, isZh ? "zh" : "en"));
+        setShortSeedStreamedContent("");
+        setShortSeedError(null);
+        setShortSeedStatus("ready");
+        return;
+      }
       setShortSeed(null);
       setShortSeedStreamedContent("");
       setShortSeedError(null);
-      if (!onGenerateSeed || !activeSessionId) {
+      if (!shouldAutoGenerateShortStorySeed(cachedSeed) || !onGenerateSeed || !activeSessionId) {
         setShortSeedStatus("idle");
         return;
       }
@@ -112,6 +128,12 @@ export function StoryCreationPanel({
           setShortSeed(seed);
           setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
           setShortSeedStatus("ready");
+          if (selectedCraft && onSaveSeed) {
+            void onSaveSeed(selectedCraft.id, seed).catch((error) => {
+              if (requestId !== directionRequestRef.current) return;
+              setShortSeedError(isZh ? `已生成，但保存到写作模式失败：${error instanceof Error ? error.message : String(error)}` : `Generated, but saving to the writing mode failed: ${error instanceof Error ? error.message : String(error)}`);
+            });
+          }
         })
         .catch((error) => {
           if (requestId !== directionRequestRef.current) return;
@@ -145,7 +167,7 @@ export function StoryCreationPanel({
       .finally(() => {
         if (requestId === directionRequestRef.current) setDirectionGenerating(false);
       });
-  }, [activeSessionId, isZh, kind, onGenerateDirection, onGenerateSeed, selectedCraft?.id]);
+  }, [activeSessionId, craftsLoading, isZh, kind, onGenerateDirection, onGenerateSeed, onSaveSeed, selectedCraft?.id, selectedCraft?.storySeed]);
 
   useEffect(() => {
     setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
@@ -177,6 +199,12 @@ export function StoryCreationPanel({
           setShortSeed(seed);
           setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
           setShortSeedStatus("ready");
+          if (selectedCraft && onSaveSeed) {
+            void onSaveSeed(selectedCraft.id, seed).catch((error) => {
+              if (requestId !== directionRequestRef.current) return;
+              setShortSeedError(isZh ? `已生成，但保存到写作模式失败：${error instanceof Error ? error.message : String(error)}` : `Generated, but saving to the writing mode failed: ${error instanceof Error ? error.message : String(error)}`);
+            });
+          }
         })
         .catch((error) => {
           if (requestId !== directionRequestRef.current) return;
@@ -379,16 +407,18 @@ export function StoryCreationPanel({
                 </p>
               ) : null}
             </label>
-            {shortSeedStatus === "error" ? (
+            {shortSeedError ? (
               <p className="text-xs leading-5 text-destructive">
-                {isZh ? `生成失败，可重新生成：${shortSeedError ?? "未知错误"}` : `Generation failed; retry: ${shortSeedError ?? "Unknown error"}`}
+                {shortSeedStatus === "ready"
+                  ? (isZh ? shortSeedError : shortSeedError)
+                  : (isZh ? `生成失败，可重新生成：${shortSeedError}` : `Generation failed; retry: ${shortSeedError}`)}
               </p>
             ) : null}
           </div>
           <StorySeedPreview
             streamedContent={shortSeedStreamedContent}
             status={shortSeedStatus}
-            error={shortSeedStatus === "error" ? shortSeedError : null}
+            error={shortSeedError}
             isZh={isZh}
           />
         </div>

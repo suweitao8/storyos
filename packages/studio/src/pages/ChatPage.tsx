@@ -548,7 +548,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     readonly message: string;
   } | null>(null);
   const [selectedCraftId, setSelectedCraftId] = useState("");
-  const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
+  const { data: craftsData, loading: craftsLoading, error: craftsError, refetch: refetchCrafts } = useApi<CraftListResponse>("/crafts");
   const { data: booksData, loading: booksLoading, error: booksError, refetch: refetchBooks } = useApi<{ books: ReadonlyArray<StoryListRecord> }>("/books");
   const { data: shortsData, loading: shortsLoading, error: shortsError, refetch: refetchShorts } = useApi<{ shorts: ReadonlyArray<StoryListRecord> }>("/shorts");
   const crafts = craftsData?.crafts ?? [];
@@ -1057,6 +1057,15 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     onEvent: (event: StorySeedStreamEvent) => void,
   ): Promise<StorySeed> => streamStorySeed(input, onEvent), []);
 
+  const handleSaveStorySeed = useCallback(async (craftId: string, storySeed: StorySeed) => {
+    await fetchJson(`/crafts/${encodeURIComponent(craftId)}/story-seed`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storySeed }),
+    });
+    await refetchCrafts();
+  }, [refetchCrafts]);
+
   const requestStoryAssetExtraction = async (kind: "book" | "short", storyId: string) => {
     try {
       await fetchJson(buildStoryAssetExtractionPath(kind, storyId), { method: "POST" });
@@ -1156,6 +1165,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           onCreateShort={handleCreateShort}
           onGenerateDirection={handleGenerateStoryDirection}
           onGenerateSeed={handleGenerateStorySeed}
+          onSaveSeed={handleSaveStorySeed}
           onOpenCraft={nav.toCraft}
         />
       ) : storyWorkspace.view === "list" ? (

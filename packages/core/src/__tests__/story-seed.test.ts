@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   StorySeedParseError,
+  isStorySeed,
   parseStorySeed,
   serializeStorySeed,
   type StorySeed,
@@ -51,6 +52,13 @@ const COMPLETE_SEED: StorySeed = {
 };
 
 describe("short story seed", () => {
+  it("recognizes complete seeds and rejects incomplete runtime values", () => {
+    expect(isStorySeed(COMPLETE_SEED)).toBe(true);
+    expect(isStorySeed({ ...COMPLETE_SEED, ending: "" })).toBe(false);
+    expect(isStorySeed({ ...COMPLETE_SEED, outline: 42 })).toBe(false);
+    expect(isStorySeed(null)).toBe(false);
+  });
+
   it("parses all required story sections from Markdown", () => {
     expect(parseStorySeed(COMPLETE_SEED_MARKDOWN)).toEqual(COMPLETE_SEED);
   });

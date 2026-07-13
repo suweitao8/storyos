@@ -193,6 +193,8 @@ export interface CraftProfile {
   readonly worldview?: string;
   /** Generalized story skeleton extracted from the reference. */
   readonly storyOutline?: string;
+  /** User-approved story foundation cached for reuse during creation. */
+  readonly storySeed?: StorySeed;
 
   readonly structure: CraftStructure;
   readonly sceneRhythm: CraftSceneRhythm;
@@ -224,6 +226,8 @@ export interface CraftMeta {
   readonly summary?: string;
   /** Recommended per-chapter length for story creation, when available. */
   readonly recommendedWordCount?: number;
+  /** Cached story foundation generated for this writing craft. */
+  readonly storySeed?: StorySeed;
 }
 
 export function normalizeCraftSourceRef(
@@ -246,3 +250,4 @@ export function buildCraftMetaSummary(
   const raw = profile.storyOutline?.trim() || profile.worldview?.trim() || "";
   return raw.replace(/\s+/gu, " ").slice(0, 140);
 }
+import type { StorySeed } from "./story-seed.js";
