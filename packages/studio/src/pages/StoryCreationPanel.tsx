@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowUp, Loader2, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import type { Theme } from "../hooks/use-theme";
 import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
@@ -10,6 +10,7 @@ import {
   resolveDefaultStoryWordCount,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
+  type StoryDirectionGenerationInput,
 } from "./story-creation-state";
 
 export type { CraftOption } from "./story-creation-state";
@@ -27,6 +28,7 @@ interface StoryCreationPanelProps {
   readonly onCraftChange: (craftId: string) => void;
   readonly onCreateLong: (input: LongStoryCreationInput) => Promise<void>;
   readonly onCreateShort: (input: ShortStoryCreationInput) => Promise<void>;
+  readonly onGenerateDirection?: (input: StoryDirectionGenerationInput) => Promise<string>;
   readonly onOpenCraft?: () => void;
 }
 
@@ -43,6 +45,7 @@ export function StoryCreationPanel({
   onCraftChange,
   onCreateLong,
   onCreateShort,
+  onGenerateDirection,
   onOpenCraft,
 }: StoryCreationPanelProps) {
   const c = useColors(theme);
@@ -51,6 +54,9 @@ export function StoryCreationPanel({
   const [longDirection, setLongDirection] = useState("");
   const [chapterWordCount, setChapterWordCount] = useState("10000");
   const [shortDirection, setShortDirection] = useState("");
+  const [directionGenerating, setDirectionGenerating] = useState(false);
+  const [directionGenerationError, setDirectionGenerationError] = useState<string | null>(null);
+  const directionRequestRef = useRef(0);
 
   const selectedCraft = crafts.find((craft) => craft.id === selectedCraftId);
   const hasCraftSelection = Boolean(selectedCraftId && selectedCraft);
@@ -59,17 +65,68 @@ export function StoryCreationPanel({
     if (!selectedCraft) return;
     const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
     if (kind === "long") {
-      setLongDirection((current) => current.trim() ? current : defaultDirection);
+      setLongDirection(defaultDirection);
     } else {
-      setShortDirection((current) => current.trim() ? current : defaultDirection);
+      setShortDirection(defaultDirection);
     }
-  }, [isZh, kind, selectedCraft]);
+
+    setDirectionGenerationError(null);
+    if (!onGenerateDirection) return;
+
+    const requestId = ++directionRequestRef.current;
+    setDirectionGenerating(true);
+    void onGenerateDirection({
+      craftId: selectedCraft.id,
+      kind,
+      language: isZh ? "zh" : "en",
+    })
+      .then((direction) => {
+        if (requestId !== directionRequestRef.current) return;
+        if (kind === "long") setLongDirection(direction);
+        else setShortDirection(direction);
+      })
+      .catch((error) => {
+        if (requestId !== directionRequestRef.current) return;
+        setDirectionGenerationError(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (requestId === directionRequestRef.current) setDirectionGenerating(false);
+      });
+  }, [activeSessionId, isZh, kind, onGenerateDirection, selectedCraft?.id]);
 
   useEffect(() => {
     setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
   }, [selectedCraftId, selectedCraft?.recommendedWordCount]);
 
   const wordCountOptions = buildStoryWordCountOptions(selectedCraft?.recommendedWordCount);
+
+  const regenerateDirection = () => {
+    if (!selectedCraft || !onGenerateDirection || directionGenerating) return;
+    const previousDirection = kind === "long" ? longDirection : shortDirection;
+    const requestId = ++directionRequestRef.current;
+    setDirectionGenerating(true);
+    setDirectionGenerationError(null);
+    void onGenerateDirection({
+      craftId: selectedCraft.id,
+      kind,
+      language: isZh ? "zh" : "en",
+      previousDirection,
+    })
+      .then((direction) => {
+        if (requestId !== directionRequestRef.current) return;
+        if (kind === "long") setLongDirection(direction);
+        else setShortDirection(direction);
+      })
+      .catch((error) => {
+        if (requestId === directionRequestRef.current) {
+          setDirectionGenerationError(error instanceof Error ? error.message : String(error));
+        }
+      })
+      .finally(() => {
+        if (requestId === directionRequestRef.current) setDirectionGenerating(false);
+      });
+  };
+
   const canCreate = Boolean(
     activeSessionId
       && (kind === "long"
@@ -164,7 +221,26 @@ export function StoryCreationPanel({
             </label>
           </div>
           <label className="block space-y-2 text-sm">
-            <span>{isZh ? "故事方向" : "Story direction"}</span>
+            <span className="flex items-center justify-between gap-3">
+              <span>{isZh ? "故事方向" : "Story direction"}</span>
+              {selectedCraft && onGenerateDirection ? (
+                <button
+                  type="button"
+                  onClick={regenerateDirection}
+                  disabled={busy || directionGenerating}
+                  aria-label={isZh ? "重新生成故事方向" : "Regenerate story direction"}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {directionGenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  {directionGenerating ? (isZh ? "正在生成" : "Generating") : (isZh ? "重新生成" : "Regenerate")}
+                </button>
+              ) : null}
+            </span>
+            {directionGenerationError ? (
+              <p className="text-xs leading-5 text-destructive">
+                {isZh ? `自动生成失败，可手动编辑或重试：${directionGenerationError}` : `Generation failed; edit manually or retry: ${directionGenerationError}`}
+              </p>
+            ) : null}
             <textarea value={longDirection} onChange={(event) => setLongDirection(event.target.value)} rows={5} placeholder={isZh ? "写清楚世界、主角压力、核心冲突和你想要的情绪回报" : "Describe the world, protagonist pressure, core conflict, and payoff"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
           </label>
           <div className="grid gap-4">
@@ -187,7 +263,26 @@ export function StoryCreationPanel({
         <div className="space-y-4 rounded-2xl border border-border/60 bg-card/70 p-5">
           <div className="text-sm font-semibold">{isZh ? "短篇故事基础信息" : "Short-story basics"}</div>
           <label className="block space-y-2 text-sm">
-            <span>{isZh ? "故事方向" : "Story direction"}</span>
+            <span className="flex items-center justify-between gap-3">
+              <span>{isZh ? "故事方向" : "Story direction"}</span>
+              {selectedCraft && onGenerateDirection ? (
+                <button
+                  type="button"
+                  onClick={regenerateDirection}
+                  disabled={busy || directionGenerating}
+                  aria-label={isZh ? "重新生成故事方向" : "Regenerate story direction"}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {directionGenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  {directionGenerating ? (isZh ? "正在生成" : "Generating") : (isZh ? "重新生成" : "Regenerate")}
+                </button>
+              ) : null}
+            </span>
+            {directionGenerationError ? (
+              <p className="text-xs leading-5 text-destructive">
+                {isZh ? `自动生成失败，可手动编辑或重试：${directionGenerationError}` : `Generation failed; edit manually or retry: ${directionGenerationError}`}
+              </p>
+            ) : null}
             <textarea value={shortDirection} onChange={(event) => setShortDirection(event.target.value)} rows={6} placeholder={isZh ? "例如：一名守夜人接到来自已故邻居的电话，逐步发现小区的门牌会改变记忆" : "e.g. A night watchman receives a call from a dead neighbor"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
           </label>
           <div className="grid gap-4">
