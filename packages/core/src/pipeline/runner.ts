@@ -779,6 +779,22 @@ export class PipelineRunner {
     await writeFile(join(craftsDir, "story_seed.json"), JSON.stringify(storySeed, null, 2), "utf-8");
   }
 
+  /** Patch lightweight metadata fields (currently genre) without rewriting the full craft profile. */
+  async updateCraftMeta(craftId: string, patch: { readonly genre?: string }): Promise<CraftMeta> {
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    const metaPath = join(craftsDir, "meta.json");
+    let meta: CraftMeta;
+    try {
+      const raw = await readFile(metaPath, "utf-8");
+      meta = JSON.parse(raw) as CraftMeta;
+    } catch {
+      throw new Error("Craft meta not found");
+    }
+    const updated: CraftMeta = { ...meta, genre: patch.genre?.trim() || meta.genre };
+    await writeFile(metaPath, JSON.stringify(updated, null, 2), "utf-8");
+    return updated;
+  }
+
   private async loadCraftStorySeed(craftId: string): Promise<StorySeed | undefined> {
     try {
       const raw = await readFile(join(this.config.projectRoot, "crafts", craftId, "story_seed.json"), "utf-8");

@@ -33,6 +33,7 @@ interface CraftMeta {
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
+  readonly genre?: string;
 }
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
@@ -611,6 +612,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
         <CraftDetail
           craftId={selectedCraftId}
           initialProfile={newProfile}
+          initialGenre={crafts.find((cr) => cr.id === selectedCraftId)?.genre}
           c={c}
           t={t}
           onNew={openCreate}
@@ -1055,9 +1057,10 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 // Tab 3: Detail
 // ---------------------------------------------------------------------------
 
-function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
+function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
+  initialGenre?: string;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onNew: () => void;
@@ -1072,6 +1075,26 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
   const [detailTab, setDetailTab] = useState<CraftDetailTab>("overview");
   const [subtitleText, setSubtitleText] = useState<string | null>(null);
   const [subtitleLoading, setSubtitleLoading] = useState(false);
+  const [genre, setGenre] = useState<string>(initialGenre ?? "");
+  const [genreSaving, setGenreSaving] = useState(false);
+  const { data: genresData } = useApi<{ genres: ReadonlyArray<{ id: string; name: string }> }>("/genres");
+
+  useEffect(() => {
+    setGenre(initialGenre ?? "");
+  }, [craftId, initialGenre]);
+
+  const handleGenreChange = useCallback(async (nextGenre: string) => {
+    if (!craftId) return;
+    setGenre(nextGenre);
+    setGenreSaving(true);
+    try {
+      await putApi(`/crafts/${craftId}/meta`, { genre: nextGenre });
+    } catch {
+      // silent — user can retry by selecting again
+    } finally {
+      setGenreSaving(false);
+    }
+  }, [craftId]);
 
   const loadProfile = useCallback(async () => {
     if (!craftId || initialProfile) return;
@@ -1228,6 +1251,35 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
             ))}
         </div>
       </div>
+
+      {detailTab === "overview" && craftId && (
+        <section className={`border ${c.cardStatic} rounded-xl p-4`}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">题材</h3>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                选择该写作模式对应的题材，建书时会自动带入。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={genre}
+                onChange={(e) => void handleGenreChange(e.target.value)}
+                disabled={genreSaving}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm min-w-[160px] disabled:opacity-50"
+              >
+                <option value="">未指定</option>
+                {(genresData?.genres ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>{g.name} ({g.id})</option>
+                ))}
+              </select>
+              {genreSaving && (
+                <span className="text-xs text-muted-foreground">保存中…</span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {detailTab === "overview" && (detail.worldview || detail.storyOutline) && (
         <section className="grid gap-3 md:grid-cols-2">

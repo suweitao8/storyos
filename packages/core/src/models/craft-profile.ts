@@ -228,6 +228,8 @@ export interface CraftMeta {
   readonly recommendedWordCount?: number;
   /** Cached story foundation generated for this writing craft. */
   readonly storySeed?: StorySeed;
+  /** Genre id this craft is associated with (e.g. xianxia, horror). User-editable. */
+  readonly genre?: string;
 }
 
 export function normalizeCraftSourceRef(

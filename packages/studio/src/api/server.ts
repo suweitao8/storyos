@@ -5807,6 +5807,24 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ storySeed });
   });
 
+  app.put("/api/v1/crafts/:id/meta", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be valid JSON");
+    }
+    const patch = (body ?? {}) as { genre?: string };
+    if (typeof patch.genre !== "string") {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "genre must be a string");
+    }
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    if (!await pipeline.loadCraft(id)) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    const meta = await pipeline.updateCraftMeta(id, { genre: patch.genre });
+    return c.json({ meta });
+  });
+
   app.post("/api/v1/crafts/:id/story-direction", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
     type StoryDirectionRequestBody = {
