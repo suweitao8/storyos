@@ -61,4 +61,29 @@ describe("video craft source idempotency", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("can reparse a novel into its existing craft id even without a source reference", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-craft-reparse-"));
+    try {
+      vi.spyOn(CraftAnalyzerAgent.prototype, "analyze").mockResolvedValue(profile);
+      const runner = new PipelineRunner({
+        client: {
+          provider: "openai",
+          apiFormat: "chat",
+          stream: false,
+          defaults: { temperature: 0, maxTokens: 1000, thinkingBudget: 0 },
+        } as never,
+        model: "test-model",
+        projectRoot: root,
+      });
+
+      const first = await runner.analyzeCraft("原始文本", "测试小说", "zh", "general", "novel");
+      const second = await runner.analyzeCraft("更新文本", "测试小说", "zh", "general", "novel", undefined, undefined, first.craftId);
+
+      expect(second.craftId).toBe(first.craftId);
+      expect(await readdir(join(root, "crafts"))).toEqual([first.craftId]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

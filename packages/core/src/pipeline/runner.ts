@@ -680,6 +680,7 @@ export class PipelineRunner {
     sourceType: "bilibili" | "novel" = "novel",
     sourceRef?: string,
     sourceDurationSeconds?: number,
+    existingCraftId?: string,
   ): Promise<{ craftId: string; profile: CraftProfile }> {
     const analyzer = new CraftAnalyzerAgent(this.agentCtxFor("craft-analyzer"));
     const profile = await analyzer.analyze(text, sourceName, language, (msg) => {
@@ -687,7 +688,9 @@ export class PipelineRunner {
     }, mode, sourceType, sourceDurationSeconds);
 
     const normalizedSourceRef = normalizeCraftSourceRef(sourceType, sourceRef);
-    const existingCraft = normalizedSourceRef
+    const existingCraft = existingCraftId
+      ? (await this.listCrafts()).find((craft) => craft.id === existingCraftId)
+      : normalizedSourceRef
       ? (await this.listCrafts()).find((craft) =>
           craft.sourceType === sourceType
           && normalizeCraftSourceRef(craft.sourceType, craft.sourceRef) === normalizedSourceRef,

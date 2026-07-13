@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCraftAnalyzePayload,
+  CRAFT_DETAIL_TABS,
   craftCardDescription,
   craftCardTitle,
   craftSourceTypeLabel,
@@ -15,6 +16,16 @@ describe("craft mode presentation", () => {
   it("only presents video and novel source types", () => {
     expect(craftSourceTypeLabel("bilibili")).toBe("视频解析");
     expect(craftSourceTypeLabel("novel")).toBe("小说解析");
+  });
+
+  it("organizes craft detail into focused tabs", () => {
+    expect(CRAFT_DETAIL_TABS.map((tab) => tab.value)).toEqual([
+      "overview",
+      "video",
+      "modules",
+      "exemplars",
+      "source",
+    ]);
   });
 
   it("uses a generic fallback description for legacy ghost-story records", () => {

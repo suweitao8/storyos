@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile);
 const BILI_API = "https://api.bilibili.com";
 const BCUT_API = "https://member.bilibili.com/x/bcut/rubick-interface";
 const MAX_AUDIO_BYTES = 120 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 800 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 20_000;
 const TRANSCRIBE_TIMEOUT_MS = 8 * 60_000;
 
@@ -41,6 +42,20 @@ export interface BilibiliImportResult {
   readonly subtitleSource: "bili" | "bcut";
   readonly subtitles: ReadonlyArray<BilibiliSubtitleEntry>;
   readonly text: string;
+  readonly sourceVideoPath?: string;
+  readonly sourceTempDir?: string;
+}
+
+export function selectDashMediaUrls(input: {
+  readonly video?: ReadonlyArray<{ readonly baseUrl?: string; readonly backupUrl?: ReadonlyArray<string> }>;
+  readonly audio?: ReadonlyArray<{ readonly baseUrl?: string; readonly backupUrl?: ReadonlyArray<string> }>;
+}): { readonly videoUrl: string; readonly audioUrl: string } {
+  const video = input.video?.[0];
+  const audio = input.audio?.[0];
+  const videoUrl = video?.baseUrl ?? video?.backupUrl?.[0];
+  const audioUrl = audio?.baseUrl ?? audio?.backupUrl?.[0];
+  if (!videoUrl || !audioUrl) throw new Error("B 站未返回完整视频流和音频流");
+  return { videoUrl, audioUrl };
 }
 
 export function parseBvid(input: string): string | null {
@@ -197,6 +212,73 @@ async function downloadAudioToTemp(video: BilibiliVideoInfo): Promise<{ tempDir:
   }
 }
 
+async function getDashMediaUrls(video: BilibiliVideoInfo): Promise<{ readonly videoUrl: string; readonly audioUrl: string }> {
+  const query = await signedQuery({ bvid: video.bvid, cid: video.cid, fnval: 4048, fnver: 0, qn: 80, fourk: 0 });
+  const json = await getJson<{
+    code: number;
+    message?: string;
+    data?: {
+      dash?: {
+        video?: Array<{ baseUrl?: string; backupUrl?: string[] }>;
+        audio?: Array<{ baseUrl?: string; backupUrl?: string[] }>;
+      };
+    };
+  }>(`${BILI_API}/x/player/wbi/playurl?${query}`);
+  if (json.code !== 0 || !json.data?.dash) {
+    throw new Error(`Bilibili video stream request failed: ${json.message ?? `code=${json.code}`}`);
+  }
+  return selectDashMediaUrls(json.data.dash);
+}
+
+async function downloadResponseToFile(url: string, targetPath: string, maxBytes: number): Promise<void> {
+  const response = await fetch(url, {
+    headers: requestHeaders(),
+    signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
+  });
+  if (!response.ok || !response.body) throw new Error(`下载 B 站媒体失败：${response.status}`);
+  const length = Number(response.headers.get("content-length") ?? 0);
+  if (length > maxBytes) throw new Error("B 站媒体文件超过大小限制");
+  const handle = await open(targetPath, "w");
+  let total = 0;
+  try {
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+      total += chunk.byteLength;
+      if (total > maxBytes) throw new Error("B 站媒体文件超过大小限制");
+      await handle.write(chunk);
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+async function downloadVideoToTemp(video: BilibiliVideoInfo): Promise<{
+  readonly tempDir: string;
+  readonly audioPath: string;
+  readonly videoPath: string;
+}> {
+  const tempDir = await mkdtemp(join(tmpdir(), "inkos-bilibili-video-"));
+  try {
+    const media = await getDashMediaUrls(video);
+    const videoSourcePath = join(tempDir, "video.m4s");
+    const audioSourcePath = join(tempDir, "audio.m4s");
+    const videoPath = join(tempDir, "video.mp4");
+    const audioPath = join(tempDir, "audio.mp3");
+    await downloadResponseToFile(media.videoUrl, videoSourcePath, MAX_VIDEO_BYTES);
+    await downloadResponseToFile(media.audioUrl, audioSourcePath, MAX_AUDIO_BYTES);
+    const ffmpegPath = process.env.FFMPEG_PATH ?? "C:\\ffmpeg\\bin\\ffmpeg.exe";
+    await execFileAsync(ffmpegPath, ["-y", "-i", videoSourcePath, "-i", audioSourcePath, "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart", videoPath], {
+      timeout: TRANSCRIBE_TIMEOUT_MS,
+    });
+    await execFileAsync(ffmpegPath, ["-y", "-i", audioSourcePath, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", audioPath], {
+      timeout: TRANSCRIBE_TIMEOUT_MS,
+    });
+    return { tempDir, audioPath, videoPath };
+  } catch (error) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
 interface BcutSubtitleResult {
   utterances?: Array<{ transcript?: string; start_time?: number; end_time?: number }>;
 }
@@ -260,7 +342,7 @@ async function transcribeWithBcut(audio: Buffer): Promise<BilibiliSubtitleEntry[
   throw new Error("Bcut 识别超时");
 }
 
-function subtitleText(entries: ReadonlyArray<BilibiliSubtitleEntry>): string {
+export function subtitleText(entries: ReadonlyArray<BilibiliSubtitleEntry>): string {
   return entries.map((entry) => `[${entry.from.toFixed(1)}s-${entry.to.toFixed(1)}s] ${entry.content}`).join("\n");
 }
 
@@ -280,5 +362,30 @@ export async function importBilibiliSubtitles(input: string): Promise<BilibiliIm
     return { videoInfo, subtitleSource: "bcut", subtitles: entries, text: subtitleText(entries) };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+export async function importBilibiliSource(input: string): Promise<BilibiliImportResult> {
+  const bvid = parseBvid(input);
+  if (!bvid) throw new Error("璇疯緭鍏ユ湁鏁堢殑 B 绔?BV 鍙锋垨瑙嗛閾炬帴");
+  const videoInfo = await getBilibiliVideoInfo(bvid);
+  const publicSubtitles = await getPublicBilibiliSubtitles(videoInfo);
+  const { tempDir, audioPath, videoPath } = await downloadVideoToTemp(videoInfo);
+  try {
+    const subtitles = publicSubtitles.length > 0
+      ? publicSubtitles
+      : await transcribeWithBcut(await readFile(audioPath));
+    if (subtitles.length === 0) throw new Error("Bcut 鏈瘑鍒嚭鏈夋晥瀛楀箷");
+    return {
+      videoInfo,
+      subtitleSource: publicSubtitles.length > 0 ? "bili" : "bcut",
+      subtitles,
+      text: subtitleText(subtitles),
+      sourceVideoPath: videoPath,
+      sourceTempDir: tempDir,
+    };
+  } catch (error) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw error;
   }
 }

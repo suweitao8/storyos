@@ -17,7 +17,7 @@ import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-bre
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import {
   Wand2, BookOpen, Trash2,
-  Plus, FileUp, Loader2, FileText,
+  Plus, FileUp, Loader2, FileText, RefreshCw, Download, Video, FileArchive,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +62,7 @@ interface CraftListResponse {
 }
 
 interface BilibiliImportResponse {
+  readonly sourceAssetId: string;
   readonly text: string;
   readonly detectedName: string;
   readonly videoInfo: {
@@ -80,6 +81,42 @@ interface BilibiliImportResponse {
 }
 
 export type CraftSourceType = "bilibili" | "novel";
+
+type CraftSourceFileKey = "source" | "video" | "subtitlesJson" | "subtitlesText" | "analysisInput";
+
+interface CraftSourceFile {
+  readonly key: CraftSourceFileKey;
+  readonly fileName: string;
+  readonly downloadName: string;
+  readonly size: number;
+  readonly mimeType: string;
+}
+
+interface CraftSourceManifest {
+  readonly version: 1;
+  readonly sourceType: CraftSourceType;
+  readonly sourceName: string;
+  readonly originalName: string;
+  readonly sourceRef?: string;
+  readonly sourceDurationSeconds?: number;
+  readonly subtitleSource?: "bili" | "bcut";
+  readonly importedAt: string;
+  readonly files: ReadonlyArray<CraftSourceFile>;
+}
+
+interface CraftSourceResponse {
+  readonly source: CraftSourceManifest | null;
+}
+
+export const CRAFT_DETAIL_TABS = [
+  { value: "overview", label: "概览" },
+  { value: "video", label: "视频拆解" },
+  { value: "modules", label: "写作要点" },
+  { value: "exemplars", label: "示例" },
+  { value: "source", label: "原始资料" },
+] as const;
+
+type CraftDetailTab = typeof CRAFT_DETAIL_TABS[number]["value"];
 
 export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: string }> = [
   { value: "bilibili", label: "B 站视频链接" },
@@ -583,6 +620,7 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
 // ---------------------------------------------------------------------------
 
 interface UploadResponse {
+  readonly sourceAssetId: string;
   readonly text: string;
   readonly encoding: string;
   readonly chapterCount: number;
@@ -662,6 +700,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     detectedName: string;
     sourceRef?: string;
     sourceDurationSeconds?: number;
+    sourceAssetId?: string;
   }) => {
     const sourceName = source.type === "bilibili"
       ? normalizeBilibiliCraftName(source.detectedName)
@@ -674,6 +713,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     try {
       const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
         ...buildCraftAnalyzePayload(source),
+        ...(source.sourceAssetId ? { sourceAssetId: source.sourceAssetId } : {}),
       });
       onSuccess(result.profile, result.craftId);
     } catch (e) {
@@ -722,7 +762,12 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       }
       const data: UploadResponse = await response.json();
       setUploadResult(data);
-      await runExtraction({ type: "novel", text: data.text, detectedName: data.detectedName });
+      await runExtraction({
+        type: "novel",
+        text: data.text,
+        detectedName: data.detectedName,
+        sourceAssetId: data.sourceAssetId,
+      });
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -757,6 +802,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
         detectedName: data.detectedName,
         sourceRef: data.videoInfo.bvid,
         sourceDurationSeconds: data.videoInfo.duration,
+        sourceAssetId: data.sourceAssetId,
       });
     } catch (e) {
       setBilibiliError(e instanceof Error ? e.message : String(e));
@@ -966,6 +1012,11 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
   const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
   const [loading, setLoading] = useState(!initialProfile && !!craftId);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<CraftSourceManifest | null>(null);
+  const [sourceLoading, setSourceLoading] = useState(!!craftId);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [reparsing, setReparsing] = useState(false);
+  const [detailTab, setDetailTab] = useState<CraftDetailTab>("overview");
 
   const loadProfile = useCallback(async () => {
     if (!craftId || initialProfile) return;
@@ -991,6 +1042,43 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
     }
     void loadProfile();
   }, [craftId, initialProfile, loadProfile]);
+
+  const loadSource = useCallback(async () => {
+    if (!craftId) return;
+    setSourceLoading(true);
+    setSourceError(null);
+    try {
+      const data = await fetchJson<CraftSourceResponse>(`/crafts/${craftId}/source`, { method: "GET" });
+      setSource(data.source);
+    } catch (loadError) {
+      setSource(null);
+      setSourceError(loadError instanceof Error ? loadError.message : String(loadError));
+    } finally {
+      setSourceLoading(false);
+    }
+  }, [craftId]);
+
+  useEffect(() => {
+    setDetailTab("overview");
+    setSource(null);
+    if (craftId) void loadSource();
+    else setSourceLoading(false);
+  }, [craftId, loadSource]);
+
+  const handleReparse = useCallback(async () => {
+    if (!craftId || !source?.files.some((file) => file.key === "analysisInput") || reparsing) return;
+    setReparsing(true);
+    setError(null);
+    try {
+      const result = await fetchJson<{ profile: CraftProfile }>(`/crafts/${craftId}/reparse`, { method: "POST" });
+      setProfile(result.profile);
+      await loadSource();
+    } catch (reparseError) {
+      setError(reparseError instanceof Error ? reparseError.message : String(reparseError));
+    } finally {
+      setReparsing(false);
+    }
+  }, [craftId, loadSource, reparsing, source]);
 
   if (loading) {
     return (
@@ -1036,23 +1124,57 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="font-serif text-2xl">
-          {profile.sourceType === "bilibili"
-            ? normalizeBilibiliCraftName(profile.sourceName)
-            : normalizeCraftDisplayName(profile.sourceName)}
-        </h2>
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-primary">
+            {craftSourceTypeLabel(profile.sourceType)}
+          </span>
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
           </span>
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.exemplarCount").replace("{count}", String(detail.exemplarCount))}
           </span>
+          {source && <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">原始资料已保留</span>}
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleReparse()}
+          disabled={reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")}
+          className={`inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors ${
+            reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")
+              ? "cursor-not-allowed opacity-50"
+              : "hover:bg-secondary/40"
+          }`}
+          title={!source ? "该模式没有保留原始资料，无法重新解析" : undefined}
+        >
+          <RefreshCw size={14} className={reparsing ? "animate-spin" : undefined} />
+          {reparsing ? "重新解析中…" : "重新解析"}
+        </button>
+      </div>
+
+      <div className="overflow-x-auto border-b border-border">
+        <div className="flex min-w-max gap-1">
+          {CRAFT_DETAIL_TABS
+            .filter((tab) => tab.value !== "video" || !!detail.videoStory)
+            .map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setDetailTab(tab.value)}
+                className={`border-b-2 px-3 py-2 text-sm transition-colors ${
+                  detailTab === tab.value
+                    ? "border-primary font-medium text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
         </div>
       </div>
 
-      {(detail.worldview || detail.storyOutline) && (
+      {detailTab === "overview" && (detail.worldview || detail.storyOutline) && (
         <section className="grid gap-3 md:grid-cols-2">
           {detail.worldview && (
             <div className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
@@ -1069,7 +1191,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
         </section>
       )}
 
-      {detail.videoStory && (
+      {detailTab === "video" && detail.videoStory && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
@@ -1167,7 +1289,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
         </section>
       )}
 
-      <section className="space-y-3">
+      {detailTab === "modules" && <section className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("craft.breakdownModules")}</h3>
         <div className="grid gap-3 md:grid-cols-2">
           {detail.modules.map((module) => (
@@ -1188,9 +1310,9 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section className="space-y-3">
+      {detailTab === "overview" && <section className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("craft.legacySummary")}</h3>
         <CraftSection title={t("craft.structure")} fields={[
           [t("craft.openingPattern"), profile.structure.openingPattern],
@@ -1215,10 +1337,10 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
           [t("craft.dialogueRatio"), profile.narrativePerspective.narrationDialogueRatio],
           [t("craft.narrativeDistance"), profile.narrativePerspective.narrativeDistance],
         ]} exemplar={profile.narrativePerspective.exemplar} c={c} />
-      </section>
+      </section>}
 
       {/* Exemplars */}
-      {profile.exemplars.length > 0 && (
+      {detailTab === "exemplars" && profile.exemplars.length > 0 && (
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">{t("craft.exemplars")}</h3>
           <div className="space-y-2">
@@ -1230,6 +1352,60 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
             ))}
           </div>
         </div>
+      )}
+
+      {detailTab === "source" && (
+        <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">原始资料</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                创建模式时保存的文件和解析输入会一直保留，之后可以基于同一份资料重新解析。
+              </p>
+            </div>
+            {source && <span className="text-xs text-muted-foreground">导入于 {new Date(source.importedAt).toLocaleString()}</span>}
+          </div>
+
+          {sourceLoading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" />正在读取原始资料…</div>
+          ) : sourceError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive">读取原始资料失败：{sourceError}</div>
+          ) : !source ? (
+            <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">这个模式没有保留原始资料，因此不能重新解析。</div>
+          ) : (
+            <div className="space-y-4">
+              {source.files.some((file) => file.key === "video") && (
+                <video
+                  controls
+                  preload="metadata"
+                  className="max-h-80 w-full rounded-xl border border-border bg-black"
+                  src={`/api/v1/crafts/${craftId}/source/video`}
+                />
+              )}
+              <div className="grid gap-2 md:grid-cols-2">
+                {source.files.map((file) => (
+                  <a
+                    key={file.key}
+                    href={`/api/v1/crafts/${craftId}/source/${file.key}`}
+                    download={file.downloadName}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3 transition-colors hover:bg-secondary/30"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {file.key === "video" ? <Video size={16} className="shrink-0 text-primary" /> : file.key === "source" ? <FileArchive size={16} className="shrink-0 text-primary" /> : <FileText size={16} className="shrink-0 text-primary" />}
+                      <span className="min-w-0 truncate text-sm">{craftSourceFileLabel(file.key, file.downloadName)}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><span>{formatCraftSourceSize(file.size)}</span><Download size={14} /></span>
+                  </a>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {source.sourceDurationSeconds ? <span>视频时长：{Math.round(source.sourceDurationSeconds / 60)} 分钟</span> : null}
+                {source.subtitleSource ? <span>字幕来源：{source.subtitleSource === "bili" ? "B 站" : "必剪转写"}</span> : null}
+                {source.sourceRef ? <span className="max-w-full truncate">来源：{source.sourceRef}</span> : null}
+              </div>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
@@ -1263,4 +1439,18 @@ function CraftSection({ title, fields, exemplar, c }: {
       )}
     </div>
   );
+}
+
+function craftSourceFileLabel(key: CraftSourceFileKey, downloadName: string): string {
+  if (key === "video") return "视频文件（保留原始下载）";
+  if (key === "subtitlesJson") return "字幕数据（JSON）";
+  if (key === "subtitlesText") return "字幕文本";
+  if (key === "analysisInput") return "解析输入文本";
+  return `原始文件：${downloadName}`;
+}
+
+function formatCraftSourceSize(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
