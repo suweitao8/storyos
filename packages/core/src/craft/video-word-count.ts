@@ -1,7 +1,7 @@
 import type { CraftMode, CraftWordCountEstimate } from "../models/craft-profile.js";
 
-function roundToHundred(value: number): number {
-  return Math.max(1000, Math.round(value / 100) * 100);
+function roundToThousand(value: number): number {
+  return Math.max(1000, Math.round(value / 1000) * 1000);
 }
 
 function countSourceCharacters(text: string): number {
@@ -13,12 +13,13 @@ function countSourceCharacters(text: string): number {
 
 /**
  * Estimate the prose length needed to adapt a timestamped video into a novel.
- * Spoken subtitles are expanded to cover scene action, setting, interiority,
- * and transitions while keeping the estimate transparent and deterministic.
+ * The source length is used as the target rather than being expanded by a
+ * fixed multiplier. The reference video controls rhythm and density; it is
+ * not silently turned into a longer adaptation.
  */
 export function estimateVideoNovelWordCount(
   text: string,
-  mode: CraftMode = "general",
+  _mode: CraftMode = "general",
   sourceDurationSeconds?: number,
   language: "zh" | "en" = "zh",
 ): CraftWordCountEstimate {
@@ -27,20 +28,20 @@ export function estimateVideoNovelWordCount(
     ? sourceDurationSeconds
     : undefined;
   const durationFallback = duration ? duration / 60 * (language === "zh" ? 260 : 180) : 0;
-  const sourceBasis = Math.max(sourceCharacterCount, Math.round(durationFallback));
-  const expansionRatio = mode === "ghost-story" ? 1.55 : 1.45;
-  const min = roundToHundred(Math.max(1000, sourceBasis * 1.2));
-  const max = roundToHundred(Math.max(min, sourceBasis * 1.8));
-  const recommended = Math.min(max, Math.max(min, roundToHundred(sourceBasis * expansionRatio)));
+  const sourceBasis = sourceCharacterCount > 0
+    ? sourceCharacterCount
+    : Math.round(durationFallback);
+  const recommended = roundToThousand(Math.max(1000, sourceBasis));
   const durationText = duration ? `，视频时长约 ${Math.round(duration / 60)} 分钟` : "";
+  const basisText = sourceCharacterCount > 0
+    ? `根据字幕有效字数约 ${sourceCharacterCount.toLocaleString()} 字${durationText}`
+    : `字幕没有有效字数，按${durationText ? durationText.slice(1) : "视频内容"}估算`;
   const rationale = language === "zh"
-    ? `根据字幕有效字数约 ${sourceCharacterCount.toLocaleString()} 字${durationText}，按补充场景、动作、心理和转场后的 ${expansionRatio.toFixed(2)} 倍叙事展开估算。`
-    : `Based on about ${sourceCharacterCount.toLocaleString()} source characters${duration ? ` and a ${Math.round(duration / 60)}-minute video` : ""}, expanded ${expansionRatio.toFixed(2)}x for scene action, setting, interiority, and transitions.`;
+    ? `${basisText}，不额外使用扩写倍率；目标字数按千字四舍五入，用于控制原创短篇篇幅，实际情节以完整节奏为准。`
+    : `${sourceCharacterCount > 0 ? `Based on about ${sourceCharacterCount.toLocaleString()} source characters${duration ? ` and a ${Math.round(duration / 60)}-minute video` : ""}` : "Estimated from the video duration because no usable subtitles were found"}. No expansion multiplier is applied; the target is rounded to the nearest thousand for the original short story.`;
 
   return {
     recommended,
-    min,
-    max,
     sourceCharacterCount,
     ...(duration ? { sourceDurationSeconds: duration } : {}),
     rationale,
