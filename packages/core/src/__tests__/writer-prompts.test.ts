@@ -29,12 +29,10 @@ const GENRE: GenreProfile = {
   pacingRule: "",
   satisfactionTypes: [],
   auditDimensions: [],
-  artStyle: "realistic",
   promptTemplates: {
     image: {
-      character: { realistic: "", cg3d: "" },
-      scene: { realistic: "", cg3d: "" },
-      prop: { realistic: "", cg3d: "" },
+      templates: { character: "", scene: "", prop: "" },
+      styles: { realistic: "", cg3d: "" },
     },
     voice: {
       boy: "", girl: "", youngMale: "", youngFemale: "",
