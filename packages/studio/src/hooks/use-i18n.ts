@@ -258,6 +258,8 @@ const strings = {
   "genre.cancel": { zh: "取消", en: "Cancel" },
   "genre.copyToProject": { zh: "复制到项目", en: "Copy to Project" },
   "genre.selectHint": { zh: "选择题材查看详情", en: "Select a genre to view details" },
+  "genre.list": { zh: "题材列表", en: "Genre list" },
+  "genre.available": { zh: "个可用题材", en: "available" },
   "genre.commaSeparated": { zh: "逗号分隔", en: "comma-separated" },
   "genre.rulesMd": { zh: "规则（Markdown）", en: "Rules (Markdown)" },
 
