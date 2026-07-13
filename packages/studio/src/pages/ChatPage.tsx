@@ -75,7 +75,11 @@ import {
   type SkillDraft,
   type StudioSkill,
 } from "./skill-ui-state";
-import { buildStoryWorkspaceTabs, resolveStoryWorkspaceStage } from "./story-workspace-state";
+import {
+  buildStoryWorkspaceTabs,
+  DEFAULT_STORY_WORKSPACE_STAGE,
+  resolveStoryWorkspaceStage,
+} from "./story-workspace-state";
 
 // -- Types --
 
@@ -523,7 +527,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     : currentSessionKind === "book-create" || currentSessionKind === "book"
       ? "long"
       : null;
-  const [storyWorkspaceStage, setStoryWorkspaceStage] = useState<unknown>("settings");
+  const [storyWorkspaceStage, setStoryWorkspaceStage] = useState<unknown>(DEFAULT_STORY_WORKSPACE_STAGE);
   const [storyContentRefreshToken, setStoryContentRefreshToken] = useState(0);
   const [storyAssetExtractionFailure, setStoryAssetExtractionFailure] = useState<{
     readonly kind: "book" | "short";
@@ -586,10 +590,6 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       .filter((skill): skill is StudioSkill => Boolean(skill)),
     [availableSkills, selectedSkillIds],
   );
-
-  useEffect(() => {
-    if (isStorySession) setStoryWorkspaceStage("settings");
-  }, [activeBookId, activeShortId, activeSessionId, currentSessionKind, isStorySession]);
 
   useEffect(() => {
     if (!craftsData) return;

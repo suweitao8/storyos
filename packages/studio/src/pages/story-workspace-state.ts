@@ -21,6 +21,8 @@ export const STORY_WORKSPACE_STAGES = [
   "video",
 ] as const satisfies ReadonlyArray<StoryWorkspaceStage>;
 
+export const DEFAULT_STORY_WORKSPACE_STAGE: StoryWorkspaceStage = "list";
+
 const STORY_WORKSPACE_STAGE_LABELS: Readonly<Record<StoryWorkspaceStage, { readonly zh: string; readonly en: string }>> = {
   list: { zh: "故事列表", en: "Story list" },
   create: { zh: "创建故事", en: "Create story" },
