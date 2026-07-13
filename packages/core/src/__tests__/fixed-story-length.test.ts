@@ -19,5 +19,6 @@ describe("fixed story lengths", () => {
   it("accepts a video craft recommendation above the old 10000-character cap", () => {
     expect(SHORT_FICTION_MAX_CHARS_PER_CHAPTER).toBe(100_000);
     expect(ShortRunActionPayloadSchema.parse({ charsPerChapter: 20_200 }).charsPerChapter).toBe(20_200);
+    expect(ShortRunActionPayloadSchema.parse({ charsPerChapter: 30_000 }).charsPerChapter).toBe(30_000);
   });
 });
