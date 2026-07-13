@@ -15,6 +15,11 @@ import {
 
 export type { CraftOption } from "./story-creation-state";
 
+export const STORY_CREATION_LAYOUT_CLASSES = {
+  workspace: "mx-auto flex h-full w-full max-w-[1440px] flex-col overflow-y-auto px-4 py-6 md:px-8 xl:px-10",
+  columns: "grid min-h-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]",
+} as const;
+
 interface StoryCreationPanelProps {
   readonly kind: "long" | "short";
   readonly theme: Theme;
@@ -155,7 +160,9 @@ export function StoryCreationPanel({
   };
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-5 overflow-y-auto px-4 py-6 md:px-6">
+    <div className={STORY_CREATION_LAYOUT_CLASSES.workspace}>
+      <div className={STORY_CREATION_LAYOUT_CLASSES.columns}>
+        <div className="min-w-0 space-y-5">
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -303,6 +310,38 @@ export function StoryCreationPanel({
         </div>
       )}
 
+        </div>
+
+        <aside className="min-w-0 space-y-5 lg:sticky lg:top-0 lg:self-start">
+          <section className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.04] p-5">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/80">
+                {isZh ? "创建摘要" : "Creation summary"}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {isZh
+                  ? "左侧填写故事内容，右侧确认当前规则后直接创建。宽屏下这些信息会同时保持可见。"
+                  : "Fill in the story on the left and confirm the active rules here before creating it."}
+              </p>
+            </div>
+            <dl className="divide-y divide-border/50 rounded-xl border border-border/50 bg-background/40 px-3">
+              <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                <dt className="text-muted-foreground">{isZh ? "故事类型" : "Story type"}</dt>
+                <dd className="font-medium">{kind === "long" ? (isZh ? "长篇故事" : "Long story") : (isZh ? "短篇故事" : "Short story")}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                <dt className="text-muted-foreground">{isZh ? "写作模式" : "Writing mode"}</dt>
+                <dd className="max-w-[15rem] truncate text-right font-medium">
+                  {selectedCraft ? selectedCraft.sourceName : (isZh ? "默认规则" : "Default rules")}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-3 text-sm">
+                <dt className="text-muted-foreground">{isZh ? "每章字数" : "Words / chapter"}</dt>
+                <dd className="font-medium">{Number(chapterWordCount).toLocaleString()} {isZh ? "字" : "words"}</dd>
+              </div>
+            </dl>
+          </section>
+
       <button
         type="button"
         onClick={handleSubmit}
@@ -315,6 +354,8 @@ export function StoryCreationPanel({
       <p className="pb-4 text-center text-xs leading-5 text-muted-foreground">
         {isZh ? "创建完成后会自动切换到“故事设定”，你可以从这里查看资产或打开对话调整。封面不会在这里生成。" : "After creation, the view switches to story settings, where you can review assets or open chat adjustment. Covers are not generated here."}
       </p>
+        </aside>
+      </div>
     </div>
   );
 }

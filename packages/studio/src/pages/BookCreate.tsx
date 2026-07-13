@@ -794,7 +794,7 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="w-full max-w-[1440px] mx-auto space-y-8">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button onClick={nav.toDashboard} className={c.link}>{t("bread.books")}</button>
         <span className="text-border">/</span>

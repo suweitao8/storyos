@@ -593,7 +593,7 @@ export function ServiceListPage({ nav: _nav }: { nav: Nav }) {
   );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="mx-auto w-full max-w-[1200px] space-y-8">
       <section className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{tr("文本大模型", "Text Models")}</h2>
         {loading && <SkeletonCard />}
