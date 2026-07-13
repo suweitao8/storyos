@@ -1710,8 +1710,10 @@ async function loadStudioBookListSummary(
   bookId: string,
 ): Promise<StudioBookListSummary> {
   const book = await state.loadBookConfig(bookId);
+  const chapters = await state.loadChapterIndex(bookId);
   const nextChapter = await state.getNextChapterNumber(bookId);
-  return { ...book, chaptersWritten: nextChapter - 1 };
+  const wordCount = chapters.reduce((total, chapter) => total + chapter.wordCount, 0);
+  return { ...book, chaptersWritten: nextChapter - 1, wordCount };
 }
 
 function isCustomServiceId(serviceId: string): boolean {
@@ -5117,6 +5119,22 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       await rm(bookDir, { recursive: true, force: true });
       broadcast("book:deleted", { bookId: id });
       return c.json({ ok: true, bookId: id });
+    } catch (e) {
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  // --- Short Story Delete ---
+
+  app.delete("/api/v1/shorts/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!isSafeBookId(id)) {
+      return c.json({ error: "Invalid short story id" }, 400);
+    }
+    try {
+      await rm(join(root, "shorts", id), { recursive: true, force: true });
+      broadcast("short:deleted", { storyId: id });
+      return c.json({ ok: true, storyId: id });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
     }
