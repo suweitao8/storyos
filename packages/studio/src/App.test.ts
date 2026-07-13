@@ -155,7 +155,7 @@ describe("resolveActiveShortStoryId", () => {
     { id: "short-2", title: "第二个故事" },
   ];
 
-  it("prefers the route selection, then the active session, then the recent selection", () => {
+  it("prefers the route selection, then the recent selection, then the active session", () => {
     expect(resolveActiveShortStoryId({
       route: { page: "short", shortId: "short-2" },
       activeShortStoryId: "short-1",
@@ -168,6 +168,14 @@ describe("resolveActiveShortStoryId", () => {
       sessionKind: "short",
       activeShortStoryId: "short-2",
       recentShortStoryId: "short-1",
+      shorts,
+    })).toBe("short-1");
+
+    expect(resolveActiveShortStoryId({
+      route: { page: "chat" },
+      sessionKind: "short",
+      activeShortStoryId: "short-2",
+      recentShortStoryId: null,
       shorts,
     })).toBe("short-2");
   });
