@@ -13,9 +13,9 @@ import {
   buildCraftAnalyzePayload,
   CRAFT_LIST_GRID_CLASS,
   craftCardTitle,
+  craftModeLabel,
   craftSourceTypeLabel,
   craftCardDescription,
-  craftModeLabel,
 } from "./CraftManager";
 
 describe("craft card list presentation", () => {
@@ -24,7 +24,7 @@ describe("craft card list presentation", () => {
     expect(CRAFT_LIST_GRID_CLASS).not.toContain("sm:grid-cols-2");
   });
 
-  it("shows the craft type after the title and the source type separately", () => {
+  it("shows the source name and selected craft subtype", () => {
     expect(craftCardTitle({ sourceName: "测试故事", mode: "bilibili-commentary", sourceType: "bilibili" })).toBe("测试故事 · B站影视解说");
     expect(craftCardTitle({ sourceName: "旧模式", mode: "ghost-story", sourceType: "bilibili" })).toBe("旧模式 · B站视频");
     expect(craftSourceTypeLabel("bilibili")).toBe("B站视频");

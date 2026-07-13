@@ -11,6 +11,7 @@ import {
   DEFAULT_CRAFT_TAB,
   type CraftTab,
   resolveAfterCraftDelete,
+  resolveDefaultCraftSelection,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import type { CraftMode, VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
@@ -97,7 +98,7 @@ interface BilibiliImportResponse {
 
 export function buildCraftAnalyzePayload(
   source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string; sourceDurationSeconds?: number },
-  mode: CraftMode,
+  mode: CraftMode = "general",
 ) {
   return {
     text: source.text,
@@ -362,6 +363,19 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   } = useApi<CraftListResponse>("/crafts");
 
   const crafts = craftsData?.crafts ?? [];
+
+  useEffect(() => {
+    if (userNavigatedRef.current || selectedCraftIdRef.current) return;
+
+    const defaultCraftId = resolveDefaultCraftSelection(
+      crafts.map((craft) => craft.id),
+      craftsData?.recentCraftId ?? null,
+    );
+    if (!defaultCraftId) return;
+
+    selectedCraftIdRef.current = defaultCraftId;
+    setSelectedCraftId(defaultCraftId);
+  }, [crafts, craftsData?.recentCraftId]);
 
   const markUserNavigation = () => {
     userNavigatedRef.current = true;
@@ -1090,7 +1104,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-              {profile.mode === "bilibili-commentary" ? "B站影视解说节奏拆解" : "B站短篇故事节奏拆解"}
+              视频节奏拆解
             </h3>
             {detail.videoStory.wordCountEstimate && (
               <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
