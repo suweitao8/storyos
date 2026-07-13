@@ -114,6 +114,10 @@ import {
   type SessionKind,
   type AgentSessionAttachment,
   type CraftMode,
+  DEFAULT_IMAGE_PROMPTS,
+  DEFAULT_VOICE_PROMPTS,
+  ART_STYLES,
+  VOICE_AGE_GROUPS,
 } from "@actalk/inkos-core";
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -4991,21 +4995,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ ok: true });
   });
 
-  // --- Prompt templates ---
+  // --- Prompt templates (read-only defaults from core) ---
 
   app.get("/api/v1/project/prompt-templates", async (c) => {
-    const raw = await loadRawConfig(root);
-    return c.json({ promptTemplates: raw.promptTemplates ?? {} });
-  });
-
-  app.put("/api/v1/project/prompt-templates", async (c) => {
-    const { promptTemplates } = await c.req.json<{ promptTemplates: Record<string, unknown> }>();
-    const configPath = join(root, "inkos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8"));
-    raw.promptTemplates = promptTemplates;
-    const { writeFile: writeFileFs } = await import("node:fs/promises");
-    await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
-    return c.json({ ok: true });
+    return c.json({
+      image: DEFAULT_IMAGE_PROMPTS,
+      voice: DEFAULT_VOICE_PROMPTS,
+      artStyles: ART_STYLES,
+      voiceGroups: VOICE_AGE_GROUPS,
+    });
   });
 
   // --- Global default model ---
