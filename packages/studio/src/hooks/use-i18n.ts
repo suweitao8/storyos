@@ -21,6 +21,7 @@ const strings = {
   "nav.createSpinoff": { zh: "番外创作", en: "Side-story" },
   "nav.config": { zh: "模型配置", en: "Model Config" },
   "nav.promptTemplates": { zh: "提示词模板", en: "Prompt Templates" },
+  "nav.skills": { zh: "Skill", en: "Skill" },
   "nav.projectSettings": { zh: "项目设置", en: "Project Settings" },
   "nav.settings": { zh: "设置", en: "Settings" },
   "nav.connected": { zh: "已连接", en: "Connected" },
