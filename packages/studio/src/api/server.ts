@@ -134,6 +134,14 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { isSafeBookId } from "./safety.js";
 import { ApiError } from "./errors.js";
 import { buildStudioBookConfig } from "./book-create.js";
+import type { StudioLanguage, StudioRouteContext } from "./routes/context.js";
+import {
+  attachmentDisposition,
+  errorResponse,
+  normalizeLanguage,
+  normalizeRelativePath,
+  storyAssetErrorMessage,
+} from "./routes/boundary.js";
 import {
   clearRecentCraftId,
   clearRecentCraftIdIfMatches,
@@ -153,15 +161,9 @@ const STORY_ASSET_IMAGE_CONTENT_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 
-function storyAssetErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  const message = String(error);
-  return message && message !== "[object Object]" ? message : "Story asset request failed.";
-}
-
 function storyAssetErrorResponse(c: any, error: unknown): Response {
   if (error instanceof ApiError) {
-    return c.json({ error: { code: error.code, message: error.message } }, error.status as 400);
+    return errorResponse(c, error);
   }
   console.error("[studio] Unexpected story asset error", error);
   return c.json({ error: { code: "INTERNAL_ERROR", message: "Unexpected server error." } }, 500);
@@ -190,12 +192,8 @@ function storyAssetCollection(kind: StoryAssetRouteKind): "books" | "shorts" {
   return kind === "book" ? "books" : "shorts";
 }
 
-function normalizeStoryAssetRelativePath(value: string): string {
-  return value.replace(/\\/gu, "/").replace(/^\.\//u, "");
-}
-
 function resolveStoryAssetProjectPath(root: string, rawPath: string, code = "INVALID_STORY_ASSET_PATH"): { readonly relativePath: string; readonly resolved: string } {
-  const relativePath = normalizeStoryAssetRelativePath(rawPath);
+  const relativePath = normalizeRelativePath(rawPath, { code, message: "Invalid story asset path." });
   if (!relativePath || relativePath.includes("\0") || isAbsolute(relativePath) || relativePath.split("/").includes("..")) {
     throw new ApiError(400, code, "Invalid story asset path.");
   }
@@ -212,7 +210,7 @@ function storyAssetManifestRelativePath(kind: StoryAssetRouteKind, storyId: stri
   const expected = `${storyAssetCollection(kind)}/${storyId}/assets/manifest.json`;
   let actual: string;
   try {
-    actual = normalizeStoryAssetRelativePath(storyAssetManifestPath(kind, storyId));
+    actual = normalizeRelativePath(storyAssetManifestPath(kind, storyId));
   } catch (error) {
     throw new ApiError(400, "INVALID_STORY_ASSET_PATH", storyAssetErrorMessage(error));
   }
@@ -228,7 +226,7 @@ function storyAssetImageRelativePath(kind: StoryAssetRouteKind, storyId: string,
   const expected = `${storyAssetCollection(kind)}/${storyId}/assets/images/${assetId}.${normalizedExtension}`;
   let actual: string;
   try {
-    actual = normalizeStoryAssetRelativePath(storyAssetImagePath(kind, storyId, assetId, normalizedExtension));
+    actual = normalizeRelativePath(storyAssetImagePath(kind, storyId, assetId, normalizedExtension));
   } catch (error) {
     throw new ApiError(400, "UNSAFE_STORY_ASSET_IMAGE_PATH", storyAssetErrorMessage(error));
   }
@@ -349,8 +347,6 @@ async function createStoryAssetImageRuntime(root: string, assetId: string): Prom
 
 // -- Studio server language (read per request from the project config's `language`) --
 
-type StudioLanguage = "zh" | "en";
-
 /**
  * Normalise a chardet-detected encoding name to an iconv-lite-compatible label.
  * chardet sometimes returns uppercase aliases like "GB18030" or "ASCII"; for
@@ -381,10 +377,6 @@ export function deriveCraftSourceName(filename: string): string {
     .trim();
 
   return normalizedName || baseName || "未命名小说";
-}
-
-function normalizeStudioLanguage(value: unknown): StudioLanguage {
-  return value === "en" ? "en" : "zh";
 }
 
 function pick(lang: StudioLanguage, zh: string, en: string): string {
@@ -426,11 +418,6 @@ const PIPELINE_STAGES: Record<string, ReadonlyArray<BilingualLabel>> = {
 
 function pipelineStages(agent: string, lang: StudioLanguage = "zh"): string[] | undefined {
   return PIPELINE_STAGES[agent]?.map((stage) => pick(lang, stage.zh, stage.en));
-}
-
-function attachmentDisposition(fileName: string): string {
-  const safeAscii = fileName.replace(/[^A-Za-z0-9._-]+/g, "_") || "download";
-  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 const AGENT_LABELS: Record<string, BilingualLabel> = {
@@ -2728,18 +2715,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   // Structured error handler — ApiError returns typed JSON, others return 500
   app.onError((error, c) => {
-    if (error instanceof ApiError) {
-      return c.json({ error: { code: error.code, message: error.message } }, error.status as 400);
+    if (!(error instanceof ApiError)) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("LLM API key not set") && !message.includes("INKOS_LLM_API_KEY not set")) {
+        console.error("[studio] Unexpected server error", error);
+      }
     }
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("LLM API key not set") || message.includes("INKOS_LLM_API_KEY not set")) {
-      return c.json({ error: { code: "LLM_CONFIG_ERROR", message } }, 400);
-    }
-    console.error("[studio] Unexpected server error", error);
-    return c.json(
-      { error: { code: "INTERNAL_ERROR", message: "Unexpected server error." } },
-      500,
-    );
+    return errorResponse(c, error);
   });
 
   // BookId validation middleware — blocks path traversal on all book routes
@@ -2788,7 +2770,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // A missing/corrupt inkos.json means "no project language configured" -> zh.
   async function currentProjectLanguage(): Promise<StudioLanguage> {
     const raw = await loadRawConfig(root).catch(() => ({} as Record<string, unknown>));
-    return normalizeStudioLanguage(raw.language);
+    return normalizeLanguage(raw.language);
   }
 
   async function buildPipelineConfig(
@@ -2846,6 +2828,17 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       externalContext: overrides?.externalContext,
     };
   }
+
+  const routeContext: StudioRouteContext = {
+    app,
+    root,
+    state,
+    overrides,
+    getProjectConfig: loadCurrentProjectConfig,
+    getLanguage: currentProjectLanguage,
+    buildPipelineConfig,
+    broadcast,
+  };
 
   // --- Story assets ---
 
@@ -3095,7 +3088,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       if (asset.image.status !== "ready" || !asset.image.path) throw new ApiError(404, "STORY_ASSET_IMAGE_NOT_FOUND", `Ready image not found for story asset: ${assetId}.`);
       const extension = asset.image.path.split(".").pop()?.toLowerCase() ?? "";
       const expectedPath = storyAssetImageRelativePath(kind, storyId, assetId, extension);
-      if (normalizeStoryAssetRelativePath(asset.image.path) !== expectedPath) throw new ApiError(400, "UNSAFE_STORY_ASSET_IMAGE_PATH", "Manifest image path is not safe.");
+      let manifestImagePath: string;
+      try {
+        manifestImagePath = normalizeRelativePath(asset.image.path);
+      } catch {
+        throw new ApiError(400, "UNSAFE_STORY_ASSET_IMAGE_PATH", "Manifest image path is not safe.");
+      }
+      if (manifestImagePath !== expectedPath) throw new ApiError(400, "UNSAFE_STORY_ASSET_IMAGE_PATH", "Manifest image path is not safe.");
       const target = resolveStoryAssetProjectPath(root, expectedPath);
       let content: Buffer;
       try {
@@ -3763,7 +3762,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!env || !env.values.apiKey) {
       return c.json({
         error: pick(
-          await currentProjectLanguage(),
+          await routeContext.getLanguage(),
           "未检测到可导入的 LLM 环境变量配置，或缺少 INKOS_LLM_API_KEY。",
           "No importable LLM environment variable configuration was detected, or INKOS_LLM_API_KEY is missing.",
         ),
@@ -3822,7 +3821,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (body.configSource === "env") {
       return c.json({
         error: pick(
-          await currentProjectLanguage(),
+          await routeContext.getLanguage(),
           "Studio 运行时不支持切换到 env；env 只在 CLI/daemon/部署运行时作为覆盖层使用。",
           "The Studio runtime does not support switching to env; env only acts as an override layer in the CLI/daemon/deployment runtimes.",
         ),
@@ -3909,7 +3908,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (trimmedKey && !isHeaderSafeApiKey(trimmedKey)) {
       return c.json({
         error: pick(
-          await currentProjectLanguage(),
+          await routeContext.getLanguage(),
           "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
           "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
         ),
@@ -4014,7 +4013,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (trimmedKey && !isHeaderSafeApiKey(trimmedKey)) {
       return c.json({
         error: pick(
-          await currentProjectLanguage(),
+          await routeContext.getLanguage(),
           "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
           "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
         ),
@@ -4087,7 +4086,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       stream?: boolean;
     }>();
 
-    const language = await currentProjectLanguage();
+    const language = await routeContext.getLanguage();
     const resolvedBaseUrl = await resolveConfiguredServiceBaseUrl(root, service, baseUrl);
     if (!resolvedBaseUrl) {
       return c.json({
@@ -4165,7 +4164,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         return c.json({
           ok: false,
           error: pick(
-            await currentProjectLanguage(),
+            await routeContext.getLanguage(),
             "API Key 只能包含可放进 HTTP Authorization header 的非空白 ASCII 字符；请不要粘贴连接失败提示或诊断文本。",
             "API Key may only contain non-whitespace ASCII characters that fit in an HTTP Authorization header; do not paste connection failure hints or diagnostic text.",
           ),
@@ -4931,7 +4930,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!sessionId?.trim()) {
       throw new ApiError(400, "SESSION_ID_REQUIRED", "sessionId is required");
     }
-    const language = await currentProjectLanguage();
+    const language = await routeContext.getLanguage();
     if (reqModel && !isTextChatModelId(reqModel)) {
       const message = nonTextModelMessage(reqModel, language);
       return c.json({ error: message, response: message }, 400);
@@ -6727,7 +6726,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           preferredStream: currentConfig.llm.stream,
           preferredModel: currentConfig.llm.model,
           proxyUrl: currentConfig.llm.proxyUrl,
-          language: normalizeStudioLanguage(currentConfig.language),
+          language: normalizeLanguage(currentConfig.language),
         }),
         DOCTOR_LLM_PROBE_BUDGET_MS,
         "doctor llm probe",
