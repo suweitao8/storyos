@@ -15,16 +15,7 @@ const defaultGenreProfile: GenreProfile = {
   pacingRule: "",
   satisfactionTypes: [],
   auditDimensions: [],
-  promptTemplates: {
-    image: {
-      templates: { character: "", scene: "", prop: "" },
-      styles: { realistic: "", cg3d: "" },
-    },
-    voice: {
-      boy: "", girl: "", youngMale: "", youngFemale: "",
-      middleMale: "", middleFemale: "", elderMale: "", elderFemale: "",
-    },
-  },
+  artStyle: "realistic",
 };
 
 function callParseOutput(

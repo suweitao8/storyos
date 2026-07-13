@@ -21,7 +21,7 @@
  * At generation time {@link resolveImagePromptTemplate} combines them:
  * `template + "\n\n" + styleDescription`.
  */
-import type { ArtStyle, ImagePromptKind, PromptTemplates, VoiceAgeGroup } from "./genre-profile.js";
+import type { ArtStyle, ImagePromptKind, VoiceAgeGroup } from "./genre-profile.js";
 import { IMAGE_PROMPT_KINDS, VOICE_AGE_GROUP_KEYS } from "./genre-profile.js";
 
 // ===========================================================================
@@ -203,76 +203,41 @@ export const DEFAULT_VOICE_PROMPTS: Record<VoiceAgeGroup, string> = {
 // ===========================================================================
 
 /**
- * Resolve the effective image prompt *template* (style-agnostic content
- * guidance) for a given kind. Non-empty genre-level overrides win; otherwise
- * the global default is used.
- */
-export function resolveImageTemplate(
-  templates: PromptTemplates | undefined,
-  kind: ImagePromptKind,
-): string {
-  const genreValue = templates?.image?.templates?.[kind]?.trim();
-  return genreValue || DEFAULT_IMAGE_TEMPLATES[kind];
-}
-
-/**
- * Resolve the effective image *style description* for a given art style.
- * Non-empty genre-level overrides win; otherwise the global default is used.
- */
-export function resolveImageStyle(
-  templates: PromptTemplates | undefined,
-  style: ArtStyle,
-): string {
-  const genreValue = templates?.image?.styles?.[style]?.trim();
-  return genreValue || DEFAULT_IMAGE_STYLES[style];
-}
-
-/**
- * Resolve the full image prompt for a given kind + style by combining the
+ * Get the full image prompt for a given kind + style by combining the
  * style-agnostic template with the style description.
  *
- * This is the main entry point for generation: callers pass the genre's
- * prompt templates and the desired art style, and get back a ready-to-use
+ * This is the main entry point for generation: callers pass the desired
+ * art style (from the genre's `artStyle` field) and get back a ready-to-use
  * LLM system prompt.
  */
 export function resolveImagePromptTemplate(
-  templates: PromptTemplates | undefined,
   kind: ImagePromptKind,
   style: ArtStyle = "realistic",
 ): string {
-  const template = resolveImageTemplate(templates, kind);
-  const styleDesc = resolveImageStyle(templates, style);
+  const template = DEFAULT_IMAGE_TEMPLATES[kind];
+  const styleDesc = DEFAULT_IMAGE_STYLES[style];
   return styleDesc ? `${template}\n\n${styleDesc}` : template;
 }
 
 /**
- * Resolve the effective voice prompt template for a given age-group.
- * Non-empty genre-level overrides win; otherwise the global default is used.
+ * Get the voice prompt for a given age-group.
  */
-export function resolveVoicePromptTemplate(
-  templates: PromptTemplates | undefined,
-  group: VoiceAgeGroup,
-): string {
-  const genreValue = templates?.voice?.[group]?.trim();
-  return genreValue || DEFAULT_VOICE_PROMPTS[group];
+export function resolveVoicePromptTemplate(group: VoiceAgeGroup): string {
+  return DEFAULT_VOICE_PROMPTS[group];
 }
 
 /**
- * Build a snapshot of all effective templates (after default fallback),
- * useful for preview / debugging.
+ * Build a snapshot of all templates for a given style, useful for preview.
  */
-export function resolveAllPromptTemplates(
-  templates: PromptTemplates | undefined,
-  style: ArtStyle = "realistic",
-): {
+export function resolveAllPromptTemplates(style: ArtStyle = "realistic"): {
   image: Record<ImagePromptKind, string>;
   voice: Record<VoiceAgeGroup, string>;
 } {
   const image = Object.fromEntries(
-    IMAGE_PROMPT_KINDS.map((kind) => [kind, resolveImagePromptTemplate(templates, kind, style)] as const),
+    IMAGE_PROMPT_KINDS.map((kind) => [kind, resolveImagePromptTemplate(kind, style)] as const),
   ) as Record<ImagePromptKind, string>;
   const voice = Object.fromEntries(
-    VOICE_AGE_GROUP_KEYS.map((group) => [group, resolveVoicePromptTemplate(templates, group)] as const),
+    VOICE_AGE_GROUP_KEYS.map((group) => [group, resolveVoicePromptTemplate(group)] as const),
   ) as Record<VoiceAgeGroup, string>;
   return { image, voice };
 }

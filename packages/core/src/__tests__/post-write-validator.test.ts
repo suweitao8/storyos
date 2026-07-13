@@ -23,16 +23,7 @@ const baseProfile: GenreProfile = {
   eraResearch: false,
   auditDimensions: [],
   satisfactionTypes: [],
-  promptTemplates: {
-    image: {
-      templates: { character: "", scene: "", prop: "" },
-      styles: { realistic: "", cg3d: "" },
-    },
-    voice: {
-      boy: "", girl: "", youngMale: "", youngFemale: "",
-      middleMale: "", middleFemale: "", elderMale: "", elderFemale: "",
-    },
-  },
+  artStyle: "realistic",
 };
 
 function findRule(violations: ReadonlyArray<PostWriteViolation>, rule: string): PostWriteViolation | undefined {

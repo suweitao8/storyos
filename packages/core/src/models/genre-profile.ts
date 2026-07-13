@@ -2,12 +2,39 @@ import { z } from "zod";
 import yaml from "js-yaml";
 
 // ---------------------------------------------------------------------------
+// Art styles
+// ---------------------------------------------------------------------------
+
+/**
+ * Visual art style for image generation.
+ *
+ * - `realistic`: Photorealistic / cinematic style — real materials, natural
+ *   lighting, film-grade quality. Good for modern / urban / horror genres.
+ * - `cg3d`: 3D Chinese animation (国漫) style — the look of shows like 凡人修仙传,
+ *   rendered CGI characters with stylized but semi-realistic proportions,
+ *   dramatic lighting, and a slightly painterly texture.
+ *
+ * Each genre picks one style. The actual prompt templates and style
+ * descriptions live in `default-prompt-templates.ts` as global defaults.
+ */
+export const ArtStyleSchema = z.enum(["realistic", "cg3d"]).default("realistic");
+export type ArtStyle = z.infer<typeof ArtStyleSchema>;
+
+export const ART_STYLES: ReadonlyArray<{
+  readonly key: ArtStyle;
+  readonly label: string;
+  readonly labelEn: string;
+}> = [
+  { key: "realistic", label: "写实风格", labelEn: "Realistic" },
+  { key: "cg3d", label: "3D国漫风格", labelEn: "3D Animation (国漫)" },
+];
+
+// ---------------------------------------------------------------------------
 // Voice age × gender groups
 // ---------------------------------------------------------------------------
 
 /**
  * Eight age-group × gender buckets used for voice prompt templates.
- * A genre may override the default voice prompt for any (or all) of these.
  */
 export const VoiceAgeGroupSchema = z.enum([
   "boy", // 男孩
@@ -48,87 +75,14 @@ export const VOICE_AGE_GROUPS: ReadonlyArray<{
   { key: "elderFemale", label: "老年女性", labelEn: "Elderly Female" },
 ];
 
-// ---------------------------------------------------------------------------
-// Art styles
-// ---------------------------------------------------------------------------
-
-/**
- * Visual art style for image prompt generation.
- *
- * - `realistic`: Photorealistic / cinematic style — real materials, natural
- *   lighting, film-grade quality. Good for modern / urban / horror genres.
- * - `cg3d`: 3D Chinese animation (国漫) style — the look of shows like 凡人修仙传,
- *   rendered CGI characters with stylized but semi-realistic proportions,
- *   dramatic lighting, and a slightly painterly texture.
- */
-export const ArtStyleSchema = z.enum(["realistic", "cg3d"]).default("realistic");
-export type ArtStyle = z.infer<typeof ArtStyleSchema>;
-
-export const ART_STYLES: ReadonlyArray<{
-  readonly key: ArtStyle;
-  readonly label: string;
-  readonly labelEn: string;
-}> = [
-  { key: "realistic", label: "写实风格", labelEn: "Realistic" },
-  { key: "cg3d", label: "3D国漫风格", labelEn: "3D Animation (国漫)" },
-];
-
-// ---------------------------------------------------------------------------
-// Prompt templates
-// ---------------------------------------------------------------------------
-
-/**
- * Per-genre prompt templates for asset generation (image + voice).
- *
- * Every field defaults to an empty string. When empty, the runtime falls back
- * to the global default template (see `default-prompt-templates.ts`), so old
- * genre files that predate this feature keep working unchanged.
- *
- * Architecture:
- * - `image.templates.*` — style-agnostic LLM system prompts that instruct the
- *   model how to extract visual facts (age, body type, clothing, materials…).
- * - `image.styles.*` — editable style-description blocks, one per art style.
- *   These are appended to the template at generation time to control the final
- *   look (realistic, 3D国漫, …). The active style is chosen by the caller and
- *   combined with the template via {@link resolveImagePromptTemplate}.
- */
-export const PromptTemplatesSchema = z.object({
-  image: z
-    .object({
-      templates: z
-        .object({
-          character: z.string().default(""),
-          scene: z.string().default(""),
-          prop: z.string().default(""),
-        })
-        .default({ character: "", scene: "", prop: "" }),
-      styles: z
-        .object({
-          realistic: z.string().default(""),
-          cg3d: z.string().default(""),
-        })
-        .default({ realistic: "", cg3d: "" }),
-    })
-    .default({ templates: { character: "", scene: "", prop: "" }, styles: { realistic: "", cg3d: "" } }),
-  voice: z
-    .object({
-      boy: z.string().default(""),
-      girl: z.string().default(""),
-      youngMale: z.string().default(""),
-      youngFemale: z.string().default(""),
-      middleMale: z.string().default(""),
-      middleFemale: z.string().default(""),
-      elderMale: z.string().default(""),
-      elderFemale: z.string().default(""),
-    })
-    .default({}),
-});
-export type PromptTemplates = z.infer<typeof PromptTemplatesSchema>;
-
 /** Image prompt template kind, mirroring {@link StoryAssetKind}. */
 export type ImagePromptKind = "character" | "scene" | "prop";
 
 export const IMAGE_PROMPT_KINDS: ReadonlyArray<ImagePromptKind> = ["character", "scene", "prop"];
+
+// ---------------------------------------------------------------------------
+// Genre profile
+// ---------------------------------------------------------------------------
 
 export const GenreProfileSchema = z.object({
   name: z.string(),
@@ -142,7 +96,7 @@ export const GenreProfileSchema = z.object({
   pacingRule: z.string().default(""),
   satisfactionTypes: z.array(z.string()).default([]),
   auditDimensions: z.array(z.number()).default([]),
-  promptTemplates: PromptTemplatesSchema.default({ image: { templates: { character: "", scene: "", prop: "" }, styles: { realistic: "", cg3d: "" } }, voice: {} }),
+  artStyle: ArtStyleSchema,
 });
 
 export type GenreProfile = z.infer<typeof GenreProfileSchema>;
