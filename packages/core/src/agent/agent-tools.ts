@@ -521,7 +521,7 @@ const SubAgentParams = Type.Object({
   chapterNumber: Type.Optional(Type.Number({ description: "auditor/reviser: target chapter number. Omit to use the latest chapter." })),
   // -- architect params --
   title: Type.Optional(Type.String({ description: "architect only: explicit book title. Required when creating a book." })),
-  genre: Type.Optional(Type.String({ description: "architect only: genre (xuanhuan, urban, mystery, romance, scifi, fantasy, wuxia, general, etc.)" })),
+  genre: Type.Optional(Type.String({ description: "architect only: genre id (xuanhuan, xianxia, horror, sci-fi, other). Defaults to other (generic)." })),
   platform: Type.Optional(Type.Union([
     Type.Literal("tomato"),
     Type.Literal("qidian"),
@@ -680,7 +680,7 @@ export function createSubAgentTool(
               {
                 id,
                 title: resolvedTitle,
-                genre: createBookPayload?.genre ?? genre ?? "general",
+                genre: createBookPayload?.genre ?? genre ?? "other",
                 platform: normalizePlatformOrOther(createBookPayload?.platform ?? platform),
                 language: resolvedLanguage as any,
                 status: "outlining" as any,
