@@ -108,6 +108,44 @@ describe("resolveActiveStoryTitle", () => {
       shorts: [{ id: "short-1", title: "鬼吹灯" }],
     })).toBeUndefined();
   });
+
+  it("uses the active or first book for long-story and writing-mode pages", () => {
+    const books = [
+      { id: "book-1", title: "第一本书" },
+      { id: "book-2", title: "第二本书" },
+    ];
+
+    expect(resolveActiveStoryTitle({
+      route: { page: "book-create" },
+      activeBookId: "book-2",
+      lang: "zh",
+      books,
+      shorts: [],
+    })).toBe("第二本书");
+
+    expect(resolveActiveStoryTitle({
+      route: { page: "craft" },
+      lang: "zh",
+      books,
+      shorts: [],
+    })).toBe("第一本书");
+  });
+
+  it("shows no content when long-story or writing-mode has no books", () => {
+    expect(resolveActiveStoryTitle({
+      route: { page: "book-create" },
+      lang: "zh",
+      books: [],
+      shorts: [],
+    })).toBe("无内容");
+
+    expect(resolveActiveStoryTitle({
+      route: { page: "craft" },
+      lang: "en",
+      books: [],
+      shorts: [],
+    })).toBe("No content");
+  });
 });
 
 describe("deriveStartupGate", () => {
