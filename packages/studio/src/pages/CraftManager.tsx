@@ -1080,13 +1080,13 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
             {detail.videoStory.wordCountEstimate && (
               <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">建议小说字数</div>
+                  <div className="text-xs font-medium text-muted-foreground">目标小说字数</div>
                   <div className="text-lg font-semibold text-primary">
-                    约 {detail.videoStory.wordCountEstimate.recommended.toLocaleString()} 字
+                    目标 {detail.videoStory.wordCountEstimate.recommended.toLocaleString()} 字
                   </div>
                 </div>
                 <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                  建议范围：{detail.videoStory.wordCountEstimate.min.toLocaleString()} - {detail.videoStory.wordCountEstimate.max.toLocaleString()} 字
+                  这是创建原创短篇时使用的目标字数，按千字取整，不代表必须机械扩写到更长时长。
                 </div>
                 <div className="mt-2 text-xs leading-5 text-muted-foreground">
                   {detail.videoStory.wordCountEstimate.rationale}

@@ -90,8 +90,9 @@ export interface CraftPayoff {
 
 export interface CraftWordCountEstimate {
   readonly recommended: number;
-  readonly min: number;
-  readonly max: number;
+  /** Legacy fields retained for reading older saved craft profiles. */
+  readonly min?: number;
+  readonly max?: number;
   readonly sourceCharacterCount: number;
   readonly sourceDurationSeconds?: number;
   readonly rationale: string;
