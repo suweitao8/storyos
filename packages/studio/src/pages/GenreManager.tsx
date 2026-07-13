@@ -5,6 +5,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { Modal } from "../components/Modal";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { filterGenresForLanguage } from "./genre-page-state";
 
@@ -334,39 +335,38 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
-        <button
-          onClick={openCreateForm}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md ${c.btnPrimary}`}
-        >
-          <Plus size={16} />
-          {t("genre.createNew")}
-        </button>
-      </div>
-
-      {formMode !== "hidden" && (
-        <div className={`border ${c.cardStatic} rounded-lg p-6`}>
-          <h2 className="text-lg font-medium mb-4">
-            {formMode === "create" ? t("genre.createNew") : `${t("common.edit")}: ${form.id}`}
-          </h2>
-          <GenreForm
-            form={form}
-            onChange={setForm}
-            onSubmit={formMode === "create" ? handleCreate : handleEdit}
-            onCancel={closeForm}
-            isEdit={formMode === "edit"}
-            c={c}
-            t={t}
-          />
-        </div>
-      )}
+      <Modal
+        open={formMode !== "hidden"}
+        title={formMode === "create" ? t("genre.createNew") : `${t("common.edit")}: ${form.id}`}
+        onClose={closeForm}
+        maxWidth="max-w-2xl"
+      >
+        <GenreForm
+          form={form}
+          onChange={setForm}
+          onSubmit={formMode === "create" ? handleCreate : handleEdit}
+          onCancel={closeForm}
+          isEdit={formMode === "edit"}
+          c={c}
+          t={t}
+        />
+      </Modal>
 
       <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Genre list */}
         <div className={`border ${c.cardStatic} rounded-xl overflow-hidden`}>
-          <div className="border-b border-border/40 px-4 py-3">
-            <div className="text-sm font-semibold">{t("genre.list")}</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
+          <div className="flex items-center justify-between gap-2 border-b border-border/40 px-4 py-3">
+            <div>
+              <div className="text-sm font-semibold">{t("genre.list")}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
+            </div>
+            <button
+              onClick={openCreateForm}
+              title={t("genre.createNew")}
+              className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg ${c.btnPrimary}`}
+            >
+              <Plus size={16} />
+            </button>
           </div>
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
             {filteredGenres.map((g) => (
