@@ -29,6 +29,7 @@ const loadBookConfigMock = vi.fn();
 const listCraftsMock = vi.fn();
 const loadCraftMock = vi.fn();
 const analyzeCraftMock = vi.fn();
+const saveCraftStorySeedMock = vi.fn();
 const deleteCraftMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
@@ -226,6 +227,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     listCrafts = listCraftsMock;
     loadCraft = loadCraftMock;
     analyzeCraft = analyzeCraftMock;
+    saveCraftStorySeed = saveCraftStorySeedMock;
     deleteCraft = deleteCraftMock;
     createAgentContext = vi.fn(() => ({ client: {}, model: "gpt-5.4" }));
   }
@@ -279,6 +281,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     chatCompletion: chatCompletionMock,
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
+    isStorySeed: actual.isStorySeed,
     parseStorySeed: actual.parseStorySeed,
     splitCraftChapters: actual.splitCraftChapters,
     loadProjectConfig: loadProjectConfigMock,
@@ -628,6 +631,7 @@ describe("createStudioServer daemon lifecycle", () => {
       { id: "craft-1", sourceName: "Existing Craft" },
     ]);
     analyzeCraftMock.mockReset();
+    saveCraftStorySeedMock.mockReset();
     loadCraftMock.mockImplementation(async (craftId: string) => (
       craftId === "craft-1" || craftId === "craft-2"
         ? { id: craftId, sourceName: "Existing Craft" }
@@ -714,6 +718,53 @@ describe("createStudioServer daemon lifecycle", () => {
       recentCraftId: null,
       recentCraftPreferenceAvailable: true,
     });
+  });
+
+  it("saves a complete story seed for a craft", async () => {
+    const storySeed = {
+      title: "凌晨两点十七分",
+      genreTone: "都市灵异悬疑",
+      hook: "维修员接到已故邻居的来电。",
+      worldview: "老楼会抹去一户人的存在。",
+      characters: "维修员与只能通过电话留下痕迹的邻居。",
+      conflict: "每次调查都会牺牲一段记忆。",
+      outline: "发现电话、调查门牌、面对第二次敲门。",
+      reversals: "主角曾主动参与抹除记录。",
+      ending: "救回孩子，却忘记孩子的名字。",
+      visualAudioMotifs: "坏钟、敲门声和熄灭的感应灯。",
+    };
+    saveCraftStorySeedMock.mockResolvedValueOnce(undefined);
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ storySeed }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ storySeed });
+    expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", storySeed);
+  });
+
+  it.each([
+    ["not-json", "INVALID_CRAFT_REQUEST"],
+    [JSON.stringify({ storySeed: { title: "只有标题" } }), "INVALID_CRAFT_REQUEST"],
+    [JSON.stringify({ storySeed: null }), "INVALID_CRAFT_REQUEST"],
+  ] as const)("rejects invalid story seed payloads: %s", async (bodyText, code) => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: bodyText,
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code } });
+    expect(saveCraftStorySeedMock).not.toHaveBeenCalled();
   });
 
   it("archives the uploaded novel source after craft analysis succeeds", async () => {

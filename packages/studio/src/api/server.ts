@@ -43,6 +43,7 @@ import {
   buildStoryDirectionPrompt,
   buildStorySeedPrompt,
   STORY_SEED_SECTION_DEFINITIONS,
+  isStorySeed,
   parseStorySeed,
   buildExportArtifact,
   evaluateBookQuality,
@@ -5802,6 +5803,28 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.post("/api/v1/crafts/:id/story-direction/stream", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
     return streamStorySeed(c, id);
+  });
+
+  app.put("/api/v1/crafts/:id/story-seed", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be valid JSON");
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be an object");
+    }
+    const storySeed = (body as { storySeed?: unknown }).storySeed;
+    if (!isStorySeed(storySeed)) {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "storySeed must contain all non-empty story sections");
+    }
+
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    if (!await pipeline.loadCraft(id)) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    await pipeline.saveCraftStorySeed(id, storySeed);
+    return c.json({ storySeed });
   });
 
   app.post("/api/v1/crafts/:id/story-direction", async (c) => {
