@@ -354,12 +354,12 @@ export class ComposerAgent extends BaseAgent {
     ].join("\n")).join("\n\n");
     const system = isEn
       ? [
-          "You are InkOS's semantic outline-section selector.",
+          "You are a semantic outline-section selector.",
           "Select only the outline sections needed for the current chapter. Prefer semantic relevance over keyword overlap.",
           "Return strict JSON only: {\"selectedSources\":[\"...\"]}. Use exact source ids from the candidates. If uncertain, include the safest relevant anchors rather than inventing ids.",
         ].join("\n")
       : [
-          "你是 InkOS 的语义大纲选段器。",
+          "你是语义大纲选段器。",
           "只选择当前章节真正需要的大纲段落。按语义相关性判断，不要按关键词重合机械选择。",
           "只返回严格 JSON：{\"selectedSources\":[\"...\"]}。必须使用候选里的精确 source id；不确定时选最安全的相关锚点，不要编造 id。",
         ].join("\n");
@@ -399,12 +399,12 @@ export class ComposerAgent extends BaseAgent {
     const compressibleBlock = renderContextEntries(request.compressibleEntries);
     const system = isEn
       ? [
-          "You are InkOS's semantic context compiler.",
+          "You are a semantic context compiler.",
           "Only compile the COMPRESSIBLE CONTEXT. The PROTECTED CONTEXT is binding reference material and must not be rewritten, summarized as a substitute, or weakened.",
           "Output concise Markdown with source pointers. Preserve names, unresolved promises, evidence, timing, and constraints that may affect the next chapter. Drop low-relevance noise.",
         ].join("\n")
       : [
-          "你是 InkOS 的语义上下文编译器。",
+          "你是语义上下文编译器。",
           "只能编译【可压缩上下文】。【受保护上下文】是绑定参照，不得改写、不得替代总结、不得削弱。",
           "输出简洁 Markdown，保留来源指针。保留会影响下一章的人名、未兑现承诺、证据、时间点和约束，丢弃低相关噪声。",
         ].join("\n");
