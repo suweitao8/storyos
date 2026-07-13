@@ -6,7 +6,7 @@ import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
 import { usePageToolbar } from "../components/PageToolbar";
-import { normalizeCraftDisplayName } from "./craft-name.js";
+import { normalizeBilibiliCraftName, normalizeCraftDisplayName } from "./craft-name.js";
 import {
   DEFAULT_CRAFT_TAB,
   type CraftTab,
@@ -37,8 +37,10 @@ interface CraftMeta {
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
 
-export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): string {
-  return normalizeCraftDisplayName(craft.sourceName);
+export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode" | "sourceType">): string {
+  return craft.sourceType === "bilibili"
+    ? normalizeBilibiliCraftName(craft.sourceName)
+    : normalizeCraftDisplayName(craft.sourceName);
 }
 
 export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
@@ -90,7 +92,9 @@ export function buildCraftAnalyzePayload(
 ) {
   return {
     text: source.text,
-    sourceName: normalizeCraftDisplayName(source.detectedName),
+    sourceName: source.type === "bilibili"
+      ? normalizeBilibiliCraftName(source.detectedName)
+      : normalizeCraftDisplayName(source.detectedName),
     sourceType: source.type,
     language: "zh" as const,
     mode,
@@ -160,6 +164,7 @@ interface CraftProfile {
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
   readonly mode?: "general" | "ghost-story";
+  readonly sourceType?: CraftSourceType;
   readonly worldview?: string;
   readonly storyOutline?: string;
   readonly structure: {
@@ -658,7 +663,9 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     sourceRef?: string;
     sourceDurationSeconds?: number;
   }) => {
-    const sourceName = normalizeCraftDisplayName(source.detectedName);
+    const sourceName = source.type === "bilibili"
+      ? normalizeBilibiliCraftName(source.detectedName)
+      : normalizeCraftDisplayName(source.detectedName);
     activeSourceNameRef.current = sourceName;
     setExtracting(true);
     setExtractError("");
@@ -1030,7 +1037,11 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
+        <h2 className="font-serif text-2xl">
+          {profile.sourceType === "bilibili"
+            ? normalizeBilibiliCraftName(profile.sourceName)
+            : normalizeCraftDisplayName(profile.sourceName)}
+        </h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
