@@ -2,7 +2,6 @@ import {
   Zap,
   Search,
   FileOutput,
-  TrendingUp,
 } from "lucide-react";
 
 export interface QuickActionsProps {
@@ -43,14 +42,9 @@ const CHIPS: ReadonlyArray<ChipDef> = [
     commandZh: "导出全书",
     commandEn: "export book",
   },
-  {
-    icon: <TrendingUp size={12} />,
-    labelZh: "市场雷达",
-    labelEn: "Market radar",
-    commandZh: "扫描市场趋势",
-    commandEn: "scan market trends",
-  },
 ];
+
+export const QUICK_ACTION_COMMANDS = CHIPS.flatMap((chip) => [chip.commandZh, chip.commandEn]);
 
 export function QuickActions({ onAction, disabled, isZh }: QuickActionsProps) {
   return (

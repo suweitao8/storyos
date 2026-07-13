@@ -6,7 +6,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { tr } from "../lib/app-language";
 import { setProjectChatSessionId } from "../pages/chat-page-state";
 import { useChatStore } from "../store/chat";
-import { isShortSidebarItemActive } from "./sidebar-navigation-state";
+import { isShortSidebarItemActive, isStudioNavigationPageVisible } from "./sidebar-navigation-state";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Dialog,
@@ -625,18 +625,22 @@ export function Sidebar({ nav, activePage, sse, t }: {
             </span>
           </div>
           <div className="space-y-0.5">
-            <SidebarItem
-              label={t("nav.import")}
-              icon={<FileInput size={16} />}
-              active={activePage === "import"}
-              onClick={() => nav.toImport()}
-            />
-            <SidebarItem
-              label={t("nav.radar")}
-              icon={<TrendingUp size={16} />}
-              active={activePage === "radar"}
-              onClick={nav.toRadar}
-            />
+            {isStudioNavigationPageVisible("import") && (
+              <SidebarItem
+                label={t("nav.import")}
+                icon={<FileInput size={16} />}
+                active={activePage === "import"}
+                onClick={() => nav.toImport()}
+              />
+            )}
+            {isStudioNavigationPageVisible("radar") && (
+              <SidebarItem
+                label={t("nav.radar")}
+                icon={<TrendingUp size={16} />}
+                active={activePage === "radar"}
+                onClick={nav.toRadar}
+              />
+            )}
             <SidebarItem
               label={t("nav.doctor")}
               icon={<Stethoscope size={16} />}
