@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Bot, ChevronDown, FileText, Globe, Moon, RotateCcw, Settings2, Sun, Trash2 } from "lucide-react";
+import { Bot, FileText, Globe, Moon, RotateCcw, Stethoscope, Sun, Trash2 } from "lucide-react";
 import { fetchJson, postApi, putApi, useApi } from "../hooks/use-api";
 import { usePreferencesStore } from "../store/preferences";
-import type { SettingsGroup } from "../store/preferences/types";
+import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
@@ -24,15 +24,6 @@ type NoticeTone = "success" | "error" | "info";
 interface SkillsResponse {
   readonly skills: ReadonlyArray<StudioSkill>;
   readonly diagnostics?: ReadonlyArray<{ readonly path?: string; readonly message?: string }>;
-}
-
-// Smooth open/close via grid-template-rows (same trick as the sidebar).
-function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
-  return (
-    <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-      <div className="overflow-hidden">{children}</div>
-    </div>
-  );
 }
 
 function SettingsCard({
@@ -60,43 +51,6 @@ function SettingsCard({
   );
 }
 
-/**
- * A titled group of setting cards that can be collapsed. The expand/collapse
- * state is persisted per browser via the preferences store (defaults: "common"
- * expanded, "diagnostics" collapsed). Uses the same grid-rows transition as the
- * sidebar for a smooth open/close.
- */
-function CollapsibleSection({
-  title,
-  isOpen,
-  onToggle,
-  children,
-}: {
-  title: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-4">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="group flex w-full items-center gap-2 text-left"
-        aria-expanded={isOpen}
-      >
-        <ChevronDown
-          size={18}
-          className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`}
-        />
-        <h2 className="text-lg font-bold tracking-tight">{title}</h2>
-        <span className="h-px flex-1 bg-border/50" />
-      </button>
-      <Collapse open={isOpen}>{children}</Collapse>
-    </section>
-  );
-}
-
 const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
 
 export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
@@ -116,11 +70,9 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
   const [promptDraft, setPromptDraft] = useState("");
   const [notice, setNotice] = useState<{ tone: NoticeTone; message: string } | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"common" | "diagnostics">("common");
   const toolDetailsDefaultOpen = usePreferencesStore((s) => s.toolDetailsDefaultOpen);
   const setToolDetailsDefaultOpen = usePreferencesStore((s) => s.setToolDetailsDefaultOpen);
-  const collapsedGroups = usePreferencesStore((s) => s.settingsCollapsedGroups);
-  const toggleGroup = usePreferencesStore((s) => s.toggleSettingsGroup);
-  const isGroupOpen = (group: SettingsGroup) => !collapsedGroups.has(group);
   const skills = skillsData?.skills ?? [];
   const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] });
   const promptList = promptPacksData?.prompts ?? [];
@@ -152,16 +104,17 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
     }
   };
 
-  return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="font-serif text-3xl flex items-center gap-3">
-          <Settings2 size={28} className="text-primary" />
-          {t("settings.title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
-      </div>
+  usePageToolbar("project-settings", {
+    tabs: [
+      { id: "common", label: t("settings.tab.common"), icon: <Globe size={14} /> },
+      { id: "diagnostics", label: t("settings.tab.diagnostics"), icon: <Stethoscope size={14} /> },
+    ],
+    activeTab,
+    onTabChange: (next) => setActiveTab(next as "common" | "diagnostics"),
+  });
 
+  return (
+    <div className="space-y-6">
       {notice && (
         <div
           className={`rounded-xl px-4 py-3 text-sm ${
@@ -176,7 +129,7 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
         </div>
       )}
 
-      <CollapsibleSection title={t("settings.group.common")} isOpen={isGroupOpen("common")} onToggle={() => toggleGroup("common")}>
+      {activeTab === "common" && (
         <div className="space-y-6">
         <SettingsCard title={t("settings.general")} description={t("settings.generalHint")} icon={<Globe size={18} />}>
             <div className="flex flex-wrap items-center gap-3">
@@ -502,13 +455,11 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
         </div>
       </SettingsCard>
         </div>
-      </CollapsibleSection>
+      )}
 
-      <CollapsibleSection title={t("settings.group.diagnostics")} isOpen={isGroupOpen("diagnostics")} onToggle={() => toggleGroup("diagnostics")}>
-        <div className="space-y-6">
-      <EnvironmentDiagnostics theme={theme} t={t} />
-        </div>
-      </CollapsibleSection>
+      {activeTab === "diagnostics" && (
+        <EnvironmentDiagnostics theme={theme} t={t} />
+      )}
     </div>
   );
 }

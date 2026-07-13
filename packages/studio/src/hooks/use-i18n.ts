@@ -315,9 +315,8 @@ const strings = {
 
   // Project Settings
   "settings.title": { zh: "设置", en: "Settings" },
-  "settings.subtitle": { zh: "管理界面偏好、运行时 Skill、提示词和环境诊断。", en: "Manage interface preferences, runtime skills, prompt packs, and environment diagnostics." },
-  "settings.group.common": { zh: "常用", en: "Common" },
-  "settings.group.diagnostics": { zh: "诊断", en: "Diagnostics" },
+  "settings.tab.common": { zh: "常用", en: "Common" },
+  "settings.tab.diagnostics": { zh: "诊断", en: "Diagnostics" },
   "settings.general": { zh: "通用", en: "General" },
   "settings.generalHint": { zh: "界面语言与主题皮肤。", en: "Interface language and theme." },
   "settings.language": { zh: "语言", en: "Language" },
