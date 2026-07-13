@@ -243,7 +243,8 @@ export function buildEnvLLMConfig(options: {
 }
 
 function resolveEnvLLMProvider(value: string | undefined): LLMConfig["provider"] {
-  if (value === "anthropic" || value === "openai" || value === "custom") return value;
+  if (value === "kkaiapi" || value === "openai") return "openai";
+  if (value === "anthropic" || value === "custom") return value;
   return "anthropic";
 }
 

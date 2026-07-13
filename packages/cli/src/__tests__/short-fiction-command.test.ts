@@ -57,4 +57,12 @@ describe("short command", () => {
       else process.env.INKOS_LLM_PROVIDER = oldProvider;
     }
   });
+
+  it("uses the OpenAI-compatible transport for kkaiapi", () => {
+    process.env.INKOS_LLM_PROVIDER = "kkaiapi";
+    process.env.INKOS_LLM_API_KEY = "test-key";
+
+    expect(buildEnvLLMConfig({ llmBaseUrl: "https://api.kkaiapi.com/v1", model: "kimi-k2.6" }).provider)
+      .toBe("openai");
+  });
 });
