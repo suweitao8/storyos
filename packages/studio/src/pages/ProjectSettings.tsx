@@ -18,6 +18,7 @@ import {
   type PromptPacksResponse,
 } from "./prompt-pack-ui-state";
 import { EnvironmentDiagnostics } from "./DoctorView";
+import { ServiceListPage } from "./ServiceListPage";
 
 type NoticeTone = "success" | "error" | "info";
 
@@ -70,7 +71,7 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
   const [promptDraft, setPromptDraft] = useState("");
   const [notice, setNotice] = useState<{ tone: NoticeTone; message: string } | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"common" | "diagnostics">("common");
+  const [activeTab, setActiveTab] = useState<"common" | "models" | "diagnostics">("common");
   const toolDetailsDefaultOpen = usePreferencesStore((s) => s.toolDetailsDefaultOpen);
   const setToolDetailsDefaultOpen = usePreferencesStore((s) => s.setToolDetailsDefaultOpen);
   const skills = skillsData?.skills ?? [];
@@ -107,10 +108,11 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
   usePageToolbar("project-settings", {
     tabs: [
       { id: "common", label: t("settings.tab.common"), icon: <Globe size={14} /> },
+      { id: "models", label: t("settings.tab.models"), icon: <Bot size={14} /> },
       { id: "diagnostics", label: t("settings.tab.diagnostics"), icon: <Stethoscope size={14} /> },
     ],
     activeTab,
-    onTabChange: (next) => setActiveTab(next as "common" | "diagnostics"),
+    onTabChange: (next) => setActiveTab(next as "common" | "models" | "diagnostics"),
   });
 
   return (
@@ -455,6 +457,10 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
         </div>
       </SettingsCard>
         </div>
+      )}
+
+      {activeTab === "models" && (
+        <ServiceListPage />
       )}
 
       {activeTab === "diagnostics" && (

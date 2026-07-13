@@ -585,12 +585,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
               onClick={nav.toPromptTemplates}
             />
             <SidebarItem
-              label={t("nav.config")}
-              icon={<Settings size={16} />}
-              active={activePage === "services"}
-              onClick={nav.toServices}
-            />
-            <SidebarItem
               label={t("nav.settings")}
               icon={<Settings size={16} />}
               active={activePage === "project-settings"}

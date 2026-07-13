@@ -32,8 +32,7 @@ function parseHash(hash: string): HashRoute {
 
   if (!path || path === "/") return { page: "dashboard" };
   if (path === "chat") return { page: "chat" };
-  if (path === "config" || path === "services") return { page: "services" };
-  if (path === "settings") return { page: "project-settings" };
+  if (path === "config" || path === "services" || path === "settings") return { page: "project-settings" };
   if (path === "doctor") return { page: "project-settings" };
   if (path === "import") return { page: "import" };
   if (path === "craft") return { page: "craft" };
@@ -81,7 +80,7 @@ function routeToHash(route: HashRoute): string {
     case "short": return `#/short/${encodeURIComponent(route.shortId)}`;
     case "book-settings": return `#/book/${encodeURIComponent(route.bookId)}/settings`;
     case "book-create": return "#/book/new";
-    case "services": return "#/services";
+    case "services": return "#/settings";
     case "project-settings": return "#/settings";
     case "doctor": return "#/settings";
     case "import": return route.tab ? `#/import/${route.tab}` : "#/import";
@@ -131,7 +130,7 @@ export function useHashRoute() {
   }, []);
 
   const nav = {
-    toServices: () => setRoute({ page: "services" }),
+    toServices: () => setRoute({ page: "project-settings" }),
     toServiceDetail: (id: string) => setRoute({ page: "service-detail", serviceId: id }),
   };
 
