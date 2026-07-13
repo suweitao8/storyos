@@ -162,7 +162,6 @@ export function TextModelConfigPanel({
   }, [effectiveServiceId, fetchLiveModels, secretLoaded]);
 
   const models = status.state === "connected" ? status.models : (storeModels ?? []);
-  const isConnected = Boolean(svc?.connected);
   const isBusy = status.state === "testing" || status.state === "saving";
   const selectedModelLabel = models.find((model) => model.id === selectedModel)?.name ?? selectedModel;
   const currentSnapshot = JSON.stringify({
@@ -352,14 +351,6 @@ export function TextModelConfigPanel({
       <section className={`rounded-xl border border-border/50 bg-card/50 p-5 space-y-5`}>
         {compact ? (
           <div className="space-y-5">
-            <div className="flex justify-end">
-              {isConnected && (
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                  {tr("已连接", "Connected")}
-                </span>
-              )}
-            </div>
-
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={tr("服务商", "Provider")}>
                 <input
@@ -452,11 +443,6 @@ export function TextModelConfigPanel({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <h1 className="font-serif text-2xl">{resolvedLabel}</h1>
-                {isConnected && (
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                    {tr("已连接", "Connected")}
-                  </span>
-                )}
               </div>
               <p className="text-xs text-muted-foreground/70">
                 {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
