@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_CRAFT_TAB,
   resolveAfterCraftDelete,
   resolveInitialCraftState,
 } from "./craft-navigation-state";
+
+describe("default craft navigation", () => {
+  it("opens the craft workspace on the list by default", () => {
+    expect(DEFAULT_CRAFT_TAB).toBe("list");
+  });
+});
 
 describe("resolveInitialCraftState", () => {
   it("restores a recent craft when it is still available", () => {

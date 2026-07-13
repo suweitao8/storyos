@@ -1,5 +1,7 @@
 export type CraftTab = "list" | "create" | "detail";
 
+export const DEFAULT_CRAFT_TAB: CraftTab = "list";
+
 export type CraftNavigationState = {
   tab: CraftTab;
   selectedCraftId: string | null;
