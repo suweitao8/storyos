@@ -90,6 +90,28 @@ describe("CraftAnalyzerAgent", () => {
     expect(prompt).toContain("悬念管理");
   });
 
+  it("declares every required technique field for timestamped video analysis", () => {
+    const prompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-short-story", "bilibili");
+
+    for (const field of [
+      "openingPattern",
+      "chapterArc",
+      "endingHookType",
+      "sceneTransitionTechnique",
+      "pacingCurve",
+      "conflictEscalation",
+      "foreshadowingDensity",
+      "informationReleaseRhythm",
+      "suspenseManagement",
+      "povStrategy",
+      "narrationDialogueRatio",
+      "narrativeDistance",
+      "videoStory",
+    ]) {
+      expect(prompt).toContain(field);
+    }
+  });
+
   it("extracts the complete ghost-story craft contract and exposes it to the writer guide", async () => {
     const prompt = buildCraftAnalysisSystemPrompt("zh", "ghost-story");
     expect(prompt).toContain("ghostStory");
@@ -597,6 +619,53 @@ describe("CraftAnalyzerAgent", () => {
     expect(agent.calls).toBe(2);
     expect(profile.structure.openingPattern).toContain("异常事件");
     expect(profile.informationDisclosure.suspenseManagement).toContain("新疑点");
+  });
+
+  it("merges a sparse refinement patch without replacing existing craft fields with fallbacks", async () => {
+    const firstPass = JSON.stringify({
+      worldview: "封闭社区依靠传闻维持秩序。",
+      storyOutline: "异常发生后，主角调查线索并在章末发现新的威胁。",
+      structure: {
+        openingPattern: "先抛异常再补背景",
+        chapterArc: "线索递进并逐章加压",
+        endingHookType: "未明确说明",
+      },
+      sceneRhythm: {
+        sceneTransitionTechnique: "以动作和感官触发硬切",
+        pacingCurve: "前缓后紧，尾段陡升",
+        conflictEscalation: "从环境异常升级到人身威胁",
+      },
+      informationDisclosure: {
+        foreshadowingDensity: "每章埋入一到两个可回收细节",
+        informationReleaseRhythm: "小线索连续释放，关键答案延后",
+        suspenseManagement: "回答旧疑问后立即制造新疑问",
+      },
+      narrativePerspective: {
+        povStrategy: "贴近主角感知的第三人称",
+        narrationDialogueRatio: "叙述明显多于对话",
+        narrativeDistance: "保持近距离即时感",
+      },
+      modules: [],
+      exemplars: [],
+    });
+    const sparseRefinement = JSON.stringify({
+      structure: {
+        endingHookType: "章末追加新线索并悬置真相",
+      },
+    });
+    const agent = new StubCraftAnalyzerAgent([firstPass, sparseRefinement]);
+
+    const profile = await agent.analyze(
+      "第1章 开局\n门外传来三次敲门声。",
+      "稀疏补全测试",
+      "zh",
+    );
+
+    expect(agent.calls).toBe(2);
+    expect(profile.structure.endingHookType).toBe("章末追加新线索并悬置真相");
+    expect(profile.sceneRhythm.pacingCurve).toBe("前缓后紧，尾段陡升");
+    expect(profile.informationDisclosure.suspenseManagement).toBe("回答旧疑问后立即制造新疑问");
+    expect(profile.narrativePerspective.narrativeDistance).toBe("保持近距离即时感");
   });
 
   it("preserves first-pass exemplars when refinement clears the array and the model uses text alias", async () => {
