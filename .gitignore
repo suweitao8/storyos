@@ -48,3 +48,4 @@ studio-dev*.log
 .screenshots/
 radar/
 .zcode/
+craft-source-uploads/
