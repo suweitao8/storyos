@@ -13,8 +13,6 @@ interface DoctorChecks {
   readonly bookCount: number;
 }
 
-interface Nav { toDashboard: () => void }
-
 function CheckRow({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-border/30 last:border-0">
@@ -29,18 +27,22 @@ function CheckRow({ label, ok, detail }: { label: string; ok: boolean; detail?: 
   );
 }
 
-export function DoctorView({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
+export function EnvironmentDiagnostics({ theme, t }: { theme: Theme; t: TFunction }) {
   const c = useColors(theme);
-  const { data, refetch } = useApi<DoctorChecks>("/doctor");
+  const { data, loading, refetch } = useApi<DoctorChecks>("/doctor");
 
   return (
-    <div className="space-y-8">
+    <section className="rounded-2xl border border-border/50 bg-card/70 p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-serif text-3xl flex items-center gap-3">
-          <Stethoscope size={28} className="text-primary" />
-          {t("doctor.title")}
-        </h1>
-        <button onClick={() => refetch()} className={`px-4 py-2 text-sm rounded-lg ${c.btnSecondary}`}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary"><Stethoscope size={18} /></div>
+          <div>
+            <h2 className="text-base font-bold">{t("doctor.title")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{t("doctor.settingsHint")}</p>
+          </div>
+        </div>
+        <button onClick={() => void refetch()} disabled={loading} className={`px-4 py-2 text-sm rounded-lg ${c.btnSecondary} disabled:opacity-50`}>
+          {loading && data ? <Loader2 size={14} className="mr-1.5 inline animate-spin" /> : null}
           {t("doctor.recheck")}
         </button>
       </div>
@@ -50,7 +52,7 @@ export function DoctorView({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
           <Loader2 size={24} className="animate-spin text-primary" />
         </div>
       ) : (
-        <div className={`border ${c.cardStatic} rounded-lg p-5`}>
+        <div className={`border ${c.cardStatic} rounded-xl p-4`}>
           <CheckRow label={t("doctor.inkosJson")} ok={data.inkosJson} />
           <CheckRow label={t("doctor.projectEnv")} ok={data.projectEnv} />
           <CheckRow label={t("doctor.globalEnv")} ok={data.globalEnv} />
@@ -71,6 +73,9 @@ export function DoctorView({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
           }
         </div>
       )}
-    </div>
+    </section>
   );
 }
+
+/** @deprecated Use EnvironmentDiagnostics from the System settings page. */
+export const DoctorView = EnvironmentDiagnostics;
