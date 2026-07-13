@@ -28,4 +28,25 @@ describe("StorySeedPreview", () => {
     expect(html).toContain("正在生成");
     expect(html).toContain("正在生成完整故事设定");
   });
+
+  it("does not show the 'waiting for model output' placeholder when status is ready but content is empty", () => {
+    const html = renderToStaticMarkup(createElement(StorySeedPreview, {
+      streamedContent: "",
+      status: "ready",
+      isZh: true,
+    }));
+
+    expect(html).toContain("已生成，确认后创建");
+    expect(html).not.toContain("等待模型输出");
+  });
+
+  it("shows the 'waiting for model output' placeholder only while generating", () => {
+    const html = renderToStaticMarkup(createElement(StorySeedPreview, {
+      streamedContent: "",
+      status: "generating",
+      isZh: true,
+    }));
+
+    expect(html).toContain("等待模型输出");
+  });
 });

@@ -116,9 +116,14 @@ export function StoryCreationPanel({
           setShortSeedStatus("ready");
           return;
         }
+        // Backfill the preview from the cached seed so the "ready" state
+        // always has content to show — otherwise the body falls back to the
+        // "waiting for model output" placeholder while the header says
+        // "generated, ready to confirm", which is contradictory.
+        const serialized = serializeStorySeed(cachedSeed, isZh ? "zh" : "en");
         setShortSeed(cachedSeed);
-        setShortDirection(serializeStorySeed(cachedSeed, isZh ? "zh" : "en"));
-        setShortSeedStreamedContent("");
+        setShortDirection(serialized);
+        setShortSeedStreamedContent(serialized);
         setShortSeedError(null);
         setShortSeedStatus("ready");
         return;

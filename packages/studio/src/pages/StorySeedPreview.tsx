@@ -49,7 +49,10 @@ export function StorySeedPreview({
             {isZh ? "模型原始输出" : "Raw model output"}
           </div>
           <pre data-testid="story-seed-stream-output" className="min-h-[220px] whitespace-pre-wrap rounded-xl bg-secondary/20 p-4 font-mono text-xs leading-6 text-foreground/80">
-            {streamedContent || (isZh ? "等待模型输出..." : "Waiting for model output...")}
+            {streamedContent
+              || (status === "generating" || status === "idle"
+                ? (isZh ? "等待模型输出..." : "Waiting for model output...")
+                : "")}
           </pre>
         </div>
       </div>
