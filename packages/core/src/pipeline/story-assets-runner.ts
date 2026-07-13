@@ -222,7 +222,11 @@ export async function generateMissingStoryAssetImages(
       results.push({ assetId: asset.id, status: "skipped", path: asset.image.path });
       continue;
     }
-    results.push(await generateStoryAssetImage({ ...input, assetId: asset.id }));
+    try {
+      results.push(await generateStoryAssetImage({ ...input, assetId: asset.id }));
+    } catch (error) {
+      results.push({ assetId: asset.id, status: "error", error: imageGenerationErrorMessage(error) });
+    }
   }
   return results;
 }

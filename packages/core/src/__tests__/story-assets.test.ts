@@ -798,6 +798,80 @@ describe("story asset image lifecycle", () => {
     expect(deps.fileWriter.writeFile).toHaveBeenCalledTimes(1);
   });
 
+  it("continues batch generation after an asset returns an unsafe extension", async () => {
+    const manifest = makeImageManifest("story-unsafe-extension", [
+      makeStoryAssetImage("first_asset", "missing"),
+      makeStoryAssetImage("second_asset", "missing"),
+    ]);
+    const originalManifest = structuredClone(manifest);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn()
+        .mockResolvedValueOnce({ buffer: Buffer.from("unsafe image"), extension: "svg" })
+        .mockResolvedValueOnce({ buffer: Buffer.from("second image"), extension: "png" }),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    const results = await generateMissingStoryAssetImages({
+      storyId: "story-unsafe-extension",
+      storyType: "short",
+      ...deps,
+    });
+
+    expect(results).toEqual([
+      {
+        assetId: "first_asset",
+        status: "error",
+        error: expect.stringMatching(/unsafe story asset image extension/i),
+      },
+      {
+        assetId: "second_asset",
+        status: "ready",
+        path: "shorts/story-unsafe-extension/assets/images/second_asset.png",
+      },
+    ]);
+    expect(runtime.generateImage).toHaveBeenCalledTimes(2);
+    expect(deps.fileWriter.writeFile).toHaveBeenCalledTimes(1);
+    expect(manifest).toEqual(originalManifest);
+  });
+
+  it("keeps single-image unsafe extension errors explicit", async () => {
+    const manifest = makeImageManifest("story-single-unsafe-extension", [makeStoryAssetImage("asset_1", "missing")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("unsafe image"), extension: "svg" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    await expect(generateStoryAssetImage({
+      storyId: "story-single-unsafe-extension",
+      storyType: "short",
+      assetId: "asset_1",
+      ...deps,
+    })).rejects.toThrow('Unsafe story asset image extension: "svg"');
+    expect(deps.getManifest().assets[0]?.image).toEqual({
+      status: "error",
+      error: 'Unsafe story asset image extension: "svg"',
+    });
+  });
+
+  it("does not invoke text extraction while generating image assets", async () => {
+    const manifest = makeImageManifest("story-image-only", [makeStoryAssetImage("asset_1", "missing")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("image"), extension: "png" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+    const extractSpy = vi.spyOn(StoryAssetExtractorAgent.prototype, "extract");
+
+    await generateMissingStoryAssetImages({
+      storyId: "story-image-only",
+      storyType: "short",
+      ...deps,
+    });
+
+    expect(runtime.generateImage).toHaveBeenCalledWith("asset_1 prompt");
+    expect(extractSpy).not.toHaveBeenCalled();
+    extractSpy.mockRestore();
+  });
+
   it("persists an image error without losing the image prompt", async () => {
     const manifest = makeImageManifest("story-error", [makeStoryAssetImage("scene_1", "missing", "keep this prompt")]);
     const runtime: StoryAssetImageRuntime = {
