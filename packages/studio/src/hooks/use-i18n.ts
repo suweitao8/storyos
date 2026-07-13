@@ -20,6 +20,7 @@ const strings = {
   "nav.createContinuation": { zh: "续写创作", en: "Continuation" },
   "nav.createSpinoff": { zh: "番外创作", en: "Side-story" },
   "nav.config": { zh: "模型配置", en: "Model Config" },
+  "nav.promptTemplates": { zh: "提示词模板", en: "Prompt Templates" },
   "nav.projectSettings": { zh: "项目设置", en: "Project Settings" },
   "nav.settings": { zh: "设置", en: "Settings" },
   "nav.connected": { zh: "已连接", en: "Connected" },
@@ -280,6 +281,9 @@ const strings = {
   "genre.customized": { zh: "已自定义", en: "Customized" },
   "genre.promptTemplates": { zh: "提示词模板", en: "Prompt Templates" },
   "genre.templateHint": { zh: "留空则使用全局默认模板", en: "Leave empty to use global default" },
+
+  // Prompt templates page
+  "promptTemplates.hint": { zh: "配置图片和语音生成的全局默认提示词模板，留空则使用内置默认。", en: "Configure global default prompt templates for image and voice generation. Leave empty to use built-in defaults." },
 
   // Config extras
   "config.modelRouting": { zh: "模型路由", en: "Model Routing" },
