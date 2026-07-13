@@ -286,17 +286,17 @@ export function Sidebar({ nav, activePage, sse, t }: {
   };
 
   return (
-    <aside className="w-[220px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
+    <aside className="w-[165px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
       {/* Logo Area */}
-      <div className="px-5 py-6">
+      <div className="px-3 py-6">
         <button
           onClick={nav.toDashboard}
-          className="group flex items-center gap-3 hover:opacity-80 transition-all duration-300"
+          className="group flex items-center gap-2 hover:opacity-80 transition-all duration-300"
         >
-          <InkosLogo className="w-11 h-11 shrink-0 group-hover:scale-105 transition-transform" />
+          <InkosLogo className="w-10 h-10 shrink-0 group-hover:scale-105 transition-transform" />
           <div className="flex flex-col">
-            <span className="font-serif text-[27px] leading-none italic font-medium">InkOS</span>
-            <span className="text-[13px] uppercase tracking-[0.22em] text-muted-foreground font-bold mt-1.5">Studio</span>
+            <span className="font-serif text-[23px] leading-none italic font-medium">InkOS</span>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-bold mt-1">Studio</span>
           </div>
         </button>
       </div>
