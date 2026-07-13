@@ -1,4 +1,4 @@
-import { BookOpen, Feather, ScrollText } from "lucide-react";
+import { BookOpen, Feather, ScrollText, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -9,17 +9,20 @@ export interface StoryListRecord {
   readonly id: string;
   readonly title?: string;
   readonly sourceName?: string;
+  readonly summary?: string;
   readonly genre?: string;
   readonly status?: string;
   readonly mode?: "general" | "ghost-story";
   readonly chaptersWritten?: number;
   readonly wordCount?: number;
+  readonly recommendedWordCount?: number;
 }
 
 export interface StoryListItem {
   readonly id: string;
   readonly title: string;
-  readonly meta: string;
+  readonly summary: string;
+  readonly wordCountLabel: string;
   readonly active: boolean;
   readonly onSelect: () => void;
 }
@@ -30,18 +33,18 @@ function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
-function formatMeta(kind: StoryListKind, record: StoryListRecord): string {
-  if (kind === "craft") {
-    return record.mode === "ghost-story" ? "鬼故事" : "通用";
-  }
-  if (kind === "short") {
-    return `${formatCount(record.wordCount ?? 0)} 字`;
-  }
-  return `${record.chaptersWritten ?? 0} 章`;
+function formatSummary(record: StoryListRecord): string {
+  const summary = record.summary?.trim();
+  return summary || "暂无故事概述";
+}
+
+function formatWordCount(record: StoryListRecord): string {
+  const count = record.wordCount ?? record.recommendedWordCount ?? 0;
+  return `${formatCount(Math.max(0, count))} 字`;
 }
 
 export function buildStoryListItems(
-  kind: StoryListKind,
+  _kind: StoryListKind,
   records: ReadonlyArray<StoryListRecord>,
   activeId: string | null | undefined,
   onSelect: (id: string) => void,
@@ -49,7 +52,8 @@ export function buildStoryListItems(
   return records.map((record) => ({
     id: record.id,
     title: record.title ?? record.sourceName ?? record.id,
-    meta: formatMeta(kind, record),
+    summary: formatSummary(record),
+    wordCountLabel: formatWordCount(record),
     active: record.id === activeId,
     onSelect: () => onSelect(record.id),
   }));
@@ -79,6 +83,7 @@ export interface StoryListPanelProps {
   readonly error?: string | null;
   readonly isZh: boolean;
   readonly onSelect: (id: string) => void;
+  readonly onDelete?: (id: string) => void;
 }
 
 export function StoryListPanel({
@@ -89,20 +94,13 @@ export function StoryListPanel({
   error = null,
   isZh,
   onSelect,
+  onDelete,
 }: StoryListPanelProps) {
   const status = resolveStoryListStatus({ loading, error, records });
   const items = buildStoryListItems(kind, records, activeId, onSelect);
 
   return (
     <section className="flex h-full min-w-0 flex-col px-6 py-6 md:px-10">
-      {status === "ready" && (
-        <div className="mb-5 flex justify-end">
-          <span className="text-xs text-muted-foreground">
-            {isZh ? `${items.length} 项` : `${items.length} items`}
-          </span>
-        </div>
-      )}
-
       {status === "loading" && (
         <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           {isZh ? "正在加载列表..." : "Loading list..."}
@@ -119,28 +117,48 @@ export function StoryListPanel({
         </div>
       )}
       {status === "ready" && (
-        <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {items.map((item) => (
-            <button
+            <div
               key={item.id}
-              type="button"
-              aria-current={item.active ? "page" : undefined}
-              onClick={item.onSelect}
               className={cn(
-                "flex min-w-0 items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                "relative min-h-40 rounded-2xl border p-5 transition-colors",
                 item.active
-                  ? "border-primary/60 bg-primary/8 text-foreground shadow-sm"
-                  : "border-border/70 bg-card/40 text-muted-foreground hover:border-primary/35 hover:bg-secondary/35 hover:text-foreground",
+                  ? "border-primary/50 bg-primary/5 shadow-sm"
+                  : "border-border/70 bg-card/40 hover:bg-secondary/20",
               )}
             >
-              <span className={cn("mt-0.5 shrink-0", item.active ? "text-primary" : "text-muted-foreground/60")}>
-                {kindIcon(kind)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{item.title}</span>
-                <span className="mt-1 block text-xs text-muted-foreground">{item.meta}</span>
-              </span>
-            </button>
+              <button
+                type="button"
+                aria-current={item.active ? "page" : undefined}
+                onClick={item.onSelect}
+                className="flex min-w-0 w-full flex-col items-start gap-3 pr-7 text-left"
+              >
+                <span className={cn("shrink-0", item.active ? "text-primary" : "text-muted-foreground/60")}>
+                  {kindIcon(kind)}
+                </span>
+                <span className="min-w-0 w-full">
+                  <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
+                  <span className="mt-2 block line-clamp-3 text-xs leading-5 text-muted-foreground">{item.summary}</span>
+                </span>
+                <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] text-primary">
+                  {item.wordCountLabel}
+                </span>
+              </button>
+              {onDelete ? (
+                <button
+                  type="button"
+                  aria-label={isZh ? "删除故事" : "Delete story"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(item.id);
+                  }}
+                  className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-destructive"
+                >
+                  <Trash2 size={14} />
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

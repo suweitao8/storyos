@@ -10,62 +10,68 @@ import {
 } from "./StoryListPanel";
 
 describe("StoryListPanel model", () => {
-  it("normalizes long stories and highlights the current item", () => {
+  it("builds story cards with summaries and word counts", () => {
     const onSelect = vi.fn();
     const records: ReadonlyArray<StoryListRecord> = [
-      { id: "book-1", title: "夜港账本", genre: "悬疑", status: "writing", chaptersWritten: 3 },
-      { id: "book-2", title: "雾中车站", genre: "奇幻", status: "draft", chaptersWritten: 0 },
+      {
+        id: "book-1",
+        title: "Night Harbor",
+        summary: "A ledger pulls a washed-up fixer back into an old case.",
+        wordCount: 12345,
+      },
     ];
 
     const items = buildStoryListItems("book", records, "book-1", onSelect);
 
-    expect(items.map(({ id, title, meta, active }) => ({ id, title, meta, active }))).toEqual([
-      { id: "book-1", title: "夜港账本", meta: "3 章", active: true },
-      { id: "book-2", title: "雾中车站", meta: "0 章", active: false },
-    ]);
-    items[0].onSelect();
+    expect(items[0]).toMatchObject({
+      id: "book-1",
+      title: "Night Harbor",
+      summary: "A ledger pulls a washed-up fixer back into an old case.",
+      wordCountLabel: "12,345 字",
+      active: true,
+    });
+    items[0]?.onSelect();
     expect(onSelect).toHaveBeenCalledWith("book-1");
   });
 
-  it("normalizes short stories and writing modes with their own metadata", () => {
-    const onSelect = vi.fn();
-    expect(buildStoryListItems("short", [
-      { id: "short-1", title: "凌晨来电", status: "ready", chaptersWritten: 1, wordCount: 2400 },
-    ], null, onSelect)[0]).toMatchObject({
-      id: "short-1",
-      title: "凌晨来电",
-      meta: "2,400 字",
-      active: false,
+  it("uses a visible fallback when a story has no summary", () => {
+    const item = buildStoryListItems("short", [
+      { id: "short-1", title: "The Extra Floor", wordCount: 2400 },
+    ], null, vi.fn())[0];
+
+    expect(item).toMatchObject({
+      summary: "暂无故事概述",
+      wordCountLabel: "2,400 字",
     });
-    expect(buildStoryListItems("craft", [
-      { id: "craft-1", sourceName: "悬疑节奏", mode: "general" },
-    ], "craft-1", onSelect)[0]).toMatchObject({
-      id: "craft-1",
-      title: "悬疑节奏",
-      meta: "通用",
-      active: true,
-    });
+  });
+
+  it("renders cards without an item count and exposes a top-right delete action", () => {
+    const markup = renderToStaticMarkup(React.createElement(StoryListPanel, {
+      kind: "book",
+      records: [{
+        id: "book-1",
+        title: "Night Harbor",
+        summary: "A concise story summary.",
+        wordCount: 1200,
+      }],
+      activeId: "book-1",
+      isZh: true,
+      onSelect: vi.fn(),
+      onDelete: vi.fn(),
+    }));
+
+    expect(markup).not.toContain("项");
+    expect(markup).not.toMatch(/>\d+ items</);
+    expect(markup).toContain("Night Harbor");
+    expect(markup).toContain("A concise story summary.");
+    expect(markup).toContain("1,200 字");
+    expect(markup).toContain('aria-label="删除故事"');
   });
 
   it("keeps loading, error, empty, and ready states explicit", () => {
     expect(resolveStoryListStatus({ loading: true, error: null, records: [] })).toBe("loading");
     expect(resolveStoryListStatus({ loading: false, error: "network", records: [] })).toBe("error");
     expect(resolveStoryListStatus({ loading: false, error: null, records: [] })).toBe("empty");
-    expect(resolveStoryListStatus({ loading: false, error: null, records: [{ id: "book-1", title: "夜港账本" }] })).toBe("ready");
-  });
-
-  it("does not repeat the page title inside the story list", () => {
-    const markup = renderToStaticMarkup(React.createElement(StoryListPanel, {
-      kind: "book",
-      records: [{ id: "book-1", title: "夜港账本", chaptersWritten: 3 }],
-      activeId: "book-1",
-      isZh: true,
-      onSelect: vi.fn(),
-    }));
-
-    expect(markup).not.toContain("选择内容");
-    expect(markup).not.toContain("长篇故事");
-    expect(markup).toContain("1 项");
-    expect(markup).toContain("夜港账本");
+    expect(resolveStoryListStatus({ loading: false, error: null, records: [{ id: "book-1", title: "Night Harbor" }] })).toBe("ready");
   });
 });

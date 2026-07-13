@@ -550,6 +550,7 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button
+            aria-label="删除写作模式"
             onClick={(e) => { e.stopPropagation(); void onDelete(craft.id); }}
             className="absolute right-4 top-4 text-muted-foreground hover:text-destructive transition-colors"
           >

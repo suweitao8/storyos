@@ -11,27 +11,33 @@ afterEach(async () => {
 });
 
 describe("listStudioShortStories", () => {
-  it("lists only completed short stories with title and chapter metadata", async () => {
+  it("lists completed short stories with title, summary, and word count", async () => {
     const root = await mkdtemp(join(tmpdir(), "inkos-short-list-"));
     roots.push(root);
     await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });
     await writeFile(
       join(root, "shorts", "mist-harbor", "final", "short-story.json"),
-      JSON.stringify({ storyTitle: "雾港来信", chapters: [{ wordCount: 1200 }, { wordCount: 800 }] }),
+      JSON.stringify({ storyTitle: "Mist Harbor", chapters: [{ wordCount: 1200 }, { wordCount: 800 }] }),
       "utf-8",
     );
-    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "# 第一章\n正文", "utf-8");
+    await writeFile(
+      join(root, "shorts", "mist-harbor", "final", "sales-package.json"),
+      JSON.stringify({ intro: "An old ledger pulls the protagonist back to an abandoned harbor." }),
+      "utf-8",
+    );
+    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "# Chapter One\nText", "utf-8");
 
     await mkdir(join(root, "shorts", "draft-only", "outline"), { recursive: true });
-    await writeFile(join(root, "shorts", "draft-only", "outline", "v001.md"), "# 草稿", "utf-8");
+    await writeFile(join(root, "shorts", "draft-only", "outline", "v001.md"), "# Draft", "utf-8");
 
     await expect(listStudioShortStories(root)).resolves.toEqual([
       expect.objectContaining({
         id: "mist-harbor",
-        title: "雾港来信",
+        title: "Mist Harbor",
         status: "completed",
         chaptersWritten: 2,
         wordCount: 2000,
+        summary: "An old ledger pulls the protagonist back to an abandoned harbor.",
       }),
     ]);
   });
@@ -40,10 +46,26 @@ describe("listStudioShortStories", () => {
     const root = await mkdtemp(join(tmpdir(), "inkos-short-list-"));
     roots.push(root);
     await mkdir(join(root, "shorts", "untitled", "final"), { recursive: true });
-    await writeFile(join(root, "shorts", "untitled", "final", "full.md"), "正文", "utf-8");
+    await writeFile(join(root, "shorts", "untitled", "final", "full.md"), "Text", "utf-8");
 
     await expect(listStudioShortStories(root)).resolves.toEqual([
-      expect.objectContaining({ id: "untitled", title: "untitled", chaptersWritten: 1, wordCount: 0 }),
+      expect.objectContaining({ id: "untitled", title: "untitled", chaptersWritten: 1, wordCount: 4 }),
+    ]);
+  });
+
+  it("accepts charCount from legacy short-story artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-short-list-"));
+    roots.push(root);
+    await mkdir(join(root, "shorts", "legacy", "final"), { recursive: true });
+    await writeFile(
+      join(root, "shorts", "legacy", "final", "short-story.json"),
+      JSON.stringify({ storyTitle: "Legacy Story", chapters: [{ charCount: 900 }] }),
+      "utf-8",
+    );
+    await writeFile(join(root, "shorts", "legacy", "final", "full.md"), "Text", "utf-8");
+
+    await expect(listStudioShortStories(root)).resolves.toEqual([
+      expect.objectContaining({ id: "legacy", wordCount: 900 }),
     ]);
   });
 });

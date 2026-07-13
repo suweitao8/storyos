@@ -22,6 +22,7 @@ describe("buildStudioBookConfig", () => {
         language: "zh",
         chapterWordCount: 2500,
         targetChapters: 120,
+        blurb: "A fixer returns to an old case.",
       },
       "2026-03-30T00:00:00.000Z",
     );
@@ -33,6 +34,7 @@ describe("buildStudioBookConfig", () => {
       language: "zh",
       chapterWordCount: 2500,
       targetChapters: 120,
+      summary: "A fixer returns to an old case.",
     });
   });
 

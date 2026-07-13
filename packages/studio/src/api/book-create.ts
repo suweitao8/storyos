@@ -20,6 +20,7 @@ export interface StudioBookConfigDraft {
   readonly status: "outlining";
   readonly targetChapters: number;
   readonly chapterWordCount: number;
+  readonly summary?: string;
   readonly language?: "zh" | "en";
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -42,6 +43,7 @@ export function buildStudioBookConfig(body: StudioCreateBookBody, now: string): 
     status: "outlining",
     targetChapters: body.targetChapters ?? 200,
     chapterWordCount: body.chapterWordCount ?? defaultChapterLength(body.language === "en" ? "en" : "zh"),
+    ...(body.blurb?.trim() ? { summary: body.blurb.trim() } : {}),
     ...(body.language === "en"
       ? { language: "en" as const }
       : body.language === "zh"

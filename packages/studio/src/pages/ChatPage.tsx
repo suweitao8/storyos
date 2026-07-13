@@ -536,8 +536,8 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
   } | null>(null);
   const [selectedCraftId, setSelectedCraftId] = useState("");
   const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
-  const { data: booksData, loading: booksLoading, error: booksError } = useApi<{ books: ReadonlyArray<StoryListRecord> }>("/books");
-  const { data: shortsData, loading: shortsLoading, error: shortsError } = useApi<{ shorts: ReadonlyArray<StoryListRecord> }>("/shorts");
+  const { data: booksData, loading: booksLoading, error: booksError, refetch: refetchBooks } = useApi<{ books: ReadonlyArray<StoryListRecord> }>("/books");
+  const { data: shortsData, loading: shortsLoading, error: shortsError, refetch: refetchShorts } = useApi<{ shorts: ReadonlyArray<StoryListRecord> }>("/shorts");
   const crafts = craftsData?.crafts ?? [];
   const playMode = activeSession?.playMode;
   // A play session must pick its playstyle (点着玩 / 自由玩) before chatting.
@@ -617,6 +617,24 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       nav.toShort?.(storyId);
     } else {
       nav.toBook(storyId);
+    }
+  };
+  const deleteStoryFromList = async (storyId: string) => {
+    try {
+      const resource = storyListKind === "short" ? "shorts" : "books";
+      await fetchJson(`/${resource}/${encodeURIComponent(storyId)}`, { method: "DELETE" });
+      if (storyListKind === "short") {
+        await refetchShorts();
+      } else {
+        await refetchBooks();
+      }
+      if (storyListKind === "short" && activeShortId === storyId) {
+        nav.toDashboard();
+      } else if (storyListKind === "book" && activeBookId === storyId) {
+        nav.toDashboard();
+      }
+    } catch (error) {
+      console.error("[studio] Story deletion failed", error);
     }
   };
 
@@ -1117,6 +1135,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           error={storyListError}
           isZh={isZh}
           onSelect={selectStoryFromList}
+          onDelete={(storyId) => { void deleteStoryFromList(storyId); }}
         />
       ) : storyWorkspace.view === "settings" ? (
         <StorySettingsPanel
