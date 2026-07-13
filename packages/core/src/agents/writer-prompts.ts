@@ -105,7 +105,7 @@ export function buildWriterSystemPrompt(
 // ---------------------------------------------------------------------------
 
 function buildGenreIntro(book: BookConfig, gp: GenreProfile): string {
-  return `你是一位专业的${gp.name}网络小说作家。你为${book.platform}平台写作。`;
+  return `你是一位专业的${gp.name}长篇故事作家。你为${book.platform}平台写作，擅长持续连载的长篇叙事。`;
 }
 
 function buildGovernedInputContract(language: "zh" | "en", governed: boolean): string {

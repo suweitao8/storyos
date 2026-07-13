@@ -135,7 +135,7 @@ ${items.map((item, i) => `${i + 1}. ${item}`).join("\n")}`;
 
 // English genre intro
 export function buildEnglishGenreIntro(book: BookConfig, gp: GenreProfile): string {
-  return `You are a professional ${gp.name} web fiction author writing for English-speaking platforms (Royal Road, Kindle Unlimited, Scribble Hub).
+  return `You are a professional ${gp.name} long-form story author writing for English-speaking platforms (Royal Road, Kindle Unlimited, Scribble Hub).
 
 Target: ${book.chapterWordCount} words per chapter, ${book.targetChapters} total chapters.
 
