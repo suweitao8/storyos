@@ -129,7 +129,7 @@ interface CraftListResponse {
 
 export interface ChatPageStoryWorkspace {
   readonly view: "creation" | "list" | "settings" | "assets" | "adjust";
-  readonly activeStage: "list" | "settings" | "assets" | "adjust";
+  readonly activeStage: "list" | "create" | "settings" | "assets" | "adjust";
   readonly kind: "book" | "short" | null;
   readonly storyId: string | null;
 }
@@ -153,11 +153,17 @@ export function resolveChatPageStoryWorkspace(input: {
   const needsCreation = input.sessionKind === "book-create" ? !input.bookId : input.sessionKind === "short" ? !input.shortId : false;
   const enabledStage = !isStorySession
     ? "adjust"
-    : needsCreation && activeStage !== "list" ? "settings"
-      : activeStage === "list" || activeStage === "assets" || activeStage === "adjust" ? activeStage : "settings";
+    : needsCreation && activeStage !== "list" ? "create"
+      : activeStage === "list" || activeStage === "create" || activeStage === "assets" || activeStage === "adjust" ? activeStage : "settings";
 
   return {
-    view: !isStorySession ? "adjust" : activeStage === "list" ? "list" : needsCreation ? "creation" : enabledStage,
+    view: !isStorySession
+      ? "adjust"
+      : activeStage === "list"
+        ? "list"
+        : needsCreation || activeStage === "create"
+          ? "creation"
+          : enabledStage === "create" ? "settings" : enabledStage,
     activeStage: enabledStage,
     kind,
     storyId,
@@ -512,10 +518,10 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
       : mode === "book-create" ? "book-create"
       : activeBookId ? "book" : "chat");
-  const storyCreationKind: "long" | "short" | null = currentSessionKind === "book-create"
-    ? "long"
-    : currentSessionKind === "short"
-      ? "short"
+  const storyCreationKind: "long" | "short" | null = currentSessionKind === "short"
+    ? "short"
+    : currentSessionKind === "book-create" || currentSessionKind === "book"
+      ? "long"
       : null;
   const [storyWorkspaceStage, setStoryWorkspaceStage] = useState<unknown>("settings");
   const [storyContentRefreshToken, setStoryContentRefreshToken] = useState(0);
