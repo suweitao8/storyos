@@ -141,8 +141,8 @@ export function resolveActiveShortStoryId(input: {
 
   const routeStoryId = input.route.page === "short" ? input.route.shortId : null;
   return pickAvailable(routeStoryId)
-    ?? pickAvailable(input.activeShortStoryId)
     ?? pickAvailable(input.recentShortStoryId)
+    ?? pickAvailable(input.activeShortStoryId)
     ?? input.shorts[0]?.id
     ?? null;
 }
