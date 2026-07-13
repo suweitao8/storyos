@@ -1,7 +1,45 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+vi.mock("../skills/prompt-pack.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../skills/prompt-pack.js")>();
+  const { readFile } = await import("node:fs/promises");
+  const { promptOverridePath } = actual;
+  const FILM_PROMPTS: Record<string, string> = {
+    "interactive-film.script": "你是互动电影剧本编剧。",
+    "interactive-film.story-graph": "你是互动电影故事图谱设计师。",
+  };
+  return {
+    ...actual,
+    appendPromptPackGuidance: vi.fn(async (basePrompt: string, input: { promptId: string; projectRoot?: string }) => {
+      let source = "builtin";
+      let content = FILM_PROMPTS[input.promptId] ?? "";
+      if (input.projectRoot) {
+        try {
+          const override = await readFile(promptOverridePath(input.projectRoot, input.promptId), "utf-8");
+          content = override;
+          source = "project";
+        } catch { /* fall back to builtin */ }
+      }
+      if (!content) return basePrompt;
+      return [basePrompt, "", `## Prompt Pack Guidance (${input.promptId}, source: ${source})`, content].join("\n");
+    }),
+    loadPromptPackPrompt: vi.fn(async ({ promptId, projectRoot }: { promptId: string; projectRoot?: string }) => {
+      let source = "builtin";
+      let content = FILM_PROMPTS[promptId] ?? "";
+      if (projectRoot) {
+        try {
+          content = await readFile(promptOverridePath(projectRoot, promptId), "utf-8");
+          source = "project";
+        } catch { /* fall back to builtin */ }
+      }
+      return { promptId, source: source as "builtin" | "project", content };
+    }),
+  };
+});
+
 import { createFillNodeTool, createReviseNodeTool } from "../agent/film-authoring-tools.js";
 import { loadStoryGraph } from "../interactive-film/graph-store.js";
 import { saveStoryGraph } from "../interactive-film/graph-store.js";

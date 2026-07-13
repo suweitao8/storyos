@@ -2,6 +2,56 @@ import { describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+// Play/film prompt packs were removed from builtin-prompts.ts. Provide the
+// original guidance text via a mock so play-agent tests still exercise the
+// full system-prompt assembly without depending on the deleted builtin entries.
+const PLAY_PROMPT_CONTENT: Record<string, string> = {
+  "play.mutator": [
+    "你是 InkOS 互动世界的世界变异引擎。",
+    "将玩家行动转化为状态变更：场景、实体、关系、证据、物品栏、时间和后果。",
+    "遵守世界契约，并将 actor_player 保留为玩家实体 ID。",
+  ].join("\n"),
+  "play.renderer": [
+    "你是 InkOS 互动世界的场景渲染器。",
+    "将已应用的世界变异常渲染为生动的互动散文。",
+    "不要凭空发明应用状态中不存在的具体物品、证据或角色，除非对账器能记录它们。",
+  ].join("\n"),
+};
+
+vi.mock("../skills/prompt-pack.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../skills/prompt-pack.js")>();
+  const { readFile } = await import("node:fs/promises");
+  const { promptOverridePath } = actual;
+  return {
+    ...actual,
+    appendPromptPackGuidance: vi.fn(async (basePrompt: string, input: { promptId: string; projectRoot?: string }) => {
+      let source = "builtin";
+      let content = PLAY_PROMPT_CONTENT[input.promptId] ?? "";
+      if (input.projectRoot) {
+        try {
+          const override = await readFile(promptOverridePath(input.projectRoot, input.promptId), "utf-8");
+          content = override;
+          source = "project";
+        } catch { /* fall back to builtin */ }
+      }
+      if (!content) return basePrompt;
+      return [basePrompt, "", `## Prompt Pack Guidance (${input.promptId}, source: ${source})`, content].join("\n");
+    }),
+    loadPromptPackPrompt: vi.fn(async ({ promptId, projectRoot }: { promptId: string; projectRoot?: string }) => {
+      let source = "builtin";
+      let content = PLAY_PROMPT_CONTENT[promptId] ?? "";
+      if (projectRoot) {
+        try {
+          content = await readFile(promptOverridePath(projectRoot, promptId), "utf-8");
+          source = "project";
+        } catch { /* fall back to builtin */ }
+      }
+      return { promptId, source: source as "builtin" | "project", content };
+    }),
+  };
+});
+
 import {
   PlayActionInterpreterAgent,
   PlaySceneReconcilerAgent,
