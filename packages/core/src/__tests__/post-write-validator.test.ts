@@ -23,8 +23,13 @@ const baseProfile: GenreProfile = {
   eraResearch: false,
   auditDimensions: [],
   satisfactionTypes: [],
+  artStyle: "realistic",
   promptTemplates: {
-    image: { character: "", scene: "", prop: "" },
+    image: {
+      character: { realistic: "", cg3d: "" },
+      scene: { realistic: "", cg3d: "" },
+      prop: { realistic: "", cg3d: "" },
+    },
     voice: {
       boy: "", girl: "", youngMale: "", youngFemale: "",
       middleMale: "", middleFemale: "", elderMale: "", elderFemale: "",
