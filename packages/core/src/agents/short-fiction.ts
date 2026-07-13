@@ -120,11 +120,14 @@ export class ShortFictionOutlineAgent extends BaseAgent {
   }
 
   async createOutline(input: ShortFictionOutlineInput): Promise<ShortFictionOutline> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionOutlineSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionOutlineSystemPrompt(input.language), "short-fiction.outline");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionOutlineUserPrompt(input, input.language) },
-      ], { temperature: 0.55, maxTokens: 8192 }), this.name, this.log);
+      ], { temperature: 0.55, maxTokens: 8192 });
+    }, this.name, this.log);
 
     return parseShortFictionOutline(response.content, input.language);
   }
@@ -136,11 +139,14 @@ export class ShortFictionOutlineReviewerAgent extends BaseAgent {
   }
 
   async reviewOutline(input: ShortFictionOutlineReviewInput): Promise<string> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionOutlineReviewSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionOutlineReviewSystemPrompt(input.language), "short-fiction.outline-review");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionOutlineReviewUserPrompt(input, input.language) },
-      ], { temperature: 0.3, maxTokens: 4096 }), this.name, this.log);
+      ], { temperature: 0.3, maxTokens: 4096 });
+    }, this.name, this.log);
 
     return response.content.trim();
   }
@@ -152,13 +158,16 @@ export class ShortFictionOutlineReviserAgent extends BaseAgent {
   }
 
   async reviseOutline(input: ShortFictionOutlineRevisionInput): Promise<ShortFictionOutline> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionOutlineSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionOutlineSystemPrompt(input.language), "short-fiction.outline");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionOutlineUserPrompt(input, input.language) },
         { role: "assistant", content: input.outline.rawContent.trim() },
         { role: "user", content: buildShortFictionOutlineRevisionFollowup(input, input.language) },
-      ], { temperature: 0.45, maxTokens: 8192 }), this.name, this.log);
+      ], { temperature: 0.45, maxTokens: 8192 });
+    }, this.name, this.log);
 
     return parseShortFictionOutline(response.content, input.language);
   }
@@ -170,14 +179,17 @@ export class ShortFictionWriterAgent extends BaseAgent {
   }
 
   async writeDraft(input: ShortFictionDraftInput): Promise<ShortFictionBatchDraft> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionWriterSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionWriterSystemPrompt(input.language), "short-fiction.writer");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionWriterUserPrompt(input, input.language) },
       ], {
         temperature: 0.58,
         maxTokens: estimateShortFictionMaxTokens(input.chapterCount, input.charsPerChapter),
-      }), this.name, this.log);
+      });
+    }, this.name, this.log);
 
     return parseShortFictionBatchDraft(response.content, { expectedChapters: input.chapterCount, language: input.language });
   }
@@ -186,9 +198,11 @@ export class ShortFictionWriterAgent extends BaseAgent {
     const missingChapters = findEmptyShortFictionChapters(input.draft);
     if (missingChapters.length === 0) return input.draft;
 
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionWriterSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionWriterSystemPrompt(input.language), "short-fiction.writer");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionDraftContinuationUserPrompt({
           direction: input.direction,
           outlineMarkdown: input.outlineMarkdown,
@@ -200,7 +214,8 @@ export class ShortFictionWriterAgent extends BaseAgent {
       ], {
         temperature: 0.68,
         maxTokens: estimateShortFictionMaxTokens(missingChapters.length, input.charsPerChapter),
-      }), this.name, this.log);
+      });
+    }, this.name, this.log);
 
     return parseShortFictionBatchDraft(
       `${input.draft.rawContent.trim()}\n\n${response.content.trim()}`,
@@ -215,14 +230,17 @@ export class ShortFictionDraftReviewerAgent extends BaseAgent {
   }
 
   async reviewDraft(input: ShortFictionDraftReviewInput): Promise<string> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionDraftReviewSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionDraftReviewSystemPrompt(input.language), "short-fiction.draft-review");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionDraftReviewUserPrompt({
           ...input,
           draftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
         }, input.language) },
-      ], { temperature: 0.3, maxTokens: 8192 }), this.name, this.log);
+      ], { temperature: 0.3, maxTokens: 8192 });
+    }, this.name, this.log);
 
     return response.content.trim();
   }
@@ -234,16 +252,19 @@ export class ShortFictionDraftReviserAgent extends BaseAgent {
   }
 
   async reviseDraft(input: ShortFictionDraftRevisionInput): Promise<ShortFictionBatchDraft> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionWriterSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionWriterSystemPrompt(input.language), "short-fiction.writer");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionWriterUserPrompt(input, input.language) },
         { role: "assistant", content: input.draft.rawContent.trim() || renderShortFictionDraftMarkdown(input.draft, input.language) },
         { role: "user", content: buildShortFictionDraftRevisionFollowup(input, input.language) },
       ], {
         temperature: 0.45,
         maxTokens: estimateShortFictionMaxTokens(input.chapterCount, input.charsPerChapter),
-      }), this.name, this.log);
+      });
+    }, this.name, this.log);
 
     return parseShortFictionBatchDraft(response.content, { expectedChapters: input.chapterCount, language: input.language });
   }
@@ -255,16 +276,19 @@ export class ShortFictionPackagingAgent extends BaseAgent {
   }
 
   async generatePackage(input: ShortFictionPackageInput): Promise<ShortFictionSalesPackage> {
-    const response = await retryShortFictionCall(() =>
-      this.chat([
-        { role: "system", content: buildShortFictionPackageSystemPrompt(input.language) },
+    const response = await retryShortFictionCall(async () => {
+      const systemPrompt = await this.withPromptPackGuidance(
+        buildShortFictionPackageSystemPrompt(input.language), "short-fiction.packaging");
+      return this.chat([
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildShortFictionPackageUserPrompt({
           direction: input.direction,
           outlineMarkdown: input.outlineMarkdown,
           draftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
           draftTitle: input.draft.storyTitle,
         }, input.language) },
-      ], { temperature: 0.45, maxTokens: 4096 }), this.name, this.log);
+      ], { temperature: 0.45, maxTokens: 4096 });
+    }, this.name, this.log);
 
     return parseShortFictionSalesPackage(response.content, input.draft.storyTitle);
   }
