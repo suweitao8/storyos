@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
+import { acquireWorktreeLock } from "./worktree-lock.mjs";
+import { assertWorktreeSafe, readWorktreeContext } from "./worktree-guard.mjs";
 
 function parseArgs(argv) {
   const result = {
@@ -54,23 +55,12 @@ function runGit(cwd, args, options = {}) {
   return (result.stdout ?? "").trim();
 }
 
-function isWithin(child, parent) {
-  const rel = relative(resolve(parent), resolve(child));
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
 const args = parseArgs(process.argv.slice(2));
-const worktreePath = resolve(runGit(process.cwd(), ["rev-parse", "--show-toplevel"]));
-const gitDir = resolve(runGit(worktreePath, ["rev-parse", "--git-dir"]));
-const gitCommonDir = resolve(runGit(worktreePath, ["rev-parse", "--git-common-dir"]));
+const context = readWorktreeContext(process.cwd(), runGit, { includeStatus: true });
+assertWorktreeSafe(context, { baseBranch: args.baseBranch, forFinish: true });
 
-if (gitDir === gitCommonDir) {
-  console.log("This checkout is not a linked worktree. Nothing to clean.");
-  process.exit(0);
-}
-
-const mainRoot = dirname(gitCommonDir);
-const currentBranch = args.branch ?? runGit(worktreePath, ["branch", "--show-current"]);
+const { worktreePath, gitCommonDir, mainRoot } = context;
+const currentBranch = args.branch ?? context.branch;
 
 if (!currentBranch) {
   throw new Error("Could not determine current branch");
@@ -79,31 +69,12 @@ if (currentBranch === args.baseBranch) {
   throw new Error(`Refusing to finish from base branch "${args.baseBranch}"`);
 }
 
-const worktreeStatus = runGit(worktreePath, ["status", "--short"]);
-if (worktreeStatus) {
-  throw new Error(
-    "Worktree is not clean. Commit or discard changes before finishing:\n" + worktreeStatus,
-  );
-}
-
-const mainStatus = runGit(mainRoot, ["status", "--short"]);
-if (mainStatus) {
-  throw new Error(
-    "Main checkout is not clean. Refusing to merge until it is clean:\n" + mainStatus,
-  );
-}
-
-const worktreeOwned =
-  isWithin(worktreePath, resolve(mainRoot, ".worktrees")) ||
-  isWithin(worktreePath, resolve(mainRoot, "worktrees")) ||
-  isWithin(worktreePath, resolve(homedir(), ".config", "superpowers", "worktrees"));
-
 const plan = [
   `base branch: ${args.baseBranch}`,
   `feature branch: ${currentBranch}`,
   `main root: ${mainRoot}`,
   `worktree: ${worktreePath}`,
-  `owned cleanup: ${worktreeOwned ? "yes" : "no"}`,
+  "owned cleanup: yes",
 ];
 
 if (args.dryRun) {
@@ -111,16 +82,22 @@ if (args.dryRun) {
   process.exit(0);
 }
 
-console.log(`Checking out ${args.baseBranch} in main checkout...`);
-runGit(mainRoot, ["checkout", args.baseBranch]);
-console.log(`Pulling latest ${args.baseBranch}...`);
-runGit(mainRoot, ["pull", "--ff-only", "origin", args.baseBranch]);
-console.log(`Merging ${currentBranch} into ${args.baseBranch}...`);
-runGit(mainRoot, ["merge", "--no-ff", "--no-edit", currentBranch]);
-console.log(`Pushing ${args.baseBranch}...`);
-runGit(mainRoot, ["push", "origin", args.baseBranch]);
+const finishLock = await acquireWorktreeLock(resolve(gitCommonDir, "codex-finish.lock"), {
+  branch: currentBranch,
+  worktree: worktreePath,
+  mainRoot,
+});
 
-if (worktreeOwned) {
+try {
+  console.log(`Checking out ${args.baseBranch} in main checkout...`);
+  runGit(mainRoot, ["checkout", args.baseBranch]);
+  console.log(`Pulling latest ${args.baseBranch}...`);
+  runGit(mainRoot, ["pull", "--ff-only", "origin", args.baseBranch]);
+  console.log(`Merging ${currentBranch} into ${args.baseBranch}...`);
+  runGit(mainRoot, ["merge", "--no-ff", "--no-edit", currentBranch]);
+  console.log(`Pushing ${args.baseBranch}...`);
+  runGit(mainRoot, ["push", "origin", args.baseBranch]);
+
   console.log(`Removing worktree ${worktreePath}...`);
   try {
     runGit(mainRoot, ["worktree", "remove", "--force", worktreePath]);
@@ -136,8 +113,10 @@ if (worktreeOwned) {
   }
   console.log("Pruning stale worktree metadata...");
   runGit(mainRoot, ["worktree", "prune"]);
-}
 
-console.log(`Deleting branch ${currentBranch}...`);
-runGit(mainRoot, ["branch", "-d", currentBranch]);
-console.log("Worktree finish complete.");
+  console.log(`Deleting branch ${currentBranch}...`);
+  runGit(mainRoot, ["branch", "-d", currentBranch]);
+  console.log("Worktree finish complete.");
+} finally {
+  await finishLock.release();
+}
