@@ -286,9 +286,9 @@ export function Sidebar({ nav, activePage, sse, t }: {
   };
 
   return (
-    <aside className="w-[260px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
+    <aside className="w-[220px] shrink-0 border-r border-border bg-background/80 backdrop-blur-md flex flex-col h-full overflow-hidden select-none">
       {/* Logo Area */}
-      <div className="px-6 py-8">
+      <div className="px-5 py-6">
         <button
           onClick={nav.toDashboard}
           className="group flex items-center gap-3 hover:opacity-80 transition-all duration-300"
@@ -302,15 +302,15 @@ export function Sidebar({ nav, activePage, sse, t }: {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-6">
+      <div className="flex-1 overflow-y-auto px-3 py-1 space-y-4">
         {/* InkOS Create Section — always visible, two columns. */}
         <div>
-          <div className="px-3 mb-2.5">
-            <span className="text-[16px] leading-6 uppercase tracking-[0.1em] text-muted-foreground font-bold">
+          <div className="px-2.5 mb-2">
+            <span className="text-[14px] leading-5 uppercase tracking-[0.1em] text-muted-foreground font-bold">
               {t("nav.createSection")}
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <CreateItem icon={<BookPlus size={16} />} label={t("nav.createNovel")} active={activePage === "book-create"} onClick={handleOpenBookCreate} />
             <CreateItem
               icon={<ScrollText size={16} />}
@@ -576,12 +576,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
 
         {/* System Section */}
         <div>
-          <div className="px-3 mb-3">
+          <div className="px-2.5 mb-2">
             <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-bold">
               {t("nav.system")}
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <SidebarItem
               label={t("create.genre")}
               icon={<Boxes size={16} />}
@@ -619,12 +619,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
 
         {/* Tools Section */}
         <div>
-          <div className="px-3 mb-3">
+          <div className="px-2.5 mb-2">
             <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-bold">
               {t("nav.tools")}
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <SidebarItem
               label={t("nav.import")}
               icon={<FileInput size={16} />}
@@ -798,9 +798,9 @@ function SectionHeader({ label, expanded, onToggle }: {
     <button
       type="button"
       onClick={onToggle}
-      className="group flex w-full items-center gap-1.5 px-3 py-2 text-left"
+      className="group flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
     >
-      <span className="flex-1 text-[16px] leading-6 uppercase tracking-[0.1em] text-muted-foreground font-bold group-hover:text-foreground transition-colors">
+      <span className="flex-1 text-[14px] leading-5 uppercase tracking-[0.1em] text-muted-foreground font-bold group-hover:text-foreground transition-colors">
         {label}
       </span>
       <ChevronRight
@@ -821,7 +821,7 @@ function CreateItem({ icon, label, active, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-[16px] leading-6 transition-all ${
+      className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[15px] leading-5 transition-all ${
         active
           ? "border border-border bg-secondary text-foreground font-medium shadow-sm"
           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
@@ -844,7 +844,7 @@ function SidebarItem({ label, icon, active, onClick, badge, badgeColor }: {
   return (
     <button
       onClick={onClick}
-      className={`w-full group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+      className={`w-full group flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-200 ${
         active
           ? "bg-secondary text-foreground font-medium shadow-sm border border-border"
           : "text-foreground font-medium hover:text-foreground hover:bg-secondary/50"
