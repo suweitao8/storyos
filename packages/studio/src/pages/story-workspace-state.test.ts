@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildStoryWorkspaceTabs,
+  DEFAULT_STORY_WORKSPACE_STAGE,
   resolveStoryWorkspaceStage,
   STORY_WORKSPACE_STAGES,
 } from "./story-workspace-state";
 
 describe("story workspace stages", () => {
+  it("opens story workspaces on the story list by default", () => {
+    expect(DEFAULT_STORY_WORKSPACE_STAGE).toBe("list");
+  });
+
   it("keeps all production stages in a stable order", () => {
     expect(STORY_WORKSPACE_STAGES).toEqual([
       "list",
