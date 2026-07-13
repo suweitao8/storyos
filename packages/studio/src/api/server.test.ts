@@ -655,6 +655,25 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
+  it("lists completed short stories separately from chat sessions", async () => {
+    await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });
+    await writeFile(
+      join(root, "shorts", "mist-harbor", "final", "short-story.json"),
+      JSON.stringify({ storyTitle: "雾港来信", chapters: [{ wordCount: 1000 }] }),
+      "utf-8",
+    );
+    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "正文", "utf-8");
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/shorts");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      shorts: [{ id: "mist-harbor", title: "雾港来信", chaptersWritten: 1, wordCount: 1000 }],
+    });
+  });
+
   it("marks the recent craft preference unavailable when its database cannot be read", async () => {
     await writeFile(join(root, ".inkos"), "not a directory", "utf-8");
     const { createStudioServer } = await import("./server.js");

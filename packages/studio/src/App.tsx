@@ -56,6 +56,10 @@ export function getRouteToolbarTitle(route: HashRoute, lang: "zh" | "en", sessio
     return lang === "zh" ? "短篇故事" : "Short Story";
   }
 
+  if (route.page === "short") {
+    return lang === "zh" ? "\u77ed\u7bc7\u6545\u4e8b" : "Short Story";
+  }
+
   const titles = lang === "zh"
     ? {
         dashboard: "项目总览",
@@ -174,6 +178,7 @@ export function App() {
     toDashboard: () => setRoute({ page: "dashboard" }),
     toChat: () => setRoute({ page: "chat" }),
     toBook: (bookId: string) => setRoute({ page: "book", bookId }),
+    toShort: (shortId: string) => setRoute({ page: "short", shortId }),
     toBookSettings: (bookId: string) => setRoute({ page: "book-settings", bookId }),
     toBookCreate: () => setRoute({ page: "book-create" }),
     toChapter: (bookId: string, chapterNumber: number) =>
@@ -201,6 +206,8 @@ export function App() {
   const activePage =
     activeBookId
       ? `book:${activeBookId}`
+      : route.page === "short"
+        ? `short:${route.shortId}`
       : route.page === "service-detail"
         ? "services"
         : route.page;
@@ -307,6 +314,18 @@ export function App() {
               />
               <BookSidebar bookId={route.bookId} theme={theme} t={t} sse={sse} />
               <BookSidebarToggle bookId={route.bookId} theme={theme} t={t} sse={sse} />
+            </div>
+          )}
+          {route.page === "short" && (
+            <div className="absolute inset-0 flex min-w-0">
+              <ChatPage
+                activeShortId={route.shortId}
+                mode="short"
+                nav={nav}
+                theme={theme}
+                t={t}
+                sse={sse}
+              />
             </div>
           )}
           {route.page === "book-settings" && (

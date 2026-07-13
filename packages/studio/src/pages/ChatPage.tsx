@@ -90,7 +90,8 @@ interface Nav {
 
 export interface ChatPageProps {
   readonly activeBookId?: string;
-  readonly mode?: "book" | "book-create" | "project-chat" | "interactive-film-authoring";
+  readonly activeShortId?: string;
+  readonly mode?: "book" | "short" | "book-create" | "project-chat" | "interactive-film-authoring";
   readonly nav: Nav;
   readonly theme: Theme;
   readonly t: TFunction;
@@ -476,7 +477,7 @@ function SkillPickerPanel({
 
 // -- Component --
 
-export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-create", nav, theme, t, sse: _sse }: ChatPageProps) {
+export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "book" : "book-create", nav, theme, t, sse: _sse }: ChatPageProps) {
   // -- Store selectors --
   const messages = useChatStore(chatSelectors.activeMessages);
   const activeSession = useChatStore(chatSelectors.activeSession);
@@ -505,7 +506,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
   const hasBook = Boolean(activeBookId ?? activeSession?.bookId);
-  const currentSessionKind: ChatSessionKind = activeSession?.sessionKind
+  const currentSessionKind: ChatSessionKind = mode === "short" ? "short" : activeSession?.sessionKind
     ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
       : mode === "book-create" ? "book-create"
       : activeBookId ? "book" : "chat");
@@ -560,7 +561,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
   const { data: skillsData, loading: skillsLoading, error: skillsError, refetch: refetchSkills } = useApi<SkillsResponse>("/skills");
   const worldPanelInsetClass = currentSessionKind === "play" && worldPanelOpen ? "lg:pr-[380px]" : "";
   const storyBookId = activeBookId ?? activeSession?.bookId ?? null;
-  const storyShortId = currentSessionKind === "short" ? latestShortStoryId(messages) : null;
+  const storyShortId = currentSessionKind === "short" ? activeShortId ?? latestShortStoryId(messages) : null;
   const storyWorkspace = resolveChatPageStoryWorkspace({
     sessionKind: currentSessionKind,
     stage: storyWorkspaceStage,
@@ -578,7 +579,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
 
   useEffect(() => {
     if (isStorySession) setStoryWorkspaceStage("settings");
-  }, [activeBookId, activeSessionId, currentSessionKind, isStorySession]);
+  }, [activeBookId, activeShortId, activeSessionId, currentSessionKind, isStorySession]);
 
   useEffect(() => {
     if (!craftsData) return;
@@ -758,6 +759,11 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
         return;
       }
 
+      if (mode === "short") {
+        await createSession(null, "short");
+        return;
+      }
+
       const existingId = mode === "project-chat"
         ? getProjectChatSessionId()
         : getBookCreateSessionId();
@@ -799,7 +805,7 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
     return () => {
       cancelled = true;
     };
-  }, [activeBookId, activateSession, createSession, loadSessionDetail, loadSessionList, mode]);
+  }, [activeBookId, activeShortId, activateSession, createSession, loadSessionDetail, loadSessionList, mode]);
 
   const addAttachedFiles = (files: FileList | File[]) => {
     const incoming = Array.from(files);
