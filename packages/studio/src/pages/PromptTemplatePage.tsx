@@ -30,7 +30,7 @@ interface VoiceGroupOption {
 
 interface ApiResponse {
   readonly imageTemplates: Record<string, string>;
-  readonly imageStyles: Record<ArtStyleKey, string>;
+  readonly imageStyles: Record<ArtStyleKey, Record<string, string>>;
   readonly voice: Record<string, string>;
   readonly artStyles: ReadonlyArray<ArtStyleOption>;
   readonly voiceGroups: ReadonlyArray<VoiceGroupOption>;
@@ -166,19 +166,29 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
               <div className="space-y-4">
                 <p className="text-xs text-muted-foreground">
                   {lang === "zh"
-                    ? "画面风格描述，生成时追加到图片模板末尾。"
-                    : "Art style descriptions, appended to image templates at generation time."}
+                    ? "画面风格描述，按角色/场景/道具分别配置，生成时追加到对应模板末尾。"
+                    : "Art style descriptions per character/scene/prop, appended to the corresponding template at generation time."}
                 </p>
                 {data.artStyles.map((style) => {
-                  const value = data.imageStyles[style.key] ?? "";
+                  const styleKinds = data.imageStyles[style.key] ?? {};
                   return (
-                    <div key={style.key}>
-                      <label className="text-xs text-muted-foreground uppercase tracking-wide">
+                    <div key={style.key} className="space-y-2">
+                      <div className="text-sm font-medium text-primary">
                         {lang === "zh" ? style.label : style.labelEn}
-                      </label>
-                      <pre className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-                        {value || `（${lang === "zh" ? "空" : "empty"}）`}
-                      </pre>
+                      </div>
+                      {Object.entries(styleKinds).map(([kind, value]) => {
+                        const labels = IMAGE_LABELS[kind] ?? { zh: kind, en: kind };
+                        return (
+                          <div key={kind}>
+                            <label className="text-xs text-muted-foreground uppercase tracking-wide">
+                              {lang === "zh" ? labels.zh : labels.en}
+                            </label>
+                            <pre className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap max-h-[160px] overflow-y-auto">
+                              {value || `（${lang === "zh" ? "空" : "empty"}）`}
+                            </pre>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

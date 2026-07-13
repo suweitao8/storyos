@@ -173,12 +173,24 @@ export const DEFAULT_IMAGE_TEMPLATES: Record<ImagePromptKind, string> = {
 // ===========================================================================
 // Image style descriptions (appended to templates at generation time)
 // ===========================================================================
+//
+// Each art style has a separate description per kind (character / scene /
+// prop), so e.g. the cg3d character style can talk about skin and hair while
+// the cg3d scene style can talk about volumetric fog and architecture.
 
-export const DEFAULT_IMAGE_STYLE_REALISTIC = `写实风格，人物面部与服装细节真实自然，光影层次分明，材质质感真实清晰，电影级画面质感，8K画质。`;
+export const DEFAULT_IMAGE_STYLE_REALISTIC: Record<ImagePromptKind, string> = {
+  character: `写实风格，人物面部与服装细节真实自然，皮肤纹理细腻真实，光影层次分明，电影级画面质感，8K画质。`,
+  scene: `写实风格，空间层次自然真实，光照与材质表现细腻，建筑和物件质感真实可信，电影级画面质感，8K画质。`,
+  prop: `写实风格，材质质感真实清晰，金属反光、木质纹理、皮革质感等细节可辨识，电影级画面质感，8K画质。`,
+};
 
-export const DEFAULT_IMAGE_STYLE_CG3D = `3D国漫风格，高质量CG渲染，建模精细。人物皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。场景建筑和物件建模精细，大气透视，体积雾效，丁达尔光线。整体色调高饱和，光影对比强烈，带有体积光和边缘光。画面具有次世代游戏CG级质感，4K超高清。`;
+export const DEFAULT_IMAGE_STYLE_CG3D: Record<ImagePromptKind, string> = {
+  character: `3D国漫风格，高质量CG人物渲染，建模精细。皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。整体色调高饱和，光影对比强烈，带有体积光和边缘光。次世代游戏CG级质感，4K超高清。`,
+  scene: `3D国漫风格，高质量CG场景渲染，建筑和物件建模精细。大气透视，体积雾效，丁达尔光线穿透云层或窗棂。整体色调偏冷暖对比或高饱和奇幻色调，光影戏剧性强，带有强烈的氛围光。次世代游戏CG级质感，4K超高清。`,
+  prop: `3D国漫风格，高质量CG道具渲染，材质层次丰富。金属反光、宝石折射、木质纹理清晰，魔法道具带发光符文和粒子特效。整体色调高饱和，光影对比强烈，带有边缘光和体积光。次世代游戏CG级质感，4K超高清。`,
+};
 
-export const DEFAULT_IMAGE_STYLES: Record<ArtStyle, string> = {
+export const DEFAULT_IMAGE_STYLES: Record<ArtStyle, Record<ImagePromptKind, string>> = {
   realistic: DEFAULT_IMAGE_STYLE_REALISTIC,
   cg3d: DEFAULT_IMAGE_STYLE_CG3D,
 };
@@ -215,7 +227,7 @@ export function resolveImagePromptTemplate(
   style: ArtStyle = "realistic",
 ): string {
   const template = DEFAULT_IMAGE_TEMPLATES[kind];
-  const styleDesc = DEFAULT_IMAGE_STYLES[style];
+  const styleDesc = DEFAULT_IMAGE_STYLES[style]?.[kind];
   return styleDesc ? `${template}\n\n${styleDesc}` : template;
 }
 
