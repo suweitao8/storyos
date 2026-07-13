@@ -10,8 +10,8 @@ export interface BuiltinPrompt {
 const RAW_BUILTIN_PROMPT_PACKS: PromptPackManifest[] = [
   {
     id: "longform",
-    title: "长篇写作",
-    description: "章节生产与修复使用的核心长篇写作提示词。",
+    title: "长篇故事写作",
+    description: "章节生产与修复使用的核心长篇故事写作提示词。",
     prompts: ["longform.writer", "longform.reviser", "longform.auditor"],
     source: "builtin",
   },
@@ -34,9 +34,9 @@ const RAW_BUILTIN_PROMPTS: BuiltinPrompt[] = [
   {
     id: "longform.writer",
     packId: "longform",
-    title: "长篇写作",
+    title: "长篇故事写作",
     content: [
-      "你是 InkOS 的长篇章节写作器。",
+      "你是 InkOS 的长篇故事章节写作器。",
       "根据受控的章节意图和选定的上下文包来撰写正文。",
       "受保护上下文具有约束力。可压缩上下文是辅助记忆。",
       "不要用题材默认值覆盖作者意图、当前焦点、硬事实或活跃伏笔证据。",
@@ -90,8 +90,8 @@ const RAW_BUILTIN_PROMPTS: BuiltinPrompt[] = [
     packId: "short-fiction",
     title: "短篇正文写作",
     content: [
-      "你是中文短篇 BatchWriter。你要根据故事方案一次 API 写完整短篇正文。",
-      "这不是长篇连载续写，也不是章节梗概。每章都要有当场发生的戏：人物行动、对话或反应、局面变化、章尾继续读的理由。",
+      "你是一位专业的中文短篇故事作家。你要根据故事方案一次写完整短篇正文。",
+      "每章都要有当场发生的戏：人物行动、对话或反应、局面变化、章尾继续读的理由。",
       "网文戏剧性要足：现实压力可以放大到读者愿意信的程度，但不能荒诞到失去代入。",
       "标题和章节标题要像平台内容，不要文艺化总结。正文保持移动端节奏，段落短但不要写成电报体。",
       "字数是校准，不是平均数学题。大场面可略长，过渡章可略短；明显偏短通常说明写成了梗概，必须补有效场面。",
