@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Bell, Bot, FileText, Globe, MessageSquare, Moon, Radar, RotateCcw, Search, Settings2, Sun, Plus, Trash2 } from "lucide-react";
+import { Bell, Bot, ChevronDown, FileText, Globe, Moon, Radar, RotateCcw, Search, Settings2, Sun, Plus, Trash2 } from "lucide-react";
 import { fetchJson, postApi, putApi, useApi } from "../hooks/use-api";
 import { usePreferencesStore } from "../store/preferences";
+import type { SettingsGroup } from "../store/preferences/types";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
@@ -92,6 +93,43 @@ function SettingsCard({
   );
 }
 
+/**
+ * A titled group of setting cards that can be collapsed. The expand/collapse
+ * state is persisted per browser via the preferences store (defaults: "common"
+ * expanded, "advanced" / "diagnostics" collapsed). Uses the same grid-rows
+ * transition as the sidebar for a smooth open/close.
+ */
+function CollapsibleSection({
+  title,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group flex w-full items-center gap-2 text-left"
+        aria-expanded={isOpen}
+      >
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`}
+        />
+        <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+        <span className="h-px flex-1 bg-border/50" />
+      </button>
+      <Collapse open={isOpen}>{children}</Collapse>
+    </section>
+  );
+}
+
 const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
 
 export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }: {
@@ -127,6 +165,9 @@ export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }:
   const [saving, setSaving] = useState<string | null>(null);
   const toolDetailsDefaultOpen = usePreferencesStore((s) => s.toolDetailsDefaultOpen);
   const setToolDetailsDefaultOpen = usePreferencesStore((s) => s.setToolDetailsDefaultOpen);
+  const collapsedGroups = usePreferencesStore((s) => s.settingsCollapsedGroups);
+  const toggleGroup = usePreferencesStore((s) => s.toggleSettingsGroup);
+  const isGroupOpen = (group: SettingsGroup) => !collapsedGroups.has(group);
   const skills = skillsData?.skills ?? [];
   const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] });
   const promptList = promptPacksData?.prompts ?? [];
@@ -228,84 +269,62 @@ export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }:
         </div>
       )}
 
-      <SettingsCard title={t("settings.general")} description={t("settings.generalHint")} icon={<Globe size={18} />}>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-muted-foreground min-w-fit">{t("settings.language")}:</span>
-          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => onLangChange("zh")}
-              className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "zh" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            >
-              中文
-            </button>
-            <button
-              type="button"
-              onClick={() => onLangChange("en")}
-              className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            >
-              EN
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-muted-foreground min-w-fit">{t("settings.theme")}:</span>
-          <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "light" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            >
-              <Sun size={14} />
-              {t("settings.themeLight")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            >
-              <Moon size={14} />
-              {t("settings.themeDark")}
-            </button>
-          </div>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.inputGovernance")} description={t("settings.inputGovernanceHint")} icon={<Radar size={18} />}>
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value === "legacy" ? "legacy" : "v2")}
-            className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none"
-          >
-            <option value="v2">v2</option>
-            <option value="legacy">legacy</option>
-          </select>
-          <button
-            onClick={() => runSave("mode", async () => {
-              await putApi("/project/input-governance-mode", { mode });
-              await refetchMode();
-            }, t("settings.saved"))}
-            disabled={saving === "mode"}
-            className={`rounded-lg px-4 py-2 text-sm font-bold ${c.btnPrimary} disabled:opacity-40`}
-          >
-            {saving === "mode" ? t("config.saving") : t("config.save")}
-          </button>
-        </div>
-      </SettingsCard>
-
-      {/* Chat UI preferences — applied immediately, persisted in this browser's localStorage */}
-      <SettingsCard title={t("settings.chatUi")} description={t("settings.chatUiHint")} icon={<MessageSquare size={18} />}>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={toolDetailsDefaultOpen}
-            onChange={(e) => setToolDetailsDefaultOpen(e.target.checked)}
-          />
-          {t("settings.toolDetailsDefaultOpen")}
-        </label>
-        <p className="text-xs text-muted-foreground">{t("settings.toolDetailsDefaultOpenHint")}</p>
-      </SettingsCard>
+      <CollapsibleSection title={t("settings.group.common")} isOpen={isGroupOpen("common")} onToggle={() => toggleGroup("common")}>
+        <div className="space-y-6">
+        <SettingsCard title={t("settings.general")} description={t("settings.generalHint")} icon={<Globe size={18} />}>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm text-muted-foreground min-w-fit">{t("settings.language")}:</span>
+              <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => onLangChange("zh")}
+                  className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "zh" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  中文
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onLangChange("en")}
+                  className={`px-2.5 py-1 text-sm font-medium rounded-md ${lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm text-muted-foreground min-w-fit">{t("settings.theme")}:</span>
+              <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setTheme("light")}
+                  className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "light" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  <Sun size={14} />
+                  {t("settings.themeLight")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme("dark")}
+                  className={`px-2.5 py-1 text-sm font-medium rounded-md flex items-center gap-1 ${theme === "dark" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                >
+                  <Moon size={14} />
+                  {t("settings.themeDark")}
+                </button>
+              </div>
+            </div>
+            {/* Chat UI preference — applied immediately, persisted in this browser's localStorage */}
+            <div className="rounded-xl border border-border/50 bg-background/40 p-3 space-y-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={toolDetailsDefaultOpen}
+                  onChange={(e) => setToolDetailsDefaultOpen(e.target.checked)}
+                />
+                {t("settings.toolDetailsDefaultOpen")}
+              </label>
+              <p className="text-xs text-muted-foreground">{t("settings.toolDetailsDefaultOpenHint")}</p>
+            </div>
+          </SettingsCard>
 
       <SettingsCard
         title={isZh ? "运行时 Skill" : "Runtime skills"}
@@ -575,7 +594,11 @@ export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }:
           </div>
         </div>
       </SettingsCard>
+        </div>
+      </CollapsibleSection>
 
+      <CollapsibleSection title={t("settings.group.advanced")} isOpen={isGroupOpen("advanced")} onToggle={() => toggleGroup("advanced")}>
+        <div className="space-y-6">
       {/* Model routing — per-agent model overrides */}
       <SettingsCard title={t("settings.modelOverrides")} description={t("settings.modelOverridesHint")} icon={<Bot size={18} />}>
         <div className="rounded-xl border border-border/60 bg-secondary/20 p-3 space-y-2">
@@ -866,8 +889,14 @@ export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }:
           {saving === "detection" ? t("config.saving") : t("config.save")}
         </button>
       </SettingsCard>
+        </div>
+      </CollapsibleSection>
 
+      <CollapsibleSection title={t("settings.group.diagnostics")} isOpen={isGroupOpen("diagnostics")} onToggle={() => toggleGroup("diagnostics")}>
+        <div className="space-y-6">
       <EnvironmentDiagnostics theme={theme} t={t} />
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }
