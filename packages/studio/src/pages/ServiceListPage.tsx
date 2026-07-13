@@ -5,11 +5,6 @@ import { tr } from "../lib/app-language";
 import { useServiceStore } from "../store/service";
 import { TextModelConfigPanel } from "./ServiceDetailPage";
 
-interface Nav {
-  toDashboard: () => void;
-  toServiceDetail: (id: string) => void;
-}
-
 interface ProviderInfo {
   readonly service: string;
   readonly label: string;
@@ -561,7 +556,7 @@ function VoiceConfigCard() {
   );
 }
 
-export function ServiceListPage({ nav: _nav }: { nav: Nav }) {
+export function ServiceListPage() {
   const services = useServiceStore((s) => s.services);
   const loading = useServiceStore((s) => s.servicesLoading);
   const fetchServices = useServiceStore((s) => s.fetchServices);

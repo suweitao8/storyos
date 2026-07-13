@@ -7,7 +7,6 @@ import { ChatPage, latestShortStoryId } from "./pages/ChatPage";
 import { BookDetail } from "./pages/BookDetail";
 import { ChapterReader } from "./pages/ChapterReader";
 import { Analytics } from "./pages/Analytics";
-import { ServiceListPage } from "./pages/ServiceListPage";
 import { ServiceDetailPage } from "./pages/ServiceDetailPage";
 import { ProjectSettings } from "./pages/ProjectSettings";
 import { TruthFiles } from "./pages/TruthFiles";
@@ -306,7 +305,7 @@ export function App() {
     toChapter: (bookId: string, chapterNumber: number) =>
       setRoute({ page: "chapter", bookId, chapterNumber }),
     toAnalytics: (bookId: string) => setRoute({ page: "analytics", bookId }),
-    toServices: () => setRoute({ page: "services" }),
+    toServices: () => setRoute({ page: "project-settings" }),
     toProjectSettings: () => setRoute({ page: "project-settings" }),
     toServiceDetail: (id: string) => setRoute({ page: "service-detail", serviceId: id }),
     toTruth: (bookId: string) => setRoute({ page: "truth", bookId }),
@@ -505,11 +504,6 @@ export function App() {
           {route.page === "analytics" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <Analytics bookId={route.bookId} nav={nav} theme={theme} t={t} />
-            </div>
-          )}
-          {route.page === "services" && (
-            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
-              <ServiceListPage nav={nav} />
             </div>
           )}
           {route.page === "project-settings" && (

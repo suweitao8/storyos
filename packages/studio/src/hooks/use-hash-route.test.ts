@@ -35,12 +35,12 @@ describe("hash route", () => {
       expect(parseHash("#/book/new")).toEqual({ page: "book-create" });
     });
 
-    it("parses config as services (redirect)", () => {
-      expect(parseHash("#/config")).toEqual({ page: "services" });
+    it("parses config as project-settings (redirect)", () => {
+      expect(parseHash("#/config")).toEqual({ page: "project-settings" });
     });
 
-    it("parses services", () => {
-      expect(parseHash("#/services")).toEqual({ page: "services" });
+    it("parses services as project-settings (redirect)", () => {
+      expect(parseHash("#/services")).toEqual({ page: "project-settings" });
     });
 
     it("parses project settings", () => {
@@ -95,8 +95,8 @@ describe("hash route", () => {
       expect(routeToHash({ page: "book-create" })).toBe("#/book/new");
     });
 
-    it("services -> #/services", () => {
-      expect(routeToHash({ page: "services" })).toBe("#/services");
+    it("services serializes to settings (redirect)", () => {
+      expect(routeToHash({ page: "services" })).toBe("#/settings");
     });
 
     it("project-settings -> #/settings", () => {
