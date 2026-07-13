@@ -8,6 +8,7 @@ import {
 import {
   StoryAssetExtractorAgent,
   type StoryAssetExtractionSource,
+  type StoryAssetImagePromptGuides,
   type StoryAssetTextModel,
 } from "../agents/story-assets.js";
 import type { StoryAssetImage } from "../models/story-assets.js";
@@ -48,6 +49,7 @@ export interface ExtractStoryAssetsInput extends StoryAssetExtractionSource {
   readonly textModel: StoryAssetTextModel;
   readonly manifestStore: StoryAssetManifestStore;
   readonly updatedAt?: string;
+  readonly imagePromptGuides?: StoryAssetImagePromptGuides;
 }
 
 export interface ExtractStoryAssetsResult {
@@ -238,7 +240,9 @@ export async function extractStoryAssets(input: ExtractStoryAssetsInput): Promis
   const baseManifest = existing == null
     ? createEmptyStoryAssetManifest(input.storyId, updatedAt)
     : existing;
-  const drafts = await new StoryAssetExtractorAgent(input.textModel).extract({
+  const drafts = await new StoryAssetExtractorAgent(input.textModel, {
+    imagePromptGuides: input.imagePromptGuides,
+  }).extract({
     settings: input.settings,
     outline: input.outline,
     content: input.content,

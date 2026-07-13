@@ -241,3 +241,20 @@ export function resolveAllPromptTemplates(style: ArtStyle = "realistic"): {
   ) as Record<VoiceAgeGroup, string>;
   return { image, voice };
 }
+
+/**
+ * Build per-kind image prompt guides for the story-asset extractor.
+ *
+ * Each value is the full template (content guidance + style description),
+ * ready to be injected into the extractor's system prompt so the LLM
+ * generates `imagePrompt` values that follow the detailed Chinese norms.
+ */
+export function buildImagePromptGuides(
+  style: ArtStyle = "realistic",
+): { character: string; scene: string; prop: string } {
+  return {
+    character: resolveImagePromptTemplate("character", style),
+    scene: resolveImagePromptTemplate("scene", style),
+    prop: resolveImagePromptTemplate("prop", style),
+  };
+}
