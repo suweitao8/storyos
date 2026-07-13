@@ -8,9 +8,9 @@ import { useNewSSEMessages } from "../hooks/use-sse";
 import { usePageToolbar } from "../components/PageToolbar";
 import { normalizeCraftDisplayName } from "./craft-name.js";
 import {
+  DEFAULT_CRAFT_TAB,
   type CraftTab,
   resolveAfterCraftDelete,
-  resolveInitialCraftState,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
@@ -337,10 +337,9 @@ export function shouldApplyCraftDeleteFallback(
 
 export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t: TFunction; sse: SseState }) {
   const c = useColors(theme);
-  const [tab, setTab] = useState<CraftTab>("list");
+  const [tab, setTab] = useState<CraftTab>(DEFAULT_CRAFT_TAB);
   const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
   const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
-  const initialNavigationAppliedRef = useRef(false);
   const userNavigatedRef = useRef(false);
   const selectedCraftIdRef = useRef<string | null>(null);
   const selectionOperationRef = useRef(0);
@@ -374,20 +373,6 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     recentCraftWriteChainRef.current = nextWrite;
     return nextWrite;
   };
-
-  useEffect(() => {
-    if (craftsLoading || !craftsData || initialNavigationAppliedRef.current) return;
-    initialNavigationAppliedRef.current = true;
-    if (userNavigatedRef.current || !craftsData.recentCraftPreferenceAvailable) return;
-
-    const initialState = resolveInitialCraftState(
-      craftsData.recentCraftId,
-      craftsData.crafts.map((craft) => craft.id),
-    );
-    setTab(initialState.tab);
-    selectedCraftIdRef.current = initialState.selectedCraftId;
-    setSelectedCraftId(initialState.selectedCraftId);
-  }, [craftsData, craftsLoading]);
 
   const openDetail = (craftId: string) => {
     markUserNavigation();
