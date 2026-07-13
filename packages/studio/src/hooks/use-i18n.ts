@@ -264,6 +264,7 @@ const strings = {
   "genre.commaSeparated": { zh: "逗号分隔", en: "comma-separated" },
   "genre.rulesMd": { zh: "规则（Markdown）", en: "Rules (Markdown)" },
   "genre.tabBasic": { zh: "基础设定", en: "Basic" },
+  "genre.tabWriting": { zh: "写作提示词", en: "Writing Prompts" },
   "genre.tabImage": { zh: "图片模板", en: "Image Templates" },
   "genre.tabStyle": { zh: "画面风格", en: "Art Styles" },
   "genre.tabVoice": { zh: "语音模板", en: "Voice Templates" },
