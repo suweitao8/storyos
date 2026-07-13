@@ -43,9 +43,7 @@ import {
   buildExportArtifact,
   evaluateBookQuality,
   ConsolidatorAgent,
-  DetectionConfigSchema,
   ResearchSearchConfigSchema,
-  InputGovernanceModeSchema,
   GLOBAL_ENV_PATH,
   COVER_PROVIDER_PRESETS,
   createPlayDB,
@@ -138,7 +136,7 @@ import {
 } from "./studio-preferences-db.js";
 import { importBilibiliSubtitles } from "./bilibili.js";
 import { listStudioShortStories } from "./short-story-list.js";
-import { registerStoryAssetRoutes } from "./routes/story-assets.js";
+import { registerStudioRoutes } from "./routes/index.js";
 
 // -- Studio server language (read per request from the project config's `language`) --
 
@@ -2635,7 +2633,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     broadcast,
   };
 
-  registerStoryAssetRoutes(routeContext);
+  registerStudioRoutes(routeContext);
 
   // --- Books ---
 
@@ -3800,34 +3798,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   // --- Project info ---
 
-  app.get("/api/v1/project", async (c) => {
-    let currentConfig: ProjectConfig;
-    let raw: Record<string, unknown>;
-    try {
-      currentConfig = await loadCurrentProjectConfig({ requireApiKey: false });
-      // Check if language was explicitly set in inkos.json (not just the schema default)
-      raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
-    } catch (error) {
-      throw new ApiError(
-        500,
-        "PROJECT_CONFIG_INVALID",
-        `Failed to load inkos.json: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    const languageExplicit = "language" in raw && raw.language !== "";
-
-    return c.json({
-      name: currentConfig.name,
-      language: currentConfig.language,
-      languageExplicit,
-      model: currentConfig.llm.model,
-      provider: currentConfig.llm.provider,
-      baseUrl: currentConfig.llm.baseUrl,
-      stream: currentConfig.llm.stream,
-      temperature: currentConfig.llm.temperature,
-    });
-  });
-
   app.get("/api/v1/skills", async (c) => {
     const result = await loadStudioSkills(root);
     return c.json(result);
@@ -3952,74 +3922,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       contentType: file.contentType,
       size: Buffer.byteLength(content, "utf-8"),
     });
-  });
-
-  // --- Config editing ---
-
-  app.put("/api/v1/project", async (c) => {
-    const updates = await c.req.json<Record<string, unknown>>();
-    const configPath = join(root, "inkos.json");
-    try {
-      const raw = await readFile(configPath, "utf-8");
-      const existing = JSON.parse(raw);
-      // Merge LLM settings
-      if (updates.temperature !== undefined) {
-        existing.llm.temperature = updates.temperature;
-      }
-      if (updates.stream !== undefined) {
-        existing.llm.stream = updates.stream;
-      }
-      if (updates.language === "zh" || updates.language === "en") {
-        existing.language = updates.language;
-      }
-      const { writeFile: writeFileFs } = await import("node:fs/promises");
-      await writeFileFs(configPath, JSON.stringify(existing, null, 2), "utf-8");
-      return c.json({ ok: true });
-    } catch (e) {
-      return c.json({ error: String(e) }, 500);
-    }
-  });
-
-  app.get("/api/v1/project/input-governance-mode", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
-    return c.json({ mode: raw.inputGovernanceMode === "legacy" ? "legacy" : "v2" });
-  });
-
-  app.put("/api/v1/project/input-governance-mode", async (c) => {
-    const { mode } = await c.req.json<{ mode?: unknown }>();
-    const parsed = InputGovernanceModeSchema.safeParse(mode);
-    if (!parsed.success) {
-      return c.json({ error: "mode must be legacy or v2" }, 400);
-    }
-    const configPath = join(root, "inkos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8"));
-    raw.inputGovernanceMode = parsed.data;
-    const { writeFile: writeFileFs } = await import("node:fs/promises");
-    await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
-    return c.json({ ok: true, mode: parsed.data });
-  });
-
-  app.get("/api/v1/project/detection", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
-    return c.json({ detection: raw.detection ?? null });
-  });
-
-  app.put("/api/v1/project/detection", async (c) => {
-    const { detection } = await c.req.json<{ detection?: unknown }>();
-    const configPath = join(root, "inkos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8"));
-    if (detection === null) {
-      delete raw.detection;
-    } else {
-      const parsed = DetectionConfigSchema.safeParse(detection);
-      if (!parsed.success) {
-        return c.json({ error: parsed.error.issues.map((issue) => issue.message).join("; ") }, 400);
-      }
-      raw.detection = parsed.data;
-    }
-    const { writeFile: writeFileFs } = await import("node:fs/promises");
-    await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
-    return c.json({ ok: true, detection: raw.detection ?? null });
   });
 
   // --- Truth files browser ---
