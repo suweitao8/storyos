@@ -1,41 +1,41 @@
 ---
-name: Progression Fantasy
+name: 成长奇幻
 id: progression
-language: en
-chapterTypes: ["Training", "Breakthrough", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["修炼", "突破", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: true
 eraResearch: false
-pacingRule: "Tier advancement every 2-4 chapters early, every 8-15 mid-story, every 20+ late-story. Each tier must feel fundamentally different."
-satisfactionTypes: ["Tier Breakthrough", "Technique Mastery", "Rival Surpassed", "Mentor Transcended", "Power Combination Discovered", "Impossible Challenge Overcome"]
+pacingRule: "前期每2-4章一次阶级跃迁，中期每8-15章，后期每20+章。每个阶级必须有根本性的不同。"
+satisfactionTypes: ["阶级突破", "功法大成", "超越宿敌", "超越恩师", "发现力量组合", "战胜不可能的挑战"]
 auditDimensions: [1,2,3,4,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Power loss without extraordinary justification — progress loss drives readers away faster than anything
-- Instant power-ups from found items or bloodline awakenings without buildup
-- Training montages only — readers want detailed training scenes showing struggle and epiphany
-- Arbitrary advancement blocks that feel like artificial gates rather than organic difficulty
-- Tier progression that contradicts established power hierarchy
-- Characters at different tiers competing directly without explanation
+- 没有极特殊的理由就失去力量——实力倒退比任何东西都更快赶走读者
+- 捡到道具或血脉觉醒就瞬间变强，没有铺垫
+- 只有修炼快进——读者要的是展现挣扎和顿悟的详细修炼场景
+- 感觉像人为设卡而非有机难度的随意进阶阻塞
+- 阶级进阶与已建立的战力层级矛盾
+- 不同阶级的角色在没有解释的情况下直接对抗
 
-## Power System Rules
+## 力量体系规则
 
-- Progress must be quantifiable — even without explicit numbers, use measurable tiers (Stage 3 cultivator, Master swordsman)
-- Clear power tiers with meaningful differences between each (Color, Metal, Letter, or custom)
-- Each tier should represent meaningful power difference — not just cosmetic upgrades
-- Earned growth only — power gains connect to effort, sacrifice, or problem-solving
-- Book-to-book comparison: Book 3 MC decisively defeats Book 1 version
-- Mix training montages (covering weeks) with 1-2 detailed breakthrough scenes per tier
-- Physical transformations can signal tier transitions: eye color, aura, physical presence
+- 进步必须可量化——即使没有明确数字，也用可衡量的阶级（三阶修士、剑术大师）
+- 清晰的战力阶级，每级之间有实质差异（颜色、金属、字母或自定义）
+- 每个阶级应代表有意义的力量差异——不只是装饰性升级
+- 只接受挣来的成长——力量增长与努力、牺牲或解决问题挂钩
+- 册与册对比：第3册的主角能碾压第1册的自己
+- 将修炼快进（覆盖数周）与每阶级1-2个详细的突破场景混合
+- 身体蜕变可以标志阶级跃迁：瞳色、气场、体态
 
-## Pacing Guidance
+## 节奏指引
 
-- Chapter structure: Training/learning -> Application/testing -> Breakthrough trigger -> Advancement or cliffhanger
-- Maintain tension as MC grows: introduce enemies/challenges that scale differently or present new threat types
-- Internal struggle must escalate with power — new power unlocks pride, responsibility, temptation, enemies
-- Strongest threats need not be physical: political, magical, spiritual, temporal
-- Early: MC is underdog among peers. Mid: MC formidable but others advance too. Late: MC among strongest but faces tier-transcending threats
-- Rivalry with a peer who also progresses keeps tension alive across the full arc
+- 章节结构：修炼/学习 → 应用/检验 → 突破触发 → 进阶或悬念
+- 主角成长时保持张力：引入以不同方式升级或呈现新威胁类型的敌人/挑战
+- 内心挣扎必须随力量升级——新力量解锁骄傲、责任、诱惑和敌人
+- 最强的威胁未必是物理的：政治、魔法、精神、时间
+- 前期：主角在同龄人中处于弱势。中期：主角强大但其他人也在进步。后期：主角跻身最强，但面临超越阶级的威胁
+- 与一个同样在进步的同龄对手保持竞争，让张力贯穿整个弧线

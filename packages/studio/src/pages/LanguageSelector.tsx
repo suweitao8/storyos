@@ -37,37 +37,16 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
         >
           <div className="font-serif text-3xl mb-4 text-foreground">中文创作</div>
           <div className="text-base text-foreground/70 leading-relaxed mb-6">
-            玄幻 · 仙侠 · 都市 · 恐怖 · 通用
+            玄幻 · 仙侠 · 都市 · 恐怖 · 通用 · 修真 · 科幻 · 异世界穿越
           </div>
           <div className="text-sm text-muted-foreground">
             番茄小说 · 起点中文网 · 飞卢
           </div>
         </button>
-
-        <button
-          onClick={() => handleSelect("en")}
-          onMouseEnter={() => setHovering("en")}
-          onMouseLeave={() => setHovering(null)}
-          className={`group w-80 border rounded-lg p-10 text-left transition-all duration-300 ${
-            selected === "en"
-              ? "border-primary bg-primary/10 scale-[1.02]"
-              : hovering === "en"
-                ? "border-primary/50 bg-card"
-                : "border-border bg-card/50"
-          }`}
-        >
-          <div className="font-serif text-3xl italic mb-4 text-foreground">English Writing</div>
-          <div className="text-base text-foreground/70 leading-relaxed mb-6">
-            LitRPG · Progression · Romantasy · Sci-Fi · Isekai
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Royal Road · Kindle Unlimited · Scribble Hub
-          </div>
-        </button>
       </div>
 
       <div className="text-sm text-muted-foreground">
-        可在设置中更改 · Can be changed in Settings
+        可在设置中更改
       </div>
     </div>
   );

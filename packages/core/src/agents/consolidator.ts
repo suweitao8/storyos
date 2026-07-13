@@ -105,7 +105,7 @@ export class ConsolidatorAgent extends BaseAgent {
 
     // LLM consolidation for each completed volume
     const existingVolSummaries = await readFile(volumeSummariesPath, "utf-8").catch(() => "");
-    const newSummaries: string[] = existingVolSummaries ? [existingVolSummaries.trim()] : ["# Volume Summaries\n"];
+    const newSummaries: string[] = existingVolSummaries ? [existingVolSummaries.trim()] : ["# 卷摘要\n"];
 
     for (const vol of completedVolumes) {
       const volSummaryRows = vol.rows.map((r) => r.raw).join("\n");
@@ -113,15 +113,15 @@ export class ConsolidatorAgent extends BaseAgent {
       const response = await this.chat([
         {
           role: "system",
-          content: `You are a narrative summarizer. Compress chapter-by-chapter summaries into a single coherent paragraph (max 500 words) that captures the key events, character developments, and plot progression of this volume. Preserve specific names, locations, and plot points. Write in the same language as the input.`,
+          content: `你是一个叙事摘要器。将逐章摘要压缩成一段连贯的文字（最多500字），涵盖本卷的关键事件、角色发展和情节推进。保留具体的名字、地点和情节点。使用与输入相同的语言输出。`,
         },
         {
           role: "user",
-          content: `Volume: ${vol.name} (Chapters ${vol.startCh}-${vol.endCh})\n\nChapter summaries:\n${header}\n${volSummaryRows}`,
+          content: `卷：${vol.name}（第${vol.startCh}-${vol.endCh}章）\n\n章节摘要：\n${header}\n${volSummaryRows}`,
         },
       ], { temperature: 0.3 });
 
-      newSummaries.push(`\n## ${vol.name} (Ch.${vol.startCh}-${vol.endCh})\n\n${response.content.trim()}`);
+      newSummaries.push(`\n## ${vol.name}（第${vol.startCh}-${vol.endCh}章）\n\n${response.content.trim()}`);
     }
 
     // Write volume summaries
@@ -132,7 +132,7 @@ export class ConsolidatorAgent extends BaseAgent {
     await mkdir(archiveDir, { recursive: true });
     for (const vol of completedVolumes) {
       const archivePath = join(archiveDir, `vol_${vol.startCh}-${vol.endCh}.md`);
-      await writeFile(archivePath, `# ${vol.name}\n\n${header}\n${vol.rows.map((r) => r.raw).join("\n")}`, "utf-8");
+      await writeFile(archivePath, `# ${vol.name}（第${vol.startCh}-${vol.endCh}章）\n\n${header}\n${vol.rows.map((r) => r.raw).join("\n")}`, "utf-8");
     }
 
     // Rewrite chapter_summaries.md with only current volume rows

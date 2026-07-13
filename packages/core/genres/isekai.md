@@ -1,43 +1,43 @@
 ---
-name: Isekai / Portal Fantasy
+name: 异世界穿越
 id: isekai
-language: en
-chapterTypes: ["Exploration", "Adaptation", "Setup", "Transition", "Payoff", "Combat"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["探索", "适应", "铺垫", "过渡", "收束", "战斗"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: true
 eraResearch: false
-pacingRule: "Establish new world rules by chapter 3. Cultural adaptation and fish-out-of-water moments every 2-3 chapters early. Skip tutorial-town syndrome — no 50 pages hitting rats."
-satisfactionTypes: ["World Rule Discovered", "Cultural Clash Resolved", "Real-World Skill Applied", "New Ability Gained", "Relationship Formed", "Identity Established in New World"]
+pacingRule: "前3章建立新世界规则。前期每2-3章安排文化适应和身份错位。跳过新手村综合症——不要50页都在打老鼠。"
+satisfactionTypes: ["发现世界规则", "化解文化冲突", "现实技能派上用场", "获得新能力", "建立新关系", "在新世界确立身份"]
 auditDimensions: [1,2,3,4,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- "Tutorial town" syndrome — 50+ pages of killing rats or low-stakes grinding before the real story starts
-- New world that feels identical to Earth with a fantasy skin
-- MC treating new world's culture as quaint or inferior without narrative consequence
-- No real consequences for cultural misunderstandings — fish-out-of-water must have stakes
-- Pacing too slow in the "culture learning" phase — drip-feed rules through action, not lectures
-- MC's origin world becoming irrelevant after chapter 3 — the contrast is the genre's engine
-- Isekai truck or summoning ritual with zero personality — make the transportation event matter
+- "新手村"综合症——50+页都在杀老鼠或低风险刷怪，真正的故事才开始
+- 新世界感觉只是披了奇幻皮的地球
+- 主角把新世界的文化当作落后或猎奇，却不承担叙事后果
+- 文化误解没有真正的后果——身份错位必须有代价
+- "文化学习"阶段节奏太慢——通过行动点滴传递规则，而非说教
+- 主角的起源世界在第3章后变得无关紧要——对比正是本题材的引擎
+- 异世界穿越或召唤仪式毫无个性——让穿越事件本身有意义
 
-## World Transition Rules
+## 世界转换规则
 
-- Transportation event (summoning, reincarnation, portal) must be distinct and memorable
-- Brief real-world grounding: who was MC before? What skills, knowledge, relationships do they carry?
-- Arrival scene: disorientation is real — sensory overload, language barriers, physical discomfort
-- First guide/NPC explains world basics through interaction, not monologue
-- By chapter 3, readers must understand the new world's basic operating system
-- MC's real-world knowledge creates both advantages and dangerous blind spots
-- New world must feel real: consistent geography, politics, cultures, economics — not a game lobby
+- 穿越事件（召唤、转生、传送门）必须独特且令人难忘
+- 简短的现实世界铺垫：主角穿越前是谁？携带了什么技能、知识、关系？
+- 降临场景：迷失感是真实的——感官过载、语言障碍、身体不适
+- 第一个向导/NPC通过互动而非独白来解释世界基础
+- 到第3章，读者必须理解新世界的基本运作方式
+- 主角的现实世界知识既创造优势，也造成危险的盲区
+- 新世界必须感觉真实：一致的地理、政治、文化、经济——不是游戏大厅
 
-## Pacing Guidance
+## 节奏指引
 
-- Opening: transportation event -> brief real-world grounding -> arrival and disorientation -> first guide -> first concrete goal
-- Early chapters: cultural fish-out-of-water drives comedy and drama (every 2-3 chapters)
-- MC bringing real-world skills that apply in surprising ways is a core satisfaction — seed these early
-- Learning the new world's magic/power system should feel like genuine discovery, not tutorial text
-- Relationship building with new world characters grounds the MC emotionally
-- Clash between home culture and new world values creates natural conflict without needing a villain
-- Mid-to-late story: MC's identity shifts from "outsider" to "participant" — track this arc explicitly
+- 开篇：穿越事件 → 简短现实铺垫 → 降临与迷失 → 第一个向导 → 第一个具体目标
+- 前期章节：文化的身份错位驱动喜剧和戏剧（每2-3章一次）
+- 主角带来现实技能并以出人意料的方式运用是核心满足感——尽早埋下这些
+- 学习新世界的魔法/力量体系应该像真正的发现，而非教程文本
+- 与新世界角色建立关系，让主角在情感上扎根
+- 故乡文化与新世界价值观的冲突创造天然冲突，不需要反派
+- 故事中后期：主角的身份从"外来者"转变为"参与者"——显性地追踪这条弧线

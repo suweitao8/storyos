@@ -1,42 +1,42 @@
 ---
-name: English Cultivation
+name: 修真
 id: cultivation
-language: en
-chapterTypes: ["Training", "Breakthrough", "Combat", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["修炼", "突破", "战斗", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: true
 eraResearch: false
-pacingRule: "Training/meditation alternates with application/combat. Breakthrough every 5-10 chapters early, every 15-25 late. Each stage must feel earned through discipline."
-satisfactionTypes: ["Stage Breakthrough", "Technique Mastery", "Tribulation Survived", "Martial Victory", "Philosophical Insight", "Core Formation"]
+pacingRule: "修炼/冥想与应用/战斗交替。前期每5-10章一次突破，后期每15-25章。每个境界都必须通过苦修获得。"
+satisfactionTypes: ["境界突破", "功法大成", "渡劫成功", "斗法获胜", "道心顿悟", "结丹成就"]
 auditDimensions: [1,2,3,4,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Cultivation that feels instant or effortless — it must read like genuine labor
-- Breakthrough scenes treated as throwaway moments — each tier transition deserves a full dramatic scene
-- Ignoring philosophical/spiritual depth — meditation and inner balance matter as much as combat power
-- Adopting full Chinese cultural trappings without adaptation — this is Western cultivation, use accessible naming (Copper/Iron/Jade/Gold, not Qi Condensation/Core Formation unless earned)
-- Power gains disconnected from training, sacrifice, or problem-solving
-- Cultivation stages with no meaningful difference in capability between them
+- 修为突飞猛进、毫不费力——必须读起来像真正的苦修
+- 把突破场景当作可有可无的过场——每一次境界跃迁都值得一个完整的戏剧性场景
+- 忽视哲学/精神层面的深度——冥想和内心平衡与战斗力同等重要
+- 完全套用中式修真设定而不做适配——这是通用修真，使用易懂的境界命名（铜/铁/玉/金，而非凝气/结丹，除非有意为之）
+- 力量增长与修炼、牺牲或解决问题脱节
+- 各境界之间没有实质性的能力差异
 
-## Cultivation Rules
+## 修真规则
 
-- Typical Western cultivation stages: Qi Foundation / Energy Gathering -> Core Formation -> Immortal Ascension -> Tribulation / Transcendence (or custom equivalents)
-- Each stage represents meaningful power transformation — characters at different stages should not compete directly without explanation
-- Cultivation must feel like work: meditation scenes with five-sense description, not abstract philosophy lectures
-- Breakthrough scenes show struggle, transformation, and cost — not instant "ding" level-ups
-- Martial integration: cultivation combines with physical combat training, not just sitting and meditating
-- Philosophical elements add depth but must emerge through experience, not exposition
-- Spiritual attribute development: sensitivity to energy, intuition, capacity increases are valid non-numerical progression markers
+- 典型的通用修真境界：气感/聚气 → 结丹 → 飞升 → 渡劫/超脱（或自定义等阶）
+- 每个境界代表实质性的力量蜕变——不同境界的角色不应在没有解释的情况下直接对抗
+- 修真必须读起来像"干活"：用五感描写的冥想场景，而非抽象的哲学说教
+- 突破场景展现挣扎、蜕变和代价——不是"叮"一声就升级
+- 武道融合：修真与身体战斗训练结合，而非只是打坐冥想
+- 哲学元素增加深度，但必须通过体验展现，而非说教
+- 精神属性的发展：对灵气的敏感度、直觉、容量增长都是有效的非数值化成长指标
 
-## Pacing Guidance
+## 节奏指引
 
-- Mix detailed training scenes (showing struggle, failure, epiphanies) with montages covering longer periods
-- 1-2 detailed breakthrough scenes per cultivation stage — these are the genre's peak moments
-- Combat tests what was learned in training — progression and action feed each other
-- Internal struggle escalates with power: pride, responsibility, temptation, and enemies grow alongside cultivation
-- Sect/academy politics and mentorship relationships provide non-combat tension
-- Early: frequent small gains. Mid: longer plateaus with harder breakthroughs. Late: rare, climactic stage transitions
-- The journey of cultivation is the story — readers came for the grind, not just the destination
+- 将详细的修炼场景（展现挣扎、失败、顿悟）与覆盖较长时间流的快进交替使用
+- 每个修真境界安排1-2个详细的突破场景——这是本题材的高光时刻
+- 战斗检验修炼所学——成长与行动相互驱动
+- 内心挣扎随力量升级：骄傲、责任、诱惑和敌人与修为同步增长
+- 宗门/学院政治和师徒关系提供非战斗张力
+- 前期：频繁的小进步。中期：更长的瓶颈期和更难的突破。后期：稀少而高潮性的境界跃迁
+- 修真之旅本身就是故事——读者来看的是这个过程，而不只是终点

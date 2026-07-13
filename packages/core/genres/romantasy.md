@@ -1,45 +1,45 @@
 ---
-name: Romantasy
+name: 浪漫奇幻
 id: romantasy
-language: en
-chapterTypes: ["Romance", "Action", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["恋情", "战斗", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: false
 eraResearch: false
-pacingRule: "Romance beats at every act break. Chemistry scenes every 2-3 chapters. Fantasy romance: consummation at 60-75%. Romantic fantasy: romance resolution aligned with plot resolution."
-satisfactionTypes: ["Chemistry Moment", "Vulnerability Shared", "Obstacle Overcome Together", "First Kiss", "Relationship Defined", "HEA/HFN Achieved"]
+pacingRule: "每个幕断点安排恋情节拍。每2-3章一次化学反应场景。奇幻言情：圆房在60-75%处。言情感幻：恋情收束与情节收束对齐。"
+satisfactionTypes: ["化学反应时刻", "脆弱共享", "携手克服障碍", "初吻", "关系确立", "达成HEA/HFN"]
 auditDimensions: [1,2,3,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Chemistry that isn't earned — readers must understand why characters care for each other
-- Love interest who doesn't drive protagonist's transformation
-- Easy romance without real conflict — tension is mandatory
-- Fantasy romance without HEA/HFN ending — readers feel betrayed
-- Mislabeling heat level — communicate clearly in story setup; readers self-select
-- World-building that feels like afterthought to romance — setting must complicate or enable the relationship
-- Love triangles dragged out without decisive resolution
-- "Tell" emotions instead of showing them — inner feelings shown through action, not declaration
+- 不劳而获的化学反应——读者必须理解角色为什么在乎彼此
+- 恋爱对象不驱动主角的蜕变
+- 没有真正冲突的轻松恋爱——张力是必需的
+- 奇幻言情没有HEA/HFN结局——读者会觉得被背叛
+- 误标火辣程度——在故事开局就说清楚；让读者自行选择
+- 世界观感觉像是恋爱的附属品——设定必须让恋情复杂化或成为可能
+- 拖延不决的三角恋
+- "讲述"情感而非"展现"——内心感受通过行动体现，而非宣言
 
-## Romance Rules
+## 恋情规则
 
-- Show attraction subtly: physical detail notices, lingering touches, involuntary reactions (heartbeat, breath catching)
-- Banter and wit: clever dialogue showing mutual understanding and intellectual challenge
-- Vulnerability moments: characters sharing weakness, fear, secrets, past trauma
-- Shared goals reveal compatibility: working together toward a goal shows how the partner handles conflict
-- Conflict must be real — external barriers (class, species, faction, magic) or internal barriers (fear, trust, past wounds)
-- Fantasy setting complicates romance: magic bonds, soul connections, species differences, political marriages
-- Action scenes show relationship dynamics — fighting together reveals trust and compatibility
-- Heat level must be consistent throughout — don't escalate or pull back without narrative reason
+- 含蓄地展现吸引力：注意到身体细节、流连的触碰、不由自主的反应（心跳、屏息）
+- 斗嘴和机智：聪明的对话展现彼此理解和智力交锋
+- 脆弱时刻：角色分享弱点、恐惧、秘密、过往创伤
+- 共同目标揭示契合度：一起为一个目标努力，展现伴侣如何处理冲突
+- 冲突必须真实——外部障碍（阶级、种族、阵营、魔法）或内部障碍（恐惧、信任、旧伤）
+- 奇幻设定让恋情复杂化：魔法纽带、灵魂链接、种族差异、政治联姻
+- 战斗场景展现关系动态——并肩作战揭示信任和契合度
+- 火辣程度必须全程一致——没有叙事理由就不要升级或收敛
 
-## Pacing Guidance
+## 节奏指引
 
-- Fantasy romance: heavy romance focus early, building to consummation around 60-75%, resolution after romance established
-- Romantic fantasy: romance subplot woven through action plot, key romantic moments at act breaks, romance resolution aligned with plot resolution
-- Chemistry scenes every 2-3 chapters minimum — readers came for the relationship
-- Sexual tension can heighten during/after action (adrenaline, relief, protective instincts)
-- Break up long dialogue-heavy romance scenes with physical action or setting detail
-- Enemies-to-lovers needs slow burn: opposition -> forced proximity -> grudging respect -> attraction -> surrender
-- Second-chance romance: history adds depth and pain; show how characters have changed
+- 奇幻言情：前期侧重恋情，在约60-75%处推向圆房，恋情确立后收束
+- 言情感幻：恋情副线穿插在行动主线中，关键恋情节拍在幕断点，恋情收束与情节收束对齐
+- 每2-3章至少一次化学反应场景——读者就是为这段关系来的
+- 性张力可以在行动期间/之后升温（肾上腺素、如释重负、保护本能）
+- 用身体行动或场景细节打破冗长的对话型恋情场景
+- 宿敌变情人需要慢热：对立 → 被迫接近 → 勉强尊重 → 吸引 → 沦陷
+- 二次机会恋情：过往增添深度和痛苦；展现角色如何改变

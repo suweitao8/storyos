@@ -1,40 +1,40 @@
 ---
-name: Dungeon Core
+name: 地下城核心
 id: dungeon-core
-language: en
-chapterTypes: ["Strategy", "Adventurer POV", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["策略", "冒险者视角", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: true
 powerScaling: false
 eraResearch: false
-pacingRule: "Alternate dungeon POV (planning/building) with adventurer POV (exploration/combat) every 1-2 chapters. Expansion milestone every 5-8 chapters."
-satisfactionTypes: ["Trap Success", "Floor Expansion", "Minion Evolution", "Adventurer Defeated", "Resource Milestone", "Core Upgrade"]
+pacingRule: "地下城视角（规划/建设）与冒险者视角（探索/战斗）每1-2章交替。每5-8章一个扩张里程碑。"
+satisfactionTypes: ["陷阱奏效", "层数扩展", "眷属进化", "击退冒险者", "资源里程碑", "核心升级"]
 auditDimensions: [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Dungeon leaving its location — immobility is the core constraint, not a bug
-- No consequence for poor trap design or weak minions — adventurers must punish strategic failure
-- Overemphasis on adventurer POV (>70%) — this is dungeon core, not dungeon crawl
-- Lone-wolf dungeon with zero NPC dialogue or relationships
-- Resource management without scarcity — dungeon must make meaningful choices between defense, expansion, and treasure
-- Dungeon core invulnerable or never at risk — core vulnerability is the central tension
+- 地下城离开原地——不能移动是核心约束，不是缺陷
+- 陷阱设计拙劣或眷属孱弱却毫无后果——冒险者必须惩罚战略失误
+- 过度侧重冒险者视角（>70%）——这是地下城核心，不是地下城探险
+- 孤狼地下城，没有任何NPC对话或关系
+- 资源管理没有稀缺性——地下城必须在防御、扩张和宝藏之间做出真正的取舍
+- 地下城核心刀枪不入、从不面临危险——核心的脆弱性是核心张力所在
 
-## Non-Human POV Rules
+## 非人类视角规则
 
-- Establish dungeon's sensory and cognitive limitations clearly — it "feels" through mana flows, vibrations, minion senses
-- Split POV works best: dungeon core chapters (strategic, omniscient within dungeon) alternating with adventurer/NPC chapters (ground-level human perspective)
-- Dungeon may think differently: slower consciousness, different time perception, alien emotional range
-- Dungeon learns about the outside world through adventurers, scouts, or other filtered means
-- Show the dungeon learning and adapting: "Adventurers bypassed arrow trap by..." leads to next iteration improvements
+- 清晰地建立地下城的感知和认知局限——它通过魔力流动、震动、眷属的感官来"感受"
+- 分视角效果最好：地下城核心章节（在地下城内全知的战略视角）与冒险者/NPC章节（地面人类视角）交替
+- 地下城的思维方式可能不同：意识运转更慢、时间感知不同、情感范围异于人类
+- 地下城通过冒险者、斥候或其他过滤手段了解外部世界
+- 展现地下城的学习和适应："冒险者用……绕过了箭矢陷阱"→ 引出下一次的迭代改进
 
-## Pacing Guidance
+## 节奏指引
 
-- Early: Simple dungeon (3-4 rooms, basic traps, weak monsters). Dungeon learns the system
-- Mid: Expanding territory, specialized rooms, sophisticated trap combinations, creature breeding
-- Late: Sprawling complex, hundreds of minions, political relationships with other dungeons/factions, regional economic impact
-- Dungeon POV chapters (2-3k words): internal monologue, planning, resource management, strategy
-- Adventurer POV chapters (2-3k words): exploration, discovery, combat, adaptation
-- End dungeon chapters on suspense (adventurers approaching); end adventurer chapters revealing dungeon's plan
-- Each room/trap/creature must feel purposeful — readers enjoy creative dungeon design with clear strategic reasoning
+- 前期：简单地下城（3-4个房间，基础陷阱，弱小怪物）。地下城学习系统规则
+- 中期：扩张领地，专业化房间，精密的陷阱组合，生物培育
+- 后期：庞大的复合体，数百眷属，与其他地下城/势力的政治关系，区域经济影响
+- 地下城视角章节（2000-3000字）：内心独白、规划、资源管理、战略
+- 冒险者视角章节（2000-3000字）：探索、发现、战斗、适应
+- 地下城章节以悬念结尾（冒险者逼近）；冒险者章节揭示地下城的计划
+- 每个房间/陷阱/生物都必须有明确目的——读者享受充满创意、逻辑清晰的地下城设计

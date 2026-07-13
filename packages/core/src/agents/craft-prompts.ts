@@ -255,24 +255,24 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
     const v = craftProfile.videoStory;
     lines.push(
       "",
-      "## Video rhythm transfer guide",
-      "Transfer the reference video's beat functions, relative positions, escalation spacing, reversals, and payoff timing only. Do not reuse its expression, identities, setting, causal chain, or contiguous event sequence.",
-      `- Logline: ${v.logline}`,
-      `- Audience promise: ${v.audiencePromise}`,
-      `- Outline: ${v.outline}`,
-      `- Pacing curve: ${v.pacingCurve}`,
-      `- Hook strategy: ${v.hookStrategy}`,
-      `- Climax strategy: ${v.climaxStrategy}`,
-      `- Ending aftertaste: ${v.endingAftertaste}`,
-      "### Beat timeline",
-      ...v.beats.map((beat) => `- ${Math.round(beat.position * 100)}%${beat.timeRange ? ` (${beat.timeRange})` : ""} [${beat.kind}] ${beat.event} | function: ${beat.function} | emotion: ${beat.emotionalEffect}`),
-      "### Reversals",
-      ...v.reversals.map((reversal) => `- ${Math.round(reversal.position * 100)}%: apparent truth ${reversal.apparentTruth}; reveal ${reversal.reveal}; reinterpret clues ${reversal.reinterpretedClues}; setup beats ${reversal.setupBeatOrders.join(", ")}`),
-      "### Payoffs",
-      ...v.payoffs.map((payoff) => `- ${Math.round(payoff.position * 100)}%: setup ${payoff.setup}; release ${payoff.release}; cost/consequence ${payoff.costOrConsequence}; emotion ${payoff.emotionalEffect}`),
-      "### Originalization rules",
+      "## 视频节奏迁移指南",
+      "仅迁移参考视频的节拍功能、相对位置、升级间距、反转和收束时机。不要复用其表达、身份、设定、因果链或连续事件序列。",
+      `- 一句话故事：${v.logline}`,
+      `- 观众承诺：${v.audiencePromise}`,
+      `- 大纲：${v.outline}`,
+      `- 节奏曲线：${v.pacingCurve}`,
+      `- 钩子策略：${v.hookStrategy}`,
+      `- 高潮策略：${v.climaxStrategy}`,
+      `- 结尾余味：${v.endingAftertaste}`,
+      "### 节拍时间线",
+      ...v.beats.map((beat) => `- ${Math.round(beat.position * 100)}%${beat.timeRange ? ` (${beat.timeRange})` : ""} [${beat.kind}] ${beat.event} | 功能：${beat.function} | 情绪：${beat.emotionalEffect}`),
+      "### 反转",
+      ...v.reversals.map((reversal) => `- ${Math.round(reversal.position * 100)}%: 表面真相 ${reversal.apparentTruth}；揭示 ${reversal.reveal}；重新解读线索 ${reversal.reinterpretedClues}；铺垫节拍 ${reversal.setupBeatOrders.join(", ")}`),
+      "### 收束",
+      ...v.payoffs.map((payoff) => `- ${Math.round(payoff.position * 100)}%: 铺垫 ${payoff.setup}；释放 ${payoff.release}；代价/后果 ${payoff.costOrConsequence}；情绪 ${payoff.emotionalEffect}`),
+      "### 原创化规则",
       ...v.originalizationRules.map((rule) => `- ${rule}`),
-      "Before drafting, create new characters, setting, causal chain, supernatural mechanism, scene details, and ending. Preserve only the pacing map and narrative function.",
+      "起草前，创造新的角色、设定、因果链、超自然机制、场景细节和结局。仅保留节奏图谱和叙事功能。",
     );
   }
   return lines.join("\n");
@@ -300,12 +300,12 @@ export function buildStoryDirectionPrompt(
   const disclosure = craftProfile.informationDisclosure;
   const perspective = craftProfile.narrativePerspective;
   const referenceSections = [
-    ["Worldview and rules", craftProfile.worldview],
-    ["Generalized story outline", craftProfile.storyOutline],
-    ["Opening and chapter arc", `${structure.openingPattern}; ${structure.chapterArc}; ending hook: ${structure.endingHookType}`],
-    ["Scene rhythm", `${rhythm.sceneTransitionTechnique}; pacing: ${rhythm.pacingCurve}; escalation: ${rhythm.conflictEscalation}`],
-    ["Information disclosure", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
-    ["Narrative perspective", `${perspective.povStrategy}; ${perspective.narrationDialogueRatio}; ${perspective.narrativeDistance}`],
+    ["世界观与规则", craftProfile.worldview],
+    ["通用故事大纲", craftProfile.storyOutline],
+    ["开篇与章节弧线", `${structure.openingPattern}; ${structure.chapterArc}; 结尾钩子: ${structure.endingHookType}`],
+    ["场景节奏", `${rhythm.sceneTransitionTechnique}; 节奏: ${rhythm.pacingCurve}; 升级: ${rhythm.conflictEscalation}`],
+    ["信息揭露", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
+    ["叙事视角", `${perspective.povStrategy}; ${perspective.narrationDialogueRatio}; ${perspective.narrativeDistance}`],
   ]
     .filter(([, value]) => Boolean(value?.trim()))
     .map(([label, value]) => `${label}:\n${compactStoryDirectionSource(value)}`);
@@ -314,18 +314,18 @@ export function buildStoryDirectionPrompt(
     const ghost = craftProfile.ghostStory;
     referenceSections.push(
       [
-        "Ghost-story mechanisms",
+        "鬼故事机制",
         [
-          `fear core: ${ghost.fearCore}`,
-          `supernatural rules: ${ghost.supernaturalRules}`,
-          `taboos: ${ghost.taboos}`,
-          `protagonist vulnerability: ${ghost.protagonistVulnerability}`,
-          `clue system: ${ghost.clueSystem}`,
-          `reveal cadence: ${ghost.revealCadence}`,
-          `scare cadence: ${ghost.scareCadence}`,
-          `escalation: ${ghost.escalationLadder}`,
-          `sensory motifs: ${ghost.sensoryMotifs}`,
-          `ending aftertaste: ${ghost.endingAftertaste}`,
+          `恐惧核心: ${ghost.fearCore}`,
+          `超自然规则: ${ghost.supernaturalRules}`,
+          `禁忌: ${ghost.taboos}`,
+          `主角弱点: ${ghost.protagonistVulnerability}`,
+          `线索体系: ${ghost.clueSystem}`,
+          `揭示节奏: ${ghost.revealCadence}`,
+          `惊吓节奏: ${ghost.scareCadence}`,
+          `升级阶梯: ${ghost.escalationLadder}`,
+          `感官意象: ${ghost.sensoryMotifs}`,
+          `结尾余味: ${ghost.endingAftertaste}`,
         ].join("\n"),
       ].join("\n"),
     );
@@ -335,45 +335,45 @@ export function buildStoryDirectionPrompt(
     const video = craftProfile.videoStory;
     referenceSections.push(
       [
-        "Video rhythm map",
+        "视频节奏图谱",
         [
-          `logline: ${video.logline}`,
-          `audience promise: ${video.audiencePromise}`,
-          `outline: ${video.outline}`,
-          `pacing: ${video.pacingCurve}`,
-          `hook: ${video.hookStrategy}`,
-          `climax: ${video.climaxStrategy}`,
-          `ending: ${video.endingAftertaste}`,
+          `一句话故事: ${video.logline}`,
+          `观众承诺: ${video.audiencePromise}`,
+          `大纲: ${video.outline}`,
+          `节奏: ${video.pacingCurve}`,
+          `钩子: ${video.hookStrategy}`,
+          `高潮: ${video.climaxStrategy}`,
+          `结尾: ${video.endingAftertaste}`,
           ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}: ${beat.emotionalEffect}`),
-          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% reversal: ${reversal.emotionalEffect}`),
-          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% payoff: ${payoff.emotionalEffect}`),
+          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转: ${reversal.emotionalEffect}`),
+          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束: ${payoff.emotionalEffect}`),
         ].join("\n"),
       ].join("\n"),
     );
   }
 
-  const target = kind === "short" ? "a one-chapter short story" : "a ten-chapter long story";
+  const target = kind === "short" ? "一篇单章节短篇故事" : "一部十章长篇故事";
   const languageRule = language === "zh"
-    ? "Output the result in Simplified Chinese."
+    ? "用简体中文输出结果。"
     : "Output the result in English.";
 
   return {
     system: [
-      "You are a story development editor.",
+      "你是一位故事开发编辑。",
       languageRule,
-      "Use the reference only for reusable mechanisms, world logic, pacing functions, and emotional movement.",
-      "Create a new story direction with new identities, setting details, causal chain, scenes, and ending. Never copy distinctive names, dialogue, wording, or a contiguous event sequence.",
-      "Return only the usable story-direction brief, not analysis of the reference and not a preface.",
+      "仅将参考素材用于可复用的机制、世界逻辑、节奏功能和情感运动。",
+      "创造一个全新的故事方向，包含新的身份、设定细节、因果链、场景和结局。绝不复制 distinctive 的名字、对话、措辞或连续的事件序列。",
+      "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
     ].join("\n"),
     user: [
-      `Create ${target} from the following craft reference.`,
-      "Craft reference:",
+      `根据以下创作参考素材来创建${target}。`,
+      "创作参考素材：",
       referenceSections.join("\n\n"),
       previousDirection?.trim()
-        ? `Previous direction to improve or replace:\n${compactStoryDirectionSource(previousDirection, 3_000)}\nGenerate a materially different alternative while preserving the useful craft mechanics.`
-        : "No previous direction exists. Generate a strong first version.",
-      "Include these sections: title hook, genre and setting, protagonist and pressure, core conflict, progression and reversal plan, climax and emotional payoff, ending, and originality constraints.",
-      "Make every section concrete enough to start drafting immediately. Keep the direction self-contained and avoid referring to the reference work.",
+        ? `待改进或替换的上一版方向：\n${compactStoryDirectionSource(previousDirection, 3_000)}\n在保留有用创作机制的同时，生成一个实质上不同的替代方案。`
+        : "没有上一版方向。请生成一个有力的初版。",
+      "包含以下板块：标题钩子、题材与设定、主角与压力、核心冲突、推进与反转计划、高潮与情感回报、结局、原创性约束。",
+      "让每个板块都足够具体，能够立即开始起草。保持方向自洽，不要提及参考作品。",
     ].join("\n\n"),
   };
 }
@@ -389,16 +389,16 @@ export function buildStorySeedPrompt(
     ? buildStoryDirectionPrompt(craftProfile, kind, language, previousDirection)
     : {
         system: [
-          "You are a story development editor for short films.",
-          language === "zh" ? "Output the result in Simplified Chinese." : "Output the result in English.",
-          "No craft reference is selected. Use strong original short-film storytelling principles: a concrete protagonist, a visible pressure, a causal escalation, a meaningful reversal, and an earned ending.",
+          "你是一位短片故事开发编辑。",
+          language === "zh" ? "用简体中文输出结果。" : "Output the result in English.",
+          "未选择创作参考素材。使用强有力的原创短片叙事原则：一个具体的主角、一个可见的压力、一个因果递进、一个有意义的反转和一个水到渠成的结局。",
         ].join("\n"),
         user: [
-          "Create a one-chapter short story seed from scratch.",
-          "No craft reference is selected; invent an original premise, setting, characters, conflict, and ending.",
+          "从零开始创建一个单章节短篇故事种子。",
+          "未选择创作参考素材；请发明原创的前提、设定、角色、冲突和结局。",
           previousDirection?.trim()
-            ? `Previous seed to improve or replace:\n${compactStoryDirectionSource(previousDirection, 3_000)}`
-            : "No previous seed exists. Generate a strong first version.",
+            ? `待改进或替换的上一版种子：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
+            : "没有上一版种子。请生成一个有力的初版。",
         ].join("\n\n"),
       };
   const labels = STORY_SEED_SECTION_DEFINITIONS
@@ -408,9 +408,9 @@ export function buildStorySeedPrompt(
   return {
     system: [
       base.system,
-      "Return only the ten Markdown sections requested below.",
-      "Do not output <think>, reasoning, analysis, a preface, or Markdown code fences.",
-      "Every section must contain concrete final story material that can be edited and passed to a writer.",
+      "只返回下方要求的十个 Markdown 板块。",
+      "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。",
+      "每个板块必须包含具体的、最终的故事素材，可以直接编辑并交给写作器。",
     ].join("\n"),
     user: [
       base.user,
@@ -420,7 +420,7 @@ export function buildStorySeedPrompt(
       language === "zh"
         ? "这是给短片创作使用的故事种子：大纲要能落到可拍摄的段落，角色要写清目标、弱点和关系，反转要能回收前文线索，结局要写清代价与情绪余味。"
         : "This seed is for a short film: make the outline shootable, give characters goals, vulnerabilities, and relationships, make reversals pay off earlier clues, and state the ending cost and emotional aftertaste.",
-      "Preserve only reusable craft mechanics from any reference; create new identities, setting details, causal chain, scenes, and ending. Do not copy distinctive names, dialogue, wording, or event sequence.",
+      "仅保留来自任何参考素材的可复用创作机制；创造新的身份、设定细节、因果链、场景和结局。不要复制 distinctive 的名字、对话、措辞或事件序列。",
     ].join("\n\n"),
   };
 }

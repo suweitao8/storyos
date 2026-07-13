@@ -1,42 +1,42 @@
 ---
-name: Science Fiction
+name: 科幻
 id: sci-fi
-language: en
-chapterTypes: ["Exploration", "Combat", "Setup", "Transition", "Payoff"]
-fatigueWords: ["delve", "tapestry", "testament", "intricate", "pivotal", "vibrant", "comprehensive", "nuanced", "embark", "foster", "underscore", "bolstered", "crucial"]
+language: zh
+chapterTypes: ["探索", "战斗", "铺垫", "过渡", "收束"]
+fatigueWords: [" delve ", " tapestry ", " testament ", " intricate ", " pivotal ", " vibrant ", " comprehensive ", " nuanced ", " embark ", " foster ", " underscore ", " bolstered ", " crucial "]
 numericalSystem: false
 powerScaling: false
 eraResearch: true
-pacingRule: "Worldbuilding emerges through action, not exposition. Tech reveals tied to plot-critical moments. Political/exploration arcs alternate with action every 2-4 chapters."
-satisfactionTypes: ["Discovery", "Tech Breakthrough", "Political Victory", "First Contact", "Mystery Solved", "Survival Against Odds"]
+pacingRule: "世界观通过行动而非说教展开。技术揭示与关键情节时刻挂钩。政治/探索弧线与战斗每2-4章交替。"
+satisfactionTypes: ["发现", "技术突破", "政治胜利", "首次接触", "谜题解开", "绝境求生"]
 auditDimensions: [1,2,3,6,7,8,9,10,13,14,15,16,17,18,19,24,25,26]
 ---
 
-## Genre Prohibitions
+## 题材禁忌
 
-- Tech rules changing to serve plot convenience — once physics/tech is established, it must stay consistent
-- Technology solving everything — every tech must have limitations; introduce problems tech cannot fix (corruption, emotion, human greed)
-- Info-dumping science/tech explanations outside of plot-critical moments
-- Ignoring logical consequences of technology — FTL, AI, biotech all have societal implications
-- Hand-waving hard-science concepts in hard sci-fi without clear intent to treat science as soft
-- Characters behaving as if from present day when story is set centuries ahead — cultural/linguistic adaptation matters
+- 为了剧情方便而篡改技术规则——物理/技术一旦确立就必须保持一致
+- 技术解决一切——每项技术都必须有限制；引入技术无法解决的问题（腐败、情感、人性贪婪）
+- 在关键情节时刻之外信息倾倒科学/技术解释
+- 忽视技术的逻辑后果——超光速、AI、生物科技都有社会影响
+- 在硬科幻中含糊其辞地搪塞硬科学概念，除非有意将科学做软处理
+- 故事设定在几百年后，角色却表现得像当代人——文化/语言适配很重要
 
-## Tech Consistency Rules
+## 技术一致性规则
 
-- Every technology must have defined limitations and side effects
-- New technologies create new problems — they don't just solve old ones
-- If the story uses FTL, hyperdrives, or teleportation, establish rules and stick to them
-- Hard sci-fi: explain the science, make it plausible, build consequences. Readers will check
-- Space opera: science can be soft, but internal rules must be consistent across the narrative
-- Show technology through character interaction, not textbook entries
-- Era research required: reference real science correctly, extrapolate plausibly
+- 每项技术都必须有明确的限制和副作用
+- 新技术创造新问题——不只是解决旧问题
+- 如果故事使用超光速、超空间驱动或传送，建立规则并坚持
+- 硬科幻：解释科学，使其合理，构建后果。读者会查证
+- 太空歌剧：科学可以是软的，但内部规则必须在叙事中一致
+- 通过角色互动展现技术，而非教科书条目
+- 需要时代考据：正确引用真实科学，合理推演
 
-## Pacing Guidance
+## 节奏指引
 
-- Hard sci-fi: logical problem-solving drives pacing — each chapter should advance understanding or create new constraints
-- Space opera: epic scale requires political/interpersonal arcs between action sequences
-- Exploration chapters establish wonder and worldbuilding through character experience
-- Political complexity: factions with competing interests, diplomacy alongside combat
-- Tech reveals at plot-critical moments only — never dump specs for their own sake
-- Action scenes grounded in established physics/tech rules — no surprise capabilities
-- Settings spanning star systems need clear spatial orientation for readers
+- 硬科幻：逻辑性的问题解决驱动节奏——每章应推进理解或制造新约束
+- 太空歌剧：史诗级尺度需要行动序列之间的政治/人际弧线
+- 探索章节通过角色体验建立奇观和世界观
+- 政治复杂性：利益竞争的派系，外交与战斗并行
+- 技术揭示只在关键情节时刻——绝不为展示而倾倒参数
+- 战斗场景扎根于已建立的物理/技术规则——没有突然冒出来的能力
+- 跨越星系的设定需要为读者提供清晰的空间方位感
