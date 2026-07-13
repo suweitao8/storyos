@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStoryAssetExtractionPath, resolveChatPageStoryWorkspace } from "./ChatPage";
+import { buildStoryAssetExtractionPath, latestShortStoryId, resolveChatPageStoryWorkspace } from "./ChatPage";
 
 describe("ChatPage story workspace integration", () => {
+  it("finds the latest created short story id from tool execution details", () => {
+    expect(latestShortStoryId([
+      { toolExecutions: [{ details: { kind: "short_fiction_created", storyId: "old" } }] },
+      { toolExecutions: [{ details: { kind: "short_fiction_created", storyId: "latest" } }] },
+    ])).toBe("latest");
+    expect(latestShortStoryId([])).toBeNull();
+  });
+
   it("builds the canonical text asset extraction endpoint", () => {
     expect(buildStoryAssetExtractionPath("book", "night harbor")).toBe(
       "/stories/book/night%20harbor/assets/extract",

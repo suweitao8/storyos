@@ -3,7 +3,7 @@ import { useHashRoute } from "./hooks/use-hash-route";
 import type { HashRoute } from "./hooks/use-hash-route";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
-import { ChatPage } from "./pages/ChatPage";
+import { ChatPage, latestShortStoryId } from "./pages/ChatPage";
 import { BookDetail } from "./pages/BookDetail";
 import { ChapterReader } from "./pages/ChapterReader";
 import { Analytics } from "./pages/Analytics";
@@ -118,6 +118,35 @@ export function getRouteToolbarTitle(
   return titles[route.page];
 }
 
+type ToolbarStory = {
+  readonly id: string;
+  readonly title: string;
+};
+
+export function resolveActiveStoryTitle(input: {
+  readonly route: HashRoute;
+  readonly sessionKind?: ChatSessionKind;
+  readonly activeShortStoryId?: string | null;
+  readonly books: ReadonlyArray<ToolbarStory>;
+  readonly shorts: ReadonlyArray<ToolbarStory>;
+}): string | undefined {
+  const route = input.route;
+
+  if (route.page === "book") {
+    return input.books.find((book) => book.id === route.bookId)?.title;
+  }
+
+  if (route.page === "short") {
+    return input.shorts.find((story) => story.id === route.shortId)?.title;
+  }
+
+  if (route.page === "chat" && input.sessionKind === "short") {
+    return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title;
+  }
+
+  return undefined;
+}
+
 function AppPageToolbar({
   title,
   activeStoryTitle,
@@ -154,9 +183,10 @@ export function App() {
   const sse = useSSE();
   const { theme, setTheme } = useTheme();
   const { t, lang: currentLang } = useI18n();
-  const activeSessionKind = useChatStore((state) =>
-    state.activeSessionId ? state.sessions[state.activeSessionId]?.sessionKind : undefined,
+  const activeSession = useChatStore((state) =>
+    state.activeSessionId ? state.sessions[state.activeSessionId] : undefined,
   );
+  const activeSessionKind = activeSession?.sessionKind;
   const { data: project, error: projectError, refetch: refetchProject } = useApi<{ language: string; languageExplicit: boolean }>("/project", PROJECT_CONFIG_RETRY);
   const { data: booksForToolbar } = useApi<{ books: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/books");
   const { data: shortsForToolbar } = useApi<{ shorts: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/shorts");
@@ -228,11 +258,16 @@ export function App() {
         : route.page;
 
   const startupGate = deriveStartupGate({ ready, projectError });
-  const activeStoryTitle = route.page === "book"
-    ? booksForToolbar?.books.find((book) => book.id === route.bookId)?.title
-    : route.page === "short"
-      ? shortsForToolbar?.shorts.find((story) => story.id === route.shortId)?.title
-      : undefined;
+  const activeShortStoryId = activeSessionKind === "short"
+    ? latestShortStoryId(activeSession?.messages ?? [])
+    : null;
+  const activeStoryTitle = resolveActiveStoryTitle({
+    route,
+    sessionKind: activeSessionKind,
+    activeShortStoryId,
+    books: booksForToolbar?.books ?? [],
+    shorts: shortsForToolbar?.shorts ?? [],
+  });
 
   if (startupGate === "error") {
     return (
