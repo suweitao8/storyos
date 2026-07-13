@@ -21,6 +21,5 @@ describe("isStudioNavigationPageVisible", () => {
 
   it("keeps supported primary pages visible", () => {
     expect(isStudioNavigationPageVisible("craft")).toBe(true);
-    expect(isStudioNavigationPageVisible("doctor")).toBe(true);
   });
 });

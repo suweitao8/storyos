@@ -36,7 +36,6 @@ import {
   Feather,
   FileInput,
   TrendingUp,
-  Stethoscope,
   Zap,
   FolderOpen,
   ChevronRight,
@@ -94,7 +93,6 @@ interface Nav {
   toCraft: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toRadar: () => void;
-  toDoctor: () => void;
   toFilmStudio: (id: string) => void;
 }
 
@@ -641,12 +639,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
                 onClick={nav.toRadar}
               />
             )}
-            <SidebarItem
-              label={t("nav.doctor")}
-              icon={<Stethoscope size={16} />}
-              active={activePage === "doctor"}
-              onClick={nav.toDoctor}
-            />
           </div>
         </div>
       </div>

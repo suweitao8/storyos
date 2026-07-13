@@ -33,6 +33,7 @@ function parseHash(hash: string): HashRoute {
   if (path === "chat") return { page: "chat" };
   if (path === "config" || path === "services") return { page: "services" };
   if (path === "settings") return { page: "project-settings" };
+  if (path === "doctor") return { page: "project-settings" };
   if (path === "import") return { page: "import" };
   if (path === "craft") return { page: "craft" };
   const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
@@ -80,6 +81,7 @@ function routeToHash(route: HashRoute): string {
     case "book-create": return "#/book/new";
     case "services": return "#/services";
     case "project-settings": return "#/settings";
+    case "doctor": return "#/settings";
     case "import": return route.tab ? `#/import/${route.tab}` : "#/import";
     case "craft": return "#/craft";
     case "service-detail": return `#/services/${encodeURIComponent(route.serviceId)}`;
@@ -96,6 +98,10 @@ export { parseHash, routeToHash }; // for testing
 
 const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "play", "film", "flow", "film-author", "film-studio"]);
 
+function normalizeRoute(route: HashRoute): HashRoute {
+  return route.page === "doctor" ? { page: "project-settings" } : route;
+}
+
 export function useHashRoute() {
   const [route, setRouteState] = useState<HashRoute>(() => parseHash(window.location.hash));
 
@@ -106,14 +112,15 @@ export function useHashRoute() {
   }, []);
 
   const setRoute = useCallback((newRoute: HashRoute) => {
+    const normalizedRoute = normalizeRoute(newRoute);
     // 先同步 React state：无论目标页面是否写 URL，保证页面立刻切换。
     // 之前只在非 hash 页面才 setRouteState，hash 页面完全靠 hashchange 事件回调触发。
     // 但当 URL 没有实际变化时（比如从 services → logs → services，中间的 logs
     // 不写 URL，URL 一直停在 #/services），再次赋值同一个 hash 不会触发 hashchange，
     // React state 就永远停留在 logs，表现为"点不动"。
-    setRouteState(newRoute);
-    if (HASH_PAGES.has(newRoute.page)) {
-      const hash = routeToHash(newRoute);
+    setRouteState(normalizedRoute);
+    if (HASH_PAGES.has(normalizedRoute.page)) {
+      const hash = routeToHash(normalizedRoute);
       if (hash && window.location.hash !== hash) {
         window.location.hash = hash;
       }

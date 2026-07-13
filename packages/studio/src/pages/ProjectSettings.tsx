@@ -28,6 +28,7 @@ import {
   groupPromptPacksForDisplay,
   type PromptPacksResponse,
 } from "./prompt-pack-ui-state";
+import { EnvironmentDiagnostics } from "./DoctorView";
 
 interface Nav {
   toDashboard: () => void;
@@ -865,6 +866,8 @@ export function ProjectSettings({ nav, theme, setTheme, lang, onLangChange, t }:
           {saving === "detection" ? t("config.saving") : t("config.save")}
         </button>
       </SettingsCard>
+
+      <EnvironmentDiagnostics theme={theme} t={t} />
     </div>
   );
 }

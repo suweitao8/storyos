@@ -229,6 +229,7 @@ const strings = {
 
   // Doctor
   "doctor.title": { zh: "环境诊断", en: "Environment Check" },
+  "doctor.settingsHint": { zh: "检查项目配置、环境文件、数据目录和 LLM 连接状态。", en: "Check project configuration, environment files, the data directory, and LLM connectivity." },
   "doctor.recheck": { zh: "重新检查", en: "Re-check" },
   "doctor.inkosJson": { zh: "inkos.json 配置", en: "inkos.json configuration" },
   "doctor.projectEnv": { zh: "项目环境文件", en: "Project environment file" },

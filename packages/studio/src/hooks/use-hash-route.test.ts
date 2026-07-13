@@ -103,6 +103,14 @@ describe("hash route", () => {
       expect(routeToHash({ page: "project-settings" })).toBe("#/settings");
     });
 
+    it("legacy doctor routes serialize to settings", () => {
+      expect(routeToHash({ page: "doctor" })).toBe("#/settings");
+    });
+
+    it("legacy doctor links open the system settings page", () => {
+      expect(parseHash("#/doctor")).toEqual({ page: "project-settings" });
+    });
+
     it("service-detail -> #/services/{id}", () => {
       expect(routeToHash({ page: "service-detail", serviceId: "openai" })).toBe("#/services/openai");
     });
