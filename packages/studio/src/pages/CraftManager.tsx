@@ -78,37 +78,27 @@ function parseCraftTimestamp(value: string): number | undefined {
   return undefined;
 }
 
-function formatCraftDurationSeconds(seconds: number): string {
-  const rounded = Math.max(1, Math.round(seconds));
-  const minutes = Math.floor(rounded / 60);
-  const remainder = rounded % 60;
-  if (minutes === 0) return `耗时 ${rounded} 秒`;
-  return remainder === 0
-    ? `耗时 ${minutes} 分钟`
-    : `耗时 ${minutes} 分 ${remainder} 秒`;
+function formatCraftTimeShort(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}秒`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds % 60);
+  return remainder === 0 ? `${minutes}分` : `${minutes}分${remainder}秒`;
 }
 
+/**
+ * Simplify a timeRange string into a clean "start–end" label.
+ * Rounds to whole seconds, drops fractional precision.
+ * Example: "00:12.5-01:35.2" → "12秒–1分35秒"
+ */
 export function formatCraftBeatDuration(timeRange: string | undefined): string | undefined {
   if (!timeRange?.trim()) return undefined;
 
-  const timestampValues = (timeRange.match(CRAFT_TIME_TOKEN) ?? [])
+  const timestamps = (timeRange.match(CRAFT_TIME_TOKEN) ?? [])
     .map(parseCraftTimestamp)
     .filter((value): value is number => value !== undefined);
-  if (timestampValues.length >= 2) {
-    const duration = timestampValues[1] - timestampValues[0];
-    return duration >= 0 ? formatCraftDurationSeconds(duration) : undefined;
-  }
 
-  if (timestampValues.length === 1 && /耗时|时长|duration/i.test(timeRange)) {
-    return formatCraftDurationSeconds(timestampValues[0]);
-  }
-
-  const numericValues = /[-–—~至到]/.test(timeRange)
-    ? (timeRange.match(/\d+(?:[.,]\d+)?/g) ?? []).map(Number)
-    : [];
-  if (numericValues.length >= 2 && numericValues.every(Number.isFinite)) {
-    const duration = numericValues[1] - numericValues[0];
-    return duration >= 0 ? formatCraftDurationSeconds(duration) : undefined;
+  if (timestamps.length >= 2) {
+    return `${formatCraftTimeShort(timestamps[0])}–${formatCraftTimeShort(timestamps[1])}`;
   }
 
   return undefined;
@@ -1340,7 +1330,7 @@ function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-medium text-muted-foreground">事件耗时</div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">剧情节拍</div>
             <div className="space-y-2">
               {detail.videoStory.beats.map((beat) => {
                 const durationLabel = formatCraftBeatDuration(beat.timeRange);
