@@ -9,11 +9,13 @@ import {
   advanceCraftNavigationToken,
   shouldApplyCraftDeleteFallback,
   CRAFT_SOURCE_TYPES,
+  CRAFT_VIDEO_MODES,
   buildCraftAnalyzePayload,
   CRAFT_LIST_GRID_CLASS,
   craftCardTitle,
   craftSourceTypeLabel,
   craftCardDescription,
+  craftModeLabel,
 } from "./CraftManager";
 
 describe("craft card list presentation", () => {
@@ -23,15 +25,17 @@ describe("craft card list presentation", () => {
   });
 
   it("shows the craft type after the title and the source type separately", () => {
-    expect(craftCardTitle({ sourceName: "测试故事", mode: "ghost-story" })).toBe("测试故事 · 鬼故事");
-    expect(craftSourceTypeLabel("bilibili")).toBe("视频解析");
-    expect(craftSourceTypeLabel("novel")).toBe("小说解析");
+    expect(craftCardTitle({ sourceName: "测试故事", mode: "bilibili-commentary", sourceType: "bilibili" })).toBe("测试故事 · B站影视解说");
+    expect(craftCardTitle({ sourceName: "旧模式", mode: "ghost-story", sourceType: "bilibili" })).toBe("旧模式 · B站视频");
+    expect(craftSourceTypeLabel("bilibili")).toBe("B站视频");
+    expect(craftSourceTypeLabel("novel")).toBe("小说");
     expect(craftSourceTypeLabel(undefined)).toBe("来源未记录");
+    expect(craftModeLabel("bilibili-short-story", "bilibili")).toBe("B站短篇故事");
   });
 
   it("shows the extracted story summary instead of only a generic mode hint", () => {
     expect(craftCardDescription({
-      mode: "ghost-story",
+      mode: "bilibili-commentary",
       summary: "夜班维修员在停电的旧楼里发现每层电梯都通向同一间不存在的房间。",
     })).toContain("夜班维修员");
     expect(craftCardDescription({ mode: "general", summary: "  " })).toContain("场景节奏");
@@ -41,8 +45,12 @@ describe("craft card list presentation", () => {
 describe("craft source entrypoints", () => {
   it("exposes the two automatic creation sources in a stable order", () => {
     expect(CRAFT_SOURCE_TYPES).toEqual([
-      { value: "bilibili", label: "B 站视频链接" },
-      { value: "novel", label: "小说文本文件" },
+      { value: "novel", label: "小说" },
+      { value: "bilibili", label: "B站视频" },
+    ]);
+    expect(CRAFT_VIDEO_MODES).toEqual([
+      { value: "bilibili-short-story", label: "B站短篇故事" },
+      { value: "bilibili-commentary", label: "B站影视解说" },
     ]);
   });
 
@@ -50,13 +58,21 @@ describe("craft source entrypoints", () => {
     ["bilibili", "字幕内容", "鬼故事视频"],
     ["novel", "小说正文", "示例小说"],
   ] as const)("builds the shared analyze payload for %s", (type, text, detectedName) => {
-    expect(buildCraftAnalyzePayload({ type, text, detectedName }, "ghost-story")).toEqual({
+    expect(buildCraftAnalyzePayload({ type, text, detectedName }, type === "bilibili" ? "bilibili-short-story" : "general")).toEqual({
       text,
       sourceName: detectedName,
       sourceType: type,
       language: "zh",
-      mode: "ghost-story",
+      mode: type === "bilibili" ? "bilibili-short-story" : "general",
     });
+  });
+
+  it("preserves the Bilibili commentary subtype for later short-story creation", () => {
+    expect(buildCraftAnalyzePayload({
+      type: "bilibili",
+      text: "影视解说字幕",
+      detectedName: "测试影视解说",
+    }, "bilibili-commentary").mode).toBe("bilibili-commentary");
   });
 
   it("carries a stable source reference for video reparsing", () => {

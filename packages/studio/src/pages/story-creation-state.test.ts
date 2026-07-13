@@ -68,4 +68,17 @@ describe("story creation actions", () => {
     expect(action.instruction).toContain("世界观、故事大纲和写作手法");
     expect(action.instruction).toContain("不复制原作");
   });
+
+  it("turns a Bilibili commentary craft into an original short-story direction", () => {
+    const direction = buildDefaultStoryDirection({
+      id: "craft-commentary",
+      sourceName: "测试影视解说",
+      mode: "bilibili-commentary",
+      sourceType: "bilibili",
+    }, "short", true);
+
+    expect(direction).toContain("影视解说");
+    expect(direction).toContain("原创短篇故事");
+    expect(direction).toContain("重新设计人物、场景、因果链和结局");
+  });
 });

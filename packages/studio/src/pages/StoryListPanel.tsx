@@ -1,5 +1,6 @@
 import { BookOpen, Feather, ScrollText, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,7 @@ export interface StoryListRecord {
   readonly summary?: string;
   readonly genre?: string;
   readonly status?: string;
-  readonly mode?: "general" | "ghost-story";
+  readonly mode?: CraftMode;
   readonly chaptersWritten?: number;
   readonly wordCount?: number;
   readonly recommendedWordCount?: number;

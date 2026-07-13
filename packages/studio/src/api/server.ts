@@ -2480,6 +2480,19 @@ async function probeServiceCapabilities(args: {
 
 // --- Server factory ---
 
+export function normalizeCraftMode(
+  mode: CraftMode | undefined,
+  sourceType: "bilibili" | "novel" | undefined,
+): CraftMode {
+  if (mode === "ghost-story") return "ghost-story";
+  if (sourceType === "bilibili") {
+    return mode === "bilibili-commentary" || mode === "bilibili-short-story"
+      ? mode
+      : "bilibili-short-story";
+  }
+  return "general";
+}
+
 export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: { readonly nodeImageGenerator?: NodeImageDeps } = {}) {
   const app = new Hono();
   const state = new StateManager(root);
@@ -5445,7 +5458,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     broadcast("craft:start", { sourceName });
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
-      const craftMode: CraftMode = mode === "ghost-story" ? "ghost-story" : "general";
+      const craftMode = normalizeCraftMode(mode, sourceType);
       const { craftId, profile } = await pipeline.analyzeCraft(
         text,
         sourceName,

@@ -60,6 +60,30 @@ export function buildCraftAnalysisSystemPrompt(
         ]
     : [];
 
+  const videoModeInstructions = sourceType === "bilibili"
+    ? mode === "bilibili-commentary"
+      ? language === "en"
+        ? [
+            "This is a Bilibili film or television commentary reference. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original short story.",
+            "The profile must support making a similar-feeling original short story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending.",
+          ]
+        : [
+            "这是B站影视解说参考。把解说视为被压缩的影视剧情，重点提取因果链、人物压力、反转、信息揭示和情绪回报节奏，用于重新搭建一个原创短篇故事。",
+            "结果必须服务于“参考影视解说结构，制作类似但完全原创的短篇故事”：必须替换原影视作品的人物、场景、因果链、具体事件和结局。",
+          ]
+      : mode === "bilibili-short-story"
+        ? language === "en"
+          ? [
+              "This is a Bilibili short-story reference. Extract the compact hook, escalation, reversal, emotional payoff, and ending aftertaste that make the short story work.",
+              "The profile should help create a new short story with a similar rhythm, while replacing identities, setting, causal chain, scenes, wording, and ending.",
+            ]
+          : [
+              "这是B站短篇故事参考。重点提取短篇故事成立所需的开场钩子、冲突推进、反转、情绪回报和结尾余韵。",
+              "结果应帮助创作节奏相近但全新的短篇故事，必须替换人物、场景、因果链、措辞和结局。",
+            ]
+        : []
+    : [];
+
   if (language === "en") {
     return [
       "You are a writing-craft analyst. Given excerpts from a novel, extract the author's storytelling techniques, not just surface prose style.",
@@ -90,6 +114,7 @@ export function buildCraftAnalysisSystemPrompt(
       ...worldviewStoryInstructions,
       ...ghostStoryInstructions,
       ...videoInstructions,
+      ...videoModeInstructions,
     ].join("\n");
   }
 
@@ -116,6 +141,7 @@ export function buildCraftAnalysisSystemPrompt(
     ...worldviewStoryInstructions,
     ...ghostStoryInstructions,
     ...videoInstructions,
+    ...videoModeInstructions,
   ].join("\n");
 }
 
