@@ -779,7 +779,7 @@ function SectionHeader({ label, expanded, onToggle }: {
   );
 }
 
-export function CreateItem({ icon, label, active, onClick }: {
+function CreateItem({ icon, label, active, onClick }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
@@ -789,19 +789,19 @@ export function CreateItem({ icon, label, active, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full min-w-0 items-center justify-center gap-2 rounded-lg px-2.5 py-2 text-center text-[15px] leading-5 transition-all ${
+      className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[15px] leading-5 transition-all ${
         active
           ? "border border-border bg-secondary text-foreground font-medium shadow-sm"
           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
       }`}
     >
       <span className={`shrink-0 ${active ? "text-primary" : ""}`}>{icon}</span>
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
 
-export function SidebarItem({ label, icon, active, onClick, badge, badgeColor }: {
+function SidebarItem({ label, icon, active, onClick, badge, badgeColor }: {
   label: string;
   icon: React.ReactNode;
   active: boolean;
@@ -812,7 +812,7 @@ export function SidebarItem({ label, icon, active, onClick, badge, badgeColor }:
   return (
     <button
       onClick={onClick}
-      className={`w-full group flex items-center justify-center gap-3 px-2.5 py-1.5 rounded-lg text-center text-sm transition-all duration-200 ${
+      className={`w-full group flex items-center gap-3 px-2.5 py-1.5 rounded-lg text-sm transition-all duration-200 ${
         active
           ? "bg-secondary text-foreground font-medium shadow-sm border border-border"
           : "text-foreground font-medium hover:text-foreground hover:bg-secondary/50"
@@ -821,7 +821,7 @@ export function SidebarItem({ label, icon, active, onClick, badge, badgeColor }:
       <span className={`transition-colors ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}>
         {icon}
       </span>
-      <span className="truncate">{label}</span>
+      <span className="flex-1 text-left">{label}</span>
       {badge && (
         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight ${badgeColor}`}>
           {badge}
