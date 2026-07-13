@@ -8,6 +8,7 @@ import {
   SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
   resolveDefaultStoryWordCount,
+  shouldAutoGenerateShortStorySeed,
 } from "./story-creation-state";
 import {
   parseStorySeedStreamEvent,
@@ -15,6 +16,22 @@ import {
 } from "./story-seed-stream";
 
 describe("story creation actions", () => {
+  it("skips automatic short-story generation when the selected craft has a cached seed", () => {
+    expect(shouldAutoGenerateShortStorySeed({
+      title: "缓存故事",
+      genreTone: "悬疑",
+      hook: "钩子",
+      worldview: "世界观",
+      characters: "角色",
+      conflict: "冲突",
+      outline: "大纲",
+      reversals: "反转",
+      ending: "结局",
+      visualAudioMotifs: "母题",
+    })).toBe(false);
+    expect(shouldAutoGenerateShortStorySeed()).toBe(true);
+  });
+
   it("builds an editable original direction for the selected craft", () => {
     const direction = buildDefaultStoryDirection({ id: "ghost", sourceName: "reference", mode: "ghost-story" }, "short", true);
 

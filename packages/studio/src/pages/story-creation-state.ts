@@ -1,4 +1,5 @@
 import type { ActionPayload } from "@actalk/inkos-core";
+import type { StorySeed } from "@actalk/inkos-core";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 
 export const LONG_STORY_CHAPTERS = 10;
@@ -22,6 +23,11 @@ export interface CraftOption {
   readonly mode?: CraftMode;
   readonly sourceType?: "bilibili" | "novel";
   readonly recommendedWordCount?: number;
+  readonly storySeed?: StorySeed;
+}
+
+export function shouldAutoGenerateShortStorySeed(storySeed?: StorySeed): boolean {
+  return !storySeed;
 }
 
 export function buildDefaultStoryDirection(
