@@ -28,6 +28,7 @@ function buildTestEnv(overrides?: Record<string, string>) {
     ...baseEnv,
     // Prevent global config from leaking into tests
     HOME: projectDir,
+    USERPROFILE: projectDir,
     ...overrides,
   };
 }

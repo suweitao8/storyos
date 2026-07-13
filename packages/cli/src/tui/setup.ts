@@ -25,6 +25,9 @@ export function resolveSetupProvider(provider: string, baseUrl: string): Runtime
   if (normalizedUrl.includes("api.kimi.com/coding")) {
     return "anthropic";
   }
+  if (normalizedProvider === "openai" || normalizedProvider === "kkaiapi") {
+    return "openai";
+  }
   if (normalizedProvider === "anthropic" || normalizedProvider === "custom") {
     return normalizedProvider;
   }

@@ -220,7 +220,7 @@ async function createShortRuntime(
   }
 }
 
-function buildEnvLLMConfig(options: {
+export function buildEnvLLMConfig(options: {
   readonly llmBaseUrl?: string;
   readonly model?: string;
 }): LLMConfig {
@@ -229,7 +229,7 @@ function buildEnvLLMConfig(options: {
   if (!baseUrl) throw new Error("LLM base URL is required. Set INKOS_LLM_BASE_URL or pass --llm-base-url.");
   if (!model) throw new Error("LLM model is required. Set INKOS_LLM_MODEL or pass --model.");
   return {
-    provider: process.env.INKOS_LLM_PROVIDER ?? "anthropic",
+    provider: resolveEnvLLMProvider(process.env.INKOS_LLM_PROVIDER),
     service: process.env.INKOS_LLM_SERVICE ?? "astronCodingPlan",
     configSource: "env",
     baseUrl,
@@ -240,6 +240,11 @@ function buildEnvLLMConfig(options: {
     apiFormat: process.env.INKOS_LLM_API_FORMAT === "responses" ? "responses" : "chat",
     stream: process.env.INKOS_LLM_STREAM === "false" ? false : true,
   };
+}
+
+function resolveEnvLLMProvider(value: string | undefined): LLMConfig["provider"] {
+  if (value === "anthropic" || value === "openai" || value === "custom") return value;
+  return "anthropic";
 }
 
 async function readReference(root: string, path: string): Promise<ShortFictionReference> {

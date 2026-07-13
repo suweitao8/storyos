@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createProgram } from "../program.js";
-import { extractResponsesImageBase64, resolveCoverApiKey } from "../commands/short-fiction.js";
+import { buildEnvLLMConfig, extractResponsesImageBase64, resolveCoverApiKey } from "../commands/short-fiction.js";
 
 describe("short command", () => {
   it("registers public short run command", () => {
@@ -43,6 +43,18 @@ describe("short command", () => {
     } finally {
       if (oldValue === undefined) delete process.env.INKOS_TEST_MISSING_COVER_KEY;
       else process.env.INKOS_TEST_MISSING_COVER_KEY = oldValue;
+    }
+  });
+
+  it("normalizes an unsupported environment provider to the default provider", () => {
+    const oldProvider = process.env.INKOS_LLM_PROVIDER;
+    process.env.INKOS_LLM_PROVIDER = "unsupported-provider";
+    try {
+      expect(buildEnvLLMConfig({ llmBaseUrl: "https://api.example.com/v1", model: "test-model" }).provider)
+        .toBe("anthropic");
+    } finally {
+      if (oldProvider === undefined) delete process.env.INKOS_LLM_PROVIDER;
+      else process.env.INKOS_LLM_PROVIDER = oldProvider;
     }
   });
 });

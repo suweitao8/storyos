@@ -117,13 +117,13 @@ describe.sequential("publish packaging", () => {
     }
   });
 
-  it("keeps source publish dependencies registry-installable", async () => {
+  it("keeps source workspace dependencies linked for monorepo development", async () => {
     const cliPackageJson = await sourceCliPackageJsonPromise;
     const studioPackageJson = await sourceStudioPackageJsonPromise;
 
-    expect(cliPackageJson.dependencies["@actalk/inkos-core"]).not.toMatch(/^workspace:/);
-    expect(cliPackageJson.dependencies["@actalk/inkos-studio"]).not.toMatch(/^workspace:/);
-    expect(studioPackageJson.dependencies["@actalk/inkos-core"]).not.toMatch(/^workspace:/);
+    expect(cliPackageJson.dependencies["@actalk/inkos-core"]).toBe("workspace:*");
+    expect(cliPackageJson.dependencies["@actalk/inkos-studio"]).toBe("workspace:*");
+    expect(studioPackageJson.dependencies["@actalk/inkos-core"]).toBe("workspace:*");
   });
 
   it("verifies publishable manifests before npm publish runs", async () => {
