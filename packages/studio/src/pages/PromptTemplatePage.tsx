@@ -37,6 +37,7 @@ interface ApiResponse {
 }
 
 type FormTab = "writing" | "imageTemplates" | "imageStyles" | "voice";
+type WritingMode = "longform" | "short-fiction";
 
 const IMAGE_LABELS: Record<string, { zh: string; en: string }> = {
   character: { zh: "角色图片提示词", en: "Character Image Prompt" },
@@ -51,6 +52,7 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
   const { data: promptPacksData } = useApi<PromptPacksResponse>("/prompt-packs");
 
   const [tab, setTab] = useState<FormTab>("imageTemplates");
+  const [writingMode, setWritingMode] = useState<WritingMode>("longform");
 
   const tabBtn = (key: FormTab, label: string) =>
     `px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
@@ -60,12 +62,13 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
     }`;
 
   const imageKinds = data ? Object.keys(data.imageTemplates) : [];
-  // Only show the longform prompt pack; play / interactive-film packs are
-  // not surfaced in the UI.
+  // Only show the longform / short-fiction prompt packs; play /
+  // interactive-film packs are not surfaced in the UI.
   const HIDDEN_PACK_IDS = new Set(["play", "interactive-film"]);
-  const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] }).filter(
+  const allWritingGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] }).filter(
     (group) => !HIDDEN_PACK_IDS.has(group.id),
   );
+  const writingGroups = allWritingGroups.filter((group) => group.id === writingMode);
 
   return (
     <div className="space-y-5">
@@ -107,12 +110,37 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
 
             {tab === "writing" && (
               <div className="space-y-6">
+                {/* Sub-toggle: longform vs short-fiction */}
+                <div className="flex items-center gap-1">
+                  {(["longform", "short-fiction"] as const).map((mode) => {
+                    const label = mode === "longform"
+                      ? (lang === "zh" ? "长篇故事" : "Long-form")
+                      : (lang === "zh" ? "短篇故事" : "Short Story");
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => setWritingMode(mode)}
+                        className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                          writingMode === mode
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  {lang === "zh"
-                    ? "长篇写作、修订、审计等环节的内置指导提示词。"
-                    : "Built-in guidance prompts for longform writing, revising, and auditing."}
+                  {writingMode === "longform"
+                    ? (lang === "zh"
+                        ? "长篇故事的写作、修订、审计等环节的内置指导提示词。"
+                        : "Built-in guidance prompts for long-form writing, revising, and auditing.")
+                    : (lang === "zh"
+                        ? "短篇故事的大纲、写作、审稿、包装等环节的内置指导提示词。"
+                        : "Built-in guidance prompts for short-story outline, writing, review, and packaging.")}
                 </p>
-                {promptGroups.map((group) => (
+                {writingGroups.map((group) => (
                   <div key={group.id} className="space-y-3">
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{group.title}</div>
