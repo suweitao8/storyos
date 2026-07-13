@@ -131,6 +131,10 @@ export interface ChatPageStoryWorkspace {
   readonly storyId: string | null;
 }
 
+export function buildStoryAssetExtractionPath(kind: "book" | "short", storyId: string): string {
+  return `/stories/${kind}/${encodeURIComponent(storyId)}/assets/extract`;
+}
+
 export function resolveChatPageStoryWorkspace(input: {
   readonly sessionKind: ChatSessionKind;
   readonly stage: unknown;
@@ -512,6 +516,11 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       : null;
   const [storyWorkspaceStage, setStoryWorkspaceStage] = useState<unknown>("settings");
   const [storyContentRefreshToken, setStoryContentRefreshToken] = useState(0);
+  const [storyAssetExtractionFailure, setStoryAssetExtractionFailure] = useState<{
+    readonly kind: "book" | "short";
+    readonly storyId: string;
+    readonly message: string;
+  } | null>(null);
   const [selectedCraftId, setSelectedCraftId] = useState("");
   const { data: craftsData, loading: craftsLoading, error: craftsError } = useApi<CraftListResponse>("/crafts");
   const crafts = craftsData?.crafts ?? [];
@@ -971,6 +980,23 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       : fetchJson("/crafts/recent", { method: "DELETE" }));
   };
 
+  const requestStoryAssetExtraction = async (kind: "book" | "short", storyId: string) => {
+    try {
+      await fetchJson(buildStoryAssetExtractionPath(kind, storyId), { method: "POST" });
+      setStoryAssetExtractionFailure(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[studio] Story asset extraction failed", error);
+      setStoryAssetExtractionFailure({ kind, storyId, message });
+    }
+  };
+
+  const extractCreatedStoryAssets = (kind: "book" | "short", storyId: string | null) => {
+    if (!storyId) return;
+    setStoryAssetExtractionFailure(null);
+    void requestStoryAssetExtraction(kind, storyId);
+  };
+
   const handleCreateLong = async (input: LongStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildLongStoryCreationAction(input);
@@ -981,6 +1007,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
     });
+    const createdBookId = useChatStore.getState().sessions[activeSessionId]?.bookId ?? activeBookId ?? null;
+    extractCreatedStoryAssets("book", createdBookId);
     setStoryWorkspaceStage("settings");
     setStoryContentRefreshToken((value) => value + 1);
   };
@@ -995,6 +1023,8 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
     });
+    const createdShortId = latestShortStoryId(useChatStore.getState().sessions[activeSessionId]?.messages ?? []);
+    extractCreatedStoryAssets("short", createdShortId);
     setStoryWorkspaceStage("settings");
     setStoryContentRefreshToken((value) => value + 1);
   };
@@ -1017,6 +1047,22 @@ export function ChatPage({ activeBookId, mode = activeBookId ? "book" : "book-cr
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0 relative">
+      {storyAssetExtractionFailure ? (
+        <div role="status" className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <span>{isZh ? "故事已创建，但文本资产提取失败：" : "Story created, but text asset extraction failed: "}{storyAssetExtractionFailure.message}</span>
+          <button
+            type="button"
+            className="shrink-0 font-semibold underline"
+            onClick={() => {
+              const failure = storyAssetExtractionFailure;
+              setStoryAssetExtractionFailure(null);
+              void requestStoryAssetExtraction(failure.kind, failure.storyId);
+            }}
+          >
+            {isZh ? "重试" : "Retry"}
+          </button>
+        </div>
+      ) : null}
       {storyWorkspace.view === "creation" ? (
         <StoryCreationPanel
           kind={storyCreationKind ?? "long"}

@@ -15,6 +15,7 @@ export interface StoryAsset {
   id: string;
   kind: StoryAssetKind;
   name: string;
+  aliases?: string[];
   summary: string;
   details: Record<string, string>;
   imagePrompt: string;
@@ -27,6 +28,7 @@ export interface StoryAsset {
 export interface StoryAssetDraft {
   kind: unknown;
   name: unknown;
+  aliases?: unknown;
   summary?: unknown;
   details?: unknown;
   imagePrompt?: unknown;
@@ -126,6 +128,20 @@ function normalizeSourceRefsValue(value: unknown): string[] {
   return value.map(normalizeOptionalString).filter((item): item is string => Boolean(item));
 }
 
+function normalizeAliasesValue(value: unknown, canonicalName?: string): string[] {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+  const canonicalKey = canonicalName?.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+  const aliases: string[] = [];
+  for (const item of values) {
+    const alias = normalizeOptionalString(item)?.replace(/\s+/g, " ").trim();
+    if (!alias || alias.toLocaleLowerCase() === canonicalKey || aliases.some((value) => value.toLocaleLowerCase() === alias.toLocaleLowerCase())) {
+      continue;
+    }
+    aliases.push(alias);
+  }
+  return aliases;
+}
+
 function normalizeDraftStringField(
   draft: Record<string, unknown>,
   key: "summary" | "imagePrompt",
@@ -223,6 +239,7 @@ function cloneStoryAssetImage(image: StoryAssetImage): StoryAssetImage {
 function cloneStoryAsset(asset: StoryAsset): StoryAsset {
   return {
     ...asset,
+    aliases: asset.aliases ? [...asset.aliases] : undefined,
     details: { ...asset.details },
     sourceRefs: [...asset.sourceRefs],
     image: cloneStoryAssetImage(asset.image),
@@ -231,6 +248,10 @@ function cloneStoryAsset(asset: StoryAsset): StoryAsset {
 
 function normalizeAssetKey(kind: StoryAssetKind, name: string): string {
   return `${kind}::${name}`;
+}
+
+function normalizeAssetLookupKey(kind: StoryAssetKind, name: string): string {
+  return `${kind}::${name.replace(/\s+/g, " ").trim().toLocaleLowerCase()}`;
 }
 
 function createStoryAssetId(kind: StoryAssetKind, name: string): string {
@@ -303,6 +324,7 @@ function normalizeStoredStoryAsset(value: unknown): StoryAsset | undefined {
     id,
     kind,
     name,
+    aliases: normalizeAliasesValue(value.aliases, name),
     summary,
     details: normalizeDetailsValue(value.details),
     imagePrompt,
@@ -361,8 +383,19 @@ function normalizeDraftAsset(
     return undefined;
   }
 
-  const key = normalizeAssetKey(kind, name);
-  const existing = existingByKey.get(key);
+  const aliases = normalizeAliasesValue(draft.aliases, name);
+  const existing = [name, ...aliases]
+    .map((candidate) => existingByKey.get(normalizeAssetLookupKey(kind, candidate)))
+    .find((candidate): candidate is StoryAsset => Boolean(candidate));
+  const canonicalName = existing?.name ?? name;
+  const mergedAliases = normalizeAliasesValue(
+    [
+      ...(existing?.aliases ?? []),
+      ...aliases,
+      ...(existing && normalizeAssetLookupKey(kind, name) !== normalizeAssetLookupKey(kind, existing.name) ? [name] : []),
+    ],
+    canonicalName,
+  );
   const summary = normalizeDraftStringField(draft, "summary", existing);
   const imagePrompt = normalizeDraftStringField(draft, "imagePrompt", existing);
   const details = normalizeDraftDetailsField(draft, existing);
@@ -372,7 +405,8 @@ function normalizeDraftAsset(
   return {
     id: existing?.id ?? createStoryAssetId(kind, name),
     kind,
-    name,
+    name: canonicalName,
+    aliases: mergedAliases,
     summary,
     details,
     imagePrompt,
@@ -466,11 +500,14 @@ export function mergeStoryAssets(
 
   for (const asset of safeManifest.assets) {
     const cloned = cloneStoryAsset(asset);
-    const key = normalizeAssetKey(cloned.kind, cloned.name);
+    const key = normalizeAssetLookupKey(cloned.kind, cloned.name);
     if (!assetsByKey.has(key)) {
       orderedKeys.push(key);
     }
     assetsByKey.set(key, cloned);
+    for (const alias of cloned.aliases ?? []) {
+      assetsByKey.set(normalizeAssetLookupKey(cloned.kind, alias), cloned);
+    }
   }
 
   for (const draft of Array.isArray(drafts) ? drafts : []) {
@@ -479,11 +516,17 @@ export function mergeStoryAssets(
       continue;
     }
 
-    const key = normalizeAssetKey(next.kind, next.name);
+    const key = normalizeAssetLookupKey(next.kind, next.name);
     if (!assetsByKey.has(key)) {
       orderedKeys.push(key);
     }
     assetsByKey.set(key, next);
+    const draftAliases = isRecord(draft)
+      ? normalizeAliasesValue(draft.aliases, typeof draft.name === "string" ? draft.name : undefined)
+      : [];
+    for (const alias of [...draftAliases, ...(next.aliases ?? [])]) {
+      assetsByKey.set(normalizeAssetLookupKey(next.kind, alias), next);
+    }
   }
 
   const assets = assignUniqueAssetIds(

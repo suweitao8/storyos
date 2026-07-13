@@ -4920,6 +4920,50 @@ describe("story asset API", () => {
     await expect(legacy.json()).resolves.toMatchObject({ storyId: "mist-harbor" });
   });
 
+  it("forwards legacy write and image routes to the canonical asset lifecycle", async () => {
+    await writeManifest("short", "mist-harbor", [asset(), asset({ id: "missing_asset", name: "Missing Asset" })]);
+    await mkdir(join(root, "shorts", "mist-harbor", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "mist-harbor", "outline", "v002.md"), "Legacy outline", "utf-8");
+    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "Legacy story", "utf-8");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const extracted = await app.request("/api/v1/shorts/mist-harbor/assets/extract", { method: "POST" });
+    const patched = await app.request("/api/v1/shorts/mist-harbor/assets/hero", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ summary: "Legacy patch" }),
+    });
+    const generated = await app.request("/api/v1/shorts/mist-harbor/assets/hero/generate-image", { method: "POST" });
+    const batch = await app.request("/api/v1/shorts/mist-harbor/assets/generate-missing", { method: "POST" });
+    const image = await app.request("/api/v1/shorts/mist-harbor/assets/images/hero");
+
+    expect(extracted.status).toBe(200);
+    expect(patched.status).toBe(200);
+    expect(generated.status).toBe(200);
+    expect(batch.status).toBe(200);
+    expect(image.status).toBe(200);
+    await expect(image.text()).resolves.toBe("PNG");
+  });
+
+  it("sanitizes unexpected story asset failures and returns 500", async () => {
+    await mkdir(join(root, "shorts", "mist-harbor", "assets", "manifest.json"), { recursive: true });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/shorts/mist-harbor/assets");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: { code: "INTERNAL_ERROR", message: "Unexpected server error." } });
+    expect(JSON.stringify(body)).not.toContain("EISDIR");
+
+    const missing = await app.request("/api/v1/shorts/missing-story/assets");
+    expect(missing.status).toBe(404);
+    await expect(missing.json()).resolves.toMatchObject({ error: { code: "STORY_ASSET_MANIFEST_NOT_FOUND" } });
+  });
+
   it("extracts text assets without invoking image generation", async () => {
     await mkdir(join(root, "shorts", "mist-harbor", "outline"), { recursive: true });
     await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });

@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import { gzipSync } from "node:zlib";
+import { randomUUID } from "node:crypto";
 import * as chardet from "chardet";
 import * as iconv from "iconv-lite";
 import {
@@ -128,7 +129,7 @@ import {
   type AgentSessionAttachment,
   type CraftMode,
 } from "@actalk/inkos-core";
-import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { isSafeBookId } from "./safety.js";
 import { ApiError } from "./errors.js";
@@ -161,7 +162,8 @@ function storyAssetErrorResponse(c: any, error: unknown): Response {
   if (error instanceof ApiError) {
     return c.json({ error: { code: error.code, message: error.message } }, error.status as 400);
   }
-  return c.json({ error: { code: "STORY_ASSET_ERROR", message: storyAssetErrorMessage(error) } }, 400);
+  console.error("[studio] Unexpected story asset error", error);
+  return c.json({ error: { code: "INTERNAL_ERROR", message: "Unexpected server error." } }, 500);
 }
 
 function assertStoryAssetKind(value: unknown): StoryAssetRouteKind {
@@ -250,7 +252,13 @@ function createStoryAssetManifestStore(root: string, expectedPath: string): Stor
       const target = resolveStoryAssetProjectPath(root, path);
       if (target.relativePath !== expectedPath) throw new ApiError(400, "INVALID_STORY_ASSET_PATH", "Invalid story asset manifest path.");
       await mkdir(dirname(target.resolved), { recursive: true });
-      await writeFile(target.resolved, JSON.stringify(manifest, null, 2), "utf-8");
+      const temporaryPath = `${target.resolved}.${process.pid}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporaryPath, JSON.stringify(manifest, null, 2), "utf-8");
+        await rename(temporaryPath, target.resolved);
+      } finally {
+        await rm(temporaryPath, { force: true }).catch(() => undefined);
+      }
     },
   };
 }
@@ -2863,7 +2871,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   };
 
   const broadcastStoryAssetError = (kind: StoryAssetRouteKind, storyId: string, operation: string, error: unknown) => {
-    broadcast("story-assets:error", { kind, storyId, operation, error: storyAssetErrorMessage(error) });
+    broadcast("story-assets:error", {
+      kind,
+      storyId,
+      operation,
+      error: error instanceof ApiError ? error.message : "Unexpected server error.",
+    });
   };
 
   const getStoryAssetManifest = async (c: any, kindValue: unknown, storyIdValue: unknown) => {
@@ -2879,9 +2892,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.get("/api/v1/books/:id/assets", async (c) => getStoryAssetManifest(c, "book", c.req.param("id")));
   app.get("/api/v1/shorts/:id/assets", async (c) => getStoryAssetManifest(c, "short", c.req.param("id")));
 
-  app.post("/api/v1/stories/:kind/:id/assets/extract", async (c) => {
-    const kindValue = c.req.param("kind");
-    const storyIdValue = c.req.param("id");
+  const extractStoryAssetsRoute = async (c: any, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
     let storyId: string;
     try {
@@ -2922,12 +2933,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       broadcastStoryAssetError(kind, storyId, "extract", error);
       return storyAssetErrorResponse(c, error);
     }
-  });
+  };
 
-  app.patch("/api/v1/stories/:kind/:id/assets/:assetId", async (c) => {
-    const kindValue = c.req.param("kind");
-    const storyIdValue = c.req.param("id");
-    const assetIdValue = c.req.param("assetId");
+  app.post("/api/v1/stories/:kind/:id/assets/extract", async (c) => extractStoryAssetsRoute(c, c.req.param("kind"), c.req.param("id")));
+  app.post("/api/v1/books/:id/assets/extract", async (c) => extractStoryAssetsRoute(c, "book", c.req.param("id")));
+  app.post("/api/v1/shorts/:id/assets/extract", async (c) => extractStoryAssetsRoute(c, "short", c.req.param("id")));
+
+  const patchStoryAssetRoute = async (c: any, kindValue: unknown, storyIdValue: unknown, assetIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
     let storyId: string;
     let assetId: string;
@@ -2944,7 +2956,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const context = await loadStoryAssetManifest(kind, storyId);
       const asset = context.manifest.assets.find((candidate) => candidate.id === assetId);
       if (!asset) throw new ApiError(404, "STORY_ASSET_NOT_FOUND", `Story asset not found: ${assetId}.`);
-      const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+      const body = await c.req.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
       const allowedFields = ["name", "summary", "imagePrompt", "details"] as const;
       if (!allowedFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
         throw new ApiError(400, "INVALID_STORY_ASSET_PATCH", "At least one text field is required.");
@@ -2983,7 +2995,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       broadcastStoryAssetError(kind, storyId, "patch", error);
       return storyAssetErrorResponse(c, error);
     }
-  });
+  };
+
+  app.patch("/api/v1/stories/:kind/:id/assets/:assetId", async (c) => patchStoryAssetRoute(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
+  app.patch("/api/v1/books/:id/assets/:assetId", async (c) => patchStoryAssetRoute(c, "book", c.req.param("id"), c.req.param("assetId")));
+  app.patch("/api/v1/shorts/:id/assets/:assetId", async (c) => patchStoryAssetRoute(c, "short", c.req.param("id"), c.req.param("assetId")));
 
   const generateOneStoryAssetImage = async (c: any, kindValue: unknown, storyIdValue: unknown, assetIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
@@ -3020,6 +3036,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   };
 
   app.post("/api/v1/stories/:kind/:id/assets/:assetId/generate-image", async (c) => generateOneStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
+  app.post("/api/v1/books/:id/assets/:assetId/generate-image", async (c) => generateOneStoryAssetImage(c, "book", c.req.param("id"), c.req.param("assetId")));
+  app.post("/api/v1/shorts/:id/assets/:assetId/generate-image", async (c) => generateOneStoryAssetImage(c, "short", c.req.param("id"), c.req.param("assetId")));
 
   const generateMissingStoryAssetImagesRoute = async (c: any, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
@@ -3053,6 +3071,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.post("/api/v1/stories/:kind/:id/assets/generate-missing-images", async (c) => generateMissingStoryAssetImagesRoute(c, c.req.param("kind"), c.req.param("id")));
   // Compatibility alias for clients using the pre-spec batch route.
   app.post("/api/v1/stories/:kind/:id/assets/generate-missing", async (c) => generateMissingStoryAssetImagesRoute(c, c.req.param("kind"), c.req.param("id")));
+  app.post("/api/v1/books/:id/assets/generate-missing-images", async (c) => generateMissingStoryAssetImagesRoute(c, "book", c.req.param("id")));
+  app.post("/api/v1/books/:id/assets/generate-missing", async (c) => generateMissingStoryAssetImagesRoute(c, "book", c.req.param("id")));
+  app.post("/api/v1/shorts/:id/assets/generate-missing-images", async (c) => generateMissingStoryAssetImagesRoute(c, "short", c.req.param("id")));
+  app.post("/api/v1/shorts/:id/assets/generate-missing", async (c) => generateMissingStoryAssetImagesRoute(c, "short", c.req.param("id")));
 
   const serveStoryAssetImage = async (c: any, kindValue: unknown, storyIdValue: unknown, assetIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
@@ -3090,6 +3112,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.get("/api/v1/stories/:kind/:id/assets/images/:assetId", async (c) => serveStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
   // Compatibility alias for clients using the pre-spec image route.
   app.get("/api/v1/stories/:kind/:id/assets/:assetId/image", async (c) => serveStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
+  app.get("/api/v1/books/:id/assets/images/:assetId", async (c) => serveStoryAssetImage(c, "book", c.req.param("id"), c.req.param("assetId")));
+  app.get("/api/v1/books/:id/assets/:assetId/image", async (c) => serveStoryAssetImage(c, "book", c.req.param("id"), c.req.param("assetId")));
+  app.get("/api/v1/shorts/:id/assets/images/:assetId", async (c) => serveStoryAssetImage(c, "short", c.req.param("id"), c.req.param("assetId")));
+  app.get("/api/v1/shorts/:id/assets/:assetId/image", async (c) => serveStoryAssetImage(c, "short", c.req.param("id"), c.req.param("assetId")));
 
   // --- Books ---
 

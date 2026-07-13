@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveChatPageStoryWorkspace } from "./ChatPage";
+import { buildStoryAssetExtractionPath, resolveChatPageStoryWorkspace } from "./ChatPage";
 
 describe("ChatPage story workspace integration", () => {
+  it("builds the canonical text asset extraction endpoint", () => {
+    expect(buildStoryAssetExtractionPath("book", "night harbor")).toBe(
+      "/stories/book/night%20harbor/assets/extract",
+    );
+    expect(buildStoryAssetExtractionPath("short", "short/42")).toBe(
+      "/stories/short/short%2F42/assets/extract",
+    );
+  });
+
   it("keeps creation visible until a long-story book id is handed off", () => {
     expect(resolveChatPageStoryWorkspace({
       sessionKind: "book-create",
