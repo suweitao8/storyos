@@ -1009,9 +1009,9 @@ function buildCoverImagePrompt(
       "Generate a mobile portrait book cover for an English short story, 3:4 vertical.",
       ...base.map((line) => line.replace(/^Title: /u, "Main title: ").replace(/^User visual notes: /u, "Packaging notes: ")),
       "",
-      "Cover direction: a platform short-fiction book cover, not a movie poster. The title lettering is the primary visual — reserve a large two-to-four-line type zone; character in close-up or half-body with a charged expression (cold smirk, shock, breakdown, menace, or payback); props few but large, telegraphing the conflict at a glance.",
-      "High-contrast, high-saturation colors that read as a phone-list thumbnail. Avoid realistic corporate photography, landscape video thumbnails, magazine editorial looks, delicate thin lettering, and long runs of text.",
-      "If the model's text rendering is unreliable, prioritize a clear title whitespace/type-block/layout zone instead of covering the canvas with garbled lettering.",
+      "Cover direction: a platform short-fiction book cover. The title lettering is the primary visual — reserve a large two-to-four-line type zone; character in close-up or half-body with a charged expression (cold smirk, shock, breakdown, menace, or payback); props few but large, telegraphing the conflict at a glance.",
+      "High-contrast, high-saturation colors that read as a phone-list thumbnail. Use bold, clean illustration style with dramatic lighting.",
+      "Prioritize a clear title whitespace/type-block/layout zone with clean, readable lettering.",
     ].filter(Boolean).join("\n");
   }
 
@@ -1033,9 +1033,9 @@ function buildCoverImagePrompt(
     "为中文短篇小说生成手机端竖版书封，3:4竖图。",
     ...base.map((line) => line.replace(/^标题：/u, "主标题：").replace(/^用户视觉要求：/u, "包装提示：")),
     "",
-    "封面方向：平台短篇书封，不是电影海报。标题字要成为主视觉，预留两到四行大字排版区；人物近景或半身，表情有冷笑、震惊、崩溃、压迫或反杀感；道具少而大，一眼能看出冲突。",
-    "颜色高对比、高饱和，适合手机列表缩略图。避免写实会议摄影、横版视频缩略图、杂志大片、小清新细字和长段文字。",
-    "如果模型文字不稳定，优先生成明确标题留白/字块/排版空间，不要把大量乱码文字铺满画面。",
+    "封面方向：平台短篇书封风格。标题字要成为主视觉，预留两到四行大字排版区；人物近景或半身，表情有冷笑、震惊、崩溃、压迫或反杀感；道具少而大，一眼能看出冲突。",
+    "颜色高对比、高饱和，适合手机列表缩略图。使用干净有力的插画风格，配戏剧性光影。",
+    "优先生成清晰的标题留白和字块排版区域，保持标题文字清晰可读。",
   ].filter(Boolean).join("\n");
 }
 
