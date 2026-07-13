@@ -241,7 +241,7 @@ function cancelScrollFrame(id: ScrollFrameId): void {
   globalThis.clearTimeout(id);
 }
 
-function latestShortStoryId(messages: ReadonlyArray<{ readonly toolExecutions?: ReadonlyArray<{ readonly details?: unknown }> }>): string | null {
+export function latestShortStoryId(messages: ReadonlyArray<{ readonly toolExecutions?: ReadonlyArray<{ readonly details?: unknown }> }>): string | null {
   for (const message of [...messages].reverse()) {
     for (const execution of [...(message.toolExecutions ?? [])].reverse()) {
       const details = execution.details;

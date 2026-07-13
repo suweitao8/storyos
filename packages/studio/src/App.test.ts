@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { deriveActiveBookId, deriveStartupGate, getRouteToolbarTitle, isBookCreateChatRoute } from "./App";
+import {
+  deriveActiveBookId,
+  deriveStartupGate,
+  getRouteToolbarTitle,
+  isBookCreateChatRoute,
+  resolveActiveStoryTitle,
+} from "./App";
 
 describe("deriveActiveBookId", () => {
   it("returns the current book across book-centered routes", () => {
@@ -79,6 +85,28 @@ describe("getRouteToolbarTitle", () => {
       expect(getRouteToolbarTitle(route, "zh").trim()).not.toBe("");
       expect(getRouteToolbarTitle(route, "en").trim()).not.toBe("");
     }
+  });
+});
+
+describe("resolveActiveStoryTitle", () => {
+  it("resolves the active short story title on the shared chat route", () => {
+    expect(resolveActiveStoryTitle({
+      route: { page: "chat" },
+      sessionKind: "short",
+      activeShortStoryId: "short-1",
+      books: [],
+      shorts: [{ id: "short-1", title: "鬼吹灯" }],
+    })).toBe("鬼吹灯");
+  });
+
+  it("does not show a short story title for a normal chat session", () => {
+    expect(resolveActiveStoryTitle({
+      route: { page: "chat" },
+      sessionKind: "chat",
+      activeShortStoryId: "short-1",
+      books: [],
+      shorts: [{ id: "short-1", title: "鬼吹灯" }],
+    })).toBeUndefined();
   });
 });
 
