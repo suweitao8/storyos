@@ -5,8 +5,9 @@ import type { TFunction } from "../hooks/use-i18n";
 import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { Modal } from "../components/Modal";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, List } from "lucide-react";
 import { filterGenresForLanguage } from "./genre-page-state";
+import { usePageToolbar } from "../components/PageToolbar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -260,6 +261,19 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   };
 
   const closeForm = () => setFormMode("hidden");
+
+  const isZh = lang === "zh";
+  usePageToolbar("genres", {
+    tabs: [
+      { id: "list", label: isZh ? "题材列表" : "Genres", icon: <List size={14} /> },
+      { id: "edit", label: formMode === "edit" ? (isZh ? "编辑" : "Edit") : (isZh ? "新建" : "Create"), icon: <Plus size={14} /> },
+    ],
+    activeTab: formMode === "hidden" ? "list" : "edit",
+    onTabChange: (next) => {
+      if (next === "list") closeForm();
+      else openCreateForm();
+    },
+  });
 
   const handleCreate = async () => {
     try {
