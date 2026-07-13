@@ -90,3 +90,29 @@
 - 截图文件名格式：`{功能描述}-{时间戳}.png`，如 `model-config-20260708.png`。
 - `.screenshots/` 已加入 `.gitignore`，不会被提交。
 - 截图仅用于开发调试，不作为项目产物保留。
+
+## 隔离 worktree 清理
+
+用户要求清理隔离工作区时，必须先盘点再处理，不能按目录名或分支名直接删除。
+
+1. 逐项检查：
+   - `git worktree list --porcelain`
+   - 对每个 worktree 执行 `git -C <worktree> status --short --branch` 和 `git -C <worktree> log -1 --oneline --decorate`
+   - 如果是 Studio worktree，执行 `pnpm --dir <worktree> worktree:runtime`，并检查对应端口上的 Studio 进程
+   - 检查 Git 锁、合并状态、分支是否已合并到 `master`，以及 `.worktrees/` 下是否存在未注册的物理目录
+
+2. 占用判定：
+   - 当前对话正在使用的 worktree、仍有对应 Studio 进程或运行锁的 worktree，视为正在使用，禁止修改、提交或删除
+   - 只有“没有端口监听”不能证明 worktree 无人使用；无法确认所有权时，默认保留并报告
+   - 仅有未提交改动的 worktree 不能直接删除；先查看 diff，只有在明确无人使用且任务范围清楚时，才允许继续完成、测试和提交
+
+3. 处理顺序：
+   - 干净且已合并到 `master` 的 worktree：删除 worktree、删除已合并分支，再执行 `git worktree prune`
+   - 无人使用但有明确未完成改动的 worktree：先理解 diff，补完必要实现并验证，提交后用 `node scripts/finish-worktree.mjs --base master` 合并、推送和清理
+   - 改动范围不清楚、测试失败且无法安全修复，或所有权无法确认：保留 worktree，不得为了“清理”而丢弃改动
+   - 主 checkout 中的本地配置、运行时数据和未跟踪目录必须单独分类；除非明确属于当前任务，不得带入提交、删除或覆盖
+
+4. 删除安全：
+   - 不得对正在使用或有未提交改动的 worktree 使用 `git worktree remove --force`
+   - 只有 Git 已解除 worktree 注册后，才允许清理对应物理目录；递归删除前必须确认目标路径位于项目 `.worktrees` 目录内
+   - 不得删除 `.inkos/`、`shorts/` 等用户运行数据；清理后必须再次检查 `git worktree list`、分支引用、主 checkout 状态和残留目录
