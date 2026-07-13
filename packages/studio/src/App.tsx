@@ -51,23 +51,17 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
   return route.page === "book-create";
 }
 
-function appendActiveStoryTitle(title: string, activeStoryTitle?: string): string {
-  const storyTitle = activeStoryTitle?.trim();
-  return storyTitle ? `${title} - ${storyTitle}` : title;
-}
-
 export function getRouteToolbarTitle(
   route: HashRoute,
   lang: "zh" | "en",
   sessionKind?: ChatSessionKind,
-  activeStoryTitle?: string,
 ): string {
   if (route.page === "chat" && sessionKind === "short") {
-    return appendActiveStoryTitle(lang === "zh" ? "短篇故事" : "Short Story", activeStoryTitle);
+    return lang === "zh" ? "短篇故事" : "Short Story";
   }
 
   if (route.page === "short") {
-    return appendActiveStoryTitle(lang === "zh" ? "短篇故事" : "Short Story", activeStoryTitle);
+    return lang === "zh" ? "短篇故事" : "Short Story";
   }
 
   const titles = lang === "zh"
@@ -122,14 +116,25 @@ export function getRouteToolbarTitle(
         "film-studio": "Creation Wizard",
       };
 
-  return appendActiveStoryTitle(titles[route.page], activeStoryTitle);
+  return titles[route.page];
 }
 
-function AppPageToolbar({ title }: { readonly title: string }) {
+function AppPageToolbar({
+  title,
+  activeStoryTitle,
+}: {
+  readonly title: string;
+  readonly activeStoryTitle?: string;
+}) {
   const toolbar = usePageToolbarState();
   return (
     <PageToolbar
       title={title}
+      titleMeta={activeStoryTitle ? (
+        <span className="min-w-0 max-w-[240px] truncate text-sm font-normal text-muted-foreground">
+          {activeStoryTitle}
+        </span>
+      ) : undefined}
       tabs={toolbar.tabs}
       activeTab={toolbar.activeTab}
       onTabChange={toolbar.onTabChange}
@@ -289,7 +294,8 @@ export function App() {
         <div className="h-px shrink-0 border-b border-border/40" />
 
         <AppPageToolbar
-          title={getRouteToolbarTitle(route, currentLang, activeSessionKind, activeStoryTitle)}
+          title={getRouteToolbarTitle(route, currentLang, activeSessionKind)}
+          activeStoryTitle={activeStoryTitle}
         />
 
         {/* Main Content Area */}

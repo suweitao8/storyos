@@ -20,6 +20,7 @@ export type PageToolbarTab = {
 
 export type PageToolbarProps = {
   readonly title?: ReactNode;
+  readonly titleMeta?: ReactNode;
   readonly tabs?: readonly PageToolbarTab[];
   readonly activeTab?: string;
   readonly onTabChange?: (tabId: string) => void;
@@ -82,6 +83,7 @@ export function usePageToolbar(ownerId: string, registration: PageToolbarRegistr
 
 export function PageToolbar({
   title,
+  titleMeta,
   tabs = [],
   activeTab,
   onTabChange,
@@ -104,6 +106,7 @@ export function PageToolbar({
         )}>
           {leading}
           {title != null && <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">{title}</h1>}
+          {titleMeta}
         </div>
       )}
 

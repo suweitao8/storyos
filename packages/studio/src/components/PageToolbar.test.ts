@@ -108,6 +108,23 @@ describe("PageToolbar", () => {
     expect(markup).not.toContain("max-w-4xl");
   });
 
+  it("renders title metadata next to the title without pill styling", () => {
+    const markup = renderStaticToolbar({
+      title: "短篇故事",
+      titleMeta: React.createElement(
+        "span",
+        { className: "text-sm font-normal text-muted-foreground" },
+        "鬼吹灯",
+      ),
+    }).markup;
+
+    expect(markup).toContain("短篇故事");
+    expect(markup).toContain("鬼吹灯");
+    expect(markup).toContain("text-sm font-normal text-muted-foreground");
+    expect(markup).not.toContain("rounded-full");
+    expect(markup).not.toContain("bg-primary");
+  });
+
   it("renders an accessible, horizontally scrollable tab navigation", () => {
     const markup = renderStaticToolbar({ tabs, activeTab: "overview", onTabChange: vi.fn() }).markup;
 
