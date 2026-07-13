@@ -115,13 +115,7 @@ const RAW_BUILTIN_CAPABILITY_SKILLS: CapabilitySkillManifest[] = [
       "interactive fiction",
     ],
     sessionKinds: ["play"],
-    promptPacks: [
-      "play.start",
-      "play.mutator",
-      "play.renderer",
-      "play.reconciler",
-      "play.image",
-    ],
+    promptPacks: [],
     toolHints: [
       "play_start",
       "play_step",
@@ -191,12 +185,7 @@ const RAW_BUILTIN_CAPABILITY_SKILLS: CapabilitySkillManifest[] = [
       "storyboard",
     ],
     sessionKinds: ["interactive-film", "interactive-film-authoring"],
-    promptPacks: [
-      "interactive-film.script",
-      "interactive-film.storyboard",
-      "interactive-film.story-graph",
-      "interactive-film.image-plan",
-    ],
+    promptPacks: [],
     toolHints: [
       "interactive_film_create",
       "set_world_anchor",

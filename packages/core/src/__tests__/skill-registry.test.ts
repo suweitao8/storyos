@@ -16,7 +16,6 @@ describe("capability skill registry", () => {
     ]);
     for (const skill of registry.listSkills()) {
       expect(skill.contextNeeds.length).toBeGreaterThan(0);
-      expect(skill.promptPacks.length).toBeGreaterThan(0);
     }
   });
 

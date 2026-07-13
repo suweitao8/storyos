@@ -2,6 +2,28 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { mkdtemp, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+vi.mock("../skills/prompt-pack.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../skills/prompt-pack.js")>();
+  const FILM_PROMPTS: Record<string, string> = {
+    "interactive-film.script": "你是互动电影剧本编剧。",
+    "interactive-film.story-graph": "你是互动电影故事图谱设计师。",
+  };
+  return {
+    ...actual,
+    appendPromptPackGuidance: vi.fn(async (basePrompt: string, input: { promptId: string }) => {
+      const content = FILM_PROMPTS[input.promptId] ?? "";
+      if (!content) return basePrompt;
+      return [basePrompt, "", `## Prompt Pack Guidance (${input.promptId}, source: builtin)`, content].join("\n");
+    }),
+    loadPromptPackPrompt: vi.fn(async ({ promptId }: { promptId: string }) => ({
+      promptId,
+      source: "builtin" as const,
+      content: FILM_PROMPTS[promptId] ?? "",
+    })),
+  };
+});
+
 import * as llmProvider from "../llm/provider.js";
 import type { LLMClient } from "../llm/provider.js";
 import { generateStoryGraph } from "../interactive-film/generate.js";

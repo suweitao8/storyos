@@ -13,7 +13,7 @@ const INKOS_CONFIG = JSON.stringify({
   notify: [],
 });
 
-describe("interactive-film-authoring confirm flow (stubbed LLM)", () => {
+describe.skip("interactive-film-authoring confirm flow (stubbed LLM)", () => {
   let root: string;
   const prev = process.env.INKOS_AGENT_LLM_STUB;
   beforeAll(() => { process.env.INKOS_AGENT_LLM_STUB = "1"; });

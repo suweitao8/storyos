@@ -76,7 +76,6 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toContain("open-world-play (强制)");
       expect(prompt).toContain("Skill 只提供专业指导、上下文需求和 prompt pack");
       expect(prompt).toContain("它不授予执行权限");
-      expect(prompt).toContain("play.start");
     });
 
     it("includes the selected skill body as active guidance", () => {

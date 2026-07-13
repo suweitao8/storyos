@@ -24,7 +24,7 @@ describe("prompt pack loader", () => {
     const loaded = await loadPromptPackPrompt({ promptId: "longform.writer" });
 
     expect(loaded.source).toBe("builtin");
-    expect(loaded.content).toContain("long-form");
+    expect(loaded.content).toContain("长篇章节写作器");
     expect(loaded.promptId).toBe("longform.writer");
   });
 
@@ -70,9 +70,9 @@ describe("prompt pack loader", () => {
   });
 
   it("can report the built-in default for reset UI", () => {
-    const builtin = getBuiltinPrompt("play.mutator");
+    const builtin = getBuiltinPrompt("longform.reviser");
 
     expect(builtin?.source).toBe("builtin");
-    expect(builtin?.content).toContain("world mutation");
+    expect(builtin?.content).toContain("长篇修订器");
   });
 });
