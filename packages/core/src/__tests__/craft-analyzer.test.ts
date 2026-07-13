@@ -739,6 +739,27 @@ describe("CraftAnalyzerAgent", () => {
     ]);
   });
 
+  it("creates source-backed exemplars when the model omits every exemplar", () => {
+    const sourceText = Array.from({ length: 16 }, (_, index) =>
+      `[${index}.0s-${index + 1}.0s] ${["门缝里透出一线冷光。", "他没有立刻推门，而是先听见屋内传来第二个呼吸声。", "墙上的旧照片少了一个人，照片背面却留下了当天的日期。", "手机屏幕亮起时，联系人显示的不是名字，而是他刚刚走过的房间。", "他沿着潮湿的脚印往前走，脚印在楼梯中段突然变成了倒着的。", "门外的人叫出了他的乳名，可这个名字只有已经死去的母亲知道。", "他终于明白，所有线索都不是在指向凶手，而是在提醒他不要回头。", "灯光熄灭后，走廊尽头多出了一扇原本不存在的门。", "门内没有怪物，只有一面镜子，镜子里的他比现实晚了一秒抬头。", "他想逃出去，却发现每一扇出口都通向同一间屋子。", "那张旧照片重新出现在桌面上，照片里的人数变成了两个。", "最后一声敲门响起时，屋里已经没有任何活人。", "他把钥匙插进锁孔，锁孔里传来自己的声音，叫他不要开门。", "雨水顺着窗框流下，写出一行只有他看得懂的字。", "天亮以后村子恢复了安静，只有他的影子还留在昨夜的门外。", "他回头时看见母亲站在雾里，身后跟着那个从照片里消失的人。"][index].repeat(4)}`,
+    ).join("\n");
+
+    const profile = validateExemplars({
+      sourceName: "无范例模型输出",
+      analyzedAt: new Date().toISOString(),
+      language: "zh",
+      structure: { openingPattern: "异常先行", chapterArc: "线索递进", endingHookType: "新线索" },
+      sceneRhythm: { sceneTransitionTechnique: "感官硬切", pacingCurve: "前缓后紧", conflictEscalation: "逐级升级" },
+      informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "逐步释放", suspenseManagement: "回答旧疑问并制造新疑问" },
+      narrativePerspective: { povStrategy: "贴近主角", narrationDialogueRatio: "叙述主导", narrativeDistance: "近距离" },
+      exemplars: [],
+    }, sourceText);
+
+    expect(profile.exemplars.length).toBeGreaterThanOrEqual(4);
+    expect(profile.exemplars.every((item) => sourceText.includes(item.excerpt))).toBe(true);
+    expect(profile.exemplars.every((item) => item.excerpt.length >= 300 && item.excerpt.length <= 500)).toBe(true);
+  });
+
   it("removes module evidence that is not a verbatim source excerpt", () => {
     const excerpt = "这是一段足够长的原文证据，用来证明一个写作手法如何在具体场景中发生，并且必须能够在原文中完整找到。".repeat(2);
     const profile = validateExemplars({

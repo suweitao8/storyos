@@ -611,6 +611,72 @@ function collectWeakCraftFields(
 // Exemplar validation
 // ---------------------------------------------------------------------------
 
+const SOURCE_EXEMPLAR_MIN_LENGTH = 300;
+const SOURCE_EXEMPLAR_MAX_LENGTH = 500;
+
+/** Build verbatim fallback excerpts when the model omits optional examples. */
+function buildSourceBackedExemplars(sourceText: string): CraftProfile["exemplars"] {
+  const units: string[] = [];
+  for (const rawLine of sourceText.split(/\r?\n/u)) {
+    const line = rawLine.trimEnd();
+    const content = line
+      .replace(/^\s*\[[^\]]+\]\s*/u, "")
+      .replace(/^\s*---.*---\s*$/u, "")
+      .replace(/^\s*第[一二三四五六七八九十百千零0-9]+[章节回卷].*$/u, "")
+      .trim();
+    if (!content) continue;
+
+    if (line.length <= SOURCE_EXEMPLAR_MAX_LENGTH) {
+      units.push(line);
+      continue;
+    }
+    for (let offset = 0; offset < line.length; offset += SOURCE_EXEMPLAR_MIN_LENGTH) {
+      units.push(line.slice(offset, offset + SOURCE_EXEMPLAR_MIN_LENGTH));
+    }
+  }
+
+  const chunks: string[] = [];
+  let current = "";
+  const pushCurrent = () => {
+    if (current.length > 50) chunks.push(current);
+    current = "";
+  };
+
+  for (const unit of units) {
+    const candidate = current ? `${current}\n${unit}` : unit;
+    if (current && current.length >= SOURCE_EXEMPLAR_MIN_LENGTH && candidate.length > SOURCE_EXEMPLAR_MAX_LENGTH) {
+      pushCurrent();
+      current = unit;
+    } else if (candidate.length <= SOURCE_EXEMPLAR_MAX_LENGTH) {
+      current = candidate;
+    } else {
+      pushCurrent();
+      current = unit;
+    }
+  }
+  pushCurrent();
+
+  const expandedChunks = chunks.map((chunk) => {
+    if (chunk.length >= SOURCE_EXEMPLAR_MIN_LENGTH) return chunk;
+    const end = sourceText.lastIndexOf(chunk) + chunk.length;
+    const start = Math.max(0, end - SOURCE_EXEMPLAR_MIN_LENGTH);
+    const expanded = sourceText.slice(start, end);
+    return expanded.length >= SOURCE_EXEMPLAR_MIN_LENGTH ? expanded : chunk;
+  });
+  if (expandedChunks.length === 0) return [];
+  const indexes = expandedChunks.length <= 4
+    ? expandedChunks.map((_, index) => index)
+    : [0, Math.round((expandedChunks.length - 1) / 3), Math.round((expandedChunks.length - 1) * 2 / 3), expandedChunks.length - 1];
+  const uniqueIndexes = [...new Set(indexes)];
+  const labels = ["开场钩子", "冲突推进", "线索与反转", "高潮与余韵"];
+  const tones = ["紧张", "压迫", "惊疑", "高潮/余韵"];
+  return uniqueIndexes.map((index, position) => ({
+    label: labels[position] ?? `代表片段 ${position + 1}`,
+    tone: tones[position] ?? "代表性",
+    excerpt: expandedChunks[index]!,
+  }));
+}
+
 /**
  * Verify that each exemplar excerpt is a verbatim substring of the original text.
  * Excerpts that fail validation are dropped (not silently kept).
@@ -641,16 +707,19 @@ export function validateExemplars(
   const validatedNarrativePerspective = validateSection(profile.narrativePerspective);
   const validatedModules = validateCraftModuleEvidence(profile.modules, sourceText);
 
+  const sectionExemplars = [
+    { label: "结构手法", tone: "代表片段", excerpt: validatedStructure.exemplar },
+    { label: "场景与节奏", tone: "代表片段", excerpt: validatedSceneRhythm.exemplar },
+    { label: "信息披露", tone: "代表片段", excerpt: validatedInformationDisclosure.exemplar },
+    { label: "叙事视角", tone: "代表片段", excerpt: validatedNarrativePerspective.exemplar },
+  ].filter((item): item is CraftProfile["exemplars"][number] =>
+    typeof item.excerpt === "string" && item.excerpt.length > 50,
+  );
   const fallbackExemplars = validExemplars.length > 0
     ? validExemplars
-    : [
-        { label: "结构手法", tone: "代表片段", excerpt: validatedStructure.exemplar },
-        { label: "场景与节奏", tone: "代表片段", excerpt: validatedSceneRhythm.exemplar },
-        { label: "信息披露", tone: "代表片段", excerpt: validatedInformationDisclosure.exemplar },
-        { label: "叙事视角", tone: "代表片段", excerpt: validatedNarrativePerspective.exemplar },
-      ].filter((item): item is CraftProfile["exemplars"][number] =>
-        typeof item.excerpt === "string" && item.excerpt.length > 50,
-      );
+    : sectionExemplars.length > 0
+      ? sectionExemplars
+      : buildSourceBackedExemplars(sourceText).slice(0, 6);
 
   return {
     ...profile,
@@ -902,14 +971,14 @@ export class CraftAnalyzerAgent extends BaseAgent {
       ? [
           "The previous repair was still invalid JSON.",
           `Return a compact object with only the ${requiredSections} required sections${mode === "ghost-story" ? ", including the required ghostStory section" : ""}, and their required fields.`,
-          "Use an empty modules array and an empty exemplars array if optional detail is unsafe to preserve.",
-          "Keep each required value concise; omit optional exemplar and evidence fields.",
+          "Preserve any valid modules, exemplars, exemplar, and evidence fields from the previous output; do not clear them merely to shorten the JSON.",
+          "If an optional excerpt cannot be preserved verbatim, omit only that invalid excerpt rather than clearing all other valid examples.",
         ]
       : [
           "上一次修复仍然不是合法 JSON。",
           `只返回包含${requiredSectionsZh}个必需 section（鬼故事模式必须包含 ghostStory）及其必需字段的紧凑对象。`,
-          "如果可选细节难以保留，将 modules 和 exemplars 设为空数组。",
-          "每个必填值保持简短，省略可选的 exemplar 和 evidence 字段。",
+          "保留上一轮输出中合法的 modules、exemplars、exemplar 和 evidence 字段，不要为了压缩 JSON 而全部清空。",
+          "如果某个可选片段无法逐字保留，只省略这个无效片段，不要清空其他有效范例。",
         ];
     const systemPrompt = language === "en"
       ? [
