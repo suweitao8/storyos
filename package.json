@@ -27,6 +27,7 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",
+    "test:workflow": "node --test scripts/__tests__/worktree-lock.test.mjs scripts/__tests__/worktree-runtime.test.mjs",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "audit:semantic-patterns": "node scripts/audit-semantic-patterns.mjs",
