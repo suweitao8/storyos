@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   buildStoryListItems,
   resolveStoryListStatus,
+  StoryListPanel,
   type StoryListRecord,
 } from "./StoryListPanel";
 
@@ -49,5 +52,20 @@ describe("StoryListPanel model", () => {
     expect(resolveStoryListStatus({ loading: false, error: "network", records: [] })).toBe("error");
     expect(resolveStoryListStatus({ loading: false, error: null, records: [] })).toBe("empty");
     expect(resolveStoryListStatus({ loading: false, error: null, records: [{ id: "book-1", title: "夜港账本" }] })).toBe("ready");
+  });
+
+  it("does not repeat the page title inside the story list", () => {
+    const markup = renderToStaticMarkup(React.createElement(StoryListPanel, {
+      kind: "book",
+      records: [{ id: "book-1", title: "夜港账本", chaptersWritten: 3 }],
+      activeId: "book-1",
+      isZh: true,
+      onSelect: vi.fn(),
+    }));
+
+    expect(markup).not.toContain("选择内容");
+    expect(markup).not.toContain("长篇故事");
+    expect(markup).toContain("1 项");
+    expect(markup).toContain("夜港账本");
   });
 });
