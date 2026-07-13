@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Bot, Globe, Moon, Stethoscope, Sun } from "lucide-react";
-import { usePreferencesStore } from "../store/preferences";
 import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
@@ -45,8 +44,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
   const c = useColors(theme);
   const isZh = lang === "zh";
   const [activeTab, setActiveTab] = useState<"common" | "models" | "diagnostics">("common");
-  const toolDetailsDefaultOpen = usePreferencesStore((s) => s.toolDetailsDefaultOpen);
-  const setToolDetailsDefaultOpen = usePreferencesStore((s) => s.setToolDetailsDefaultOpen);
 
   usePageToolbar("project-settings", {
     tabs: [
@@ -102,18 +99,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
                   {t("settings.themeDark")}
                 </button>
               </div>
-            </div>
-            {/* Chat UI preference — applied immediately, persisted in this browser's localStorage */}
-            <div className="rounded-xl border border-border/50 bg-background/40 p-3 space-y-1">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={toolDetailsDefaultOpen}
-                  onChange={(e) => setToolDetailsDefaultOpen(e.target.checked)}
-                />
-                {t("settings.toolDetailsDefaultOpen")}
-              </label>
-              <p className="text-xs text-muted-foreground">{t("settings.toolDetailsDefaultOpenHint")}</p>
             </div>
           </SettingsCard>
         </div>
