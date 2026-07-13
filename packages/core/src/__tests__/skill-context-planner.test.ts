@@ -26,17 +26,18 @@ describe("skill context planner", () => {
 
   it("filters context needs by consumer while preserving skill metadata", () => {
     const registry = createSkillRegistry();
-    const skill = registry.getSkill("interactive-film-authoring");
+    const skill = registry.getSkill("longform-writing");
     expect(skill).toBeDefined();
 
     const plan = buildSkillContextPlan({
       skills: [skill!],
-      appliesTo: "image",
+      appliesTo: "planner",
     });
 
-    expect(plan.usedSkillIds).toEqual(["interactive-film-authoring"]);
-    expect(plan.contextNeedIds).toContain("visual-style");
-    expect(plan.contextNeedIds).not.toContain("previous-node-summaries");
+    expect(plan.usedSkillIds).toEqual(["longform-writing"]);
+    expect(plan.contextNeedIds).toContain("author-intent");
+    // chapter-memo only applies to composer/writer/auditor/reviser, not planner
+    expect(plan.contextNeedIds).not.toContain("chapter-memo");
   });
 
   it("extends chapter trace with skill provenance", () => {

@@ -112,24 +112,24 @@ describe("chat message actions", () => {
 
   it("parses @skill directives into requestedSkills and strips them from the agent instruction", async () => {
     const store = createTestStore();
-    const sessionId = store.getState().createDraftSession(null, "play", "open");
+    const sessionId = store.getState().createDraftSession(null, "book", "open");
     store.getState().setSelectedModel("deepseek-v4-flash", "kkaiapi");
     fetchJson
-      .mockResolvedValueOnce({ session: { sessionId, bookId: null, sessionKind: "play" } })
+      .mockResolvedValueOnce({ session: { sessionId, bookId: null, sessionKind: "book" } })
       .mockResolvedValueOnce({
         response: "ok",
-        session: { sessionId, bookId: null, sessionKind: "play" },
+        session: { sessionId, bookId: null, sessionKind: "book" },
       });
 
-    await store.getState().sendMessage(sessionId, "@open-world-play 做一个魔兽风开放世界", {
-      sessionKind: "play",
+    await store.getState().sendMessage(sessionId, "@longform-writing 继续写下一章", {
+      sessionKind: "book",
     });
 
     const agentCall = fetchJson.mock.calls.find(([path]) => path === "/agent");
     expect(agentCall).toBeDefined();
     const body = JSON.parse((agentCall?.[1] as { body: string }).body);
-    expect(body.instruction).toBe("做一个魔兽风开放世界");
-    expect(body.requestedSkills).toEqual(["open-world-play"]);
+    expect(body.instruction).toBe("继续写下一章");
+    expect(body.requestedSkills).toEqual(["longform-writing"]);
   });
 
   it("keeps a tool-only stream when /agent returns an empty response after a proposal", async () => {
