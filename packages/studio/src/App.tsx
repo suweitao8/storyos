@@ -511,7 +511,6 @@ export function App() {
           {route.page === "project-settings" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ProjectSettings
-                nav={nav}
                 theme={theme}
                 lang={currentLang}
                 setTheme={setTheme}
