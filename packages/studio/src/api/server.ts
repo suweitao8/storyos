@@ -130,6 +130,7 @@ import {
 } from "./studio-preferences-db.js";
 import { importBilibiliSubtitles } from "./bilibili.js";
 import { registerStudioRoutes } from "./routes/index.js";
+import { normalizeBilibiliCraftName } from "../pages/craft-name.js";
 
 // -- Studio server language (read per request from the project config's `language`) --
 
@@ -5377,7 +5378,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const result = await importBilibiliSubtitles(url);
       return c.json({
         text: result.text,
-        detectedName: deriveCraftSourceName(result.videoInfo.title),
+        detectedName: normalizeBilibiliCraftName(result.videoInfo.title),
         videoInfo: result.videoInfo,
         subtitleSource: result.subtitleSource,
         subtitleCount: result.subtitles.length,
