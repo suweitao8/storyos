@@ -34,7 +34,30 @@ export {
 } from "./pipeline/story-assets-runner.js";
 export { type ProjectConfig, type LLMConfig, type NotifyChannel, type DetectionConfig, type QualityGates, type FoundationConfig, type WritingConfig, type AgentLLMOverride, type InputGovernanceMode, type ResearchSearchConfig, ProjectConfigSchema, LLMConfigSchema, AgentLLMOverrideSchema, DetectionConfigSchema, QualityGatesSchema, FoundationConfigSchema, WritingConfigSchema, InputGovernanceModeSchema, ResearchSearchConfigSchema } from "./models/project.js";
 export { type CurrentState, type ParticleLedger, type PendingHooks, type PendingHook, type LedgerEntry } from "./models/state.js";
-export { type GenreProfile, type ParsedGenreProfile, GenreProfileSchema, parseGenreProfile } from "./models/genre-profile.js";
+export {
+  type GenreProfile,
+  type ParsedGenreProfile,
+  type PromptTemplates,
+  type VoiceAgeGroup,
+  type ImagePromptKind,
+  GenreProfileSchema,
+  PromptTemplatesSchema,
+  VoiceAgeGroupSchema,
+  VOICE_AGE_GROUP_KEYS,
+  VOICE_AGE_GROUPS,
+  IMAGE_PROMPT_KINDS,
+  parseGenreProfile,
+} from "./models/genre-profile.js";
+export {
+  DEFAULT_IMAGE_CHARACTER_PROMPT,
+  DEFAULT_IMAGE_SCENE_PROMPT,
+  DEFAULT_IMAGE_PROP_PROMPT,
+  DEFAULT_IMAGE_PROMPTS,
+  DEFAULT_VOICE_PROMPTS,
+  resolveImagePromptTemplate,
+  resolveVoicePromptTemplate,
+  resolveAllPromptTemplates,
+} from "./models/default-prompt-templates.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
 export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";
