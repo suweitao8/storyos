@@ -45,11 +45,11 @@
 ## Studio 重启
 
 - 每次 finish-worktree 合并回 master 后，如果改动涉及 Studio 前端或后端代码，必须立刻自动重启 Studio，不要询问用户。
-- 开发或启动 Studio 前先在当前 worktree 执行 `pnpm worktree:check`；用 `pnpm worktree:runtime` 查看当前任务的端口和运行目录。
+- 开发 Studio 前先在当前 worktree 执行 `pnpm worktree:check`；用 `pnpm worktree:runtime` 查看当前任务的端口和运行目录。finish 合并完成后从主 checkout 重启 Studio 时不执行 worktree 检查。
 - 重启步骤：
   1. 根据 `pnpm worktree:runtime` 输出，杀掉占用当前任务 Studio 端口的旧进程；如果端口已被占用且进程是 Studio 相关的 tsx/vite，先杀再启。
   2. 在主 checkout 执行 `pnpm install`（确保新依赖到位）。
-  3. 在当前 worktree 根目录执行 `pnpm --dir packages/studio dev`；启动器会自动分配可用端口，并把日志写入 `.studio-live/<task-slug>/`。
+  3. 在需要运行的 checkout 根目录执行 `pnpm --dir packages/studio dev`；启动器会自动分配可用端口，并把日志写入 `.studio-live/<task-slug>/`。
   4. 等待 5 秒，确认 `pnpm worktree:runtime` 输出的端口监听成功。
 - 不要等用户催，合并完就重启。
 
