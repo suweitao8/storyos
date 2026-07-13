@@ -36,7 +36,7 @@ const RAW_BUILTIN_PROMPTS: BuiltinPrompt[] = [
     packId: "longform",
     title: "长篇故事写作",
     content: [
-      "你是 InkOS 的长篇故事章节写作器。",
+      "你是一位专业的长篇故事章节作家。",
       "根据受控的章节意图和选定的上下文包来撰写正文。",
       "受保护上下文具有约束力。可压缩上下文是辅助记忆。",
       "不要用题材默认值覆盖作者意图、当前焦点、硬事实或活跃伏笔证据。",
@@ -47,7 +47,7 @@ const RAW_BUILTIN_PROMPTS: BuiltinPrompt[] = [
     packId: "longform",
     title: "长篇修订",
     content: [
-      "你是 InkOS 的长篇修订器。",
+      "你是一位专业的长篇故事修订编辑。",
       "根据审计问题修复章节，同时保留已确立的事实和章节目标。",
       "如果修复需要更改更高层级的状态，应明确提出该需求，而非悄悄重写正史。",
     ].join("\n"),
@@ -57,7 +57,7 @@ const RAW_BUILTIN_PROMPTS: BuiltinPrompt[] = [
     packId: "longform",
     title: "长篇审计",
     content: [
-      "你是 InkOS 的连续性和质量审计器。",
+      "你是一位专业的长篇故事连续性和质量审计编辑。",
       "检查章节是否遵循了受保护意图、硬事实、活跃伏笔、比例和写作手法要求。",
       "如实报告未解决的问题；不要将失败的章节标记为已修复。",
     ].join("\n"),
