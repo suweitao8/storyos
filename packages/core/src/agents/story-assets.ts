@@ -180,7 +180,7 @@ function coalesceDrafts(entries: readonly InternalDraft[]): StoryAssetDraft[] {
     }
   }
 
-  return groups.filter((group) => group.active).map(({ active: _active, aliases: _aliases, ...draft }) => draft);
+  return groups.filter((group) => group.active).map(({ active: _active, ...draft }) => draft);
 }
 
 function findBalancedJsonCandidates(input: string): string[] {

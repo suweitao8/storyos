@@ -1,0 +1,80 @@
+import { describe, expect, it } from "vitest";
+
+import { buildStoryAssetExtractionPath, resolveChatPageStoryWorkspace } from "./ChatPage";
+
+describe("ChatPage story workspace integration", () => {
+  it("builds the canonical text asset extraction endpoint", () => {
+    expect(buildStoryAssetExtractionPath("book", "night harbor")).toBe(
+      "/stories/book/night%20harbor/assets/extract",
+    );
+    expect(buildStoryAssetExtractionPath("short", "short/42")).toBe(
+      "/stories/short/short%2F42/assets/extract",
+    );
+  });
+
+  it("keeps creation visible until a long-story book id is handed off", () => {
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "book-create",
+      stage: "settings",
+      bookId: null,
+      shortId: null,
+    })).toMatchObject({
+      view: "creation",
+      activeStage: "settings",
+      kind: "book",
+      storyId: null,
+    });
+
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "book-create",
+      stage: "settings",
+      bookId: "night-harbor",
+      shortId: null,
+    })).toMatchObject({
+      view: "settings",
+      activeStage: "settings",
+      kind: "book",
+      storyId: "night-harbor",
+    });
+  });
+
+  it("routes short-story ids through assets and keeps invalid stages on settings", () => {
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "short",
+      stage: "assets",
+      bookId: null,
+      shortId: "short-42",
+    })).toMatchObject({
+      view: "assets",
+      activeStage: "assets",
+      kind: "short",
+      storyId: "short-42",
+    });
+
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "short",
+      stage: "not-a-stage",
+      bookId: null,
+      shortId: "short-42",
+    })).toMatchObject({
+      view: "settings",
+      activeStage: "settings",
+      kind: "short",
+      storyId: "short-42",
+    });
+  });
+
+  it("keeps non-story sessions in the existing full-width chat view", () => {
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "chat",
+      stage: "assets",
+      bookId: null,
+      shortId: null,
+    })).toMatchObject({
+      view: "adjust",
+      activeStage: "adjust",
+      kind: null,
+      storyId: null,
+    });
+  });
+});

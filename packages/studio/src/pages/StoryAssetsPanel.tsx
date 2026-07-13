@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Image, Pencil, RefreshCw, Sparkles } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
-import { useApi, postApi, putApi } from "../hooks/use-api";
+import { fetchJson, postApi, useApi } from "../hooks/use-api";
 
 export type StoryAssetKind = "character" | "scene" | "prop";
 export type StoryAssetImageStatus = "missing" | "generating" | "ready" | "error";
@@ -37,6 +37,35 @@ export function filterStoryAssets(
   return filter === "all" ? assets : assets.filter((asset) => asset.kind === filter);
 }
 
+export function hasUnreadyStoryAssetImages(assets: ReadonlyArray<StoryAsset>): boolean {
+  return assets.some((asset) => (asset.image?.status ?? "missing") !== "ready");
+}
+
+export function buildStoryAssetImagePath(kind: "book" | "short", storyId: string, assetId: string): string {
+  return `${buildStoryAssetsPath(kind, storyId)}/images/${encodeURIComponent(assetId)}`;
+}
+
+export function buildStoryAssetGenerateImagePath(kind: "book" | "short", storyId: string, assetId: string): string {
+  return `${buildStoryAssetsPath(kind, storyId)}/${encodeURIComponent(assetId)}/generate-image`;
+}
+
+export function buildStoryAssetGenerateMissingImagesPath(kind: "book" | "short", storyId: string): string {
+  return `${buildStoryAssetsPath(kind, storyId)}/generate-missing-images`;
+}
+
+export function getStoryAssetActionLabel(status: StoryAssetImageStatus, isZh: boolean): string {
+  if (status === "generating") return isZh ? "生成中..." : "Generating...";
+  if (status === "ready" || status === "error") return isZh ? "重新生成" : "Regenerate image";
+  return isZh ? "生成图片" : "Generate image";
+}
+
+export function chooseStoryAssetAction<T>(
+  callback: ((value: T) => void | Promise<void>) | undefined,
+  fallback: (value: T) => void | Promise<void>,
+): (value: T) => void | Promise<void> {
+  return callback ?? fallback;
+}
+
 export function getStoryAssetStatusLabel(status: StoryAssetImageStatus, isZh: boolean): string {
   const labels: Record<StoryAssetImageStatus, { readonly zh: string; readonly en: string }> = {
     missing: { zh: "缺图", en: "Missing" },
@@ -52,8 +81,7 @@ export function getAssetEmptyState(isZh: boolean): string {
 }
 
 export function buildStoryAssetsPath(kind: "book" | "short", storyId: string): string {
-  const collection = kind === "short" ? "shorts" : "books";
-  return `/${collection}/${encodeURIComponent(storyId)}/assets`;
+  return `/stories/${kind}/${encodeURIComponent(storyId)}/assets`;
 }
 
 interface StoryAssetsPanelProps {
@@ -85,10 +113,9 @@ const STATUS_CLASS: Record<StoryAssetImageStatus, string> = {
   error: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 
-function actionLabel(isZh: boolean, action: "extract" | "generateAll" | "generate"): string {
+function actionLabel(isZh: boolean, action: "extract" | "generateAll"): string {
   if (action === "extract") return isZh ? "提取资产" : "Extract assets";
-  if (action === "generateAll") return isZh ? "生成全部缺图" : "Generate missing";
-  return isZh ? "生成图片" : "Generate image";
+  return isZh ? "生成全部缺失图片" : "Generate all missing images";
 }
 
 export function StoryAssetsPanel({
@@ -126,23 +153,34 @@ export function StoryAssetsPanel({
   const extractAssets = () => runAction("extract", onExtractAssets ?? (() => postApi(`${basePath}/extract`)));
   const generateMissing = () => runAction(
     "generate-all",
-    onGenerateMissing ?? (() => postApi(`${basePath}/generate-missing`)),
+    onGenerateMissing ?? (() => postApi(buildStoryAssetGenerateMissingImagesPath(kind, storyId ?? ""))),
   );
   const generateAsset = (asset: StoryAsset) => runAction(
     `generate:${asset.id}`,
-    onGenerateAsset
-      ? () => onGenerateAsset(asset)
-      : () => postApi(`${basePath}/${encodeURIComponent(asset.id)}/generate`),
+    () => chooseStoryAssetAction(
+      onGenerateAsset,
+      () => postApi(buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)),
+    )(asset),
   );
   const editAsset = (asset: StoryAsset, field: StoryAssetTextField, value: string, detailKey?: string) => {
     if (onEditAsset) {
-      void onEditAsset(asset.id, field, value, detailKey);
+      void runAction(
+        `edit:${asset.id}:${field}:${detailKey ?? ""}`,
+        () => onEditAsset(asset.id, field, value, detailKey),
+      );
       return;
     }
     const body = field === "details" && detailKey
       ? { details: { ...asset.details, [detailKey]: value } }
       : { [field]: value };
-    void runAction(`edit:${asset.id}:${field}:${detailKey ?? ""}`, () => putApi(`${basePath}/${encodeURIComponent(asset.id)}`, body));
+    void runAction(
+      `edit:${asset.id}:${field}:${detailKey ?? ""}`,
+      () => fetchJson(`${basePath}/${encodeURIComponent(asset.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
   };
 
   return (
@@ -164,7 +202,7 @@ export function StoryAssetsPanel({
           <button type="button" onClick={() => void extractAssets()} disabled={!storyId || busyAction !== null} className="rounded-lg border border-border/60 px-3 py-2 text-sm hover:border-primary/50 disabled:opacity-40">
             {actionLabel(isZh, "extract")}
           </button>
-          <button type="button" onClick={() => void generateMissing()} disabled={!storyId || busyAction !== null || !assets.some((asset) => (asset.image?.status ?? "missing") === "missing")} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">
+          <button type="button" onClick={() => void generateMissing()} disabled={!storyId || busyAction !== null || !hasUnreadyStoryAssetImages(assets)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">
             <Sparkles size={14} />
             {actionLabel(isZh, "generateAll")}
           </button>
@@ -198,6 +236,7 @@ export function StoryAssetsPanel({
                     key={asset.id}
                     asset={asset}
                     isZh={isZh}
+                    imageUrl={storyId && asset.image?.status === "ready" ? `/api/v1${buildStoryAssetImagePath(kind, storyId, asset.id)}` : undefined}
                     busy={busyAction === `generate:${asset.id}`}
                     onGenerate={() => void generateAsset(asset)}
                     onEdit={(field, value, detailKey) => editAsset(asset, field, value, detailKey)}
@@ -223,12 +262,14 @@ function EmptyState({ text }: { readonly text: string }) {
 function AssetCard({
   asset,
   isZh,
+  imageUrl,
   busy,
   onGenerate,
   onEdit,
 }: {
   readonly asset: StoryAsset;
   readonly isZh: boolean;
+  readonly imageUrl?: string;
   readonly busy: boolean;
   readonly onGenerate: () => void;
   readonly onEdit: (field: StoryAssetTextField, value: string, detailKey?: string) => void;
@@ -236,7 +277,7 @@ function AssetCard({
   const status = asset.image?.status ?? "missing";
   return (
     <article className="overflow-hidden rounded-2xl border border-border/60 bg-card">
-      {asset.image?.path ? <img src={asset.image.path} alt={asset.name} className="h-44 w-full object-cover" /> : <div className="flex h-44 items-end bg-secondary/60 p-4" data-testid={`asset-placeholder-${asset.id}`}><span className="text-xl font-semibold text-foreground/80">{asset.name}</span></div>}
+      {imageUrl ? <img src={imageUrl} alt={asset.name} className="h-44 w-full object-cover" /> : <div className="flex h-44 items-end bg-secondary/60 p-4" data-testid={`asset-placeholder-${asset.id}`}><span className="text-xl font-semibold text-foreground/80">{asset.name}</span></div>}
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -250,7 +291,7 @@ function AssetCard({
         <label className="block space-y-1.5 text-xs text-muted-foreground"><span>{isZh ? "图片提示词" : "Image prompt"}</span><textarea defaultValue={asset.imagePrompt} rows={3} onBlur={(event) => onEdit("imagePrompt", event.target.value)} className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary" /></label>
         {Object.entries(asset.details).map(([key, value]) => <label key={key} className="block space-y-1.5 text-xs text-muted-foreground"><span>{key}</span><textarea defaultValue={value} rows={2} onBlur={(event) => onEdit("details", event.target.value, key)} className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary" /></label>)}
         {status === "error" && asset.image?.error ? <p className="text-xs leading-5 text-destructive">{asset.image.error}</p> : null}
-        <button type="button" onClick={onGenerate} disabled={busy || status === "generating"} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm hover:border-primary/50 disabled:opacity-50"><Pencil size={14} />{busy ? (isZh ? "正在生成..." : "Generating...") : actionLabel(isZh, "generate")}</button>
+        <button type="button" onClick={onGenerate} disabled={busy || status === "generating"} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm hover:border-primary/50 disabled:opacity-50"><Pencil size={14} />{busy ? (isZh ? "正在生成..." : "Generating...") : getStoryAssetActionLabel(status, isZh)}</button>
       </div>
     </article>
   );

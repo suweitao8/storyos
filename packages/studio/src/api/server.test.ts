@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import {
+  generateMissingStoryAssetImages as coreGenerateMissingStoryAssetImages,
+  generateStoryAssetImage as coreGenerateStoryAssetImage,
+  storyAssetImagePath as coreStoryAssetImagePath,
+} from "../../../core/src/pipeline/story-assets-runner.js";
 
 const schedulerStartMock = vi.fn<() => Promise<void>>();
 const initBookMock = vi.fn();
@@ -134,6 +139,16 @@ describe("studio runtime contract", () => {
     ) as { engines?: { node?: string } };
 
     expect(packageJson.engines?.node).toBe(">=22.13.0");
+  });
+
+  it("exports the story asset image lifecycle from the core root entry", async () => {
+    const core = await vi.importActual<typeof import("@actalk/inkos-core")>("@actalk/inkos-core");
+
+    expect(core.generateStoryAssetImage).toEqual(expect.any(Function));
+    expect(core.generateMissingStoryAssetImages).toEqual(expect.any(Function));
+    expect(core.storyAssetImagePath("short", "mist-harbor", "hero", "png")).toBe(
+      "shorts/mist-harbor/assets/images/hero.png",
+    );
   });
 });
 
@@ -276,6 +291,11 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     buildPlayEntityImagePrompt: actual.buildPlayEntityImagePrompt,
     buildPlaySceneImagePrompt: actual.buildPlaySceneImagePrompt,
     generatePlayImage: generatePlayImageMock,
+    extractStoryAssets: actual.extractStoryAssets,
+    storyAssetManifestPath: actual.storyAssetManifestPath,
+    generateStoryAssetImage: coreGenerateStoryAssetImage,
+    generateMissingStoryAssetImages: coreGenerateMissingStoryAssetImages,
+    storyAssetImagePath: coreStoryAssetImagePath,
     readPlayImageManifest: actual.readPlayImageManifest,
     readPlayImageSettings: actual.readPlayImageSettings,
     writePlayImageSettings: actual.writePlayImageSettings,
@@ -4828,4 +4848,230 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(initSpinoffBookMock).not.toHaveBeenCalled();
   });
 
+});
+
+describe("story asset API", () => {
+  let root: string;
+
+  const asset = (overrides: Record<string, unknown> = {}) => ({
+    id: "hero",
+    kind: "character",
+    name: "Hero",
+    summary: "A careful investigator.",
+    details: { age: "30" },
+    imagePrompt: "A careful investigator in harbor fog.",
+    sourceRefs: ["content:chapter-1"],
+    image: { status: "missing" },
+    createdAt: "2026-07-13T00:00:00.000Z",
+    updatedAt: "2026-07-13T00:00:00.000Z",
+    ...overrides,
+  });
+
+  async function writeManifest(storyType: "book" | "short", storyId: string, assets = [asset()]): Promise<void> {
+    const collection = storyType === "book" ? "books" : "shorts";
+    const manifestPath = join(root, collection, storyId, "assets", "manifest.json");
+    await mkdir(join(root, collection, storyId, "assets"), { recursive: true });
+    await writeFile(manifestPath, JSON.stringify({
+      version: 1,
+      storyId,
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets,
+    }), "utf-8");
+  }
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "inkos-story-assets-api-"));
+    await writeFile(join(root, "inkos.json"), JSON.stringify(projectConfig), "utf-8");
+    createLLMClientMock.mockReset();
+    createLLMClientMock.mockReturnValue({ client: true });
+    chatCompletionMock.mockReset();
+    chatCompletionMock.mockResolvedValue({
+      content: JSON.stringify({
+        characters: [{ kind: "character", name: "Hero", summary: "Updated hero", imagePrompt: "Hero portrait" }],
+        scenes: [],
+        props: [],
+      }),
+    });
+    loadProjectConfigMock.mockReset();
+    loadProjectConfigMock.mockResolvedValue(cloneProjectConfig());
+    generatePlayImageMock.mockReset();
+    generatePlayImageMock.mockImplementation(async ({ runDir, key }: { runDir: string; key: string }) => {
+      await mkdir(join(runDir, "images"), { recursive: true });
+      await writeFile(join(runDir, "images", `${key}.png`), Buffer.from("PNG"));
+      return { status: "ready", file: `${key}.png` };
+    });
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("gets the canonical manifest and supports the read-only legacy aliases", async () => {
+    await writeManifest("short", "mist-harbor");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const canonical = await app.request("/api/v1/stories/short/mist-harbor/assets");
+    const legacy = await app.request("/api/v1/shorts/mist-harbor/assets");
+
+    expect(canonical.status).toBe(200);
+    expect(legacy.status).toBe(200);
+    await expect(canonical.json()).resolves.toMatchObject({ storyId: "mist-harbor", assets: [{ id: "hero" }] });
+    await expect(legacy.json()).resolves.toMatchObject({ storyId: "mist-harbor" });
+  });
+
+  it("forwards legacy write and image routes to the canonical asset lifecycle", async () => {
+    await writeManifest("short", "mist-harbor", [asset(), asset({ id: "missing_asset", name: "Missing Asset" })]);
+    await mkdir(join(root, "shorts", "mist-harbor", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "mist-harbor", "outline", "v002.md"), "Legacy outline", "utf-8");
+    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "Legacy story", "utf-8");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const extracted = await app.request("/api/v1/shorts/mist-harbor/assets/extract", { method: "POST" });
+    const patched = await app.request("/api/v1/shorts/mist-harbor/assets/hero", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ summary: "Legacy patch" }),
+    });
+    const generated = await app.request("/api/v1/shorts/mist-harbor/assets/hero/generate-image", { method: "POST" });
+    const batch = await app.request("/api/v1/shorts/mist-harbor/assets/generate-missing", { method: "POST" });
+    const image = await app.request("/api/v1/shorts/mist-harbor/assets/images/hero");
+
+    expect(extracted.status).toBe(200);
+    expect(patched.status).toBe(200);
+    expect(generated.status).toBe(200);
+    expect(batch.status).toBe(200);
+    expect(image.status).toBe(200);
+    await expect(image.text()).resolves.toBe("PNG");
+  });
+
+  it("sanitizes unexpected story asset failures and returns 500", async () => {
+    await mkdir(join(root, "shorts", "mist-harbor", "assets", "manifest.json"), { recursive: true });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/shorts/mist-harbor/assets");
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: { code: "INTERNAL_ERROR", message: "Unexpected server error." } });
+    expect(JSON.stringify(body)).not.toContain("EISDIR");
+
+    const missing = await app.request("/api/v1/shorts/missing-story/assets");
+    expect(missing.status).toBe(404);
+    await expect(missing.json()).resolves.toMatchObject({ error: { code: "STORY_ASSET_MANIFEST_NOT_FOUND" } });
+  });
+
+  it("extracts text assets without invoking image generation", async () => {
+    await mkdir(join(root, "shorts", "mist-harbor", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "mist-harbor", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "mist-harbor", "outline", "v002.md"), "Outline source", "utf-8");
+    await writeFile(join(root, "shorts", "mist-harbor", "final", "full.md"), "Story content source", "utf-8");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/stories/short/mist-harbor/assets/extract", { method: "POST" });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ assets: [{ name: "Hero" }] });
+    expect(chatCompletionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "gpt-5.4",
+      expect.arrayContaining([
+        expect.objectContaining({ content: expect.stringContaining("Outline source") }),
+        expect.objectContaining({ content: expect.stringContaining("Story content source") }),
+      ]),
+      expect.objectContaining({ temperature: 0.1, maxTokens: 4096 }),
+    );
+    expect(generatePlayImageMock).not.toHaveBeenCalled();
+    await expect(access(join(root, "shorts", "mist-harbor", "assets", "manifest.json"))).resolves.toBeUndefined();
+  });
+
+  it("patches only text fields for an existing asset", async () => {
+    await writeManifest("book", "demo-book");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/stories/book/demo-book/assets/hero", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Updated Hero", summary: "New summary", details: { coat: "black" }, imagePrompt: "New prompt" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      asset: { id: "hero", name: "Updated Hero", summary: "New summary", details: { age: "30", coat: "black" }, imagePrompt: "New prompt" },
+    });
+    const saved = JSON.parse(await readFile(join(root, "books", "demo-book", "assets", "manifest.json"), "utf-8")) as { assets: Array<Record<string, unknown>> };
+    expect(saved.assets[0]).toMatchObject({ name: "Updated Hero", image: { status: "missing" } });
+  });
+
+  it("generates one image only when the explicit image route is called", async () => {
+    await writeManifest("short", "mist-harbor");
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/stories/short/mist-harbor/assets/hero/generate-image", { method: "POST" });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ assetId: "hero", status: "ready", path: "shorts/mist-harbor/assets/images/hero.png" });
+    expect(generatePlayImageMock).toHaveBeenCalledTimes(1);
+    await expect(readFile(join(root, "shorts", "mist-harbor", "assets", "images", "hero.png"), "utf-8")).resolves.toBe("PNG");
+  });
+
+  it("generates missing images in a batch and skips ready assets", async () => {
+    await writeManifest("short", "mist-harbor", [
+      asset({ id: "ready_asset", image: { status: "ready", path: "shorts/mist-harbor/assets/images/ready_asset.png" } }),
+      asset({ id: "missing_asset" }),
+    ]);
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("/api/v1/stories/short/mist-harbor/assets/generate-missing-images", { method: "POST" });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      results: [
+        { assetId: "ready_asset", status: "skipped" },
+        { assetId: "missing_asset", status: "ready" },
+      ],
+    });
+    expect(generatePlayImageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("serves only a ready manifest-referenced image and rejects unsafe inputs", async () => {
+    await writeManifest("short", "mist-harbor", [asset({ image: { status: "ready", path: "shorts/mist-harbor/assets/images/hero.png" } })]);
+    await mkdir(join(root, "shorts", "mist-harbor", "assets", "images"), { recursive: true });
+    await writeFile(join(root, "shorts", "mist-harbor", "assets", "images", "hero.png"), Buffer.from("PNG"));
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const served = await app.request("/api/v1/stories/short/mist-harbor/assets/images/hero");
+    const traversal = await app.request("/api/v1/stories/short/mist-harbor/assets/images/..%2Fbook");
+    const missing = await app.request("/api/v1/stories/short/mist-harbor/assets/images/other");
+
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/png");
+    await expect(served.text()).resolves.toBe("PNG");
+    expect(traversal.status).toBe(400);
+    expect(missing.status).toBe(404);
+  });
+
+  it("rejects invalid story kinds, ids, asset ids, and manifest image extensions", async () => {
+    await writeManifest("short", "mist-harbor", [asset({ image: { status: "ready", path: "shorts/mist-harbor/assets/images/hero.svg" } })]);
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const invalidKind = await app.request("/api/v1/stories/movie/mist-harbor/assets");
+    const invalidId = await app.request("/api/v1/stories/short/%2E%2E%2Foutside/assets");
+    const invalidAssetId = await app.request("/api/v1/stories/short/mist-harbor/assets/images/bad.asset");
+    const unsafeExtension = await app.request("/api/v1/stories/short/mist-harbor/assets/images/hero");
+
+    expect(invalidKind.status).toBe(400);
+    expect(invalidId.status).toBe(400);
+    expect(invalidAssetId.status).toBe(400);
+    expect(unsafeExtension.status).toBe(400);
+  });
 });

@@ -641,8 +641,41 @@ describe("story asset text extraction", () => {
 
     expect(drafts).toHaveLength(1);
     expect(drafts[0]).toMatchObject({ kind: "character", name: "Mara" });
+    expect(drafts[0]?.aliases).toHaveLength(1);
     expect(drafts[0]?.sourceRefs).toEqual(["settings", "content:chapter-1"]);
     expect(drafts[0]?.summary).toContain("雾港");
+  });
+
+  it("matches a renamed asset through a persisted alias and preserves its ready image", () => {
+    const existing: StoryAssetManifest = {
+      version: 1,
+      storyId: "story-alias",
+      updatedAt: "2026-07-13T00:00:00.000Z",
+      assets: [
+        {
+          ...makeStoryAssetImage("hero", "ready"),
+          name: "Hero",
+          image: { status: "ready", path: "assets/images/hero.png" },
+        },
+      ],
+    };
+
+    const merged = mergeStoryAssets(existing, [{
+      kind: "character",
+      name: "The Hero",
+      aliases: ["Hero"],
+      summary: "Updated hero summary",
+      imagePrompt: "Updated hero portrait",
+    }], "2026-07-13T01:00:00.000Z");
+
+    expect(merged.assets).toHaveLength(1);
+    expect(merged.assets[0]).toMatchObject({
+      id: "hero",
+      name: "Hero",
+      aliases: ["The Hero"],
+      summary: "Updated hero summary",
+      image: { status: "ready", path: "assets/images/hero.png" },
+    });
   });
 
   it("returns an empty draft list when the model returns no assets", () => {
