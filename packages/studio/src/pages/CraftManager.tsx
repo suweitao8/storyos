@@ -1070,6 +1070,8 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [reparsing, setReparsing] = useState(false);
   const [detailTab, setDetailTab] = useState<CraftDetailTab>("overview");
+  const [subtitleText, setSubtitleText] = useState<string | null>(null);
+  const [subtitleLoading, setSubtitleLoading] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!craftId || initialProfile) return;
@@ -1434,10 +1436,46 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
                 <video
                   controls
                   preload="metadata"
-                  className="max-h-80 w-full rounded-xl border border-border bg-black"
+                  className="aspect-video w-full rounded-xl border border-border bg-black"
                   src={`/api/v1/crafts/${craftId}/source/video`}
                 />
               )}
+
+              {/* Subtitle viewer */}
+              {source.files.some((file) => file.key === "subtitlesText") && (
+                <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">字幕数据</span>
+                    <button
+                      onClick={async () => {
+                        if (subtitleText !== null) {
+                          setSubtitleText(null);
+                          return;
+                        }
+                        setSubtitleLoading(true);
+                        try {
+                          const res = await fetch(`/api/v1/crafts/${craftId}/source/subtitlesText`);
+                          const text = await res.text();
+                          setSubtitleText(text);
+                        } catch {
+                          setSubtitleText("加载字幕失败");
+                        } finally {
+                          setSubtitleLoading(false);
+                        }
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {subtitleLoading ? "加载中…" : subtitleText !== null ? "收起字幕" : "查看字幕"}
+                    </button>
+                  </div>
+                  {subtitleText !== null && (
+                    <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-background/60 p-3 text-xs leading-5 text-foreground/80 font-mono">
+                      {subtitleText}
+                    </pre>
+                  )}
+                </div>
+              )}
+
               <div className="grid gap-2 md:grid-cols-2">
                 {source.files.map((file) => (
                   <a
