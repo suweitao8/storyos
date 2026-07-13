@@ -80,15 +80,29 @@ export function StoryCreationPanel({
   const [directionGenerating, setDirectionGenerating] = useState(false);
   const [directionGenerationError, setDirectionGenerationError] = useState<string | null>(null);
   const directionRequestRef = useRef(0);
+  // Tracks whether the current shortSeed was produced by a live stream in
+  // this session. When the auto-save after generation triggers a refetch and
+  // re-runs the effect, the "cache hit" branch must NOT clobber the already
+  // rendered streamed content.
+  const seedAlreadyReadyRef = useRef(false);
+  // Last craft id the seed state was built for; switching crafts resets the
+  // guard so the new craft's cached seed (if any) loads normally.
+  const lastCraftIdRef = useRef<string | undefined>(undefined);
 
   const selectedCraft = crafts.find((craft) => craft.id === selectedCraftId);
   const hasCraftSelection = Boolean(selectedCraftId && selectedCraft);
   const selectedCraftRecommendedWordCount = selectedCraft?.recommendedWordCount
-    ? resolveDefaultStoryWordCount(selectedCraft.recommendedWordCount)
+    ? resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)
     : undefined;
 
   useEffect(() => {
     if (kind === "short") {
+      // Reset the "already ready" guard when switching to a different craft,
+      // so its cached seed loads cleanly.
+      if (lastCraftIdRef.current !== selectedCraft?.id) {
+        lastCraftIdRef.current = selectedCraft?.id;
+        seedAlreadyReadyRef.current = false;
+      }
       if (craftsLoading) {
         setShortSeedStatus("idle");
         return;
@@ -96,6 +110,12 @@ export function StoryCreationPanel({
       if (selectedCraft) setShortDirection(buildDefaultStoryDirection(selectedCraft, kind, isZh));
       const cachedSeed = selectedCraft?.storySeed;
       if (cachedSeed) {
+        // If we just finished streaming this seed (auto-save → refetch →
+        // effect re-run), keep the rendered content intact.
+        if (seedAlreadyReadyRef.current) {
+          setShortSeedStatus("ready");
+          return;
+        }
         setShortSeed(cachedSeed);
         setShortDirection(serializeStorySeed(cachedSeed, isZh ? "zh" : "en"));
         setShortSeedStreamedContent("");
@@ -112,6 +132,7 @@ export function StoryCreationPanel({
       }
 
       const requestId = ++directionRequestRef.current;
+      seedAlreadyReadyRef.current = false;
       setShortSeedStatus("generating");
       void onGenerateSeed({
         ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
@@ -128,6 +149,7 @@ export function StoryCreationPanel({
           setShortSeed(seed);
           setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
           setShortSeedStatus("ready");
+          seedAlreadyReadyRef.current = true;
           if (selectedCraft && onSaveSeed) {
             void onSaveSeed(selectedCraft.id, seed).catch((error) => {
               if (requestId !== directionRequestRef.current) return;
@@ -183,6 +205,7 @@ export function StoryCreationPanel({
       setShortSeedError(null);
       setShortSeed(null);
       setShortSeedStreamedContent("");
+      seedAlreadyReadyRef.current = false;
       void onGenerateSeed({
         ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
         kind,
@@ -199,6 +222,7 @@ export function StoryCreationPanel({
           setShortSeed(seed);
           setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
           setShortSeedStatus("ready");
+          seedAlreadyReadyRef.current = true;
           if (selectedCraft && onSaveSeed) {
             void onSaveSeed(selectedCraft.id, seed).catch((error) => {
               if (requestId !== directionRequestRef.current) return;
