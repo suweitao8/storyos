@@ -6,7 +6,7 @@ import type { TFunction } from "../hooks/use-i18n";
 import { tr } from "../lib/app-language";
 import { setProjectChatSessionId } from "../pages/chat-page-state";
 import { useChatStore } from "../store/chat";
-import { isShortSidebarItemActive, isStudioNavigationPageVisible } from "./sidebar-navigation-state";
+import { isShortSidebarItemActive } from "./sidebar-navigation-state";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Dialog,
@@ -34,8 +34,6 @@ import {
   BookOpen,
   Boxes,
   Feather,
-  FileInput,
-  TrendingUp,
   Zap,
   FolderOpen,
   ChevronRight,
@@ -615,32 +613,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
         </div>
 
-        {/* Tools Section */}
-        <div>
-          <div className="px-2.5 mb-2">
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-bold">
-              {t("nav.tools")}
-            </span>
-          </div>
-          <div className="space-y-0.5">
-            {isStudioNavigationPageVisible("import") && (
-              <SidebarItem
-                label={t("nav.import")}
-                icon={<FileInput size={16} />}
-                active={activePage === "import"}
-                onClick={() => nav.toImport()}
-              />
-            )}
-            {isStudioNavigationPageVisible("radar") && (
-              <SidebarItem
-                label={t("nav.radar")}
-                icon={<TrendingUp size={16} />}
-                active={activePage === "radar"}
-                onClick={nav.toRadar}
-              />
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Footer / Status Area — only show when agent is online */}
