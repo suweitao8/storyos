@@ -22,4 +22,5 @@ export interface StudioRouteContext {
     readonly externalContext?: string;
   }) => Promise<PipelineConfig>;
   readonly broadcast: (event: string, data: unknown) => void;
+  readonly loadBookListSummary: (bookId: string) => Promise<unknown>;
 }
