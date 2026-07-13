@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BookCreationDraft } from "@actalk/inkos-core";
 import { BookPlus, CheckCircle2, RotateCcw, Sparkles } from "lucide-react";
 import { fetchJson, useApi } from "../hooks/use-api";
+import { useSSE } from "../hooks/use-sse";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
@@ -591,13 +592,50 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [progressLines, setProgressLines] = useState<string[]>([]);
   const [bookCreateSessionId, setBookCreateSessionIdState] = useState<string | null>(null);
+
+  // SSE subscription for real-time creation progress
+  const sse = useSSE();
+  const sseCursorRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!creating) {
+      sseCursorRef.current = null;
+      return;
+    }
+    // Find new messages since last check
+    const msgs = sse.messages;
+    if (msgs.length === 0) return;
+    const cursor = sseCursorRef.current;
+    const fresh = cursor === null ? [] : msgs.filter((m) => m.seq > cursor);
+    sseCursorRef.current = msgs[msgs.length - 1]!.seq;
+    for (const msg of fresh) {
+      if (msg.event === "log") {
+        const data = msg.data as { message?: string; level?: string } | null;
+        if (data?.message) {
+          const prefix = data.level === "warn" ? "⚠ " : data.level === "error" ? "✗ " : "• ";
+          setProgressLines((prev) => [...prev, `${prefix}${data.message}`]);
+        }
+      } else if (msg.event === "book:created") {
+        setProgressLines((prev) => [...prev, "✓ " + (projectLang === "zh" ? "创建完成" : "Creation complete")]);
+      } else if (msg.event === "book:error") {
+        const data = msg.data as { error?: string } | null;
+        setProgressLines((prev) => [...prev, "✗ " + (data?.error ?? "Error")]);
+      }
+    }
+  }, [creating, sse.messages, projectLang]);
 
   const summaryStages = useMemo(
     () => (draft ? buildCreationDraftStages(draft, projectLang) : []),
     [draft, projectLang],
   );
   const canSubmitForm = isBookCreateFormReady(form);
+  const progressBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (progressBoxRef.current) {
+      progressBoxRef.current.scrollTop = progressBoxRef.current.scrollHeight;
+    }
+  }, [progressLines]);
 
   useEffect(() => {
     setForm((current) => ({
@@ -733,6 +771,7 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
     setCreating(true);
     setError(null);
     setStatus(copy.creationStatus);
+    setProgressLines([]);
     try {
       const payload = buildBookCreatePayload(form, projectLang);
       const data = await fetchJson<{ status?: string; bookId?: string }>("/books/create", {
@@ -760,6 +799,7 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
 
     setCreating(true);
     setError(null);
+    setProgressLines([]);
     try {
       const data = await runAgentInstruction("/create");
       const bookId = data.session?.activeBookId;
@@ -895,13 +935,33 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
           </label>
 
           {creating && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {copy.creationSteps.map((step) => (
-                <div key={step} className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
-                  <CheckCircle2 size={14} />
-                  <span>{step}</span>
-                </div>
-              ))}
+            <div className="rounded-md border border-border bg-muted/30 p-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                {projectLang === "zh" ? "创建进度" : "Creation progress"}
+              </div>
+              <div ref={progressBoxRef} className="max-h-[200px] overflow-y-auto font-mono text-xs leading-5 space-y-0.5">
+                {progressLines.length === 0 ? (
+                  <span className="text-muted-foreground italic">
+                    {projectLang === "zh" ? "等待后端响应…" : "Waiting for server…"}
+                  </span>
+                ) : (
+                  progressLines.map((line, idx) => (
+                    <div
+                      key={idx}
+                      className={
+                        line.startsWith("✓")
+                          ? "text-primary"
+                          : line.startsWith("✗") || line.startsWith("⚠")
+                            ? "text-destructive"
+                            : "text-foreground/70"
+                      }
+                    >
+                      {line}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
 
