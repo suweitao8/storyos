@@ -9,6 +9,7 @@ import {
 describe("story workspace stages", () => {
   it("keeps all production stages in a stable order", () => {
     expect(STORY_WORKSPACE_STAGES).toEqual([
+      "list",
       "settings",
       "assets",
       "adjust",
@@ -21,6 +22,7 @@ describe("story workspace stages", () => {
   it("defaults to settings and accepts every known stage", () => {
     expect(resolveStoryWorkspaceStage(undefined)).toBe("settings");
     expect(resolveStoryWorkspaceStage(null)).toBe("settings");
+    expect(resolveStoryWorkspaceStage("list")).toBe("list");
     expect(resolveStoryWorkspaceStage("settings")).toBe("settings");
     expect(resolveStoryWorkspaceStage("assets")).toBe("assets");
     expect(resolveStoryWorkspaceStage("adjust")).toBe("adjust");
@@ -36,6 +38,7 @@ describe("story workspace stages", () => {
 
   it("builds Chinese PageToolbar-compatible tabs with future stages disabled", () => {
     expect(buildStoryWorkspaceTabs(true)).toEqual([
+      { id: "list", label: "故事列表" },
       { id: "settings", label: "故事设定" },
       { id: "assets", label: "故事资产" },
       { id: "adjust", label: "对话调整" },
@@ -47,6 +50,7 @@ describe("story workspace stages", () => {
 
   it("builds English PageToolbar-compatible tabs with future stages disabled", () => {
     expect(buildStoryWorkspaceTabs(false)).toEqual([
+      { id: "list", label: "Story list" },
       { id: "settings", label: "Story Settings" },
       { id: "assets", label: "Story Assets" },
       { id: "adjust", label: "Chat Adjustment" },
