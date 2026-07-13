@@ -379,7 +379,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
               >
                 <div className="text-sm font-medium">{g.name}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
-                  {g.id} · {g.language} · {g.source}
+                  {g.id} · {g.source}
                 </div>
               </button>
             ))}
@@ -394,10 +394,10 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                 <div>
                   <h2 className="text-xl font-medium">{detail.profile.name}</h2>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {detail.profile.id} · {detail.profile.language} ·
-                    {detail.profile.numericalSystem ? " Numerical" : ""}
-                    {detail.profile.powerScaling ? " Power" : ""}
-                    {detail.profile.eraResearch ? " Era" : ""}
+                    {detail.profile.id}
+                    {detail.profile.numericalSystem ? " · Numerical" : ""}
+                    {detail.profile.powerScaling ? " · Power" : ""}
+                    {detail.profile.eraResearch ? " · Era" : ""}
                     {" · "}
                     {detail.profile.artStyle === "cg3d" ? t("genre.artStyleCG3D") : t("genre.artStyleRealistic")}
                   </div>
