@@ -311,7 +311,10 @@ const strings = {
 
   // Project Settings
   "settings.title": { zh: "设置", en: "Settings" },
-  "settings.subtitle": { zh: "集中管理写作运行时的项目级开关，不替代模型服务商配置。", en: "Manage project-level runtime switches without replacing model service configuration." },
+  "settings.subtitle": { zh: "常用配置默认展开，高级配置默认收起——点开「高级」即可看到模型路由、通知、检测等。", en: "Common settings are shown by default; advanced options (model routing, notifications, detection) are collapsed under \"Advanced\"." },
+  "settings.group.common": { zh: "常用", en: "Common" },
+  "settings.group.advanced": { zh: "高级", en: "Advanced" },
+  "settings.group.diagnostics": { zh: "诊断", en: "Diagnostics" },
   "settings.general": { zh: "通用", en: "General" },
   "settings.generalHint": { zh: "界面语言与主题皮肤。", en: "Interface language and theme." },
   "settings.language": { zh: "语言", en: "Language" },
