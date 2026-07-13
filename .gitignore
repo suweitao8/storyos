@@ -36,6 +36,7 @@ _*.md
 .inkos/
 books/
 crafts/
+shorts/
 worlds/
 inkos.json
 prompt/
