@@ -10,9 +10,11 @@ import {
   generateStoryAssetImage,
   storyAssetImagePath,
   storyAssetManifestPath,
+  buildImagePromptGuides,
   type StoryAsset,
   type StoryAssetFileWriter,
   type StoryAssetImageRuntime,
+  type StoryAssetImagePromptGuides,
   type StoryAssetManifest,
   type StoryAssetManifestStore,
   type StoryAssetTextModel,
@@ -231,7 +233,8 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
       const config = await getProjectConfig({ requireApiKey: false });
       const pipeline = await buildPipelineConfig({ currentConfig: config, ...(kind === "book" ? { bookIdForSettings: storyId } : {}) });
       const textModel: StoryAssetTextModel = async (messages, options) => (await chatCompletion(pipeline.client, pipeline.model, messages, { ...options, retry: false })).content;
-      const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore });
+      const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides();
+      const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore, imagePromptGuides });
       broadcast("story-assets:complete", { kind, storyId, operation: "extract", assetCount: result.manifest.assets.length });
       return c.json({ ...result.manifest, path: result.path, drafts: result.drafts });
     } catch (error) { broadcastStoryAssetError(kind, storyId, "extract", error); return storyAssetErrorResponse(c, error); }

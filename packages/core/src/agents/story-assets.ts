@@ -25,6 +25,47 @@ Only extract entities grounded in the supplied settings, outline, or story conte
 
 Make summary concise and reusable. Put visual facts in details and write imagePrompt as a compact, standalone visual description. Never generate an image and never return markdown outside the JSON object.`;
 
+/**
+ * Per-kind image prompt guides (each value is a ready-to-use LLM system
+ * prompt produced by {@link buildImagePromptGuides}). When provided, the
+ * extractor embeds them into its system prompt so the model generates
+ * `imagePrompt` values that follow the detailed Chinese visual norms.
+ */
+export interface StoryAssetImagePromptGuides {
+  readonly character: string;
+  readonly scene: string;
+  readonly prop: string;
+}
+
+export interface StoryAssetExtractorOptions {
+  readonly imagePromptGuides?: StoryAssetImagePromptGuides;
+}
+
+/**
+ * Build the system prompt for the extractor. When image prompt guides are
+ * provided, they are appended so the LLM generates per-asset `imagePrompt`
+ * values that follow the detailed visual norms for each kind.
+ */
+export function buildExtractorSystemPrompt(guides?: StoryAssetImagePromptGuides): string {
+  if (!guides) return STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT;
+  return [
+    STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT,
+    "",
+    "## 图片提示词生成规范（imagePrompt 字段）",
+    "",
+    "为每个资产生成 imagePrompt 时，必须严格按照以下对应类型的规范输出。imagePrompt 应该是一段独立的、可直接用于文生图模型的中文提示词。",
+    "",
+    "### 角色资产 (character) 的 imagePrompt 规范",
+    guides.character,
+    "",
+    "### 场景资产 (scene) 的 imagePrompt 规范",
+    guides.scene,
+    "",
+    "### 道具资产 (prop) 的 imagePrompt 规范",
+    guides.prop,
+  ].join("\n");
+}
+
 function sourceBlock(label: string, value: string): string {
   const text = typeof value === "string" ? value : "";
   return `## ${label}\n<source>\n${text}\n</source>`;
@@ -267,12 +308,16 @@ export function parseStoryAssetExtractionResponse(response: string): StoryAssetD
 }
 
 export class StoryAssetExtractorAgent {
-  constructor(private readonly textModel: StoryAssetTextModel) {}
+  constructor(
+    private readonly textModel: StoryAssetTextModel,
+    private readonly options?: StoryAssetExtractorOptions,
+  ) {}
 
   async extract(source: StoryAssetExtractionSource): Promise<StoryAssetDraft[]> {
+    const systemPrompt = buildExtractorSystemPrompt(this.options?.imagePromptGuides);
     const response = await this.textModel(
       [
-        { role: "system", content: STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: buildStoryAssetExtractionPrompt(source) },
       ],
       { temperature: 0.1, maxTokens: 4096 },

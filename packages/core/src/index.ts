@@ -7,8 +7,11 @@ export {
   StoryAssetExtractorAgent,
   StoryAssetParseError,
   buildStoryAssetExtractionPrompt,
+  buildExtractorSystemPrompt,
   parseStoryAssetExtractionResponse,
   type StoryAssetExtractionSource,
+  type StoryAssetExtractorOptions,
+  type StoryAssetImagePromptGuides,
   type StoryAssetTextModel,
   type StoryAssetTextModelOptions,
 } from "./agents/story-assets.js";
@@ -61,6 +64,7 @@ export {
   resolveImagePromptTemplate,
   resolveVoicePromptTemplate,
   resolveAllPromptTemplates,
+  buildImagePromptGuides,
 } from "./models/default-prompt-templates.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
