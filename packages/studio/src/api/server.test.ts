@@ -140,6 +140,16 @@ describe("studio runtime contract", () => {
 
     expect(packageJson.engines?.node).toBe(">=22.13.0");
   });
+
+  it("exports the story asset image lifecycle from the core root entry", async () => {
+    const core = await vi.importActual<typeof import("@actalk/inkos-core")>("@actalk/inkos-core");
+
+    expect(core.generateStoryAssetImage).toEqual(expect.any(Function));
+    expect(core.generateMissingStoryAssetImages).toEqual(expect.any(Function));
+    expect(core.storyAssetImagePath("short", "mist-harbor", "hero", "png")).toBe(
+      "shorts/mist-harbor/assets/images/hero.png",
+    );
+  });
 });
 
 const logger = {
@@ -4975,7 +4985,7 @@ describe("story asset API", () => {
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
 
-    const response = await app.request("/api/v1/stories/short/mist-harbor/assets/generate-missing", { method: "POST" });
+    const response = await app.request("/api/v1/stories/short/mist-harbor/assets/generate-missing-images", { method: "POST" });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -4994,9 +5004,9 @@ describe("story asset API", () => {
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
 
-    const served = await app.request("/api/v1/stories/short/mist-harbor/assets/hero/image");
-    const traversal = await app.request("/api/v1/stories/short/mist-harbor/assets/..%2Fbook/image");
-    const missing = await app.request("/api/v1/stories/short/mist-harbor/assets/other/image");
+    const served = await app.request("/api/v1/stories/short/mist-harbor/assets/images/hero");
+    const traversal = await app.request("/api/v1/stories/short/mist-harbor/assets/images/..%2Fbook");
+    const missing = await app.request("/api/v1/stories/short/mist-harbor/assets/images/other");
 
     expect(served.status).toBe(200);
     expect(served.headers.get("content-type")).toBe("image/png");
@@ -5012,8 +5022,8 @@ describe("story asset API", () => {
 
     const invalidKind = await app.request("/api/v1/stories/movie/mist-harbor/assets");
     const invalidId = await app.request("/api/v1/stories/short/%2E%2E%2Foutside/assets");
-    const invalidAssetId = await app.request("/api/v1/stories/short/mist-harbor/assets/bad.asset/image");
-    const unsafeExtension = await app.request("/api/v1/stories/short/mist-harbor/assets/hero/image");
+    const invalidAssetId = await app.request("/api/v1/stories/short/mist-harbor/assets/images/bad.asset");
+    const unsafeExtension = await app.request("/api/v1/stories/short/mist-harbor/assets/images/hero");
 
     expect(invalidKind.status).toBe(400);
     expect(invalidId.status).toBe(400);

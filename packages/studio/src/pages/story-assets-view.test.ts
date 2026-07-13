@@ -18,6 +18,8 @@ vi.mock("../hooks/use-api", () => ({
 import {
   StoryAssetsPanel,
   buildStoryAssetImagePath,
+  buildStoryAssetGenerateImagePath,
+  buildStoryAssetGenerateMissingImagesPath,
   buildStoryAssetsPath,
   chooseStoryAssetAction,
   filterStoryAssets,
@@ -83,7 +85,13 @@ describe("story asset view helpers", () => {
   it("uses canonical story asset and safe image endpoint paths", () => {
     expect(buildStoryAssetsPath("book", "demo/story")).toBe("/stories/book/demo%2Fstory/assets");
     expect(buildStoryAssetImagePath("short", "short 1", "broken/prop")).toBe(
-      "/stories/short/short%201/assets/broken%2Fprop/image",
+      "/stories/short/short%201/assets/images/broken%2Fprop",
+    );
+    expect(buildStoryAssetGenerateImagePath("short", "short 1", "broken/prop")).toBe(
+      "/stories/short/short%201/assets/broken%2Fprop/generate-image",
+    );
+    expect(buildStoryAssetGenerateMissingImagesPath("book", "demo/story")).toBe(
+      "/stories/book/demo%2Fstory/assets/generate-missing-images",
     );
   });
 
@@ -122,7 +130,7 @@ describe("story asset view helpers", () => {
     const onGenerateMissing = vi.fn();
     const html = renderPanel(assets, { onGenerateAsset, onGenerateMissing });
 
-    expect(html).toContain("/api/v1/stories/book/demo%2Fstory/assets/mara/image");
+    expect(html).toContain("/api/v1/stories/book/demo%2Fstory/assets/images/mara");
     expect(html).toContain("Generate all missing images");
     expect(renderPanel(assets, { isZh: true })).toContain("生成全部缺失图片");
     expect(html).toContain("Regenerate image");

@@ -42,7 +42,15 @@ export function hasUnreadyStoryAssetImages(assets: ReadonlyArray<StoryAsset>): b
 }
 
 export function buildStoryAssetImagePath(kind: "book" | "short", storyId: string, assetId: string): string {
-  return `${buildStoryAssetsPath(kind, storyId)}/${encodeURIComponent(assetId)}/image`;
+  return `${buildStoryAssetsPath(kind, storyId)}/images/${encodeURIComponent(assetId)}`;
+}
+
+export function buildStoryAssetGenerateImagePath(kind: "book" | "short", storyId: string, assetId: string): string {
+  return `${buildStoryAssetsPath(kind, storyId)}/${encodeURIComponent(assetId)}/generate-image`;
+}
+
+export function buildStoryAssetGenerateMissingImagesPath(kind: "book" | "short", storyId: string): string {
+  return `${buildStoryAssetsPath(kind, storyId)}/generate-missing-images`;
 }
 
 export function getStoryAssetActionLabel(status: StoryAssetImageStatus, isZh: boolean): string {
@@ -145,13 +153,13 @@ export function StoryAssetsPanel({
   const extractAssets = () => runAction("extract", onExtractAssets ?? (() => postApi(`${basePath}/extract`)));
   const generateMissing = () => runAction(
     "generate-all",
-    onGenerateMissing ?? (() => postApi(`${basePath}/generate-missing`)),
+    onGenerateMissing ?? (() => postApi(buildStoryAssetGenerateMissingImagesPath(kind, storyId ?? ""))),
   );
   const generateAsset = (asset: StoryAsset) => runAction(
     `generate:${asset.id}`,
     () => chooseStoryAssetAction(
       onGenerateAsset,
-      () => postApi(`${basePath}/${encodeURIComponent(asset.id)}/generate-image`),
+      () => postApi(buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)),
     )(asset),
   );
   const editAsset = (asset: StoryAsset, field: StoryAssetTextField, value: string, detailKey?: string) => {

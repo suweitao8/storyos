@@ -106,8 +106,13 @@ import {
   generateNodeImage,
   defaultNodeImageDeps,
   extractStoryAssets,
+  generateStoryAssetImage,
+  generateMissingStoryAssetImages,
+  storyAssetImagePath,
   storyAssetManifestPath,
   type StoryAsset,
+  type StoryAssetImageRuntime,
+  type StoryAssetFileWriter,
   type StoryAssetManifest,
   type StoryAssetManifestStore,
   type StoryAssetTextModel,
@@ -123,7 +128,6 @@ import {
   type AgentSessionAttachment,
   type CraftMode,
 } from "@actalk/inkos-core";
-import * as storyAssetCoreModule from "@actalk/inkos-core";
 import { access, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { isSafeBookId } from "./safety.js";
@@ -136,38 +140,6 @@ import {
   setRecentCraftId,
 } from "./studio-preferences-db.js";
 import { importBilibiliSubtitles } from "./bilibili.js";
-
-interface StoryAssetImageRuntime {
-  generateImage(prompt: string): Promise<{ readonly buffer: Uint8Array; readonly extension: string }>;
-}
-
-interface StoryAssetFileWriter {
-  writeFile(path: string, data: Uint8Array): Promise<void>;
-}
-
-interface StoryAssetImageGenerationResult {
-  readonly assetId: string;
-  readonly status: "ready" | "error" | "skipped";
-  readonly path?: string;
-  readonly error?: string;
-}
-
-interface StoryAssetGenerationInput {
-    readonly storyId: string;
-    readonly storyType: "book" | "short";
-    readonly assetId: string;
-    readonly manifestStore: StoryAssetManifestStore;
-    readonly imageRuntime: StoryAssetImageRuntime;
-    readonly fileWriter: StoryAssetFileWriter;
-}
-
-interface StoryAssetCoreApi {
-  readonly storyAssetImagePath?: (storyType: "book" | "short", storyId: string, assetId: string, extension: string) => string;
-  readonly generateStoryAssetImage?: (input: StoryAssetGenerationInput) => Promise<StoryAssetImageGenerationResult>;
-  readonly generateMissingStoryAssetImages?: (input: Omit<StoryAssetGenerationInput, "assetId">) => Promise<StoryAssetImageGenerationResult[]>;
-}
-
-const storyAssetCore = storyAssetCoreModule as unknown as StoryAssetCoreApi;
 
 type StoryAssetRouteKind = "book" | "short";
 
@@ -253,9 +225,7 @@ function storyAssetImageRelativePath(kind: StoryAssetRouteKind, storyId: string,
   const expected = `${storyAssetCollection(kind)}/${storyId}/assets/images/${assetId}.${normalizedExtension}`;
   let actual: string;
   try {
-    actual = storyAssetCore.storyAssetImagePath
-      ? normalizeStoryAssetRelativePath(storyAssetCore.storyAssetImagePath(kind, storyId, assetId, normalizedExtension))
-      : expected;
+    actual = normalizeStoryAssetRelativePath(storyAssetImagePath(kind, storyId, assetId, normalizedExtension));
   } catch (error) {
     throw new ApiError(400, "UNSAFE_STORY_ASSET_IMAGE_PATH", storyAssetErrorMessage(error));
   }
@@ -366,64 +336,6 @@ async function createStoryAssetImageRuntime(root: string, assetId: string): Prom
       }
     },
   };
-}
-
-async function fallbackGenerateStoryAssetImage(input: StoryAssetGenerationInput): Promise<StoryAssetImageGenerationResult> {
-  const path = storyAssetManifestRelativePath(input.storyType, input.storyId);
-  const raw = await input.manifestStore.readManifest(path);
-  const manifest = assertStoryAssetManifest(raw, input.storyId);
-  const asset = manifest.assets.find((candidate) => candidate.id === input.assetId);
-  if (!asset) throw new Error(`Story asset not found: ${input.assetId}`);
-  const now = new Date().toISOString();
-  const generating: StoryAssetManifest = {
-    ...manifest,
-    updatedAt: now,
-    assets: manifest.assets.map((candidate) => candidate.id === input.assetId
-      ? { ...candidate, image: { status: "generating" }, updatedAt: now }
-      : candidate),
-  };
-  await input.manifestStore.writeManifest(path, generating);
-  try {
-    const generated = await input.imageRuntime.generateImage(asset.imagePrompt);
-    const imagePath = storyAssetImageRelativePath(input.storyType, input.storyId, input.assetId, generated.extension);
-    await input.fileWriter.writeFile(imagePath, generated.buffer);
-    const generatedAt = new Date().toISOString();
-    const ready: StoryAssetManifest = {
-      ...generating,
-      updatedAt: generatedAt,
-      assets: generating.assets.map((candidate) => candidate.id === input.assetId
-        ? { ...candidate, image: { status: "ready", path: imagePath, generatedAt }, updatedAt: generatedAt }
-        : candidate),
-    };
-    await input.manifestStore.writeManifest(path, ready);
-    return { assetId: input.assetId, status: "ready", path: imagePath };
-  } catch (error) {
-    const message = storyAssetErrorMessage(error);
-    const failedAt = new Date().toISOString();
-    await input.manifestStore.writeManifest(path, {
-      ...generating,
-      updatedAt: failedAt,
-      assets: generating.assets.map((candidate) => candidate.id === input.assetId
-        ? { ...candidate, image: { status: "error", error: message }, updatedAt: failedAt }
-        : candidate),
-    });
-    return { assetId: input.assetId, status: "error", error: message };
-  }
-}
-
-async function fallbackGenerateMissingStoryAssetImages(input: Omit<StoryAssetGenerationInput, "assetId">): Promise<StoryAssetImageGenerationResult[]> {
-  const path = storyAssetManifestRelativePath(input.storyType, input.storyId);
-  const raw = await input.manifestStore.readManifest(path);
-  const manifest = assertStoryAssetManifest(raw, input.storyId);
-  const results: StoryAssetImageGenerationResult[] = [];
-  for (const asset of manifest.assets) {
-    if (asset.image.status === "ready") {
-      results.push({ assetId: asset.id, status: "skipped", path: asset.image.path });
-      continue;
-    }
-    results.push(await fallbackGenerateStoryAssetImage({ ...input, assetId: asset.id }));
-  }
-  return results;
 }
 
 // -- Studio server language (read per request from the project config's `language`) --
@@ -3091,7 +3003,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       if (!context.manifest.assets.some((candidate) => candidate.id === assetId)) {
         throw new ApiError(404, "STORY_ASSET_NOT_FOUND", `Story asset not found: ${assetId}.`);
       }
-      const generateStoryAssetImage = storyAssetCore.generateStoryAssetImage ?? fallbackGenerateStoryAssetImage;
       const result = await generateStoryAssetImage({
         storyId,
         storyType: kind,
@@ -3123,7 +3034,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     broadcast("story-assets:start", { kind, storyId, operation: "generate-missing" });
     try {
       const context = await loadStoryAssetManifest(kind, storyId);
-      const generateMissingStoryAssetImages = storyAssetCore.generateMissingStoryAssetImages ?? fallbackGenerateMissingStoryAssetImages;
       const results = await generateMissingStoryAssetImages({
         storyId,
         storyType: kind,
@@ -3140,8 +3050,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   };
 
-  app.post("/api/v1/stories/:kind/:id/assets/generate-missing", async (c) => generateMissingStoryAssetImagesRoute(c, c.req.param("kind"), c.req.param("id")));
   app.post("/api/v1/stories/:kind/:id/assets/generate-missing-images", async (c) => generateMissingStoryAssetImagesRoute(c, c.req.param("kind"), c.req.param("id")));
+  // Compatibility alias for clients using the pre-spec batch route.
+  app.post("/api/v1/stories/:kind/:id/assets/generate-missing", async (c) => generateMissingStoryAssetImagesRoute(c, c.req.param("kind"), c.req.param("id")));
 
   const serveStoryAssetImage = async (c: any, kindValue: unknown, storyIdValue: unknown, assetIdValue: unknown) => {
     let kind: StoryAssetRouteKind;
@@ -3176,8 +3087,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   };
 
-  app.get("/api/v1/stories/:kind/:id/assets/:assetId/image", async (c) => serveStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
   app.get("/api/v1/stories/:kind/:id/assets/images/:assetId", async (c) => serveStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
+  // Compatibility alias for clients using the pre-spec image route.
+  app.get("/api/v1/stories/:kind/:id/assets/:assetId/image", async (c) => serveStoryAssetImage(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
 
   // --- Books ---
 
