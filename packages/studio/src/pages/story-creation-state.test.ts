@@ -8,6 +8,7 @@ import {
   LONG_STORY_CHAPTERS,
   SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
+  normalizeStoryWordCount,
   resolveDefaultStoryWordCount,
 } from "./story-creation-state";
 import {
@@ -25,20 +26,26 @@ describe("story creation actions", () => {
   });
 
   it("exposes the supported per-chapter word-count settings", () => {
-    expect(STORY_WORD_COUNT_OPTIONS).toEqual([1_000, 2_000, 5_000, 10_000]);
+    expect(STORY_WORD_COUNT_OPTIONS).toEqual([5_000, 10_000, 15_000, 20_000, 25_000, 30_000]);
   });
 
   it("adds the selected craft recommendation without removing fixed choices", () => {
-    expect(buildStoryWordCountOptions(42_900)).toEqual([1_000, 2_000, 5_000, 10_000, 42_900]);
-    expect(resolveDefaultStoryWordCount(42_900)).toBe(42_900);
+    expect(buildStoryWordCountOptions(42_900)).toEqual([5_000, 10_000, 15_000, 20_000, 25_000, 30_000, 45_000]);
+    expect(resolveDefaultStoryWordCount(42_900)).toBe(45_000);
     expect(resolveDefaultStoryWordCount()).toBe(10_000);
   });
 
+  it("rounds every mode recommendation to a 5000-character step", () => {
+    expect(normalizeStoryWordCount(22_000)).toBe(20_000);
+    expect(normalizeStoryWordCount(22_600)).toBe(25_000);
+    expect(normalizeStoryWordCount(1_000)).toBe(5_000);
+  });
+
   it("formats chapter word counts as approximate Chinese units", () => {
-    expect(formatStoryWordCount(1_000, "zh")).toBe("1千字");
-    expect(formatStoryWordCount(5_000, "zh")).toBe("5千字");
-    expect(formatStoryWordCount(21_000, "zh")).toBe("2万字");
-    expect(formatStoryWordCount(22_000, "zh")).toBe("2万字");
+    expect(formatStoryWordCount(5_000, "zh")).toBe("5,000字");
+    expect(formatStoryWordCount(10_000, "zh")).toBe("1万字");
+    expect(formatStoryWordCount(15_000, "zh")).toBe("15,000字");
+    expect(formatStoryWordCount(20_000, "zh")).toBe("2万字");
     expect(formatStoryWordCount(22_000, "en")).toBe("22,000 words");
   });
 

@@ -3,25 +3,29 @@ import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 
 export const LONG_STORY_CHAPTERS = 10;
 export const SHORT_STORY_CHAPTERS = 1;
-export const STORY_WORD_COUNT_OPTIONS = [1_000, 2_000, 5_000, 10_000] as const;
+export const STORY_WORD_COUNT_STEP = 5_000;
+export const STORY_WORD_COUNT_OPTIONS = [5_000, 10_000, 15_000, 20_000, 25_000, 30_000] as const;
+
+export function normalizeStoryWordCount(value: number): number {
+  return Math.max(STORY_WORD_COUNT_STEP, Math.round(value / STORY_WORD_COUNT_STEP) * STORY_WORD_COUNT_STEP);
+}
 
 export function buildStoryWordCountOptions(recommendedWordCount?: number): number[] {
   return Array.from(new Set([
     ...STORY_WORD_COUNT_OPTIONS,
-    ...(recommendedWordCount && recommendedWordCount > 0 ? [recommendedWordCount] : []),
+    ...(recommendedWordCount && recommendedWordCount > 0 ? [normalizeStoryWordCount(recommendedWordCount)] : []),
   ])).sort((left, right) => left - right);
 }
 
 export function resolveDefaultStoryWordCount(recommendedWordCount?: number): number {
-  return recommendedWordCount && recommendedWordCount > 0 ? recommendedWordCount : 10_000;
+  return recommendedWordCount && recommendedWordCount > 0 ? normalizeStoryWordCount(recommendedWordCount) : 10_000;
 }
 
 export function formatStoryWordCount(value: number, language: "zh" | "en"): string {
   const count = Math.max(0, Math.round(value));
   if (language === "en") return `${count.toLocaleString("en-US")} words`;
-  if (count >= 10_000) return `${Math.max(1, Math.round(count / 10_000))}万字`;
-  if (count >= 1_000) return `${Math.max(1, Math.round(count / 1_000))}千字`;
-  return `${count}字`;
+  if (count > 0 && count % 10_000 === 0) return `${count / 10_000}万字`;
+  return `${count.toLocaleString("en-US")}字`;
 }
 
 export interface CraftOption {

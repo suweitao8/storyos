@@ -189,7 +189,7 @@ const ProposeActionParams = Type.Object({
       description: "Confirmed complete short chapter count, 1-18. The Studio creation flow targets 1 chapter.",
     })),
     charsPerChapter: Type.Optional(Type.Number({
-      description: "Confirmed Chinese characters per chapter. The Studio creation flow allows 1000, 2000, 5000, 10000, or the selected video's mode recommendation up to 100000. Do not put total story length here.",
+      description: "Confirmed Chinese characters per chapter. The Studio creation flow uses 5000-character steps: 5000, 10000, 15000, 20000, 25000, 30000, or a selected video's recommendation rounded to the nearest 5000, up to 100000. Do not put total story length here.",
     })),
     cover: Type.Optional(Type.Boolean({
       description: "Whether to attempt cover generation.",
@@ -1223,7 +1223,7 @@ const ShortFictionRunParams = Type.Object({
     description: "Target complete short chapter count, 1-18. The Studio creation flow targets 1.",
   })),
   charsPerChapter: Type.Optional(Type.Number({
-    description: "Per-chapter length in the story language's native unit. The Studio creation flow allows 1000, 2000, 5000, 10000, or the selected video's mode recommendation up to 100000 Chinese characters. Do not use total story length here.",
+    description: "Per-chapter length in the story language's native unit. The Studio creation flow uses 5000-character steps: 5000, 10000, 15000, 20000, 25000, 30000, or a selected video's recommendation rounded to the nearest 5000, up to 100000 Chinese characters. Do not use total story length here.",
   })),
   cover: Type.Optional(Type.Boolean({
     description: "Whether to attempt cover image generation after synopsis and cover prompt. Default false; use true only when the user explicitly wants a cover.",
