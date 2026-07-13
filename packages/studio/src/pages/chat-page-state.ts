@@ -22,6 +22,7 @@ export interface ChatPageSessionSummary {
 
 const BOOK_CREATE_SESSION_KEY = "inkos.book-create.session-id";
 const PROJECT_CHAT_SESSION_KEY = "inkos.project-chat.session-id";
+const LAST_SELECTED_SHORT_STORY_KEY = "inkos.short-story.last-selected-id";
 
 export function getBookCreateSessionId(): string | null {
   return globalThis.localStorage?.getItem(BOOK_CREATE_SESSION_KEY) ?? null;
@@ -41,6 +42,14 @@ export function getProjectChatSessionId(): string | null {
 
 export function setProjectChatSessionId(sessionId: string): void {
   globalThis.localStorage?.setItem(PROJECT_CHAT_SESSION_KEY, sessionId);
+}
+
+export function getLastSelectedShortStoryId(): string | null {
+  return globalThis.localStorage?.getItem(LAST_SELECTED_SHORT_STORY_KEY) ?? null;
+}
+
+export function setLastSelectedShortStoryId(storyId: string): void {
+  globalThis.localStorage?.setItem(LAST_SELECTED_SHORT_STORY_KEY, storyId);
 }
 
 export function filterModelGroups(

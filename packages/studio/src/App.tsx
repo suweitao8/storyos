@@ -31,6 +31,7 @@ import { setAppLanguage, tr } from "./lib/app-language";
 import { postApi, putApi, useApi } from "./hooks/use-api";
 import { PageToolbar, PageToolbarProvider, usePageToolbarState } from "./components/PageToolbar";
 import { useChatStore, type ChatSessionKind } from "./store/chat";
+import { getLastSelectedShortStoryId, setLastSelectedShortStoryId } from "./pages/chat-page-state";
 
 export type { HashRoute as Route } from "./hooks/use-hash-route";
 
@@ -123,6 +124,29 @@ type ToolbarStory = {
   readonly title: string;
 };
 
+export function resolveActiveShortStoryId(input: {
+  readonly route: HashRoute;
+  readonly sessionKind?: ChatSessionKind;
+  readonly activeShortStoryId?: string | null;
+  readonly recentShortStoryId?: string | null;
+  readonly shorts: ReadonlyArray<ToolbarStory>;
+}): string | null {
+  const isShortSurface = input.route.page === "short"
+    || (input.route.page === "chat" && input.sessionKind === "short");
+  if (!isShortSurface) return null;
+
+  const availableStoryIds = new Set(input.shorts.map((story) => story.id));
+  const pickAvailable = (storyId: string | null | undefined): string | null =>
+    storyId && availableStoryIds.has(storyId) ? storyId : null;
+
+  const routeStoryId = input.route.page === "short" ? input.route.shortId : null;
+  return pickAvailable(routeStoryId)
+    ?? pickAvailable(input.activeShortStoryId)
+    ?? pickAvailable(input.recentShortStoryId)
+    ?? input.shorts[0]?.id
+    ?? null;
+}
+
 export function resolveActiveStoryTitle(input: {
   readonly route: HashRoute;
   readonly lang?: "zh" | "en";
@@ -199,6 +223,9 @@ export function App() {
   const { data: shortsForToolbar } = useApi<{ shorts: ReadonlyArray<{ readonly id: string; readonly title: string }> }>("/shorts");
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [ready, setReady] = useState(false);
+  const [recentShortStoryId, setRecentShortStoryId] = useState<string | null>(() =>
+    getLastSelectedShortStoryId(),
+  );
 
   const isDark = theme === "dark";
 
@@ -268,12 +295,31 @@ export function App() {
   const activeShortStoryId = activeSessionKind === "short"
     ? latestShortStoryId(activeSession?.messages ?? [])
     : null;
+  const selectedShortStoryId = resolveActiveShortStoryId({
+    route,
+    sessionKind: activeSessionKind,
+    activeShortStoryId,
+    recentShortStoryId,
+    shorts: shortsForToolbar?.shorts ?? [],
+  });
+
+  useEffect(() => {
+    const storyId = route.page === "short"
+      ? route.shortId
+      : activeSessionKind === "short"
+        ? selectedShortStoryId
+        : null;
+    if (!storyId || storyId === recentShortStoryId) return;
+    setRecentShortStoryId(storyId);
+    setLastSelectedShortStoryId(storyId);
+  }, [activeSessionKind, recentShortStoryId, route, selectedShortStoryId]);
+
   const activeStoryTitle = resolveActiveStoryTitle({
     route,
     lang: currentLang,
     sessionKind: activeSessionKind,
     activeBookId: activeSession?.bookId,
-    activeShortStoryId,
+    activeShortStoryId: selectedShortStoryId,
     books: booksForToolbar?.books ?? [],
     shorts: shortsForToolbar?.shorts ?? [],
   });
@@ -361,6 +407,7 @@ export function App() {
           {route.page === "chat" && (
             <div className="absolute inset-0 flex min-w-0">
               <ChatPage
+                activeShortId={activeSessionKind === "short" ? selectedShortStoryId ?? undefined : undefined}
                 mode="project-chat"
                 nav={nav}
                 theme={theme}
