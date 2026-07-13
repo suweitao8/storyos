@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApi } from "../hooks/use-api";
 import type { SSEMessage } from "../hooks/use-sse";
-import { applyBookCollectionEvent, shouldRefetchBookCollections, shouldRefetchDaemonStatus } from "../hooks/use-book-activity";
+import { applyBookCollectionEvent, shouldRefetchBookCollections } from "../hooks/use-book-activity";
 import type { TFunction } from "../hooks/use-i18n";
 import { tr } from "../lib/app-language";
 import { setProjectChatSessionId } from "../pages/chat-page-state";
@@ -24,7 +24,6 @@ import {
 } from "./ui/dropdown-menu";
 import {
   Settings,
-  Terminal,
   Plus,
   MessageSquare,
   Gamepad2,
@@ -34,7 +33,6 @@ import {
   BookOpen,
   Boxes,
   Feather,
-  Zap,
   FolderOpen,
   ChevronRight,
   Loader2,
@@ -85,8 +83,6 @@ interface Nav {
   toBookCreate: () => void;
   toServices: () => void;
   toProjectSettings: () => void;
-  toDaemon: () => void;
-  toLogs: () => void;
   toGenres: () => void;
   toCraft: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
@@ -103,7 +99,6 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const { data, refetch: refetchBooks, mutate: mutateBooks } = useApi<{ books: ReadonlyArray<BookSummary> }>("/books");
   const { data: shortsData, refetch: refetchShorts } = useApi<{ shorts: ReadonlyArray<ShortStorySummary> }>("/shorts");
   const { data: filmsData, refetch: refetchFilms } = useApi<{ films: ReadonlyArray<{ projectId: string; title: string }> }>("/interactive-films");
-  const { data: daemon, refetch: refetchDaemon } = useApi<{ running: boolean }>("/daemon");
   const sessions = useChatStore((s) => s.sessions);
   const sessionIdsByBook = useChatStore((s) => s.sessionIdsByBook);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
@@ -159,10 +154,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
       }
       refetchBooks();
     }
-    if (shouldRefetchDaemonStatus(recent)) {
-      refetchDaemon();
-    }
-  }, [mutateBooks, refetchBooks, refetchDaemon, sse.messages]);
+  }, [mutateBooks, refetchBooks, sse.messages]);
 
   // bookDataVersion 变化（外部数据信号）时才重拉当前已展开书的 session 列表；
   // 展开/折叠本身不触发请求（展开由 toggleBook 驱动，已带"首次加载"判断）。
@@ -596,36 +588,10 @@ export function Sidebar({ nav, activePage, sse, t }: {
               active={activePage === "project-settings"}
               onClick={nav.toProjectSettings}
             />
-            <SidebarItem
-              label={t("nav.daemon")}
-              icon={<Zap size={16} />}
-              active={activePage === "daemon"}
-              onClick={nav.toDaemon}
-              badge={daemon?.running ? t("nav.running") : undefined}
-              badgeColor={daemon?.running ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"}
-            />
-            <SidebarItem
-              label={t("nav.logs")}
-              icon={<Terminal size={16} />}
-              active={activePage === "logs"}
-              onClick={nav.toLogs}
-            />
           </div>
         </div>
 
       </div>
-
-      {/* Footer / Status Area — only show when agent is online */}
-      {daemon?.running && (
-        <div className="p-4 border-t border-border bg-secondary/40">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card border border-border shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-semibold text-foreground/80 uppercase tracking-wider">
-              {t("nav.agentOnline")}
-            </span>
-          </div>
-        </div>
-      )}
 
       <Dialog
         open={renameTarget !== null}
