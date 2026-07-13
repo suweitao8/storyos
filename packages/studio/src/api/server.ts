@@ -141,6 +141,7 @@ import {
   setRecentCraftId,
 } from "./studio-preferences-db.js";
 import { importBilibiliSubtitles } from "./bilibili.js";
+import { listStudioShortStories } from "./short-story-list.js";
 
 type StoryAssetRouteKind = "book" | "short";
 
@@ -3123,6 +3124,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const bookIds = await state.listBooks();
     const books = await Promise.all(bookIds.map((id) => loadStudioBookListSummary(state, id)));
     return c.json({ books });
+  });
+
+  app.get("/api/v1/shorts", async (c) => {
+    return c.json({ shorts: await listStudioShortStories(root) });
   });
 
   app.get("/api/v1/books/:id", async (c) => {

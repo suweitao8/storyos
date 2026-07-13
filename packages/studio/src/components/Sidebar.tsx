@@ -51,7 +51,6 @@ import {
 } from "lucide-react";
 import { InkosLogo } from "./InkosLogo";
 
-// 历史记录里的会话混装多种类型（chat / short / play / book-create），用图标区分。
 function SessionKindIcon({ kind, className }: { readonly kind?: string; readonly className?: string }) {
   const Icon =
     kind === "play" ? Gamepad2
@@ -64,6 +63,7 @@ function SessionKindIcon({ kind, className }: { readonly kind?: string; readonly
   return <Icon size={13} className={className} />;
 }
 
+// 历史记录里的会话混装多种类型（chat / short / play / book-create），用图标区分。
 interface BookSummary {
   readonly id: string;
   readonly title: string;
@@ -72,10 +72,19 @@ interface BookSummary {
   readonly chaptersWritten: number;
 }
 
+interface ShortStorySummary {
+  readonly id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly chaptersWritten: number;
+  readonly wordCount: number;
+}
+
 interface Nav {
   toDashboard: () => void;
   toChat: () => void;
   toBook: (id: string) => void;
+  toShort: (id: string) => void;
   toBookCreate: () => void;
   toServices: () => void;
   toProjectSettings: () => void;
@@ -96,6 +105,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
   t: TFunction;
 }) {
   const { data, refetch: refetchBooks, mutate: mutateBooks } = useApi<{ books: ReadonlyArray<BookSummary> }>("/books");
+  const { data: shortsData, refetch: refetchShorts } = useApi<{ shorts: ReadonlyArray<ShortStorySummary> }>("/shorts");
   const { data: filmsData, refetch: refetchFilms } = useApi<{ films: ReadonlyArray<{ projectId: string; title: string }> }>("/interactive-films");
   const { data: daemon, refetch: refetchDaemon } = useApi<{ running: boolean }>("/daemon");
   const sessions = useChatStore((s) => s.sessions);
@@ -115,9 +125,11 @@ export function Sidebar({ nav, activePage, sse, t }: {
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
   const [projectChatExpanded, setProjectChatExpanded] = useState(true);
   const [myBooksExpanded, setMyBooksExpanded] = useState(true);
+  const [shortsExpanded, setShortsExpanded] = useState(true);
   const [filmsExpanded, setFilmsExpanded] = useState(true);
 
   const books = data?.books ?? [];
+  const shorts = shortsData?.shorts ?? [];
   const films = filmsData?.films ?? [];
   const projectChatKey = "__null__";
   const activeSession = activeSessionId ? sessions[activeSessionId] ?? null : null;
@@ -159,25 +171,15 @@ export function Sidebar({ nav, activePage, sse, t }: {
   // bookDataVersion 变化（外部数据信号）时才重拉当前已展开书的 session 列表；
   // 展开/折叠本身不触发请求（展开由 toggleBook 驱动，已带"首次加载"判断）。
   useEffect(() => {
-    for (const bookId of expandedBooks) {
-      void loadSessionList(bookId);
-    }
-    if (projectChatExpanded) {
-      void loadSessionList(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookDataVersion, loadSessionList, projectChatExpanded]);
-
-  useEffect(() => {
     void refetchFilms();
   }, [bookDataVersion, refetchFilms]);
 
   useEffect(() => {
-    if (activePage === "chat") {
-      setProjectChatExpanded(true);
-      void loadSessionList(null);
+    const recent = sse.messages.at(-1);
+    if (recent?.event === "agent:complete" || recent?.event === "story-assets:complete") {
+      void refetchShorts();
     }
-  }, [activePage, loadSessionList]);
+  }, [refetchShorts, sse.messages]);
 
   const toggleBook = (bookId: string) => {
     setExpandedBooks((prev) => {
@@ -320,6 +322,8 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
         </div>
 
+        {false && (
+          <>
         {/* My Bookshelf Section */}
         <div>
           <SectionHeader label={t("nav.myBooks")} expanded={myBooksExpanded} onToggle={() => setMyBooksExpanded((v) => !v)} />
@@ -524,6 +528,47 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
         </div>
 
+          </>
+        )}
+
+        <div>
+          <SectionHeader label={tr("长篇故事", "Long stories")} expanded={myBooksExpanded} onToggle={() => setMyBooksExpanded((value) => !value)} />
+          <Collapse open={myBooksExpanded}>
+            <div className="space-y-0.5 pt-1">
+              {books.map((book) => (
+                <StoryListItem
+                  key={book.id}
+                  title={book.title}
+                  meta={`${book.chaptersWritten} ${tr("章", "chapters")}`}
+                  active={activePage === `book:${book.id}`}
+                  icon={<BookOpen size={14} />}
+                  onClick={() => openBook(book.id)}
+                />
+              ))}
+              {books.length === 0 ? <EmptyStoryList text={tr("还没有长篇故事", "No long stories yet")} /> : null}
+            </div>
+          </Collapse>
+        </div>
+
+        <div>
+          <SectionHeader label={tr("短篇故事", "Short stories")} expanded={shortsExpanded} onToggle={() => setShortsExpanded((value) => !value)} />
+          <Collapse open={shortsExpanded}>
+            <div className="space-y-0.5 pt-1">
+              {shorts.map((story) => (
+                <StoryListItem
+                  key={story.id}
+                  title={story.title}
+                  meta={`${story.chaptersWritten} ${tr("章", "chapters")}`}
+                  active={activePage === `short:${story.id}`}
+                  icon={<ScrollText size={14} />}
+                  onClick={() => { setInput(""); nav.toShort(story.id); }}
+                />
+              ))}
+              {shorts.length === 0 ? <EmptyStoryList text={tr("还没有短篇故事", "No short stories yet")} /> : null}
+            </div>
+          </Collapse>
+        </div>
+
         {/* System Section */}
         <div>
           <div className="px-3 mb-3">
@@ -707,6 +752,30 @@ function formatRelativeTime(sessionId: string): string {
 }
 
 // Smooth collapse via grid-template-rows 0fr→1fr (content-height-agnostic, no JS measuring).
+function StoryListItem({ title, meta, active, icon, onClick }: {
+  readonly title: string;
+  readonly meta: string;
+  readonly active: boolean;
+  readonly icon: React.ReactNode;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-[14px] leading-5 transition-colors ${active ? "bg-secondary/60 text-foreground" : "text-muted-foreground hover:bg-secondary/30 hover:text-foreground"}`}
+    >
+      <span className={active ? "text-primary" : "text-muted-foreground/60"}>{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{title}</span>
+      <span className="shrink-0 text-[11px] text-muted-foreground/50">{meta}</span>
+    </button>
+  );
+}
+
+function EmptyStoryList({ text }: { readonly text: string }) {
+  return <div className="px-3 py-2 text-xs text-muted-foreground/50">{text}</div>;
+}
+
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
     <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>

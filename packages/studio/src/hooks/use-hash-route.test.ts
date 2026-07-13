@@ -19,6 +19,10 @@ describe("hash route", () => {
       expect(parseHash("#/book/my-novel")).toEqual({ page: "book", bookId: "my-novel" });
     });
 
+    it("parses short story route", () => {
+      expect(parseHash("#/short/mist-harbor")).toEqual({ page: "short", shortId: "mist-harbor" });
+    });
+
     it("parses book settings route", () => {
       expect(parseHash("#/book/my-novel/settings")).toEqual({ page: "book-settings", bookId: "my-novel" });
     });
@@ -71,6 +75,10 @@ describe("hash route", () => {
 
     it("book -> #/book/{id}", () => {
       expect(routeToHash({ page: "book", bookId: "novel-1" })).toBe("#/book/novel-1");
+    });
+
+    it("short story -> #/short/{id}", () => {
+      expect(routeToHash({ page: "short", shortId: "short-1" })).toBe("#/short/short-1");
     });
 
     it("book-settings -> #/book/{id}/settings", () => {
