@@ -20,6 +20,7 @@ import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
 import { buildCraftGuide } from "../agents/craft-prompts.js";
 import { buildCraftMetaSummary, normalizeCraftSourceRef, type CraftMode, type CraftProfile, type CraftMeta } from "../models/craft-profile.js";
+import { isStorySeed, type StorySeed } from "../models/story-seed.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
 import { analyzeSensitiveWords } from "../agents/sensitive-words.js";
@@ -731,17 +732,19 @@ export class PipelineRunner {
         try {
           const raw = await readFile(join(craftsRoot, entry.name, "meta.json"), "utf-8");
           const meta = JSON.parse(raw) as CraftMeta;
+          const storySeed = await this.loadCraftStorySeed(entry.name);
           if (!meta.summary || meta.recommendedWordCount === undefined) {
             const profile = await this.loadCraft(entry.name);
             const summary = profile ? buildCraftMetaSummary(profile) : "";
             const recommendedWordCount = profile?.videoStory?.wordCountEstimate?.recommended;
             metas.push({
               ...meta,
+              ...(storySeed ? { storySeed } : {}),
               ...(summary ? { summary } : {}),
               ...(recommendedWordCount ? { recommendedWordCount } : {}),
             });
           } else {
-            metas.push(meta);
+            metas.push({ ...meta, ...(storySeed ? { storySeed } : {}) });
           }
         } catch {
           // skip broken entries
@@ -758,9 +761,31 @@ export class PipelineRunner {
     const profilePath = join(this.config.projectRoot, "crafts", craftId, "craft_profile.json");
     try {
       const raw = await readFile(profilePath, "utf-8");
-      return JSON.parse(raw) as CraftProfile;
+      const profile = JSON.parse(raw) as CraftProfile;
+      const storySeed = await this.loadCraftStorySeed(craftId);
+      return storySeed ? { ...profile, storySeed } : profile;
     } catch {
       return null;
+    }
+  }
+
+  /** Save the user-approved story foundation without rewriting the analyzed craft profile. */
+  async saveCraftStorySeed(craftId: string, storySeed: StorySeed): Promise<void> {
+    if (!isStorySeed(storySeed)) throw new Error("Invalid story seed");
+    const profile = await this.loadCraft(craftId);
+    if (!profile) throw new Error("Craft not found");
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    await mkdir(craftsDir, { recursive: true });
+    await writeFile(join(craftsDir, "story_seed.json"), JSON.stringify(storySeed, null, 2), "utf-8");
+  }
+
+  private async loadCraftStorySeed(craftId: string): Promise<StorySeed | undefined> {
+    try {
+      const raw = await readFile(join(this.config.projectRoot, "crafts", craftId, "story_seed.json"), "utf-8");
+      const parsed: unknown = JSON.parse(raw);
+      return isStorySeed(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
     }
   }
 

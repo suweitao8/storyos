@@ -19,6 +19,7 @@ import { FoundationReviewerAgent } from "../agents/foundation-reviewer.js";
 import { PolisherAgent } from "../agents/polisher.js";
 import type { BookConfig } from "../models/book.js";
 import type { ChapterMeta } from "../models/chapter.js";
+import type { StorySeed } from "../models/story-seed.js";
 import { MemoryDB } from "../state/memory-db.js";
 import * as memoryDbModule from "../state/memory-db.js";
 import { countChapterLength } from "../utils/length-metrics.js";
@@ -312,6 +313,63 @@ describe("PipelineRunner", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("persists and reloads a story seed alongside a craft profile", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-craft-story-seed-"));
+    const storySeed: StorySeed = {
+      title: "凌晨两点十七分",
+      genreTone: "都市灵异悬疑",
+      hook: "维修员接到已故邻居的来电。",
+      worldview: "老楼会抹去一户人的存在。",
+      characters: "维修员与只能通过电话留下痕迹的邻居。",
+      conflict: "每次调查都会牺牲一段记忆。",
+      outline: "发现电话、调查门牌、面对第二次敲门。",
+      reversals: "主角曾主动参与抹除记录。",
+      ending: "救回孩子，却忘记孩子的名字。",
+      visualAudioMotifs: "坏钟、敲门声和熄灭的感应灯。",
+    };
+    const craftDir = join(root, "crafts", "craft-seed");
+    await mkdir(craftDir, { recursive: true });
+    await writeFile(join(craftDir, "craft_profile.json"), JSON.stringify({
+      sourceName: "测试写作模式",
+      analyzedAt: "2026-07-13T00:00:00.000Z",
+      language: "zh",
+      structure: { openingPattern: "异常细节", chapterArc: "线索推进", endingHookType: "新规则" },
+      sceneRhythm: { sceneTransitionTechnique: "硬切", pacingCurve: "由静到险", conflictEscalation: "代价递增" },
+      informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "分段", suspenseManagement: "延迟规则" },
+      narrativePerspective: { povStrategy: "近距离第三人称", narrationDialogueRatio: "均衡", narrativeDistance: "贴近" },
+      exemplars: [],
+    }), "utf-8");
+    await writeFile(join(craftDir, "meta.json"), JSON.stringify({
+      id: "craft-seed",
+      sourceName: "测试写作模式",
+      createdAt: "2026-07-13T00:00:00.000Z",
+      language: "zh",
+    }), "utf-8");
+
+    try {
+      const runner = new PipelineRunner({
+        client: {
+          provider: "openai",
+          apiFormat: "chat",
+          stream: false,
+          defaults: { temperature: 0.7, thinkingBudget: 0 },
+        } as ConstructorParameters<typeof PipelineRunner>[0]["client"],
+        model: "test-model",
+        projectRoot: root,
+      });
+
+      await runner.saveCraftStorySeed("craft-seed", storySeed);
+      await expect(readFile(join(craftDir, "story_seed.json"), "utf-8"))
+        .resolves.toContain("凌晨两点十七分");
+      await expect(runner.loadCraft("craft-seed")).resolves.toMatchObject({ storySeed });
+      await expect(runner.listCrafts()).resolves.toEqual([
+        expect.objectContaining({ id: "craft-seed", storySeed }),
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("does not reuse override clients when credential sources differ", () => {

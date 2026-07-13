@@ -26,6 +26,14 @@ export interface StorySeed {
   readonly visualAudioMotifs: string;
 }
 
+export function isStorySeed(value: unknown): value is StorySeed {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return STORY_SEED_SECTION_DEFINITIONS.every(({ key }) => (
+    typeof candidate[key] === "string" && candidate[key].trim().length > 0
+  ));
+}
+
 export class StorySeedParseError extends Error {
   readonly missingSections: ReadonlyArray<StorySeedSectionKey>;
 
