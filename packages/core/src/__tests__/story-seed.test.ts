@@ -59,6 +59,13 @@ describe("short story seed", () => {
     expect(parseStorySeed(`\`\`\`markdown\n${COMPLETE_SEED_MARKDOWN}\n\`\`\``)).toEqual(COMPLETE_SEED);
   });
 
+  it("accepts bare and bold section labels from direct-output models", () => {
+    const directOutput = COMPLETE_SEED_MARKDOWN
+      .replace(/^##\s+/gmu, "")
+      .replace(/^(核心冲突、代价与 stakes|画面与声音母题)$/gmu, "**$1**:");
+    expect(parseStorySeed(directOutput)).toEqual(COMPLETE_SEED);
+  });
+
   it("reports the missing required section instead of returning a partial seed", () => {
     expect(() => parseStorySeed(COMPLETE_SEED_MARKDOWN.replace("## 结局与情绪余味\n周砚救回一个孩子，却忘记了孩子的名字，楼道恢复安静。\n\n", ""))).toThrowError(
       new StorySeedParseError(["ending"]),

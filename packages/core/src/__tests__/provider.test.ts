@@ -489,7 +489,7 @@ describe("chatCompletion via pi-ai", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses reasoning_content for custom openai-compatible non-stream responses that omit content", async () => {
+  it("rejects reasoning-only custom openai-compatible non-stream responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -508,15 +508,14 @@ describe("chatCompletion via pi-ai", () => {
         baseUrl: "https://gateway.example/v1",
       },
     });
-    const result = await chatCompletion(client, "glm-compat", [{ role: "user", content: "nihao" }]);
-
-    expect(result.content).toBe("推理通道文本");
+    await expect(chatCompletion(client, "glm-compat", [{ role: "user", content: "nihao" }]))
+      .rejects.toThrow("LLM returned empty response");
     expect(fetchMock).toHaveBeenCalledOnce();
 
     vi.unstubAllGlobals();
   });
 
-  it("uses reasoning_content for custom openai-compatible streams that omit content deltas", async () => {
+  it("rejects reasoning-only custom openai-compatible streams", async () => {
     const encoder = new TextEncoder();
     const sse = [
       "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"你\"}}]}\n\n",
@@ -544,10 +543,8 @@ describe("chatCompletion via pi-ai", () => {
         baseUrl: "https://gateway.example/v1",
       },
     });
-    const result = await chatCompletion(client, "glm-compat", [{ role: "user", content: "nihao" }]);
-
-    expect(result.content).toBe("你好");
-    expect(result.usage.totalTokens).toBe(5);
+    await expect(chatCompletion(client, "glm-compat", [{ role: "user", content: "nihao" }]))
+      .rejects.toThrow("LLM returned empty response from stream");
     expect(fetchMock).toHaveBeenCalledOnce();
 
     vi.unstubAllGlobals();

@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Loader2, RefreshCw, Wand2 } from "lucide-react";
+import type { StorySeed } from "@actalk/inkos-core";
 import type { Theme } from "../hooks/use-theme";
 import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
 import { craftModeLabel } from "./craft-reference-mode";
+import { StorySeedPreview } from "./StorySeedPreview";
+import {
+  serializeStorySeed,
+  type StorySeedGenerationInput,
+  type StorySeedGenerationStatus,
+  type StorySeedStreamEvent,
+} from "./story-seed-stream";
 import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
@@ -29,6 +37,7 @@ interface StoryCreationPanelProps {
   readonly onCreateLong: (input: LongStoryCreationInput) => Promise<void>;
   readonly onCreateShort: (input: ShortStoryCreationInput) => Promise<void>;
   readonly onGenerateDirection?: (input: StoryDirectionGenerationInput) => Promise<string>;
+  readonly onGenerateSeed?: (input: StorySeedGenerationInput, onEvent: (event: StorySeedStreamEvent) => void) => Promise<StorySeed>;
   readonly onOpenCraft?: () => void;
 }
 
@@ -46,6 +55,7 @@ export function StoryCreationPanel({
   onCreateLong,
   onCreateShort,
   onGenerateDirection,
+  onGenerateSeed,
   onOpenCraft,
 }: StoryCreationPanelProps) {
   const c = useColors(theme);
@@ -54,6 +64,10 @@ export function StoryCreationPanel({
   const [longDirection, setLongDirection] = useState("");
   const [chapterWordCount, setChapterWordCount] = useState("10000");
   const [shortDirection, setShortDirection] = useState("");
+  const [shortSeed, setShortSeed] = useState<StorySeed | null>(null);
+  const [shortSeedStreamedContent, setShortSeedStreamedContent] = useState("");
+  const [shortSeedStatus, setShortSeedStatus] = useState<StorySeedGenerationStatus>("idle");
+  const [shortSeedError, setShortSeedError] = useState<string | null>(null);
   const [directionGenerating, setDirectionGenerating] = useState(false);
   const [directionGenerationError, setDirectionGenerationError] = useState<string | null>(null);
   const directionRequestRef = useRef(0);
@@ -62,14 +76,45 @@ export function StoryCreationPanel({
   const hasCraftSelection = Boolean(selectedCraftId && selectedCraft);
 
   useEffect(() => {
-    if (!selectedCraft) return;
-    const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
-    if (kind === "long") {
-      setLongDirection(defaultDirection);
-    } else {
-      setShortDirection(defaultDirection);
+    if (kind === "short") {
+      if (selectedCraft) setShortDirection(buildDefaultStoryDirection(selectedCraft, kind, isZh));
+      setShortSeed(null);
+      setShortSeedStreamedContent("");
+      setShortSeedError(null);
+      if (!onGenerateSeed || !activeSessionId) {
+        setShortSeedStatus("idle");
+        return;
+      }
+
+      const requestId = ++directionRequestRef.current;
+      setShortSeedStatus("generating");
+      void onGenerateSeed({
+        ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
+        kind,
+        language: isZh ? "zh" : "en",
+      }, (event) => {
+        if (requestId !== directionRequestRef.current) return;
+        if (event.event === "delta" && typeof event.data.text === "string") {
+          setShortSeedStreamedContent((current) => current + event.data.text);
+        }
+      })
+        .then((seed) => {
+          if (requestId !== directionRequestRef.current) return;
+          setShortSeed(seed);
+          setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
+          setShortSeedStatus("ready");
+        })
+        .catch((error) => {
+          if (requestId !== directionRequestRef.current) return;
+          setShortSeedError(error instanceof Error ? error.message : String(error));
+          setShortSeedStatus("error");
+        });
+      return;
     }
 
+    if (!selectedCraft) return;
+    const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
+    setLongDirection(defaultDirection);
     setDirectionGenerationError(null);
     if (!onGenerateDirection) return;
 
@@ -82,8 +127,7 @@ export function StoryCreationPanel({
     })
       .then((direction) => {
         if (requestId !== directionRequestRef.current) return;
-        if (kind === "long") setLongDirection(direction);
-        else setShortDirection(direction);
+        setLongDirection(direction);
       })
       .catch((error) => {
         if (requestId !== directionRequestRef.current) return;
@@ -92,7 +136,7 @@ export function StoryCreationPanel({
       .finally(() => {
         if (requestId === directionRequestRef.current) setDirectionGenerating(false);
       });
-  }, [activeSessionId, isZh, kind, onGenerateDirection, selectedCraft?.id]);
+  }, [activeSessionId, isZh, kind, onGenerateDirection, onGenerateSeed, selectedCraft?.id]);
 
   useEffect(() => {
     setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
@@ -101,6 +145,37 @@ export function StoryCreationPanel({
   const wordCountOptions = buildStoryWordCountOptions(selectedCraft?.recommendedWordCount);
 
   const regenerateDirection = () => {
+    if (kind === "short") {
+      if (!onGenerateSeed || directionGenerating || shortSeedStatus === "generating" || !activeSessionId) return;
+      const requestId = ++directionRequestRef.current;
+      setShortSeedStatus("generating");
+      setShortSeedError(null);
+      setShortSeed(null);
+      setShortSeedStreamedContent("");
+      void onGenerateSeed({
+        ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
+        kind,
+        language: isZh ? "zh" : "en",
+        previousDirection: shortSeed ? serializeStorySeed(shortSeed, isZh ? "zh" : "en") : shortDirection,
+      }, (event) => {
+        if (requestId !== directionRequestRef.current) return;
+        if (event.event === "delta" && typeof event.data.text === "string") {
+          setShortSeedStreamedContent((current) => current + event.data.text);
+        }
+      })
+        .then((seed) => {
+          if (requestId !== directionRequestRef.current) return;
+          setShortSeed(seed);
+          setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
+          setShortSeedStatus("ready");
+        })
+        .catch((error) => {
+          if (requestId !== directionRequestRef.current) return;
+          setShortSeedError(error instanceof Error ? error.message : String(error));
+          setShortSeedStatus("error");
+        });
+      return;
+    }
     if (!selectedCraft || !onGenerateDirection || directionGenerating) return;
     const previousDirection = kind === "long" ? longDirection : shortDirection;
     const requestId = ++directionRequestRef.current;
@@ -131,7 +206,9 @@ export function StoryCreationPanel({
     activeSessionId
       && (kind === "long"
         ? longTitle.trim() && longGenre.trim() && longDirection.trim()
-        : shortDirection.trim()),
+        : shortSeed
+          ? Object.values(shortSeed).every((value) => value.trim())
+          : shortDirection.trim()),
   );
 
   const handleSubmit = () => {
@@ -148,7 +225,7 @@ export function StoryCreationPanel({
       return;
     }
     void onCreateShort({
-      direction: shortDirection,
+      direction: shortSeed ? serializeStorySeed(shortSeed, isZh ? "zh" : "en") : shortDirection,
       chapterWordCount: Number(chapterWordCount),
       ...(hasCraftSelection ? { craftId: selectedCraftId } : {}),
     });
@@ -260,33 +337,25 @@ export function StoryCreationPanel({
           </div>
         </div>
       ) : (
-        <div className="space-y-4 rounded-2xl border border-border/60 bg-card/70 p-5">
-          <div className="text-sm font-semibold">{isZh ? "短篇故事基础信息" : "Short-story basics"}</div>
-          <label className="block space-y-2 text-sm">
-            <span className="flex items-center justify-between gap-3">
-              <span>{isZh ? "故事方向" : "Story direction"}</span>
-              {selectedCraft && onGenerateDirection ? (
-                <button
-                  type="button"
-                  onClick={regenerateDirection}
-                  disabled={busy || directionGenerating}
-                  aria-label={isZh ? "重新生成故事方向" : "Regenerate story direction"}
-                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {directionGenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                  {directionGenerating ? (isZh ? "正在生成" : "Generating") : (isZh ? "重新生成" : "Regenerate")}
-                </button>
-              ) : null}
-            </span>
-            {directionGenerationError ? (
-              <p className="text-xs leading-5 text-destructive">
-                {isZh ? `自动生成失败，可手动编辑或重试：${directionGenerationError}` : `Generation failed; edit manually or retry: ${directionGenerationError}`}
+        <div className="grid min-h-[560px] gap-5 lg:grid-cols-[minmax(240px,0.75fr)_minmax(0,1.25fr)]">
+          <div className="space-y-4 rounded-2xl border border-border/60 bg-card/70 p-5">
+            <div>
+              <div className="text-sm font-semibold">{isZh ? "短篇故事基础信息" : "Short-story basics"}</div>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {isZh ? "先生成完整故事设定，在右侧检查并编辑；满意后再创建短片故事。" : "Generate the complete foundation, review it on the right, then create the short story."}
               </p>
-            ) : null}
-            <textarea value={shortDirection} onChange={(event) => setShortDirection(event.target.value)} rows={6} placeholder={isZh ? "例如：一名守夜人接到来自已故邻居的电话，逐步发现小区的门牌会改变记忆" : "e.g. A night watchman receives a call from a dead neighbor"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
-          </label>
-          <div className="grid gap-4">
-            <label className="space-y-2 text-sm">
+            </div>
+            <button
+              type="button"
+              onClick={regenerateDirection}
+              disabled={busy || directionGenerating || shortSeedStatus === "generating" || !onGenerateSeed}
+              aria-label={isZh ? "重新随机生成故事设定" : "Regenerate story foundation"}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/40 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {shortSeedStatus === "generating" ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {shortSeedStatus === "generating" ? (isZh ? "正在随机生成" : "Generating") : (isZh ? "重新随机生成" : "Regenerate")}
+            </button>
+            <label className="block space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
                 {wordCountOptions.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
@@ -299,7 +368,23 @@ export function StoryCreationPanel({
                 </p>
               ) : null}
             </label>
+            {shortSeedStatus === "error" ? (
+              <p className="text-xs leading-5 text-destructive">
+                {isZh ? `生成失败，可重新生成：${shortSeedError ?? "未知错误"}` : `Generation failed; retry: ${shortSeedError ?? "Unknown error"}`}
+              </p>
+            ) : null}
           </div>
+          <StorySeedPreview
+            seed={shortSeed}
+            streamedContent={shortSeedStreamedContent}
+            status={shortSeedStatus}
+            error={shortSeedStatus === "error" ? shortSeedError : null}
+            isZh={isZh}
+            onChangeSeed={(seed) => {
+              setShortSeed(seed);
+              setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
+            }}
+          />
         </div>
       )}
 

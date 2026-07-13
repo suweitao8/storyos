@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
@@ -9,6 +9,10 @@ import {
   STORY_WORD_COUNT_OPTIONS,
   resolveDefaultStoryWordCount,
 } from "./story-creation-state";
+import {
+  parseStorySeedStreamEvent,
+  streamStorySeed,
+} from "./story-seed-stream";
 
 describe("story creation actions", () => {
   it("builds an editable original direction for the selected craft", () => {
@@ -80,5 +84,37 @@ describe("story creation actions", () => {
     expect(direction).toContain("影视解说");
     expect(direction).toContain("原创短篇故事");
     expect(direction).toContain("重新设计人物、场景、因果链和结局");
+  });
+});
+
+describe("short-story seed streaming", () => {
+  it("parses structured SSE events without exposing reasoning fields", () => {
+    expect(parseStorySeedStreamEvent('event: delta\ndata: {"text":"## 故事名称"}')).toEqual({
+      event: "delta",
+      data: { text: "## 故事名称" },
+    });
+    expect(parseStorySeedStreamEvent('event: reasoning\ndata: {"text":"hidden"}')).toBeNull();
+  });
+
+  it("collects deltas and resolves the parsed candidate", async () => {
+    const chunks = [
+      'event: start\ndata: {"sections":["title"]}\n\n',
+      'event: delta\ndata: {"text":"## 故事名称\\n\\n回声"}\n\n',
+      'event: complete\ndata: {"seed":{"title":"回声"},"content":"## 故事名称\\n\\n回声"}\n\n',
+    ];
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
+        controller.close();
+      },
+    }), { status: 200, headers: { "content-type": "text/event-stream" } });
+    const events: string[] = [];
+
+    const seed = await streamStorySeed({ kind: "short", language: "zh" }, (event) => {
+      events.push(event.event);
+    }, vi.fn(async () => response));
+
+    expect(events).toEqual(["start", "delta", "complete"]);
+    expect(seed).toEqual({ title: "回声" });
   });
 });

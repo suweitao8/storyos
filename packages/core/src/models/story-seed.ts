@@ -53,22 +53,33 @@ function stripMarkdownFence(markdown: string): string {
 }
 
 function normalizeSectionLabel(label: string): string {
-  return label.trim().replace(/[：:]+$/u, "");
+  return label.trim()
+    .replace(/^\*+|\*+$/gu, "")
+    .replace(/[：:]+$/u, "")
+    .trim();
 }
 
 export function parseStorySeed(markdown: string): StorySeed {
   const source = stripMarkdownFence(markdown);
-  const headings = Array.from(source.matchAll(/^##\s+(.+?)\s*$/gmu));
   const values = new Map<StorySeedSectionKey, string>();
 
-  for (let index = 0; index < headings.length; index += 1) {
-    const heading = headings[index];
-    const label = normalizeSectionLabel(heading[1] ?? "");
+  let currentKey: StorySeedSectionKey | null = null;
+  const sectionLines = new Map<StorySeedSectionKey, string[]>();
+  for (const line of source.split(/\r?\n/)) {
+    const markdownHeading = line.match(/^##\s+(.+?)\s*$/u);
+    const plainHeading = line.match(/^\s*(?:\*\*)?(.+?)(?:\*\*)?\s*[:：]?\s*$/u);
+    const label = normalizeSectionLabel(markdownHeading?.[1] ?? plainHeading?.[1] ?? "");
     const key = SECTION_KEY_BY_LABEL.get(label);
-    if (!key) continue;
-    const contentStart = (heading.index ?? 0) + heading[0].length;
-    const contentEnd = headings[index + 1]?.index ?? source.length;
-    const value = source.slice(contentStart, contentEnd).trim();
+    if (key) {
+      currentKey = key;
+      if (!sectionLines.has(key)) sectionLines.set(key, []);
+      continue;
+    }
+    if (currentKey) sectionLines.get(currentKey)!.push(line);
+  }
+
+  for (const [key, lines] of sectionLines) {
+    const value = lines.join("\n").trim();
     if (value) values.set(key, value);
   }
 
