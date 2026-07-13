@@ -9,7 +9,13 @@ import { ApiError } from "../errors.js";
 import type { StudioRouteContext } from "./context.js";
 
 export function registerProjectSettingsRoutes(context: StudioRouteContext): void {
-  const { app, root, getProjectConfig } = context;
+  const {
+    app,
+    root,
+    getProjectConfig,
+    resolveProjectImageFile,
+    resolveProjectTextArtifactFile,
+  } = context;
 
   app.get("/api/v1/project", async (c: Context) => {
     let currentConfig;
@@ -82,5 +88,57 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
     }
     await writeFile(configPath, JSON.stringify(raw, null, 2), "utf-8");
     return c.json({ ok: true, detection: raw.detection ?? null });
+  });
+
+  app.get("/api/v1/project/files/:file{.+}", async (c: Context) => {
+    const file = resolveProjectImageFile(c.req.param("file") ?? "");
+    try {
+      const content = await readFile(file.resolved);
+      return new Response(content, {
+        headers: {
+          "Content-Type": file.contentType,
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch {
+      return c.notFound();
+    }
+  });
+
+  app.get("/api/v1/project/artifacts/:file{.+}", async (c: Context) => {
+    const file = resolveProjectTextArtifactFile(c.req.param("file") ?? "");
+    try {
+      const content = await readFile(file.resolved, "utf-8");
+      return c.json({
+        path: file.relPath,
+        content,
+        contentType: file.contentType,
+        size: Buffer.byteLength(content, "utf-8"),
+      });
+    } catch {
+      return c.notFound();
+    }
+  });
+
+  app.put("/api/v1/project/artifacts/:file{.+}", async (c: Context) => {
+    const file = resolveProjectTextArtifactFile(c.req.param("file") ?? "");
+    const body = await c.req.json<unknown>().catch(() => null);
+    const content = body && typeof body === "object" && "content" in body
+      ? (body as { readonly content?: unknown }).content
+      : undefined;
+    if (typeof content !== "string") {
+      throw new ApiError(400, "INVALID_PROJECT_ARTIFACT_BODY", "content must be a string");
+    }
+
+    const { mkdir } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    await mkdir(dirname(file.resolved), { recursive: true });
+    await writeFile(file.resolved, content, "utf-8");
+    return c.json({
+      ok: true,
+      path: file.relPath,
+      contentType: file.contentType,
+      size: Buffer.byteLength(content, "utf-8"),
+    });
   });
 }

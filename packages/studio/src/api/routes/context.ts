@@ -3,6 +3,7 @@ import type {
   NodeImageDeps,
   PipelineConfig,
   ProjectConfig,
+  SecretsFile,
   StateManager,
 } from "@actalk/inkos-core";
 
@@ -23,4 +24,13 @@ export interface StudioRouteContext {
   }) => Promise<PipelineConfig>;
   readonly broadcast: (event: string, data: unknown) => void;
   readonly loadBookListSummary: (bookId: string) => Promise<unknown>;
+  readonly loadRawConfig: () => Promise<Record<string, unknown>>;
+  readonly saveRawConfig: (config: Record<string, unknown>) => Promise<void>;
+  readonly loadSecrets: () => Promise<SecretsFile>;
+  readonly saveSecrets: (secrets: SecretsFile) => Promise<void>;
+  readonly isHeaderSafeApiKey: (value: string) => boolean;
+  readonly testCoverProviderConnection: (params: { readonly baseUrl: string; readonly apiKey: string }) => Promise<unknown>;
+  readonly testVoiceProviderConnection: (params: { readonly apiKey: string }) => Promise<unknown>;
+  readonly resolveProjectImageFile: (rawPath: string) => { readonly resolved: string; readonly contentType: string };
+  readonly resolveProjectTextArtifactFile: (rawPath: string) => { readonly relPath: string; readonly resolved: string; readonly contentType: string };
 }

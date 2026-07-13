@@ -44,7 +44,6 @@ import {
   ConsolidatorAgent,
   ResearchSearchConfigSchema,
   GLOBAL_ENV_PATH,
-  COVER_PROVIDER_PRESETS,
   createPlayDB,
   PlayStore,
   buildPlayEntityImagePrompt,
@@ -55,11 +54,6 @@ import {
   writePlayImageSettings,
   type PlayImageSettings,
   Scheduler,
-  coverSecretKey,
-  resolveCoverProviderPreset,
-  VOICE_PROVIDER_PRESETS,
-  voiceSecretKey,
-  resolveVoiceProviderPreset,
   SessionKindSchema,
   isExplicitWriteChapterCommand,
   isUsablePlayInitialScene,
@@ -1794,19 +1788,6 @@ function mergeServiceConfig(existing: ServiceConfigEntry[], updates: ServiceConf
   return [...merged.values()];
 }
 
-function normalizeCoverConfig(raw: unknown): { service: string; model: string } | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const record = raw as Record<string, unknown>;
-  const service = typeof record.service === "string" ? record.service : "";
-  const preset = resolveCoverProviderPreset(service);
-  if (!preset) return undefined;
-  const requestedModel = typeof record.model === "string" ? record.model.trim() : "";
-  const model = requestedModel && preset.models.includes(requestedModel)
-    ? requestedModel
-    : preset.defaultModel;
-  return { service: preset.service, model };
-}
-
 function syncTopLevelLlmMirror(llm: Record<string, unknown>): void {
   const selectedService = typeof llm.service === "string" ? llm.service : undefined;
   if (!selectedService) return;
@@ -2630,6 +2611,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     buildPipelineConfig,
     broadcast,
     loadBookListSummary: (bookId) => loadStudioBookListSummary(state, bookId),
+    loadRawConfig: () => loadRawConfig(root),
+    saveRawConfig: (config) => saveRawConfig(root, config),
+    loadSecrets: () => loadSecrets(root),
+    saveSecrets: (secrets) => saveSecrets(root, secrets),
+    isHeaderSafeApiKey,
+    testCoverProviderConnection,
+    testVoiceProviderConnection,
+    resolveProjectImageFile: (rawPath) => resolveProjectImageFile(root, rawPath),
+    resolveProjectTextArtifactFile: (rawPath) => resolveProjectTextArtifactFile(root, rawPath),
   };
 
   registerStudioRoutes(routeContext);
@@ -3245,221 +3235,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ ok: true });
   });
 
-  app.get("/api/v1/cover/config", async (c) => {
-    const config = await loadRawConfig(root);
-    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
-    const cover = normalizeCoverConfig(llm.cover);
-    const secrets = await loadSecrets(root);
-    const keyFor = (service: string): boolean =>
-      Boolean(secrets.services[coverSecretKey(service)]?.apiKey || secrets.services[service]?.apiKey);
-    // "Configured" = a cover service is selected AND has a key, OR a cover
-    // endpoint is provided via env (the CLI/power-user path). This is the gate
-    // for the Play auto-illustration toggles.
-    const envConfigured = Boolean(
-      (process.env.INKOS_COVER_BASE_URL || process.env.INKOS_COVER_ENDPOINT)
-      && (process.env.INKOS_COVER_API_KEY || keyFor("kkaiapi")),
-    );
-    const configured = Boolean(cover?.service && keyFor(cover.service)) || envConfigured;
-    return c.json({
-      service: cover?.service ?? null,
-      model: cover?.model ?? null,
-      configured,
-      providers: COVER_PROVIDER_PRESETS.map((provider) => ({
-        service: provider.service,
-        label: provider.label,
-        baseUrl: provider.baseUrl,
-        defaultModel: provider.defaultModel,
-        models: provider.models,
-        connected: keyFor(provider.service),
-      })),
-    });
-  });
-
-  app.put("/api/v1/cover/config", async (c) => {
-    const body = await c.req.json<{ service?: string; model?: string }>();
-    const preset = resolveCoverProviderPreset(body.service);
-    if (!preset) {
-      return c.json({ error: "Unsupported cover service" }, 400);
-    }
-    const model = typeof body.model === "string" && preset.models.includes(body.model)
-      ? body.model
-      : preset.defaultModel;
-
-    const config = await loadRawConfig(root);
-    config.llm = config.llm ?? {};
-    const llm = config.llm as Record<string, unknown>;
-    llm.cover = {
-      service: preset.service,
-      model,
-    };
-    await saveRawConfig(root, config);
-    return c.json({ ok: true, service: preset.service, model });
-  });
-
-  app.get("/api/v1/cover/secret/:service", async (c) => {
-    const service = c.req.param("service");
-    if (!resolveCoverProviderPreset(service)) {
-      return c.json({ error: "Unsupported cover service" }, 400);
-    }
-    const secrets = await loadSecrets(root);
-    return c.json({ apiKey: secrets.services[coverSecretKey(service)]?.apiKey ?? "" });
-  });
-
-  app.put("/api/v1/cover/secret/:service", async (c) => {
-    const service = c.req.param("service");
-    if (!resolveCoverProviderPreset(service)) {
-      return c.json({ error: "Unsupported cover service" }, 400);
-    }
-    const body = await c.req.json<{ apiKey?: string }>();
-    const trimmedKey = body.apiKey?.trim() ?? "";
-    if (trimmedKey && !isHeaderSafeApiKey(trimmedKey)) {
-      return c.json({
-        error: pick(
-          await routeContext.getLanguage(),
-          "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
-          "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
-        ),
-      }, 400);
-    }
-
-    const secrets = await loadSecrets(root);
-    const key = coverSecretKey(service);
-    if (trimmedKey) {
-      secrets.services[key] = { apiKey: trimmedKey };
-    } else {
-      delete secrets.services[key];
-    }
-    await saveSecrets(root, secrets);
-    return c.json({ ok: true, service });
-  });
-
-  app.post("/api/v1/cover/test", async (c) => {
-    const config = await loadRawConfig(root);
-    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
-    const cover = normalizeCoverConfig(llm.cover);
-    const service = cover?.service ?? "grsai";
-    const preset = resolveCoverProviderPreset(service);
-    if (!preset) {
-      return c.json({ error: "Unsupported cover service" }, 400);
-    }
-    const secrets = await loadSecrets(root);
-    const apiKey = secrets.services[coverSecretKey(service)]?.apiKey ?? "";
-    if (!apiKey) {
-      return c.json({ error: "Cover API key not configured" }, 400);
-    }
-    try {
-      const result = await testCoverProviderConnection({
-        baseUrl: preset.baseUrl,
-        apiKey,
-      });
-      return c.json(result);
-    } catch (e) {
-      return c.json({ success: false, message: e instanceof Error ? e.message : String(e) }, 500);
-    }
-  });
-
   // --- Voice (TTS) config ---
-
-  app.get("/api/v1/voice/config", async (c) => {
-    const config = await loadRawConfig(root);
-    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
-    const voice = (llm.voice as { service?: string; model?: string } | undefined) ?? {};
-    const secrets = await loadSecrets(root);
-    const keyFor = (service: string): boolean =>
-      Boolean(secrets.services[voiceSecretKey(service)]?.apiKey);
-    const configured = Boolean(voice.service && keyFor(voice.service));
-    return c.json({
-      service: voice.service ?? null,
-      model: voice.model ?? null,
-      configured,
-      providers: VOICE_PROVIDER_PRESETS.map((provider) => ({
-        service: provider.service,
-        label: provider.label,
-        baseUrl: provider.baseUrl,
-        defaultModel: provider.defaultModel,
-        models: provider.models,
-        connected: keyFor(provider.service),
-      })),
-    });
-  });
-
-  app.put("/api/v1/voice/config", async (c) => {
-    const body = await c.req.json<{ service?: string; model?: string }>();
-    const preset = resolveVoiceProviderPreset(body.service);
-    if (!preset) {
-      return c.json({ error: "Unsupported voice service" }, 400);
-    }
-    const model = typeof body.model === "string" && preset.models.includes(body.model)
-      ? body.model
-      : preset.defaultModel;
-
-    const config = await loadRawConfig(root);
-    config.llm = config.llm ?? {};
-    const llm = config.llm as Record<string, unknown>;
-    llm.voice = { service: preset.service, model };
-    await saveRawConfig(root, config);
-    return c.json({ ok: true, service: preset.service, model });
-  });
-
-  app.get("/api/v1/voice/secret/:service", async (c) => {
-    const service = c.req.param("service");
-    if (!resolveVoiceProviderPreset(service)) {
-      return c.json({ error: "Unsupported voice service" }, 400);
-    }
-    const secrets = await loadSecrets(root);
-    return c.json({ apiKey: secrets.services[voiceSecretKey(service)]?.apiKey ?? "" });
-  });
-
-  app.put("/api/v1/voice/secret/:service", async (c) => {
-    const service = c.req.param("service");
-    if (!resolveVoiceProviderPreset(service)) {
-      return c.json({ error: "Unsupported voice service" }, 400);
-    }
-    const body = await c.req.json<{ apiKey?: string }>();
-    const trimmedKey = body.apiKey?.trim() ?? "";
-    if (trimmedKey && !isHeaderSafeApiKey(trimmedKey)) {
-      return c.json({
-        error: pick(
-          await routeContext.getLanguage(),
-          "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
-          "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
-        ),
-      }, 400);
-    }
-    const secrets = await loadSecrets(root);
-    const key = voiceSecretKey(service);
-    if (trimmedKey) {
-      secrets.services[key] = { apiKey: trimmedKey };
-    } else {
-      delete secrets.services[key];
-    }
-    await saveSecrets(root, secrets);
-    return c.json({ ok: true, service });
-  });
-
-  app.post("/api/v1/voice/test", async (c) => {
-    const config = await loadRawConfig(root);
-    const llm = (config.llm as Record<string, unknown> | undefined) ?? {};
-    const voice = (llm.voice as { service?: string; model?: string } | undefined) ?? {};
-    const service = voice.service ?? "bailian";
-    const preset = resolveVoiceProviderPreset(service);
-    if (!preset) {
-      return c.json({ error: "Unsupported voice service" }, 400);
-    }
-    const secrets = await loadSecrets(root);
-    const apiKey = secrets.services[voiceSecretKey(service)]?.apiKey ?? "";
-    if (!apiKey) {
-      return c.json({ error: "Voice API key not configured" }, 400);
-    }
-    try {
-      const result = await testVoiceProviderConnection({
-        apiKey,
-      });
-      return c.json(result);
-    } catch (e) {
-      return c.json({ success: false, message: e instanceof Error ? e.message : String(e) }, 500);
-    }
-  });
 
   app.delete("/api/v1/services/:service", async (c) => {
     const service = c.req.param("service");
@@ -3759,58 +3535,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
     await rm(projectSkillDir(root, id), { recursive: true, force: true });
     return c.json({ ok: true });
-  });
-
-  app.get("/api/v1/project/files/:file{.+}", async (c) => {
-    const file = resolveProjectImageFile(root, c.req.param("file"));
-
-    try {
-      const content = await readFile(file.resolved);
-      return new Response(content, {
-        headers: {
-          "Content-Type": file.contentType,
-          "Cache-Control": "no-store",
-        },
-      });
-    } catch {
-      return c.notFound();
-    }
-  });
-
-  app.get("/api/v1/project/artifacts/:file{.+}", async (c) => {
-    const file = resolveProjectTextArtifactFile(root, c.req.param("file"));
-
-    try {
-      const content = await readFile(file.resolved, "utf-8");
-      return c.json({
-        path: file.relPath,
-        content,
-        contentType: file.contentType,
-        size: Buffer.byteLength(content, "utf-8"),
-      });
-    } catch {
-      return c.notFound();
-    }
-  });
-
-  app.put("/api/v1/project/artifacts/:file{.+}", async (c) => {
-    const file = resolveProjectTextArtifactFile(root, c.req.param("file"));
-    const body = await c.req.json<unknown>().catch(() => null);
-    const content = body && typeof body === "object" && "content" in body
-      ? (body as { readonly content?: unknown }).content
-      : undefined;
-    if (typeof content !== "string") {
-      throw new ApiError(400, "INVALID_PROJECT_ARTIFACT_BODY", "content must be a string");
-    }
-
-    await mkdir(dirname(file.resolved), { recursive: true });
-    await writeFile(file.resolved, content, "utf-8");
-    return c.json({
-      ok: true,
-      path: file.relPath,
-      contentType: file.contentType,
-      size: Buffer.byteLength(content, "utf-8"),
-    });
   });
 
   // --- Truth files browser ---
