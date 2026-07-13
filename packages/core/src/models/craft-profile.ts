@@ -20,7 +20,11 @@ export interface CraftExemplar {
   readonly excerpt: string;
 }
 
-export type CraftMode = "general" | "ghost-story";
+export type CraftMode =
+  | "general"
+  | "ghost-story"
+  | "bilibili-short-story"
+  | "bilibili-commentary";
 
 /** Horror-specific controls required to reproduce a ghost-story experience. */
 export interface GhostStoryCraft {

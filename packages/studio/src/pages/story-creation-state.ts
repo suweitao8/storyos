@@ -1,4 +1,5 @@
 import type { ActionPayload } from "@actalk/inkos-core";
+import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 
 export const LONG_STORY_CHAPTERS = 10;
 export const SHORT_STORY_CHAPTERS = 1;
@@ -18,7 +19,8 @@ export function resolveDefaultStoryWordCount(recommendedWordCount?: number): num
 export interface CraftOption {
   readonly id: string;
   readonly sourceName: string;
-  readonly mode?: "general" | "ghost-story";
+  readonly mode?: CraftMode;
+  readonly sourceType?: "bilibili" | "novel";
   readonly recommendedWordCount?: number;
 }
 
@@ -27,6 +29,18 @@ export function buildDefaultStoryDirection(
   kind: "long" | "short",
   isZh: boolean,
 ): string {
+  if (craft.mode === "bilibili-commentary") {
+    return isZh
+      ? `参考这条 B 站影视解说提取出的剧情骨架、反转和节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}。影视解说只提供结构参考，必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
+      : `Use the selected Bilibili commentary's plot skeleton, reversals, and pacing as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"}. Redesign the characters, setting, causal chain, and ending; do not copy the film, series, or commentary.`;
+  }
+
+  if (craft.mode === "bilibili-short-story") {
+    return isZh
+      ? `参考这条 B 站短篇故事提取出的钩子、推进、反转和结尾节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}。重新设计人物、场景、因果链和结局，不得复制参考视频的人物、情节、措辞或场景。`
+      : `Use the selected Bilibili short story's hook, progression, reversals, and ending rhythm as reference to create a completely original ${kind === "long" ? "long-form story" : "short story"}. Redesign the characters, setting, causal chain, and ending; do not copy the reference video's characters, plot, wording, or scenes.`;
+  }
+
   if (!isZh) {
     return craft.mode === "ghost-story"
       ? `Create an original ${kind === "long" ? "long-form" : "short"} ghost story using the selected craft's suspense rhythm, supernatural rules, clue escalation, and lingering aftertaste. A night-shift maintenance worker discovers that the elevator stops at a nonexistent 13th floor at 2:17 a.m.; each visit shows a resident who will disappear the next day. The protagonist must obey the rule that the second knock must never be answered and uncover why the building has erased one family from every record. Do not copy the reference work's characters, plot, wording, or scenes.`
@@ -52,6 +66,13 @@ export interface ShortStoryCreationInput {
   readonly direction: string;
   readonly chapterWordCount: number;
   readonly craftId?: string;
+}
+
+export interface StoryDirectionGenerationInput {
+  readonly craftId: string;
+  readonly kind: "long" | "short";
+  readonly language: "zh" | "en";
+  readonly previousDirection?: string;
 }
 
 export function buildLongStoryCreationAction(input: LongStoryCreationInput): {

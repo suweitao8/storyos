@@ -363,6 +363,16 @@ describe("deriveCraftSourceName", () => {
     expect(deriveCraftSourceName("示例小说 100.txt")).toBe("示例小说");
     expect(deriveCraftSourceName("示例小说（精校版）_100.txt")).toBe("示例小说");
   });
+
+  it("keeps the selected Bilibili reference subtype while preserving legacy requests", async () => {
+    const { normalizeCraftMode } = await import("./server.js");
+
+    expect(normalizeCraftMode("bilibili-commentary", "bilibili")).toBe("bilibili-commentary");
+    expect(normalizeCraftMode("bilibili-short-story", "bilibili")).toBe("bilibili-short-story");
+    expect(normalizeCraftMode(undefined, "bilibili")).toBe("bilibili-short-story");
+    expect(normalizeCraftMode("ghost-story", "bilibili")).toBe("ghost-story");
+    expect(normalizeCraftMode("bilibili-commentary", "novel")).toBe("general");
+  });
 });
 
 const projectConfig = {

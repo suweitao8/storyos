@@ -481,7 +481,7 @@ export { analyzeAITells, type AITellResult, type AITellIssue } from "./agents/ai
 export { analyzeSensitiveWords, type SensitiveWordResult, type SensitiveWordMatch } from "./agents/sensitive-words.js";
 export { detectAIContent, type DetectionResult } from "./agents/detector.js";
 export { CraftAnalyzerAgent, splitCraftChapters, selectSampleChapters, validateExemplars } from "./agents/craft-analyzer.js";
-export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt } from "./agents/craft-prompts.js";
+export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt, buildStoryDirectionPrompt, type StoryDirectionPrompt } from "./agents/craft-prompts.js";
 export { deriveCraftBreakdownModules, formatCraftBreakdownModules, normalizeCraftBreakdownModule, normalizeCraftBreakdownModules } from "./agents/craft-breakdown.js";
 export { analyzeDetectionInsights } from "./agents/detection-insights.js";
 export { validatePostWrite, detectParagraphLengthDrift, detectParagraphShapeWarnings, detectDuplicateTitle, type PostWriteViolation } from "./agents/post-write-validator.js";

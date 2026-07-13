@@ -60,6 +60,30 @@ export function buildCraftAnalysisSystemPrompt(
         ]
     : [];
 
+  const videoModeInstructions = sourceType === "bilibili"
+    ? mode === "bilibili-commentary"
+      ? language === "en"
+        ? [
+            "This is a Bilibili film or television commentary reference. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original short story.",
+            "The profile must support making a similar-feeling original short story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending.",
+          ]
+        : [
+            "这是B站影视解说参考。把解说视为被压缩的影视剧情，重点提取因果链、人物压力、反转、信息揭示和情绪回报节奏，用于重新搭建一个原创短篇故事。",
+            "结果必须服务于“参考影视解说结构，制作类似但完全原创的短篇故事”：必须替换原影视作品的人物、场景、因果链、具体事件和结局。",
+          ]
+      : mode === "bilibili-short-story"
+        ? language === "en"
+          ? [
+              "This is a Bilibili short-story reference. Extract the compact hook, escalation, reversal, emotional payoff, and ending aftertaste that make the short story work.",
+              "The profile should help create a new short story with a similar rhythm, while replacing identities, setting, causal chain, scenes, wording, and ending.",
+            ]
+          : [
+              "这是B站短篇故事参考。重点提取短篇故事成立所需的开场钩子、冲突推进、反转、情绪回报和结尾余韵。",
+              "结果应帮助创作节奏相近但全新的短篇故事，必须替换人物、场景、因果链、措辞和结局。",
+            ]
+        : []
+    : [];
+
   if (language === "en") {
     return [
       "You are a writing-craft analyst. Given excerpts from a novel, extract the author's storytelling techniques, not just surface prose style.",
@@ -90,6 +114,7 @@ export function buildCraftAnalysisSystemPrompt(
       ...worldviewStoryInstructions,
       ...ghostStoryInstructions,
       ...videoInstructions,
+      ...videoModeInstructions,
     ].join("\n");
   }
 
@@ -116,6 +141,7 @@ export function buildCraftAnalysisSystemPrompt(
     ...worldviewStoryInstructions,
     ...ghostStoryInstructions,
     ...videoInstructions,
+    ...videoModeInstructions,
   ].join("\n");
 }
 
@@ -239,6 +265,106 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
     );
   }
   return lines.join("\n");
+}
+
+export interface StoryDirectionPrompt {
+  readonly system: string;
+  readonly user: string;
+}
+
+function compactStoryDirectionSource(value: string | undefined, maxLength = 2_400): string {
+  const normalized = value?.trim().replace(/\s+/gu, " ") ?? "";
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+}
+
+/** Build a generation prompt that transfers craft mechanics into a new story direction. */
+export function buildStoryDirectionPrompt(
+  craftProfile: CraftProfile,
+  kind: "long" | "short",
+  language: "zh" | "en",
+  previousDirection?: string,
+): StoryDirectionPrompt {
+  const structure = craftProfile.structure;
+  const rhythm = craftProfile.sceneRhythm;
+  const disclosure = craftProfile.informationDisclosure;
+  const perspective = craftProfile.narrativePerspective;
+  const referenceSections = [
+    ["Worldview and rules", craftProfile.worldview],
+    ["Generalized story outline", craftProfile.storyOutline],
+    ["Opening and chapter arc", `${structure.openingPattern}; ${structure.chapterArc}; ending hook: ${structure.endingHookType}`],
+    ["Scene rhythm", `${rhythm.sceneTransitionTechnique}; pacing: ${rhythm.pacingCurve}; escalation: ${rhythm.conflictEscalation}`],
+    ["Information disclosure", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
+    ["Narrative perspective", `${perspective.povStrategy}; ${perspective.narrationDialogueRatio}; ${perspective.narrativeDistance}`],
+  ]
+    .filter(([, value]) => Boolean(value?.trim()))
+    .map(([label, value]) => `${label}:\n${compactStoryDirectionSource(value)}`);
+
+  if (craftProfile.ghostStory) {
+    const ghost = craftProfile.ghostStory;
+    referenceSections.push(
+      [
+        "Ghost-story mechanisms",
+        [
+          `fear core: ${ghost.fearCore}`,
+          `supernatural rules: ${ghost.supernaturalRules}`,
+          `taboos: ${ghost.taboos}`,
+          `protagonist vulnerability: ${ghost.protagonistVulnerability}`,
+          `clue system: ${ghost.clueSystem}`,
+          `reveal cadence: ${ghost.revealCadence}`,
+          `scare cadence: ${ghost.scareCadence}`,
+          `escalation: ${ghost.escalationLadder}`,
+          `sensory motifs: ${ghost.sensoryMotifs}`,
+          `ending aftertaste: ${ghost.endingAftertaste}`,
+        ].join("\n"),
+      ].join("\n"),
+    );
+  }
+
+  if (craftProfile.videoStory) {
+    const video = craftProfile.videoStory;
+    referenceSections.push(
+      [
+        "Video rhythm map",
+        [
+          `logline: ${video.logline}`,
+          `audience promise: ${video.audiencePromise}`,
+          `outline: ${video.outline}`,
+          `pacing: ${video.pacingCurve}`,
+          `hook: ${video.hookStrategy}`,
+          `climax: ${video.climaxStrategy}`,
+          `ending: ${video.endingAftertaste}`,
+          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}: ${beat.emotionalEffect}`),
+          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% reversal: ${reversal.emotionalEffect}`),
+          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% payoff: ${payoff.emotionalEffect}`),
+        ].join("\n"),
+      ].join("\n"),
+    );
+  }
+
+  const target = kind === "short" ? "a one-chapter short story" : "a ten-chapter long story";
+  const languageRule = language === "zh"
+    ? "Output the result in Simplified Chinese."
+    : "Output the result in English.";
+
+  return {
+    system: [
+      "You are a story development editor.",
+      languageRule,
+      "Use the reference only for reusable mechanisms, world logic, pacing functions, and emotional movement.",
+      "Create a new story direction with new identities, setting details, causal chain, scenes, and ending. Never copy distinctive names, dialogue, wording, or a contiguous event sequence.",
+      "Return only the usable story-direction brief, not analysis of the reference and not a preface.",
+    ].join("\n"),
+    user: [
+      `Create ${target} from the following craft reference.`,
+      "Craft reference:",
+      referenceSections.join("\n\n"),
+      previousDirection?.trim()
+        ? `Previous direction to improve or replace:\n${compactStoryDirectionSource(previousDirection, 3_000)}\nGenerate a materially different alternative while preserving the useful craft mechanics.`
+        : "No previous direction exists. Generate a strong first version.",
+      "Include these sections: title hook, genre and setting, protagonist and pressure, core conflict, progression and reversal plan, climax and emotional payoff, ending, and originality constraints.",
+      "Make every section concrete enough to start drafting immediately. Keep the direction self-contained and avoid referring to the reference work.",
+    ].join("\n\n"),
+  };
 }
 
 /** Build exemplar excerpts section for the writer's system prompt (few-shot). */

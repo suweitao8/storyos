@@ -39,6 +39,7 @@ import {
   probeModelsFromUpstream,
   fetchWithProxy,
   chatCompletion,
+  buildStoryDirectionPrompt,
   buildExportArtifact,
   evaluateBookQuality,
   ConsolidatorAgent,
@@ -2479,6 +2480,19 @@ async function probeServiceCapabilities(args: {
 }
 
 // --- Server factory ---
+
+export function normalizeCraftMode(
+  mode: CraftMode | undefined,
+  sourceType: "bilibili" | "novel" | undefined,
+): CraftMode {
+  if (mode === "ghost-story") return "ghost-story";
+  if (sourceType === "bilibili") {
+    return mode === "bilibili-commentary" || mode === "bilibili-short-story"
+      ? mode
+      : "bilibili-short-story";
+  }
+  return "general";
+}
 
 export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: { readonly nodeImageGenerator?: NodeImageDeps } = {}) {
   const app = new Hono();
@@ -5445,7 +5459,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     broadcast("craft:start", { sourceName });
     try {
       const pipeline = new PipelineRunner(await buildPipelineConfig());
-      const craftMode: CraftMode = mode === "ghost-story" ? "ghost-story" : "general";
+      const craftMode = normalizeCraftMode(mode, sourceType);
       const { craftId, profile } = await pipeline.analyzeCraft(
         text,
         sourceName,
@@ -5528,6 +5542,42 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const profile = await pipeline.loadCraft(id);
     if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     return c.json(profile);
+  });
+
+  // --- Generate a new story direction from a saved craft profile ---
+
+  app.post("/api/v1/crafts/:id/story-direction", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    type StoryDirectionRequestBody = {
+      kind?: "long" | "short";
+      language?: "zh" | "en";
+      previousDirection?: string;
+    };
+    const body = await c.req.json<StoryDirectionRequestBody>().catch(() => ({} as StoryDirectionRequestBody));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+
+    const kind = body.kind === "long" ? "long" : "short";
+    const language = body.language === "en" ? "en" : "zh";
+    const prompt = buildStoryDirectionPrompt(profile, kind, language, body.previousDirection);
+    const agent = pipeline.createAgentContext(kind === "long" ? "architect" : "short-outline");
+    const response = await chatCompletion(
+      agent.client,
+      agent.model,
+      [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ],
+      { temperature: 0.85, maxTokens: 1_200 },
+    );
+    const direction = response.content
+      .replace(/<think>[\s\S]*?<\/think>/giu, "")
+      .replace(/^```(?:text|markdown)?\s*/iu, "")
+      .replace(/\s*```$/u, "")
+      .trim();
+    if (!direction) throw new ApiError(502, "EMPTY_STORY_DIRECTION", "The model returned an empty story direction.");
+    return c.json({ direction });
   });
 
   // --- Craft Delete ---
