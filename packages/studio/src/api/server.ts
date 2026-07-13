@@ -4976,6 +4976,23 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ ok: true });
   });
 
+  // --- Prompt templates ---
+
+  app.get("/api/v1/project/prompt-templates", async (c) => {
+    const raw = await loadRawConfig(root);
+    return c.json({ promptTemplates: raw.promptTemplates ?? {} });
+  });
+
+  app.put("/api/v1/project/prompt-templates", async (c) => {
+    const { promptTemplates } = await c.req.json<{ promptTemplates: Record<string, unknown> }>();
+    const configPath = join(root, "inkos.json");
+    const raw = JSON.parse(await readFile(configPath, "utf-8"));
+    raw.promptTemplates = promptTemplates;
+    const { writeFile: writeFileFs } = await import("node:fs/promises");
+    await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
+    return c.json({ ok: true });
+  });
+
   // --- Global default model ---
 
   app.get("/api/v1/project/default-model", async (c) => {

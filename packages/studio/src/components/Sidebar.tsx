@@ -43,6 +43,7 @@ import {
   Clapperboard,
   Rows3,
   Film,
+  FileText,
 } from "lucide-react";
 import { InkosLogo } from "./InkosLogo";
 
@@ -84,6 +85,7 @@ interface Nav {
   toServices: () => void;
   toProjectSettings: () => void;
   toGenres: () => void;
+  toPromptTemplates: () => void;
   toCraft: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toRadar: () => void;
@@ -575,6 +577,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
               icon={<Boxes size={16} />}
               active={activePage === "genres"}
               onClick={nav.toGenres}
+            />
+            <SidebarItem
+              label={t("nav.promptTemplates")}
+              icon={<FileText size={16} />}
+              active={activePage === "prompt-templates"}
+              onClick={nav.toPromptTemplates}
             />
             <SidebarItem
               label={t("nav.config")}

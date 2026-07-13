@@ -16,6 +16,7 @@ export type HashRoute =
   | { page: "daemon" }
   | { page: "logs" }
   | { page: "genres" }
+  | { page: "prompt-templates" }
   | { page: "craft" }
   | { page: "import"; tab?: "chapters" | "canon" | "fanfic" | "spinoff" }
   | { page: "radar" }
@@ -36,6 +37,7 @@ function parseHash(hash: string): HashRoute {
   if (path === "doctor") return { page: "project-settings" };
   if (path === "import") return { page: "import" };
   if (path === "craft") return { page: "craft" };
+  if (path === "prompt-templates") return { page: "prompt-templates" };
   const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
   if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
   if (path.startsWith("import/")) return { page: "import" };
@@ -84,6 +86,7 @@ function routeToHash(route: HashRoute): string {
     case "doctor": return "#/settings";
     case "import": return route.tab ? `#/import/${route.tab}` : "#/import";
     case "craft": return "#/craft";
+    case "prompt-templates": return "#/prompt-templates";
     case "service-detail": return `#/services/${encodeURIComponent(route.serviceId)}`;
     case "play": return `#/play/${encodeURIComponent(route.projectId)}`;
     case "film": return `#/film/${encodeURIComponent(route.projectId)}`;
@@ -96,7 +99,7 @@ function routeToHash(route: HashRoute): string {
 
 export { parseHash, routeToHash }; // for testing
 
-const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "play", "film", "flow", "film-author", "film-studio"]);
+const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "play", "film", "flow", "film-author", "film-studio", "prompt-templates"]);
 
 function normalizeRoute(route: HashRoute): HashRoute {
   return route.page === "doctor" ? { page: "project-settings" } : route;

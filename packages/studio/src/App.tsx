@@ -14,6 +14,7 @@ import { TruthFiles } from "./pages/TruthFiles";
 import { DaemonControl } from "./pages/DaemonControl";
 import { LogViewer } from "./pages/LogViewer";
 import { GenreManager } from "./pages/GenreManager";
+import { PromptTemplatePage } from "./pages/PromptTemplatePage";
 import { CraftManager } from "./pages/CraftManager";
 import { ImportManager } from "./pages/ImportManager";
 import { RadarView } from "./pages/RadarView";
@@ -92,6 +93,7 @@ export function getRouteToolbarTitle(
         daemon: "守护进程",
         logs: "日志",
         genres: "题材",
+        "prompt-templates": "提示词模板",
         craft: "写作模式",
         import: "导入",
         radar: "市场雷达",
@@ -117,6 +119,7 @@ export function getRouteToolbarTitle(
         daemon: "Daemon",
         logs: "Logs",
         genres: "Genres",
+        "prompt-templates": "Prompt Templates",
         craft: "Writing Modes",
         import: "Import",
         radar: "Market Radar",
@@ -310,6 +313,7 @@ export function App() {
     toDaemon: () => setRoute({ page: "daemon" }),
     toLogs: () => setRoute({ page: "logs" }),
     toGenres: () => setRoute({ page: "genres" }),
+    toPromptTemplates: () => setRoute({ page: "prompt-templates" }),
     toCraft: () => setRoute({ page: "craft" }),
     toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => setRoute({ page: "import", ...(tab ? { tab } : {}) }),
     toRadar: () => setRoute({ page: "radar" }),
@@ -546,6 +550,11 @@ export function App() {
           {route.page === "genres" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <GenreManager nav={nav} theme={theme} t={t} />
+            </div>
+          )}
+          {route.page === "prompt-templates" && (
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
+              <PromptTemplatePage theme={theme} t={t} />
             </div>
           )}
           {route.page === "craft" && (
