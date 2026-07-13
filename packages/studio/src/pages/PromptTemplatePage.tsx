@@ -50,7 +50,7 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
   const { data, loading, error } = useApi<ApiResponse>("/project/prompt-templates");
   const { data: promptPacksData } = useApi<PromptPacksResponse>("/prompt-packs");
 
-  const [tab, setTab] = useState<FormTab>("writing");
+  const [tab, setTab] = useState<FormTab>("imageTemplates");
 
   const tabBtn = (key: FormTab, label: string) =>
     `px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
@@ -60,7 +60,12 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
     }`;
 
   const imageKinds = data ? Object.keys(data.imageTemplates) : [];
-  const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] });
+  // Only show the longform prompt pack; play / interactive-film packs are
+  // not surfaced in the UI.
+  const HIDDEN_PACK_IDS = new Set(["play", "interactive-film"]);
+  const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] }).filter(
+    (group) => !HIDDEN_PACK_IDS.has(group.id),
+  );
 
   return (
     <div className="space-y-5">
@@ -86,9 +91,6 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
           <>
             {/* Tab bar */}
             <div className="flex gap-1 border-b border-border overflow-x-auto">
-              <button className={tabBtn("writing", t("genre.tabWriting"))} onClick={() => setTab("writing")}>
-                {t("genre.tabWriting")}
-              </button>
               <button className={tabBtn("imageTemplates", t("genre.tabImage"))} onClick={() => setTab("imageTemplates")}>
                 {t("genre.tabImage")}
               </button>
@@ -98,14 +100,17 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
               <button className={tabBtn("voice", t("genre.tabVoice"))} onClick={() => setTab("voice")}>
                 {t("genre.tabVoice")}
               </button>
+              <button className={tabBtn("writing", t("genre.tabWriting"))} onClick={() => setTab("writing")}>
+                {t("genre.tabWriting")}
+              </button>
             </div>
 
             {tab === "writing" && (
               <div className="space-y-6">
                 <p className="text-xs text-muted-foreground">
                   {lang === "zh"
-                    ? "写作、修订、审计等 agent 的内置指导提示词。"
-                    : "Built-in guidance prompts for writing, revising, auditing, and other agents."}
+                    ? "长篇写作、修订、审计等环节的内置指导提示词。"
+                    : "Built-in guidance prompts for longform writing, revising, and auditing."}
                 </p>
                 {promptGroups.map((group) => (
                   <div key={group.id} className="space-y-3">
