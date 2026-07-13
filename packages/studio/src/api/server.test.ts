@@ -224,6 +224,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     listCrafts = listCraftsMock;
     loadCraft = loadCraftMock;
     deleteCraft = deleteCraftMock;
+    createAgentContext = vi.fn(() => ({ client: {}, model: "gpt-5.4" }));
   }
 
   class MockConsolidatorAgent {
@@ -273,6 +274,9 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     inferLanguage: actual.inferLanguage,
     isUsablePlayInitialScene: actual.isUsablePlayInitialScene,
     chatCompletion: chatCompletionMock,
+    buildStorySeedPrompt: actual.buildStorySeedPrompt,
+    STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
+    parseStorySeed: actual.parseStorySeed,
     loadProjectConfig: loadProjectConfigMock,
     processProjectInteractionRequest: processProjectInteractionRequestMock,
     createInteractionToolsFromDeps: createInteractionToolsFromDepsMock,
@@ -402,6 +406,48 @@ const projectConfig = {
   modelOverrides: {},
   notify: [],
 } as const;
+
+const storySeedCraftProfile = {
+  id: "craft-1",
+  sourceName: "Existing Craft",
+  worldview: "A closed residential block treats repeated sounds as warnings.",
+  storyOutline: "A protagonist investigates missing records and pays a personal cost.",
+  structure: { openingPattern: "an abnormal detail", chapterArc: "clue, pressure, reversal", endingHookType: "a new rule" },
+  sceneRhythm: { sceneTransitionTechnique: "hard cuts", pacingCurve: "quiet to danger", conflictEscalation: "each answer costs more" },
+  informationDisclosure: { foreshadowingDensity: "high", informationReleaseRhythm: "staged", suspenseManagement: "withhold the rule" },
+  narrativePerspective: { povStrategy: "close third", narrationDialogueRatio: "balanced", narrativeDistance: "close" },
+  exemplars: [],
+} as const;
+
+const storySeedMarkdown = `## 故事名称
+测试故事
+
+## 类型与基调
+悬疑，克制
+
+## 一句话故事钩子
+一个维修员接到不存在的电话。
+
+## 世界观与运行规则
+重复的声音会改变记录。
+
+## 角色与关系
+维修员想找回邻居。
+
+## 核心冲突、代价与 stakes
+每次调查都会失去一段记忆。
+
+## 分段故事大纲
+发现、调查、转折、高潮、结局。
+
+## 关键反转与线索回收
+电话来自主角未来的选择。
+
+## 结局与情绪余味
+主角救人但忘记姓名。
+
+## 画面与声音母题
+坏钟和第二次敲门声。`;
 
 function cloneProjectConfig() {
   return structuredClone(projectConfig);
@@ -663,6 +709,77 @@ describe("createStudioServer daemon lifecycle", () => {
       recentCraftId: null,
       recentCraftPreferenceAvailable: true,
     });
+  });
+
+  it("streams a complete short-story seed as final text deltas and a parsed candidate", async () => {
+    loadCraftMock.mockResolvedValueOnce(storySeedCraftProfile);
+    chatCompletionMock.mockImplementationOnce(async (_client: unknown, _model: string, _messages: unknown, options: { onTextDelta?: (text: string) => void }) => {
+      options.onTextDelta?.("## 故事名称\n测试故事\n\n## 类型与基调\n悬疑，克制\n");
+      options.onTextDelta?.(storySeedMarkdown.slice(storySeedMarkdown.indexOf("## 一句话故事钩子")));
+      return { content: storySeedMarkdown, usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } };
+    });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-direction/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(body).toContain("event: start");
+    expect(body).toContain("event: delta");
+    expect(body).toContain("event: complete");
+    expect(body).toContain('"title":"测试故事"');
+    expect(chatCompletionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("十个") })]),
+      expect.objectContaining({ onTextDelta: expect.any(Function), retry: false }),
+    );
+  });
+
+  it("streams a direct-output seed without a craft reference", async () => {
+    chatCompletionMock.mockImplementationOnce(async (_client: unknown, _model: string, _messages: unknown, options: { onTextDelta?: (text: string) => void }) => {
+      options.onTextDelta?.(storySeedMarkdown);
+      return { content: storySeedMarkdown, usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } };
+    });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/story-direction/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("event: complete");
+    expect(loadCraftMock).not.toHaveBeenCalled();
+  });
+
+  it("reports an incomplete seed as an SSE error instead of a complete candidate", async () => {
+    loadCraftMock.mockResolvedValueOnce(storySeedCraftProfile);
+    chatCompletionMock.mockImplementationOnce(async (_client: unknown, _model: string, _messages: unknown, options: { onTextDelta?: (text: string) => void }) => {
+      options.onTextDelta?.("## 故事名称\n不完整\n");
+      return { content: "## 故事名称\n不完整\n", usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 } };
+    });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-direction/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("event: error");
+    expect(body).not.toContain("event: complete");
   });
 
   it("lists completed short stories separately from chat sessions", async () => {

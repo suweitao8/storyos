@@ -27,6 +27,7 @@ import { PlayChoicePanel } from "../components/chat/PlayChoicePanel";
 import { latestPlayChoiceSet } from "../components/chat/play-choices";
 import { usePageToolbar } from "../components/PageToolbar";
 import { StoryCreationPanel } from "./StoryCreationPanel";
+import type { StorySeed } from "@actalk/inkos-core";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
@@ -38,6 +39,11 @@ import {
   type ShortStoryCreationInput,
   type StoryDirectionGenerationInput,
 } from "./story-creation-state";
+import {
+  streamStorySeed,
+  type StorySeedGenerationInput,
+  type StorySeedStreamEvent,
+} from "./story-seed-stream";
 import {
   BotMessageSquare,
   ArrowUp,
@@ -1046,6 +1052,11 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     return result.direction;
   }, []);
 
+  const handleGenerateStorySeed = useCallback(async (
+    input: StorySeedGenerationInput,
+    onEvent: (event: StorySeedStreamEvent) => void,
+  ): Promise<StorySeed> => streamStorySeed(input, onEvent), []);
+
   const requestStoryAssetExtraction = async (kind: "book" | "short", storyId: string) => {
     try {
       await fetchJson(buildStoryAssetExtractionPath(kind, storyId), { method: "POST" });
@@ -1144,6 +1155,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           onCreateLong={handleCreateLong}
           onCreateShort={handleCreateShort}
           onGenerateDirection={handleGenerateStoryDirection}
+          onGenerateSeed={handleGenerateStorySeed}
           onOpenCraft={nav.toCraft}
         />
       ) : storyWorkspace.view === "list" ? (

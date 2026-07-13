@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
+import type { Context } from "hono";
 import { serve } from "@hono/node-server";
 import { gzipSync } from "node:zlib";
 import { randomUUID } from "node:crypto";
@@ -40,6 +41,9 @@ import {
   fetchWithProxy,
   chatCompletion,
   buildStoryDirectionPrompt,
+  buildStorySeedPrompt,
+  STORY_SEED_SECTION_DEFINITIONS,
+  parseStorySeed,
   buildExportArtifact,
   evaluateBookQuality,
   ConsolidatorAgent,
@@ -5588,6 +5592,74 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   });
 
   // --- Generate a new story direction from a saved craft profile ---
+
+  const streamStorySeed = async (c: Context, craftId?: string) => {
+    const body = await c.req.json<{
+      kind?: "long" | "short";
+      language?: "zh" | "en";
+      previousDirection?: string;
+    }>().catch(() => null);
+    const request = body ?? {};
+    const kind = request.kind === "long" ? "long" : "short";
+    const language = request.language === "en" ? "en" : "zh";
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = craftId ? await pipeline.loadCraft(craftId) : undefined;
+    if (craftId && !profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    const prompt = buildStorySeedPrompt(profile ?? undefined, kind, language, request.previousDirection);
+    const agent = pipeline.createAgentContext(kind === "long" ? "architect" : "short-outline");
+
+    return streamSSE(c, async (stream) => {
+      let generated = "";
+      let writeChain = Promise.resolve();
+      const writeEvent = (event: string, data: unknown) => {
+        writeChain = writeChain.then(() => stream.writeSSE({ event, data: JSON.stringify(data) }));
+      };
+
+      await stream.writeSSE({
+        event: "start",
+        data: JSON.stringify({
+          kind,
+          language,
+          sections: STORY_SEED_SECTION_DEFINITIONS.map((definition) => language === "en" ? definition.en : definition.zh),
+        }),
+      });
+
+      try {
+        const response = await chatCompletion(
+          agent.client,
+          agent.model,
+          [
+            { role: "system", content: prompt.system },
+            { role: "user", content: prompt.user },
+          ],
+          {
+            temperature: 0.85,
+            maxTokens: 3_000,
+            retry: false,
+            onTextDelta: (text) => {
+              generated += text;
+              writeEvent("delta", { text });
+            },
+          },
+        );
+        await writeChain;
+        const seed = parseStorySeed(response.content || generated);
+        await stream.writeSSE({ event: "complete", data: JSON.stringify({ seed, content: response.content || generated }) });
+      } catch (error) {
+        await writeChain.catch(() => undefined);
+        await stream.writeSSE({
+          event: "error",
+          data: JSON.stringify({ message: error instanceof Error ? error.message : String(error), content: generated }),
+        });
+      }
+    });
+  };
+
+  app.post("/api/v1/story-direction/stream", async (c) => streamStorySeed(c));
+  app.post("/api/v1/crafts/:id/story-direction/stream", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    return streamStorySeed(c, id);
+  });
 
   app.post("/api/v1/crafts/:id/story-direction", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));

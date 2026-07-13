@@ -61,6 +61,7 @@ export {
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
 export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";
+export { STORY_SEED_SECTION_DEFINITIONS, StorySeedParseError, parseStorySeed, serializeStorySeed, type StorySeed, type StorySeedSectionKey } from "./models/story-seed.js";
 export { estimateVideoNovelWordCount } from "./craft/video-word-count.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {
@@ -504,7 +505,7 @@ export { analyzeAITells, type AITellResult, type AITellIssue } from "./agents/ai
 export { analyzeSensitiveWords, type SensitiveWordResult, type SensitiveWordMatch } from "./agents/sensitive-words.js";
 export { detectAIContent, type DetectionResult } from "./agents/detector.js";
 export { CraftAnalyzerAgent, splitCraftChapters, selectSampleChapters, validateExemplars } from "./agents/craft-analyzer.js";
-export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt, buildStoryDirectionPrompt, type StoryDirectionPrompt } from "./agents/craft-prompts.js";
+export { buildCraftGuide, buildCraftExemplars, buildCraftAnalysisSystemPrompt, buildCraftAnalysisUserPrompt, buildStoryDirectionPrompt, buildStorySeedPrompt, type StoryDirectionPrompt } from "./agents/craft-prompts.js";
 export { deriveCraftBreakdownModules, formatCraftBreakdownModules, normalizeCraftBreakdownModule, normalizeCraftBreakdownModules } from "./agents/craft-breakdown.js";
 export { analyzeDetectionInsights } from "./agents/detection-insights.js";
 export { validatePostWrite, detectParagraphLengthDrift, detectParagraphShapeWarnings, detectDuplicateTitle, type PostWriteViolation } from "./agents/post-write-validator.js";
