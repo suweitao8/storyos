@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
+  formatStoryWordCount,
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
   LONG_STORY_CHAPTERS,
@@ -31,6 +32,14 @@ describe("story creation actions", () => {
     expect(buildStoryWordCountOptions(42_900)).toEqual([1_000, 2_000, 5_000, 10_000, 42_900]);
     expect(resolveDefaultStoryWordCount(42_900)).toBe(42_900);
     expect(resolveDefaultStoryWordCount()).toBe(10_000);
+  });
+
+  it("formats chapter word counts as approximate Chinese units", () => {
+    expect(formatStoryWordCount(1_000, "zh")).toBe("1千字");
+    expect(formatStoryWordCount(5_000, "zh")).toBe("5千字");
+    expect(formatStoryWordCount(21_000, "zh")).toBe("2万字");
+    expect(formatStoryWordCount(22_000, "zh")).toBe("2万字");
+    expect(formatStoryWordCount(22_000, "en")).toBe("22,000 words");
   });
 
   it("binds the selected craft to long-form book creation", () => {

@@ -16,6 +16,14 @@ export function resolveDefaultStoryWordCount(recommendedWordCount?: number): num
   return recommendedWordCount && recommendedWordCount > 0 ? recommendedWordCount : 10_000;
 }
 
+export function formatStoryWordCount(value: number, language: "zh" | "en"): string {
+  const count = Math.max(0, Math.round(value));
+  if (language === "en") return `${count.toLocaleString("en-US")} words`;
+  if (count >= 10_000) return `${Math.max(1, Math.round(count / 10_000))}万字`;
+  if (count >= 1_000) return `${Math.max(1, Math.round(count / 1_000))}千字`;
+  return `${count}字`;
+}
+
 export interface CraftOption {
   readonly id: string;
   readonly sourceName: string;

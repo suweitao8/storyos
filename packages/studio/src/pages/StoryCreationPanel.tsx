@@ -15,6 +15,7 @@ import {
 import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
+  formatStoryWordCount,
   resolveDefaultStoryWordCount,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
@@ -331,13 +332,13 @@ export function StoryCreationPanel({
             <label className="space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-                {wordCountOptions.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
+                {wordCountOptions.map((count) => <option key={count} value={count}>{formatStoryWordCount(count, isZh ? "zh" : "en")}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
               </select>
               {selectedCraft?.recommendedWordCount ? (
                 <p className="text-xs leading-5 text-primary">
                   {isZh
-                    ? `已按当前模式默认：约 ${selectedCraft.recommendedWordCount.toLocaleString()} 字`
-                    : `Defaulted from this mode: about ${selectedCraft.recommendedWordCount.toLocaleString()} words`}
+                    ? `已按当前模式默认：约 ${formatStoryWordCount(selectedCraft.recommendedWordCount, "zh")}`
+                    : `Defaulted from this mode: about ${formatStoryWordCount(selectedCraft.recommendedWordCount, "en")}`}
                 </p>
               ) : null}
             </label>
@@ -349,7 +350,7 @@ export function StoryCreationPanel({
             <div>
               <div className="text-sm font-semibold">{isZh ? "短篇故事基础信息" : "Short-story basics"}</div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                {isZh ? "先生成完整故事设定，在右侧检查并编辑；满意后再创建短片故事。" : "Generate the complete foundation, review it on the right, then create the short story."}
+                {isZh ? "先生成完整故事设定，在右侧查看模型原始输出；确认后直接创建短片故事。" : "Generate the complete foundation, review the raw model output on the right, then create the short story."}
               </p>
             </div>
             <button
@@ -365,13 +366,13 @@ export function StoryCreationPanel({
             <label className="block space-y-2 text-sm">
               <span>{isZh ? "每章字数" : "Words / chapter"}</span>
               <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-                {wordCountOptions.map((count) => <option key={count} value={count}>{count.toLocaleString()} {isZh ? "字" : "words"}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
+                {wordCountOptions.map((count) => <option key={count} value={count}>{formatStoryWordCount(count, isZh ? "zh" : "en")}{count === selectedCraft?.recommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
               </select>
               {selectedCraft?.recommendedWordCount ? (
                 <p className="text-xs leading-5 text-primary">
                   {isZh
-                    ? `已按当前模式默认：约 ${selectedCraft.recommendedWordCount.toLocaleString()} 字`
-                    : `Defaulted from this mode: about ${selectedCraft.recommendedWordCount.toLocaleString()} words`}
+                    ? `已按当前模式默认：约 ${formatStoryWordCount(selectedCraft.recommendedWordCount, "zh")}`
+                    : `Defaulted from this mode: about ${formatStoryWordCount(selectedCraft.recommendedWordCount, "en")}`}
                 </p>
               ) : null}
             </label>
@@ -382,15 +383,10 @@ export function StoryCreationPanel({
             ) : null}
           </div>
           <StorySeedPreview
-            seed={shortSeed}
             streamedContent={shortSeedStreamedContent}
             status={shortSeedStatus}
             error={shortSeedStatus === "error" ? shortSeedError : null}
             isZh={isZh}
-            onChangeSeed={(seed) => {
-              setShortSeed(seed);
-              setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
-            }}
           />
         </div>
       )}
@@ -422,7 +418,7 @@ export function StoryCreationPanel({
               </div>
               <div className="flex items-center justify-between gap-4 py-3 text-sm">
                 <dt className="text-muted-foreground">{isZh ? "每章字数" : "Words / chapter"}</dt>
-                <dd className="font-medium">{Number(chapterWordCount).toLocaleString()} {isZh ? "字" : "words"}</dd>
+                <dd className="font-medium">{formatStoryWordCount(Number(chapterWordCount), isZh ? "zh" : "en")}</dd>
               </div>
             </dl>
           </section>
