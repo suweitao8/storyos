@@ -5,15 +5,11 @@ import {
 } from "../skills/index.js";
 
 describe("capability skill registry", () => {
-  it("ships the first built-in writing/play/film skills with context needs", () => {
+  it("ships the built-in longform writing skill with context needs", () => {
     const registry = createSkillRegistry();
     const ids = registry.listSkills().map((skill) => skill.id).sort();
 
-    expect(ids).toEqual([
-      "interactive-film-authoring",
-      "longform-writing",
-      "open-world-play",
-    ]);
+    expect(ids).toEqual(["longform-writing"]);
     for (const skill of registry.listSkills()) {
       expect(skill.contextNeeds.length).toBeGreaterThan(0);
     }
@@ -23,13 +19,13 @@ describe("capability skill registry", () => {
     const registry = createSkillRegistry();
 
     const result = registry.resolveSkills({
-      requestedSkills: ["interactive-film-authoring"],
+      requestedSkills: ["longform-writing"],
       sessionKind: "chat",
       instruction: "随便聊聊这个故事标题",
     });
 
-    expect(result.usedSkills.map((skill) => skill.id)).toEqual(["interactive-film-authoring"]);
-    expect(result.forcedSkillIds).toEqual(["interactive-film-authoring"]);
+    expect(result.usedSkills.map((skill) => skill.id)).toEqual(["longform-writing"]);
+    expect(result.forcedSkillIds).toEqual(["longform-writing"]);
     expect(result.missingSkillIds).toEqual([]);
   });
 
@@ -49,27 +45,17 @@ describe("capability skill registry", () => {
     const registry = createSkillRegistry();
 
     const result = registry.resolveSkills({
-      disabledSkills: ["interactive-film-authoring"],
-      instruction: "把这个小说改成互动影游，做变量旗标和多结局",
+      disabledSkills: ["longform-writing"],
+      instruction: "继续写下一章，注意伏笔一致性",
     });
 
-    expect(result.autoSkillIds).not.toContain("interactive-film-authoring");
-    expect(result.usedSkills.map((skill) => skill.id)).not.toContain("interactive-film-authoring");
-    expect(result.disabledSkillIds).toEqual(["interactive-film-authoring"]);
+    expect(result.autoSkillIds).not.toContain("longform-writing");
+    expect(result.usedSkills.map((skill) => skill.id)).not.toContain("longform-writing");
+    expect(result.disabledSkillIds).toEqual(["longform-writing"]);
   });
 
   it("auto-selects skill candidates from session kind and natural-language instruction", () => {
     const registry = createSkillRegistry();
-
-    expect(registry.resolveSkills({
-      sessionKind: "play",
-      instruction: "我走进旧图书馆，查看桌上的信",
-    }).usedSkills.map((skill) => skill.id)).toEqual(["open-world-play"]);
-
-    expect(registry.resolveSkills({
-      sessionKind: "chat",
-      instruction: "做一个互动影游，需要分支剧情、变量旗标和两个结局",
-    }).usedSkills.map((skill) => skill.id)).toEqual(["interactive-film-authoring"]);
 
     expect(registry.resolveSkills({
       sessionKind: "book",
@@ -78,6 +64,6 @@ describe("capability skill registry", () => {
   });
 
   it("keeps built-in manifests schema-valid at module load time", () => {
-    expect(BUILTIN_CAPABILITY_SKILLS).toHaveLength(3);
+    expect(BUILTIN_CAPABILITY_SKILLS).toHaveLength(1);
   });
 });

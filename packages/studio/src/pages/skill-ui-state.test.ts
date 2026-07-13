@@ -8,10 +8,10 @@ import {
 
 describe("skill-ui-state", () => {
   it("toggles selected skill ids with normalization", () => {
-    expect(toggleSelectedSkillIds([], "Open World Play")).toEqual(["open-world-play"]);
-    expect(toggleSelectedSkillIds(["open-world-play"], "open-world-play")).toEqual([]);
-    expect(toggleSelectedSkillIds(["open-world-play"], "  Script@Skill  ")).toEqual([
-      "open-world-play",
+    expect(toggleSelectedSkillIds([], "Longform Writing")).toEqual(["longform-writing"]);
+    expect(toggleSelectedSkillIds(["longform-writing"], "longform-writing")).toEqual([]);
+    expect(toggleSelectedSkillIds(["longform-writing"], "  Script@Skill  ")).toEqual([
+      "longform-writing",
       "script-skill",
     ]);
   });
@@ -22,8 +22,8 @@ describe("skill-ui-state", () => {
   });
 
   it("deduplicates selected skill ids for send", () => {
-    expect(selectedSkillIdsForSend(["open-world-play", "Open World Play", "script"])).toEqual([
-      "open-world-play",
+    expect(selectedSkillIdsForSend(["longform-writing", "Longform Writing", "script"])).toEqual([
+      "longform-writing",
       "script",
     ]);
   });

@@ -66,14 +66,14 @@ describe("buildAgentSystemPrompt", () => {
 
     it("adds forced skill guidance without granting execution authority", () => {
       const skills = createSkillRegistry().resolveSkills({
-        requestedSkills: ["open-world-play"],
+        requestedSkills: ["longform-writing"],
         sessionKind: "chat",
       });
 
       const prompt = buildAgentSystemPrompt(null, "zh", "chat", { skills });
 
       expect(prompt).toContain("## Skill 指导");
-      expect(prompt).toContain("open-world-play (强制)");
+      expect(prompt).toContain("longform-writing (强制)");
       expect(prompt).toContain("Skill 只提供专业指导、上下文需求和 prompt pack");
       expect(prompt).toContain("它不授予执行权限");
     });
