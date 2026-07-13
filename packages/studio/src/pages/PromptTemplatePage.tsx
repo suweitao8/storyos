@@ -5,6 +5,10 @@ import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { useApi } from "../hooks/use-api";
 import { Loader2 } from "lucide-react";
+import {
+  groupPromptPacksForDisplay,
+  type PromptPacksResponse,
+} from "./prompt-pack-ui-state";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the read-only shape returned by the API
@@ -32,7 +36,7 @@ interface ApiResponse {
   readonly voiceGroups: ReadonlyArray<VoiceGroupOption>;
 }
 
-type FormTab = "imageTemplates" | "imageStyles" | "voice";
+type FormTab = "writing" | "imageTemplates" | "imageStyles" | "voice";
 
 const IMAGE_LABELS: Record<string, { zh: string; en: string }> = {
   character: { zh: "角色图片提示词", en: "Character Image Prompt" },
@@ -44,8 +48,9 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
   const c = useColors(theme);
   const { lang } = useI18n();
   const { data, loading, error } = useApi<ApiResponse>("/project/prompt-templates");
+  const { data: promptPacksData } = useApi<PromptPacksResponse>("/prompt-packs");
 
-  const [tab, setTab] = useState<FormTab>("imageTemplates");
+  const [tab, setTab] = useState<FormTab>("writing");
 
   const tabBtn = (key: FormTab, label: string) =>
     `px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
@@ -55,6 +60,7 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
     }`;
 
   const imageKinds = data ? Object.keys(data.imageTemplates) : [];
+  const promptGroups = groupPromptPacksForDisplay(promptPacksData ?? { packs: [], prompts: [] });
 
   return (
     <div className="space-y-5">
@@ -64,8 +70,8 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
           <h1 className="text-xl font-medium">{lang === "zh" ? "提示词模板" : "Prompt Templates"}</h1>
           <p className="text-xs text-muted-foreground/70">
             {lang === "zh"
-              ? "以下是内置的图片模板、画面风格和语音提示词，仅供预览。如需修改请在题材管理中编辑。"
-              : "Built-in image templates, art styles, and voice prompts, read-only. To modify, edit in Genre Manager."}
+              ? "预览写作、图片和语音相关的内置提示词。如需修改请前往设置页面。"
+              : "Preview built-in writing, image, and voice prompts. To modify, go to Settings."}
           </p>
         </div>
 
@@ -80,6 +86,9 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
           <>
             {/* Tab bar */}
             <div className="flex gap-1 border-b border-border overflow-x-auto">
+              <button className={tabBtn("writing", t("genre.tabWriting"))} onClick={() => setTab("writing")}>
+                {t("genre.tabWriting")}
+              </button>
               <button className={tabBtn("imageTemplates", t("genre.tabImage"))} onClick={() => setTab("imageTemplates")}>
                 {t("genre.tabImage")}
               </button>
@@ -90,6 +99,44 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
                 {t("genre.tabVoice")}
               </button>
             </div>
+
+            {tab === "writing" && (
+              <div className="space-y-6">
+                <p className="text-xs text-muted-foreground">
+                  {lang === "zh"
+                    ? "写作、修订、审计等 agent 的内置指导提示词。"
+                    : "Built-in guidance prompts for writing, revising, auditing, and other agents."}
+                </p>
+                {promptGroups.map((group) => (
+                  <div key={group.id} className="space-y-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{group.title}</div>
+                      {group.description ? (
+                        <p className="mt-1 text-[11px] leading-4 text-muted-foreground/80">{group.description}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-3">
+                      {group.prompts.map((prompt) => (
+                        <div key={prompt.id}>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-semibold text-foreground/90">{prompt.title}</label>
+                            {prompt.overridden ? (
+                              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                {lang === "zh" ? "已改" : "custom"}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/75">{prompt.id}</div>
+                          <pre className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap max-h-[320px] overflow-y-auto">
+                            {prompt.content || `（${lang === "zh" ? "空" : "empty"}）`}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {tab === "imageTemplates" && (
               <div className="space-y-4">
