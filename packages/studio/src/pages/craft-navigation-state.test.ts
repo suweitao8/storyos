@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CRAFT_TAB,
   resolveAfterCraftDelete,
+  resolveDefaultCraftSelection,
   resolveInitialCraftState,
 } from "./craft-navigation-state";
 
@@ -39,6 +40,20 @@ describe("resolveInitialCraftState", () => {
       tab: "list",
       selectedCraftId: null,
     });
+  });
+});
+
+describe("resolveDefaultCraftSelection", () => {
+  it("prefers the recent craft when it is still available", () => {
+    expect(resolveDefaultCraftSelection(["craft-1", "craft-2"], "craft-2")).toBe("craft-2");
+  });
+
+  it("falls back to the first craft when the recent craft is unavailable", () => {
+    expect(resolveDefaultCraftSelection(["craft-1", "craft-2"], "deleted-craft")).toBe("craft-1");
+  });
+
+  it("returns no selection when there are no crafts", () => {
+    expect(resolveDefaultCraftSelection([], null)).toBeNull();
   });
 });
 

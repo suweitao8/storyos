@@ -11,6 +11,21 @@ function isValidCraftId(craftId: string): boolean {
   return craftId.trim().length > 0;
 }
 
+export function resolveDefaultCraftSelection(
+  availableCraftIds: ReadonlyArray<string>,
+  recentCraftId: string | null,
+): string | null {
+  if (
+    recentCraftId &&
+    isValidCraftId(recentCraftId) &&
+    availableCraftIds.includes(recentCraftId)
+  ) {
+    return recentCraftId;
+  }
+
+  return availableCraftIds.find(isValidCraftId) ?? null;
+}
+
 export function resolveInitialCraftState(
   recentCraftId: string | null,
   availableCraftIds: ReadonlyArray<string>,

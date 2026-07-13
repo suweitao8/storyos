@@ -110,7 +110,7 @@ describe("resolveActiveStoryTitle", () => {
     })).toBeUndefined();
   });
 
-  it("uses the active or first book for long-story and writing-mode pages", () => {
+  it("uses the active or first book for long-story pages only", () => {
     const books = [
       { id: "book-1", title: "第一本书" },
       { id: "book-2", title: "第二本书" },
@@ -129,10 +129,10 @@ describe("resolveActiveStoryTitle", () => {
       lang: "zh",
       books,
       shorts: [],
-    })).toBe("第一本书");
+    })).toBeUndefined();
   });
 
-  it("shows no content when long-story or writing-mode has no books", () => {
+  it("shows no content when long-story has no books", () => {
     expect(resolveActiveStoryTitle({
       route: { page: "book-create" },
       lang: "zh",
@@ -145,7 +145,7 @@ describe("resolveActiveStoryTitle", () => {
       lang: "en",
       books: [],
       shorts: [],
-    })).toBe("No content");
+    })).toBeUndefined();
   });
 });
 

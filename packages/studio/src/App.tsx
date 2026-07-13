@@ -170,7 +170,7 @@ export function resolveActiveStoryTitle(input: {
     return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title;
   }
 
-  if (route.page === "book-create" || route.page === "craft") {
+  if (route.page === "book-create") {
     const activeBook = input.books.find((book) => book.id === input.activeBookId) ?? input.books[0];
     return activeBook?.title ?? (input.lang !== "en" ? "无内容" : "No content");
   }

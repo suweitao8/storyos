@@ -14,21 +14,7 @@ import {
   resolveDefaultCraftSelection,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
-import type { CraftMode, VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
-import {
-  CRAFT_SOURCE_TYPES,
-  CRAFT_VIDEO_MODES,
-  craftModeDescription,
-  craftModeLabel,
-  craftSourceTypeLabel as getCraftSourceTypeLabel,
-} from "./craft-reference-mode";
-export {
-  CRAFT_SOURCE_TYPES,
-  CRAFT_VIDEO_MODES,
-  craftModeLabel,
-} from "./craft-reference-mode";
-export type { CraftSourceType } from "./craft-reference-mode";
-import type { CraftSourceType } from "./craft-reference-mode";
+import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import {
   Wand2, BookOpen, Trash2,
   Plus, FileUp, Loader2, FileText,
@@ -43,7 +29,7 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: CraftMode;
+  readonly mode?: "general" | "ghost-story";
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
@@ -51,25 +37,20 @@ interface CraftMeta {
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
 
-export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode" | "sourceType">): string {
-  const typeLabel = craftModeLabel(craft.mode, craft.sourceType);
-  return typeLabel
-    ? `${normalizeCraftDisplayName(craft.sourceName)} · ${typeLabel}`
-    : normalizeCraftDisplayName(craft.sourceName);
+export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): string {
+  return normalizeCraftDisplayName(craft.sourceName);
 }
 
 export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
-  return getCraftSourceTypeLabel(sourceType);
+  if (sourceType === "bilibili") return "视频解析";
+  if (sourceType === "novel") return "小说解析";
+  return "来源未记录";
 }
 
-export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary" | "sourceType">): string {
+export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
   const summary = craft.summary?.trim();
   if (summary) return summary;
-  if (craft.mode === "bilibili-commentary") return "提取影视解说的剧情压缩、反转和原创短篇改编骨架";
-  if (craft.mode === "bilibili-short-story") return "提取 B 站短篇故事的钩子、推进、反转和结尾节奏";
-  return craft.sourceType === "bilibili"
-    ? "提取视频的剧情节奏和情绪结构"
-    : "提取小说的结构、场景节奏、信息释放与叙事视角";
+  return "提取开篇结构、场景节奏、信息释放与叙事视角";
 }
 
 interface CraftListResponse {
@@ -96,9 +77,16 @@ interface BilibiliImportResponse {
   }>;
 }
 
+export type CraftSourceType = "bilibili" | "novel";
+
+export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: string }> = [
+  { value: "bilibili", label: "B 站视频链接" },
+  { value: "novel", label: "小说文本文件" },
+];
+
 export function buildCraftAnalyzePayload(
   source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string; sourceDurationSeconds?: number },
-  mode: CraftMode = "general",
+  mode: "general" | "ghost-story" = "general",
 ) {
   return {
     text: source.text,
@@ -171,7 +159,7 @@ interface CraftProfile {
   readonly sourceName: string;
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: CraftMode;
+  readonly mode?: "general" | "ghost-story";
   readonly worldview?: string;
   readonly storyOutline?: string;
   readonly structure: {
@@ -613,7 +601,6 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [importingBilibili, setImportingBilibili] = useState(false);
   const [bilibiliError, setBilibiliError] = useState("");
   const [sourceType, setSourceType] = useState<CraftSourceType>("novel");
-  const [craftMode, setCraftMode] = useState<CraftMode>("general");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
   const [currentStep, setCurrentStep] = useState("");
@@ -679,7 +666,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setProgressLogs((prev) => [...prev, t("craft.progressWaiting")].slice(-12));
     try {
       const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
-        ...buildCraftAnalyzePayload(source, craftMode),
+        ...buildCraftAnalyzePayload(source),
       });
       onSuccess(result.profile, result.craftId);
     } catch (e) {
@@ -687,12 +674,11 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     } finally {
       setExtracting(false);
     }
-  }, [craftMode, onSuccess, t]);
+  }, [onSuccess, t]);
 
   const handleSourceTypeChange = (nextSourceType: CraftSourceType) => {
     if (busy) return;
     setSourceType(nextSourceType);
-    setCraftMode(nextSourceType === "bilibili" ? "bilibili-short-story" : "general");
     setUploadError("");
     setUploadResult(null);
     setBilibiliError("");
@@ -793,40 +779,15 @@ function CraftCreate({ c, t, sse, onSuccess }: {
                 : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
             >
               <div className="text-sm font-semibold">{source.label}</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">{source.value === "bilibili" ? "从 B 站视频提取可复用的故事结构" : "从小说文本提取可复用的写作手法"}</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                {source.value === "bilibili"
+                  ? "提取视频字幕并自动生成写作模式"
+                  : "上传小说文本并自动解析写作模式"}
+              </div>
             </button>
           );
         })}
       </div>
-
-      {sourceType === "bilibili" && (
-        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
-          <div>
-            <div className="text-sm font-medium">B站视频类型</div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">影视解说会先拆出剧情骨架，再用于原创短篇故事参考。</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="B站视频类型">
-            {CRAFT_VIDEO_MODES.map((videoMode) => {
-              const selected = craftMode === videoMode.value;
-              return (
-                <button
-                  key={videoMode.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setCraftMode(videoMode.value)}
-                  disabled={busy}
-                  className={`rounded-xl border p-3 text-left transition-colors ${selected
-                    ? "border-primary/60 bg-primary/5"
-                    : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
-                >
-                  <div className="text-sm font-semibold">{videoMode.label}</div>
-                  <div className="mt-1 text-xs leading-5 text-muted-foreground">{craftModeDescription(videoMode.value, "bilibili")}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {sourceType === "bilibili" && (
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
@@ -1071,9 +1032,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
       <div className="space-y-2">
         <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {craftModeLabel(profile.mode) && (
-            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">{craftModeLabel(profile.mode)}</span>
-          )}
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
           </span>
@@ -1103,9 +1061,7 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
       {detail.videoStory && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-              视频节奏拆解
-            </h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
             {detail.videoStory.wordCountEstimate && (
               <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
