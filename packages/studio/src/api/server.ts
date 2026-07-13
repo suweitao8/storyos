@@ -114,7 +114,8 @@ import {
   type SessionKind,
   type AgentSessionAttachment,
   type CraftMode,
-  DEFAULT_IMAGE_PROMPTS,
+  DEFAULT_IMAGE_TEMPLATES,
+  DEFAULT_IMAGE_STYLES,
   DEFAULT_VOICE_PROMPTS,
   ART_STYLES,
   VOICE_AGE_GROUPS,
@@ -5016,7 +5017,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.get("/api/v1/project/prompt-templates", async (c) => {
     return c.json({
-      image: DEFAULT_IMAGE_PROMPTS,
+      imageTemplates: DEFAULT_IMAGE_TEMPLATES,
+      imageStyles: DEFAULT_IMAGE_STYLES,
       voice: DEFAULT_VOICE_PROMPTS,
       artStyles: ART_STYLES,
       voiceGroups: VOICE_AGE_GROUPS,
