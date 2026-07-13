@@ -49,6 +49,15 @@ export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): s
   return "来源未记录";
 }
 
+export function craftCardMeta(
+  craft: Pick<CraftMeta, "sourceType" | "recommendedWordCount">,
+): string {
+  const sourceType = craftSourceTypeLabel(craft.sourceType);
+  return craft.recommendedWordCount && craft.recommendedWordCount > 0
+    ? `${sourceType} · 建议约 ${craft.recommendedWordCount.toLocaleString()} 字`
+    : sourceType;
+}
+
 export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
   const summary = craft.summary?.trim();
   if (summary) return summary;
@@ -556,13 +565,8 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
           <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-6 text-left">
             <span className="font-medium text-sm">{craftCardTitle(craft)}</span>
             <span className="rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[11px] text-muted-foreground">
-              {craftSourceTypeLabel(craft.sourceType)}
+              {craftCardMeta(craft)}
             </span>
-            {craft.recommendedWordCount ? (
-              <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] text-primary">
-                建议约 {craft.recommendedWordCount.toLocaleString()} 字
-              </span>
-            ) : null}
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button
