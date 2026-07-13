@@ -332,8 +332,6 @@ const strings = {
   "settings.themeLight": { zh: "浅色", en: "Light" },
   "settings.themeDark": { zh: "深色", en: "Dark" },
   "settings.saved": { zh: "已保存", en: "Saved" },
-  "settings.toolDetailsDefaultOpen": { zh: "操作详情默认展开", en: "Expand operation details by default" },
-  "settings.toolDetailsDefaultOpenHint": { zh: "关闭后，对话中的「查看操作结果」默认收起，仍可手动展开。", en: "When off, \"view result\" blocks in chat start collapsed; you can still expand them manually." },
 
   // Truth Files extras
   "truth.title": { zh: "真相文件", en: "Truth Files" },

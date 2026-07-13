@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ToolExecution } from "../../../store/chat/types";
-import { PipelineResultDetails, ToolExecutionSteps, UtilityExecutionRow, buildPlayRunStatusUrl, buildPlaySceneImageUrl, getGeneratedArtifactDetails, getPlayEditDetails, getPlayToolDetails, getProposedActionContractRows, getProposedActionDetails, groupToolExecutionsChronologically } from "../ToolExecutionSteps";
-import { usePreferencesStore } from "../../../store/preferences";
+import { ToolExecutionSteps, UtilityExecutionRow, buildPlayRunStatusUrl, buildPlaySceneImageUrl, getGeneratedArtifactDetails, getPlayEditDetails, getPlayToolDetails, getProposedActionContractRows, getProposedActionDetails, groupToolExecutionsChronologically } from "../ToolExecutionSteps";
 import { setAppLanguage } from "../../../lib/app-language";
 
 const makeExec = (overrides: Partial<ToolExecution> & { id: string; tool: string }): ToolExecution => ({
@@ -484,52 +483,6 @@ describe("groupChronologically", () => {
       action: "fanfic_init",
       targetRoute: undefined,
     });
-  });
-});
-
-describe("tool details default-open preference", () => {
-  beforeEach(() => {
-    usePreferencesStore.setState({ toolDetailsDefaultOpen: true });
-  });
-
-  it("the preferences store defaults to expanded, keeping today's behavior", () => {
-    expect(usePreferencesStore.getState().toolDetailsDefaultOpen).toBe(true);
-  });
-
-  it("renders the pipeline result details expanded when the preference is on (default)", () => {
-    const exec = makeExec({
-      id: "writer-1",
-      tool: "sub_agent",
-      agent: "writer",
-      label: "写下一章",
-      result: "已完成第 1 章：雨棚。这里是更详细的操作结果。",
-    });
-
-    const html = renderToStaticMarkup(React.createElement(ToolExecutionSteps, { executions: [exec] }));
-
-    expect(html).toContain("查看操作结果");
-    expect(html).toContain("<details open");
-  });
-
-  it("renders the pipeline result details collapsed when the preference is off", () => {
-    const html = renderToStaticMarkup(React.createElement(PipelineResultDetails, {
-      result: "已完成第 1 章：雨棚。这里是更详细的操作结果。",
-      defaultOpen: false,
-    }));
-
-    // The block is still there (manually expandable), just not open by default.
-    expect(html).toContain("查看操作结果");
-    expect(html).toContain("已完成第 1 章：雨棚");
-    expect(html).not.toContain("<details open");
-  });
-
-  it("renders the pipeline result details expanded when defaultOpen is true", () => {
-    const html = renderToStaticMarkup(React.createElement(PipelineResultDetails, {
-      result: "已完成第 1 章：雨棚。",
-      defaultOpen: true,
-    }));
-
-    expect(html).toContain("<details open");
   });
 });
 

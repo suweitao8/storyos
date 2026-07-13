@@ -16,7 +16,6 @@ import {
 import { buildApiUrl } from "../../hooks/use-api";
 import { tr } from "../../lib/app-language";
 import { chatSelectors, useChatStore } from "../../store/chat";
-import { usePreferencesStore } from "../../store/preferences";
 
 // -- Status rendering helpers --
 
@@ -634,15 +633,12 @@ function useElapsedTimer(startedAt: number, active: boolean): number {
 
 /**
  * Uncontrolled <details>: `open` only sets the initial state, so manual
- * toggling keeps working (React leaves the DOM alone while the prop value is
- * unchanged). The key remounts the element when the global preference flips,
- * re-applying the new default.
+ * toggling keeps working (React leaves the DOM alone).
  */
-export function PipelineResultDetails({ result, defaultOpen }: { result: string; defaultOpen: boolean }) {
+export function PipelineResultDetails({ result }: { result: string }) {
   return (
     <details
-      key={defaultOpen ? "result-default-open" : "result-default-collapsed"}
-      open={defaultOpen}
+      open
       className="mx-3 mb-3 mt-1 rounded-lg border border-border/40 bg-background/60 px-2.5 py-2 text-xs"
     >
       <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
@@ -669,8 +665,6 @@ function PipelineExecution({
   const isActive = exec.status === "running" || exec.status === "processing";
   const [open, setOpen] = useState(isActive);
   const elapsedMs = useElapsedTimer(exec.startedAt, isActive);
-  const toolDetailsDefaultOpen = usePreferencesStore((s) => s.toolDetailsDefaultOpen);
-
   useEffect(() => {
     if (exec.status === "running") setOpen(true);
     if (exec.status === "completed") {
@@ -710,7 +704,7 @@ function PipelineExecution({
       <PlayResultPreview exec={exec} />
       <PlayEditPreview exec={exec} />
       {typeof exec.result === "string" && exec.result.trim() && (
-        <PipelineResultDetails result={exec.result} defaultOpen={toolDetailsDefaultOpen} />
+        <PipelineResultDetails result={exec.result} />
       )}
       <CollapsibleContent>
         <div className="px-3 pb-3 pt-1">
