@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { findAvailablePortPair, createRuntimeConfig } from "./worktree-runtime.mjs";
 import { readWorktreeContext } from "./worktree-guard.mjs";
 
-const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export async function ensureRuntimeDirectories(config) {
   await Promise.all([
@@ -25,7 +25,9 @@ export function buildStudioLaunchPlan({
   projectRoot,
   studioRoot,
   config,
-  command = process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+  command = process.execPath,
+  tsxCli = resolve(studioRoot, "node_modules", "tsx", "dist", "cli.mjs"),
+  viteCli = resolve(studioRoot, "node_modules", "vite", "bin", "vite.js"),
   baseEnv = process.env,
 }) {
   const commonEnv = {
@@ -38,7 +40,7 @@ export function buildStudioLaunchPlan({
   return {
     api: {
       command,
-      args: ["exec", "tsx", "watch", "--clear-screen=false", "src/api/index.ts"],
+      args: [tsxCli, "watch", "--clear-screen=false", "src/api/index.ts"],
       cwd: studioRoot,
       env: commonEnv,
       stdoutPath: resolve(config.logDir, "server.out.log"),
@@ -46,7 +48,7 @@ export function buildStudioLaunchPlan({
     },
     client: {
       command,
-      args: ["exec", "vite", "--host", "--port", String(config.clientPort)],
+      args: [viteCli, "--host", "--port", String(config.clientPort)],
       cwd: studioRoot,
       env: commonEnv,
       stdoutPath: resolve(config.logDir, "client.out.log"),
@@ -73,6 +75,7 @@ function killChild(child) {
 export async function startStudio({
   projectRoot,
   branch,
+  studioRoot = resolve(repositoryRoot, "packages", "studio"),
   env = process.env,
   spawnProcess = spawn,
 }) {
@@ -86,7 +89,7 @@ export async function startStudio({
   await ensureRuntimeDirectories(config);
   const plan = buildStudioLaunchPlan({
     projectRoot,
-    studioRoot: resolve(projectRoot, "packages", "studio"),
+    studioRoot,
     config,
     baseEnv: env,
   });
@@ -138,8 +141,9 @@ async function waitForStudioExit(children) {
 if (process.argv[1] && process.argv[1].endsWith("studio-dev.mjs")) {
   const context = readWorktreeContext(process.cwd());
   const session = await startStudio({
-    projectRoot: context.worktreePath,
+    projectRoot: process.env.INKOS_PROJECT_ROOT ?? context.worktreePath,
     branch: context.branch,
+    studioRoot: resolve(context.worktreePath, "packages", "studio"),
   });
   const exitCode = await waitForStudioExit(session.children);
   session.shutdown();
