@@ -281,6 +281,9 @@ const strings = {
   "genre.customized": { zh: "已自定义", en: "Customized" },
   "genre.promptTemplates": { zh: "提示词模板", en: "Prompt Templates" },
   "genre.templateHint": { zh: "留空则使用全局默认模板", en: "Leave empty to use global default" },
+  "genre.artStyle": { zh: "画面风格", en: "Art Style" },
+  "genre.artStyleRealistic": { zh: "写实风格", en: "Realistic" },
+  "genre.artStyleCG3D": { zh: "3D国漫风格", en: "3D Animation (国漫)" },
 
   // Prompt templates page
   "promptTemplates.hint": { zh: "配置图片和语音生成的全局默认提示词模板，留空则使用内置默认。", en: "Configure global default prompt templates for image and voice generation. Leave empty to use built-in defaults." },
