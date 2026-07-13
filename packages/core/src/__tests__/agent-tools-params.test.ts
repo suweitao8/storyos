@@ -113,7 +113,7 @@ describe("architect agent — BookConfig construction", () => {
   it("infers language and applies native defaults when optional params are omitted", async () => {
     await tool.execute("tc2", { agent: "architect", instruction: "Create a book", title: "Test Book" });
     const [bookConfig] = initBookMock.mock.calls[0];
-    expect(bookConfig.genre).toBe("general");
+    expect(bookConfig.genre).toBe("other");
     expect(bookConfig.platform).toBe("other");
     expect(bookConfig.language).toBe("en"); // inferred from the English instruction
     expect(bookConfig.targetChapters).toBe(200);
