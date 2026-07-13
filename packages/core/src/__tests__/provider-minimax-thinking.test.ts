@@ -104,6 +104,19 @@ describe("MiniMax thinking defaults", () => {
 });
 
 describe("MiniMax thinking leak prevention (issue #329)", () => {
+  it("does not treat a reasoning-only response as generated story content", async () => {
+    fetchCalls.length = 0;
+    responseQueue.push(jsonResponse({
+      choices: [{ message: { reasoning_content: "只应该留在思考通道" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    }));
+    const client = minimaxClient("MiniMax-M2.7");
+
+    await expect(chatCompletion(client, "MiniMax-M2.7", [
+      { role: "user", content: "生成故事方案" },
+    ], { retry: false })).rejects.toThrow("empty response");
+  });
+
   it("does not merge reasoning_content into the returned content (non-stream)", async () => {
     fetchCalls.length = 0;
     responseQueue.push(jsonResponse({

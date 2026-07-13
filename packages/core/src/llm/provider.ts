@@ -801,7 +801,7 @@ function extractOpenAITextPart(value: any): string {
 
 function extractChatContent(json: any): string {
   const message = json?.choices?.[0]?.message;
-  return extractOpenAITextPart(message?.content) || extractOpenAITextPart(message?.reasoning_content);
+  return extractOpenAITextPart(message?.content);
 }
 
 function extractChatDeltaContent(json: any): string {
@@ -1113,7 +1113,6 @@ async function chatCompletionViaCustomOpenAICompatible(
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  let reasoningContent = "";
   let usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
   // OpenAI 协议的正常结束必须出现 [DONE] 哨兵或带 finish_reason 的 chunk。
   // 网关掐断长连接时流会"干净地"关闭但没有任何终止信号——那是截断，不是完成。
@@ -1150,10 +1149,7 @@ async function chatCompletionViaCustomOpenAICompatible(
           }
         } else {
           const reasoningDelta = extractChatDeltaReasoningContent(json);
-          if (reasoningDelta) {
-            reasoningContent += reasoningDelta;
-            monitor.onChunk(reasoningDelta);
-          }
+          if (reasoningDelta) continue;
         }
         if (json?.usage) {
           usage = {
@@ -1170,14 +1166,13 @@ async function chatCompletionViaCustomOpenAICompatible(
 
   // 流结束仍缓冲在剥离器里的文本（未闭合的 think 块等）原样并回，避免数据丢失。
   content += thinkStripper.flush();
-  const finalContent = content || reasoningContent;
-  if (!finalContent) {
+  if (!content) {
     throw wrapLLMError(new Error("LLM returned empty response from stream"), errorCtx);
   }
   if (!sawTerminal) {
-    throw new PartialResponseError(finalContent, new Error("stream closed without [DONE]/finish_reason"));
+    throw new PartialResponseError(content, new Error("stream closed without [DONE]/finish_reason"));
   }
-  return { content: finalContent, usage };
+  return { content, usage };
 }
 
 // === Simple Chat (used by all agents via BaseAgent.chat()) ===

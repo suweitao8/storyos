@@ -1,4 +1,5 @@
 import type { CraftMode, CraftProfile } from "../models/craft-profile.js";
+import { STORY_SEED_SECTION_DEFINITIONS } from "../models/story-seed.js";
 import { formatCraftBreakdownModules } from "./craft-breakdown.js";
 
 // ---------------------------------------------------------------------------
@@ -363,6 +364,53 @@ export function buildStoryDirectionPrompt(
         : "No previous direction exists. Generate a strong first version.",
       "Include these sections: title hook, genre and setting, protagonist and pressure, core conflict, progression and reversal plan, climax and emotional payoff, ending, and originality constraints.",
       "Make every section concrete enough to start drafting immediately. Keep the direction self-contained and avoid referring to the reference work.",
+    ].join("\n\n"),
+  };
+}
+
+/** Build the complete, editable short-story seed shown before production starts. */
+export function buildStorySeedPrompt(
+  craftProfile: CraftProfile | undefined,
+  kind: "long" | "short",
+  language: "zh" | "en",
+  previousDirection?: string,
+): StoryDirectionPrompt {
+  const base = craftProfile
+    ? buildStoryDirectionPrompt(craftProfile, kind, language, previousDirection)
+    : {
+        system: [
+          "You are a story development editor for short films.",
+          language === "zh" ? "Output the result in Simplified Chinese." : "Output the result in English.",
+          "No craft reference is selected. Use strong original short-film storytelling principles: a concrete protagonist, a visible pressure, a causal escalation, a meaningful reversal, and an earned ending.",
+        ].join("\n"),
+        user: [
+          "Create a one-chapter short story seed from scratch.",
+          "No craft reference is selected; invent an original premise, setting, characters, conflict, and ending.",
+          previousDirection?.trim()
+            ? `Previous seed to improve or replace:\n${compactStoryDirectionSource(previousDirection, 3_000)}`
+            : "No previous seed exists. Generate a strong first version.",
+        ].join("\n\n"),
+      };
+  const labels = STORY_SEED_SECTION_DEFINITIONS
+    .map((definition) => language === "zh" ? definition.zh : definition.en)
+    .join(", ");
+
+  return {
+    system: [
+      base.system,
+      "Return only the ten Markdown sections requested below.",
+      "Do not output <think>, reasoning, analysis, a preface, or Markdown code fences.",
+      "Every section must contain concrete final story material that can be edited and passed to a writer.",
+    ].join("\n"),
+    user: [
+      base.user,
+      language === "zh"
+        ? `严格按以下顺序输出十个二级 Markdown 标题：${labels}。每个标题下面写完整内容，不要合并、跳过或改名。`
+        : `Output exactly these ten level-two Markdown headings in this order: ${labels}. Write complete content under every heading; do not merge, skip, or rename them.`,
+      language === "zh"
+        ? "这是给短片创作使用的故事种子：大纲要能落到可拍摄的段落，角色要写清目标、弱点和关系，反转要能回收前文线索，结局要写清代价与情绪余味。"
+        : "This seed is for a short film: make the outline shootable, give characters goals, vulnerabilities, and relationships, make reversals pay off earlier clues, and state the ending cost and emotional aftertaste.",
+      "Preserve only reusable craft mechanics from any reference; create new identities, setting details, causal chain, scenes, and ending. Do not copy distinctive names, dialogue, wording, or event sequence.",
     ].join("\n\n"),
   };
 }
