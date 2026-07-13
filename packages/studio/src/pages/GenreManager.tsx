@@ -6,6 +6,7 @@ import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { filterGenresForLanguage } from "./genre-page-state";
 
 interface GenreInfo {
   readonly id: string;
@@ -213,7 +214,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Only show genres matching current language, plus custom project genres
-  const filteredGenres = data?.genres.filter((g) => g.language === lang || g.source === "project") ?? [];
+  const filteredGenres = filterGenresForLanguage(data?.genres ?? [], lang);
   const validSelected = selected && filteredGenres.some((g) => g.id === selected) ? selected : null;
   const selectedGenre = filteredGenres.find((g) => g.id === validSelected) ?? null;
 
@@ -314,9 +315,8 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-3xl">{t("create.genre")}</h1>
+    <div className="space-y-5">
+      <div className="flex justify-end">
         <button
           onClick={openCreateForm}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md ${c.btnPrimary}`}
@@ -343,30 +343,36 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
         </div>
       )}
 
-      <div className="grid grid-cols-[250px_1fr] gap-6">
+      <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Genre list */}
-        <div className={`border ${c.cardStatic} rounded-lg overflow-hidden`}>
-          {filteredGenres.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => setSelected(g.id)}
-              className={`w-full text-left px-4 py-3 border-b border-border/40 transition-colors ${
-                validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
-              }`}
-            >
-              <div className="text-sm font-medium">{g.name}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                {g.id} · {g.language} · {g.source}
-              </div>
-            </button>
-          ))}
+        <div className={`border ${c.cardStatic} rounded-xl overflow-hidden`}>
+          <div className="border-b border-border/40 px-4 py-3">
+            <div className="text-sm font-semibold">{t("genre.list")}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
+          </div>
+          <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
+            {filteredGenres.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setSelected(g.id)}
+                className={`w-full border-b border-border/40 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                  validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
+                }`}
+              >
+                <div className="text-sm font-medium">{g.name}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {g.id} · {g.language} · {g.source}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Detail panel */}
-        <div className={`border ${c.cardStatic} rounded-lg p-6 min-h-[400px]`}>
+        <div className={`border ${c.cardStatic} rounded-xl p-6 min-h-[400px]`}>
           {validSelected && detail ? (
             <div className="space-y-6">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-xl font-medium">{detail.profile.name}</h2>
                   <div className="text-sm text-muted-foreground mt-1">
@@ -376,10 +382,10 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                     {detail.profile.eraResearch ? " Era" : ""}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                   <button
                     onClick={openEditForm}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${c.btnSecondary} rounded-md`}
+                    className={`flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-sm ${c.btnSecondary} rounded-md sm:w-auto`}
                   >
                     <Pencil size={14} />
                     {t("common.edit")}
@@ -387,7 +393,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                   {selectedGenre?.source === "project" && (
                     <button
                       onClick={() => setConfirmDeleteOpen(true)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${c.btnDanger} rounded-md`}
+                      className={`flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-sm ${c.btnDanger} rounded-md sm:w-auto`}
                     >
                       <Trash2 size={14} />
                       {t("common.delete")}
@@ -395,7 +401,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                   )}
                   <button
                     onClick={() => validSelected && handleCopy(validSelected)}
-                    className={`px-3 py-1.5 text-sm ${c.btnSecondary} rounded-md`}
+                    className={`w-full px-3 py-1.5 text-sm ${c.btnSecondary} rounded-md sm:w-auto`}
                   >
                     {t("genre.copyToProject")}
                   </button>

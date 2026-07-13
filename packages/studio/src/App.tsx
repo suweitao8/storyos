@@ -442,7 +442,7 @@ export function App() {
             </div>
           )}
           {route.page === "genres" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className="max-w-6xl mx-auto px-6 py-10 md:px-12 lg:py-12 fade-in">
               <GenreManager nav={nav} theme={theme} t={t} />
             </div>
           )}
