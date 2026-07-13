@@ -4,6 +4,7 @@ import {
   deriveStartupGate,
   getRouteToolbarTitle,
   isBookCreateChatRoute,
+  resolveActiveShortStoryId,
   resolveActiveStoryTitle,
 } from "./App";
 
@@ -145,6 +146,55 @@ describe("resolveActiveStoryTitle", () => {
       books: [],
       shorts: [],
     })).toBe("No content");
+  });
+});
+
+describe("resolveActiveShortStoryId", () => {
+  const shorts = [
+    { id: "short-1", title: "第一个故事" },
+    { id: "short-2", title: "第二个故事" },
+  ];
+
+  it("prefers the route selection, then the active session, then the recent selection", () => {
+    expect(resolveActiveShortStoryId({
+      route: { page: "short", shortId: "short-2" },
+      activeShortStoryId: "short-1",
+      recentShortStoryId: "short-1",
+      shorts,
+    })).toBe("short-2");
+
+    expect(resolveActiveShortStoryId({
+      route: { page: "chat" },
+      sessionKind: "short",
+      activeShortStoryId: "short-2",
+      recentShortStoryId: "short-1",
+      shorts,
+    })).toBe("short-2");
+  });
+
+  it("falls back to the recent available story, then the first story", () => {
+    expect(resolveActiveShortStoryId({
+      route: { page: "chat" },
+      sessionKind: "short",
+      recentShortStoryId: "short-2",
+      shorts,
+    })).toBe("short-2");
+
+    expect(resolveActiveShortStoryId({
+      route: { page: "chat" },
+      sessionKind: "short",
+      recentShortStoryId: "deleted-short",
+      shorts,
+    })).toBe("short-1");
+  });
+
+  it("does not select a short story outside a short-story surface", () => {
+    expect(resolveActiveShortStoryId({
+      route: { page: "chat" },
+      sessionKind: "chat",
+      recentShortStoryId: "short-1",
+      shorts,
+    })).toBeNull();
   });
 });
 
