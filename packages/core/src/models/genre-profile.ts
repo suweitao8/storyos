@@ -84,33 +84,32 @@ export const ART_STYLES: ReadonlyArray<{
  * to the global default template (see `default-prompt-templates.ts`), so old
  * genre files that predate this feature keep working unchanged.
  *
- * Image templates are keyed by art style: each kind (character / scene / prop)
- * has both a `realistic` and `cg3d` variant. The genre's `artStyle` field
- * determines which variant is used at generation time.
+ * Architecture:
+ * - `image.templates.*` — style-agnostic LLM system prompts that instruct the
+ *   model how to extract visual facts (age, body type, clothing, materials…).
+ * - `image.styles.*` — editable style-description blocks, one per art style.
+ *   These are appended to the template at generation time to control the final
+ *   look (realistic, 3D国漫, …). The active style is chosen by the caller and
+ *   combined with the template via {@link resolveImagePromptTemplate}.
  */
 export const PromptTemplatesSchema = z.object({
   image: z
     .object({
-      character: z
+      templates: z
         .object({
-          realistic: z.string().default(""),
-          cg3d: z.string().default(""),
+          character: z.string().default(""),
+          scene: z.string().default(""),
+          prop: z.string().default(""),
         })
-        .default({ realistic: "", cg3d: "" }),
-      scene: z
-        .object({
-          realistic: z.string().default(""),
-          cg3d: z.string().default(""),
-        })
-        .default({ realistic: "", cg3d: "" }),
-      prop: z
+        .default({ character: "", scene: "", prop: "" }),
+      styles: z
         .object({
           realistic: z.string().default(""),
           cg3d: z.string().default(""),
         })
         .default({ realistic: "", cg3d: "" }),
     })
-    .default({ character: { realistic: "", cg3d: "" }, scene: { realistic: "", cg3d: "" }, prop: { realistic: "", cg3d: "" } }),
+    .default({ templates: { character: "", scene: "", prop: "" }, styles: { realistic: "", cg3d: "" } }),
   voice: z
     .object({
       boy: z.string().default(""),
@@ -143,8 +142,7 @@ export const GenreProfileSchema = z.object({
   pacingRule: z.string().default(""),
   satisfactionTypes: z.array(z.string()).default([]),
   auditDimensions: z.array(z.number()).default([]),
-  artStyle: ArtStyleSchema,
-  promptTemplates: PromptTemplatesSchema.default({ image: { character: { realistic: "", cg3d: "" }, scene: { realistic: "", cg3d: "" }, prop: { realistic: "", cg3d: "" } }, voice: {} }),
+  promptTemplates: PromptTemplatesSchema.default({ image: { templates: { character: "", scene: "", prop: "" }, styles: { realistic: "", cg3d: "" } }, voice: {} }),
 });
 
 export type GenreProfile = z.infer<typeof GenreProfileSchema>;

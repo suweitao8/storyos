@@ -5,31 +5,34 @@
  * When a genre-level template is empty, {@link resolveImagePromptTemplate} /
  * {@link resolveVoicePromptTemplate} fall back to the values defined here.
  *
- * The image prompts are LLM *system* prompts: they instruct the model to
- * produce a compact, standalone visual description from character / scene /
- * prop metadata. The voice prompts are ready-to-use acoustic descriptions
- * keyed by age-group × gender; they are consumed directly (or used as the LLM
- * guidance when generating a per-character voice prompt).
+ * ## Architecture
  *
- * Image templates exist in two art-style variants:
- * - `realistic`: Photorealistic / cinematic look (real materials, natural
- *   lighting, film-grade quality).
- * - `cg3d`: 3D Chinese animation (国漫) look — rendered CGI with stylized
- *   proportions, dramatic lighting, painterly texture.
+ * Image generation separates **content** from **style**:
  *
- * The content guidance (what to describe, field order, mandatory rules) is
- * identical across styles — only the style instructions and quality suffix
- * differ. This keeps the LLM focused on extracting visual facts while the
- * style layer controls the final look.
+ * 1. **Templates** (`image.templates.*`) — style-agnostic LLM system prompts.
+ *    They tell the model *what* visual facts to extract (age, body type,
+ *    clothing, materials, composition…) and are identical regardless of the
+ *    final art style.
+ *
+ * 2. **Style descriptions** (`image.styles.*`) — short, editable text blocks
+ *    that describe the desired visual look (realistic film-grade, 3D 国漫 CGI,
+ *    …).  These are appended to the template at generation time.
+ *
+ * At generation time {@link resolveImagePromptTemplate} combines them:
+ * `template + "\n\n" + styleDescription`.
  */
 import type { ArtStyle, ImagePromptKind, PromptTemplates, VoiceAgeGroup } from "./genre-profile.js";
 import { IMAGE_PROMPT_KINDS, VOICE_AGE_GROUP_KEYS } from "./genre-profile.js";
 
 // ===========================================================================
-// Shared image prompt content (style-agnostic extraction guidance)
+// Image prompt templates (style-agnostic content extraction guidance)
 // ===========================================================================
 
-const CHARACTER_CONTENT_GUIDE = `## 输出格式（严格）
+export const DEFAULT_IMAGE_CHARACTER_TEMPLATE = `你是一个专业的AI图像提示词专家，专门为文生图模型（如DALL-E、Midjourney、Stable Diffusion等）生成高质量的提示词。
+
+你的任务是根据用户提供的角色档案信息，生成一段详细的、适合文生图的角色图片提示词。
+
+## 输出格式（严格）
 一段中文提示词，描述角色的完整视觉形象，格式如下：
 [角色年龄体型]，[面部特征]，[发型发色]，[服装描述]，[姿态表情]，[辨识标志]。
 
@@ -56,9 +59,22 @@ const CHARACTER_CONTENT_GUIDE = `## 输出格式（严格）
 
 ## 示例
 输入：韩非，25岁，偏瘦，待业青年，着装风格深蓝色圆领卫衣搭配灰色工装裤腰间系棕色皮带，辨识标志眼角泪痣
-输出：二十五岁偏瘦青年，深棕色瞳孔黑发凌乱短发眼下有淡淡黑眼圈，深蓝色圆领卫衣搭配深灰色工装裤腰间系黑色帆布腰带，站立面朝镜头神情疲惫双手插于裤袋，左眼角有一颗泪痣左手腕戴黑色电子手表`;
+输出：二十五岁偏瘦青年，深棕色瞳孔黑发凌乱短发眼下有淡淡黑眼圈，深蓝色圆领卫衣搭配深灰色工装裤腰间系黑色帆布腰带，站立面朝镜头神情疲惫双手插于裤袋，左眼角有一颗泪痣左手腕戴黑色电子手表
 
-const SCENE_CONTENT_GUIDE = `## 核心原则
+## 构图指令
+角色设定图，横向并排三个等大视图：正面全身、侧面全身、背面全身。三视图脚底对齐于同一水平线，头顶对齐于同一高度，比例严格一致。纯色中灰背景（RGB 128,128,128），无阴影，无任何装饰元素。
+
+正面视图：完全正面站立，双手自然外展约15度，五指并拢，展示面部表情、眼神方向和正面衣着细节。
+侧面视图：身体正左侧或正右侧，双臂自然垂于身体两侧，展示体态轮廓和侧面发型形态。
+背面视图：完全背对站立，双臂自然垂于身体两侧，展示后脑勺发型、衣背缝线和背部细节。
+
+负面提示词：多余手指、多余手、多余脚、多余肢体、畸形手指、变形手、扭曲肢体、面部出现在背面视图、三视图身高不一致。`;
+
+export const DEFAULT_IMAGE_SCENE_TEMPLATE = `你是一个专业的AI图像提示词专家，专门为文生图模型生成纯静态场景的提示词。
+
+你的任务是根据用户提供的场景信息，生成一段纯视觉的、适合文生图的场景图片提示词。
+
+## 核心原则
 场景图片是**纯静态空镜**——没有任何角色、没有任何动作、没有任何音效。只描述空间、物件、光线和氛围。
 
 ## 输出格式（严格）
@@ -96,11 +112,17 @@ const SCENE_CONTENT_GUIDE = `## 核心原则
 - ⚠️ 绝对禁止包含场景名称（如"韩非的出租屋"），只描述视觉内容
 - ⚠️ 夜晚场景禁止出现"阳光""日光"等白天光源
 - 不要包含"前景/中景/背景"等分镜景别描述
-- 不要包含"写实风格""电影级画面质感"等系统风格描述（系统自动添加）
 - 不要包含"看到""听到""发现"等感知行为
-- 直接输出提示词，不要有任何解释或前缀`;
+- 直接输出提示词，不要有任何解释或前缀
 
-const PROP_CONTENT_GUIDE = `## 核心原则
+## 构图指令
+场景空镜构图，单一固定机位全景展示，注重空间层次、光线和氛围。纯视觉描述，不包含人物、动作或音效。`;
+
+export const DEFAULT_IMAGE_PROP_TEMPLATE = `你是一个专业的AI图像提示词专家，专门为文生图模型生成道具的视觉描述提示词。
+
+你的任务是根据用户提供的道具名称和有限信息，发挥想象力补充完整的视觉细节，生成一段适合文生图的道具图片提示词。
+
+## 核心原则
 道具图片是**单独的物件展示**——没有任何角色、没有任何场景背景。只描述道具本身的视觉特征。
 
 ## 输出格式（严格）
@@ -136,125 +158,34 @@ const PROP_CONTENT_GUIDE = `## 核心原则
 - ⚠️ 绝对禁止包含任何角色或人物
 - ⚠️ 绝对禁止包含场景背景描述（系统会自动添加纯色中灰背景）
 - ⚠️ 绝对禁止包含用途、剧情、角色名等非视觉信息
-- ⚠️ 绝对禁止包含"道具设定图"等构图指令（系统自动添加）
 - 不要包含"广角镜头""特写""俯视""仰视"等视角描述
-- 不要包含"写实风格""电影级画面质感"等系统风格描述（系统自动添加）
-- 直接输出提示词，不要有任何解释或前缀`;
+- 直接输出提示词，不要有任何解释或前缀
 
-// ---------------------------------------------------------------------------
-// Image prompt templates — per style
-// ---------------------------------------------------------------------------
-
-// --- Realistic style ---
-
-const REALISTIC_CHARACTER_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型（如DALL-E、Midjourney、Stable Diffusion等）生成高质量的提示词。
-
-你的任务是根据用户提供的角色档案信息，生成一段详细的、适合文生图的角色图片提示词。`;
-
-const REALISTIC_CHARACTER_SUFFIX = `
-
-## 画面风格
-写实风格，人物面部与服装细节真实自然，光影层次分明，电影级画面质感，8K画质。
-
-角色设定图，横向并排三个等大视图：正面全身、侧面全身、背面全身。三视图脚底对齐于同一水平线，头顶对齐于同一高度，比例严格一致。纯色中灰背景（RGB 128,128,128），无阴影，无任何装饰元素。
-
-正面视图：完全正面站立，双手自然外展约15度，五指并拢，展示面部表情、眼神方向和正面衣着细节。
-侧面视图：身体正左侧或正右侧，双臂自然垂于身体两侧，展示体态轮廓和侧面发型形态。
-背面视图：完全背对站立，双臂自然垂于身体两侧，展示后脑勺发型、衣背缝线和背部细节。
-
-负面提示词：多余手指、多余手、多余脚、多余肢体、畸形手指、变形手、扭曲肢体、面部出现在背面视图、三视图身高不一致。`;
-
-const REALISTIC_SCENE_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型生成纯静态场景的提示词。
-
-你的任务是根据用户提供的场景信息，生成一段纯视觉的、适合文生图的场景图片提示词。`;
-
-const REALISTIC_SCENE_SUFFIX = `
-
-## 画面风格
-写实风格，空间层次自然真实，光照与材质表现细腻，电影级画面质感，8K画质。
-
-场景空镜构图，单一固定机位全景展示，注重空间层次、光线和氛围。纯视觉描述，不包含人物、动作或音效。`;
-
-const REALISTIC_PROP_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型生成道具的视觉描述提示词。
-
-你的任务是根据用户提供的道具名称和有限信息，发挥想象力补充完整的视觉细节，生成一段适合文生图的道具图片提示词。`;
-
-const REALISTIC_PROP_SUFFIX = `
-
-## 画面风格
-写实风格，材质质感真实清晰，结构细节可辨识，电影级画面质感，8K画质。
-
+## 构图指令
 道具设定图，单一透视视图，完整展示道具全貌。纯色中灰背景（RGB 128,128,128），无阴影，无任何装饰元素，主体居中。仅描述物体本身的形态、材质与结构。`;
 
-// --- 3D Chinese animation (国漫) style ---
-
-const CG3D_CHARACTER_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型生成高质量的3D国漫风格角色提示词。画面风格参考《凡人修仙传》《斗破苍穹》等国漫3D动画，角色具有精细的CG建模质感、半写实比例、华丽的材质和戏剧性光照。
-
-你的任务是根据用户提供的角色档案信息，生成一段详细的、适合文生图的3D国漫风格角色图片提示词。`;
-
-const CG3D_CHARACTER_SUFFIX = `
-
-## 画面风格
-3D国漫风格，高质量CG渲染，人物建模精细，皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。整体色调偏冷色或暖色高饱和，光影对比强烈，带有体积光和边缘光。画面具有次世代游戏CG级质感，4K超高清。
-
-角色设定图，横向并排三个等大视图：正面全身、侧面全身、背面全身。三视图脚底对齐于同一水平线，头顶对齐于同一高度，比例严格一致。纯色中灰背景（RGB 128,128,128），无阴影，无任何装饰元素。
-
-正面视图：完全正面站立，双手自然外展约15度，五指并拢，展示面部表情、眼神方向和正面衣着细节。
-侧面视图：身体正左侧或正右侧，双臂自然垂于身体两侧，展示体态轮廓和侧面发型形态。
-背面视图：完全背对站立，双臂自然垂于身体两侧，展示后脑勺发型、衣背缝线和背部细节。
-
-负面提示词：多余手指、多余手、多余脚、多余肢体、畸形手指、变形手、扭曲肢体、面部出现在背面视图、三视图身高不一致、2D平面动漫、纸片人、低多边形。`;
-
-const CG3D_SCENE_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型生成3D国漫风格的纯静态场景提示词。画面风格参考《凡人修仙传》《完美世界》等国漫3D动画的场景渲染，具有精细的CG建模、大气的体积光照和电影级构图。
-
-你的任务是根据用户提供的场景信息，生成一段纯视觉的、适合文生图的3D国漫风格场景图片提示词。`;
-
-const CG3D_SCENE_SUFFIX = `
-
-## 画面风格
-3D国漫风格，高质量CG场景渲染，建筑和物件建模精细，材质质感逼真。大气透视，体积雾效，丁达尔光线穿透云层或窗棂。整体色调偏冷暖对比或高饱和奇幻色调，光影戏剧性强，带有强烈的氛围光。画面具有次世代游戏CG级质感，4K超高清。
-
-场景空镜构图，单一固定机位全景展示，注重空间层次、光线和氛围。纯视觉描述，不包含人物、动作或音效。`;
-
-const CG3D_PROP_INTRO = `你是一个专业的AI图像提示词专家，专门为文生图模型生成3D国漫风格的道具视觉描述提示词。画面风格参考《凡人修仙传》《斗罗大陆》等国漫3D动画中的道具设定，具有精细的CG建模质感、魔法光效和次世代渲染感。
-
-你的任务是根据用户提供的道具名称和有限信息，发挥想象力补充完整的视觉细节，生成一段适合文生图的3D国漫风格道具图片提示词。`;
-
-const CG3D_PROP_SUFFIX = `
-
-## 画面风格
-3D国漫风格，高质量CG道具渲染，材质层次丰富，金属反光、宝石折射、木质纹理清晰。魔法道具带发光符文和粒子特效。整体色调高饱和，光影对比强烈，带有边缘光和体积光。画面具有次世代游戏CG级质感，4K超高清。
-
-道具设定图，单一透视视图，完整展示道具全貌。纯色中灰背景（RGB 128,128,128），无阴影，无任何装饰元素，主体居中。仅描述物体本身的形态、材质与结构。`;
-
-// ---------------------------------------------------------------------------
-// Assembled per-style image prompts
-// ---------------------------------------------------------------------------
-
-export const DEFAULT_IMAGE_CHARACTER_PROMPTS: Record<ArtStyle, string> = {
-  realistic: `${REALISTIC_CHARACTER_INTRO}\n\n${CHARACTER_CONTENT_GUIDE}${REALISTIC_CHARACTER_SUFFIX}`,
-  cg3d: `${CG3D_CHARACTER_INTRO}\n\n${CHARACTER_CONTENT_GUIDE}${CG3D_CHARACTER_SUFFIX}`,
+export const DEFAULT_IMAGE_TEMPLATES: Record<ImagePromptKind, string> = {
+  character: DEFAULT_IMAGE_CHARACTER_TEMPLATE,
+  scene: DEFAULT_IMAGE_SCENE_TEMPLATE,
+  prop: DEFAULT_IMAGE_PROP_TEMPLATE,
 };
 
-export const DEFAULT_IMAGE_SCENE_PROMPTS: Record<ArtStyle, string> = {
-  realistic: `${REALISTIC_SCENE_INTRO}\n\n${SCENE_CONTENT_GUIDE}${REALISTIC_SCENE_SUFFIX}`,
-  cg3d: `${CG3D_SCENE_INTRO}\n\n${SCENE_CONTENT_GUIDE}${CG3D_SCENE_SUFFIX}`,
+// ===========================================================================
+// Image style descriptions (appended to templates at generation time)
+// ===========================================================================
+
+export const DEFAULT_IMAGE_STYLE_REALISTIC = `写实风格，人物面部与服装细节真实自然，光影层次分明，材质质感真实清晰，电影级画面质感，8K画质。`;
+
+export const DEFAULT_IMAGE_STYLE_CG3D = `3D国漫风格，高质量CG渲染，建模精细。人物皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。场景建筑和物件建模精细，大气透视，体积雾效，丁达尔光线。整体色调高饱和，光影对比强烈，带有体积光和边缘光。画面具有次世代游戏CG级质感，4K超高清。`;
+
+export const DEFAULT_IMAGE_STYLES: Record<ArtStyle, string> = {
+  realistic: DEFAULT_IMAGE_STYLE_REALISTIC,
+  cg3d: DEFAULT_IMAGE_STYLE_CG3D,
 };
 
-export const DEFAULT_IMAGE_PROP_PROMPTS: Record<ArtStyle, string> = {
-  realistic: `${REALISTIC_PROP_INTRO}\n\n${PROP_CONTENT_GUIDE}${REALISTIC_PROP_SUFFIX}`,
-  cg3d: `${CG3D_PROP_INTRO}\n\n${PROP_CONTENT_GUIDE}${CG3D_PROP_SUFFIX}`,
-};
-
-export const DEFAULT_IMAGE_PROMPTS: Record<ImagePromptKind, Record<ArtStyle, string>> = {
-  character: DEFAULT_IMAGE_CHARACTER_PROMPTS,
-  scene: DEFAULT_IMAGE_SCENE_PROMPTS,
-  prop: DEFAULT_IMAGE_PROP_PROMPTS,
-};
-
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Voice prompt templates (by age-group × gender)
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 export const DEFAULT_VOICE_PROMPTS: Record<VoiceAgeGroup, string> = {
   boy: `男孩声音，约8-12岁，清脆但带有男孩特有的硬朗感，不是女孩的尖细甜美。音调略高于成年男性但不过高，胸腔共鸣初显，声音干净透亮。语速偏快、跳跃感强，带有孩童的活泼与好奇。说话时中气十足，吐字清晰但不刻意，偶尔带着调皮上扬的尾音。禁止使用过度甜美、撒娇式或女性化甜美腔调。`,
@@ -267,21 +198,51 @@ export const DEFAULT_VOICE_PROMPTS: Record<VoiceAgeGroup, string> = {
   elderFemale: `老年女性声音，约60岁以上，声音苍老柔和，带有岁月沉淀的温润感。音调偏高但不再清亮，声音中有轻微的沙哑和气息感。语速偏慢，节奏温和，吐字从容。说话时带有慈祥和包容感，尾音可能微微拖长，适合表现祖母、老妇人或智慧长者等老年女性角色。`,
 };
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Resolution helpers
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 /**
- * Resolve the effective image prompt template for a given kind + style.
+ * Resolve the effective image prompt *template* (style-agnostic content
+ * guidance) for a given kind. Non-empty genre-level overrides win; otherwise
+ * the global default is used.
+ */
+export function resolveImageTemplate(
+  templates: PromptTemplates | undefined,
+  kind: ImagePromptKind,
+): string {
+  const genreValue = templates?.image?.templates?.[kind]?.trim();
+  return genreValue || DEFAULT_IMAGE_TEMPLATES[kind];
+}
+
+/**
+ * Resolve the effective image *style description* for a given art style.
  * Non-empty genre-level overrides win; otherwise the global default is used.
+ */
+export function resolveImageStyle(
+  templates: PromptTemplates | undefined,
+  style: ArtStyle,
+): string {
+  const genreValue = templates?.image?.styles?.[style]?.trim();
+  return genreValue || DEFAULT_IMAGE_STYLES[style];
+}
+
+/**
+ * Resolve the full image prompt for a given kind + style by combining the
+ * style-agnostic template with the style description.
+ *
+ * This is the main entry point for generation: callers pass the genre's
+ * prompt templates and the desired art style, and get back a ready-to-use
+ * LLM system prompt.
  */
 export function resolveImagePromptTemplate(
   templates: PromptTemplates | undefined,
   kind: ImagePromptKind,
   style: ArtStyle = "realistic",
 ): string {
-  const genreValue = templates?.image?.[kind]?.[style]?.trim();
-  return genreValue || DEFAULT_IMAGE_PROMPTS[kind][style];
+  const template = resolveImageTemplate(templates, kind);
+  const styleDesc = resolveImageStyle(templates, style);
+  return styleDesc ? `${template}\n\n${styleDesc}` : template;
 }
 
 /**

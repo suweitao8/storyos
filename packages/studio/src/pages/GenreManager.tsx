@@ -21,18 +21,11 @@ interface GenreInfo {
   readonly language: "zh" | "en";
 }
 
-/** Per-style image template pair. */
-interface StyleImageTemplate {
-  readonly realistic: string;
-  readonly cg3d: string;
-}
-
 /** Shape of the per-genre prompt templates (mirrors core PromptTemplates). */
 interface PromptTemplatesData {
   readonly image: {
-    readonly character: StyleImageTemplate;
-    readonly scene: StyleImageTemplate;
-    readonly prop: StyleImageTemplate;
+    readonly templates: { readonly character: string; readonly scene: string; readonly prop: string };
+    readonly styles: { readonly realistic: string; readonly cg3d: string };
   };
   readonly voice: {
     readonly boy: string;
@@ -58,19 +51,23 @@ interface GenreDetail {
     readonly eraResearch: boolean;
     readonly pacingRule: string;
     readonly auditDimensions: ReadonlyArray<number>;
-    readonly artStyle?: ArtStyle;
     readonly promptTemplates?: PromptTemplatesData;
   };
   readonly body: string;
 }
 
-type ImageFieldKey = keyof PromptTemplatesData["image"];
+type ImageFieldKey = keyof PromptTemplatesData["image"]["templates"];
 type VoiceFieldKey = keyof PromptTemplatesData["voice"];
 
 const IMAGE_FIELDS: ReadonlyArray<{ key: ImageFieldKey; labelKey: StringKey }> = [
   { key: "character", labelKey: "genre.imageCharacter" },
   { key: "scene", labelKey: "genre.imageScene" },
   { key: "prop", labelKey: "genre.imageProp" },
+];
+
+const STYLE_FIELDS: ReadonlyArray<{ key: ArtStyle; labelKey: StringKey }> = [
+  { key: "realistic", labelKey: "genre.artStyleRealistic" },
+  { key: "cg3d", labelKey: "genre.artStyleCG3D" },
 ];
 
 const VOICE_FIELDS: ReadonlyArray<{ key: VoiceFieldKey; labelKey: StringKey }> = [
@@ -84,13 +81,10 @@ const VOICE_FIELDS: ReadonlyArray<{ key: VoiceFieldKey; labelKey: StringKey }> =
   { key: "elderFemale", labelKey: "genre.voiceElderFemale" },
 ];
 
-const EMPTY_STYLE: StyleImageTemplate = { realistic: "", cg3d: "" };
-
 const EMPTY_PROMPT_TEMPLATES: PromptTemplatesData = {
   image: {
-    character: { ...EMPTY_STYLE },
-    scene: { ...EMPTY_STYLE },
-    prop: { ...EMPTY_STYLE },
+    templates: { character: "", scene: "", prop: "" },
+    styles: { realistic: "", cg3d: "" },
   },
   voice: {
     boy: "", girl: "", youngMale: "", youngFemale: "",
@@ -109,7 +103,6 @@ interface GenreFormData {
   readonly eraResearch: boolean;
   readonly pacingRule: string;
   readonly body: string;
-  readonly artStyle: ArtStyle;
   readonly promptTemplates: PromptTemplatesData;
 }
 
@@ -124,7 +117,6 @@ const EMPTY_FORM: GenreFormData = {
   eraResearch: false,
   pacingRule: "",
   body: "",
-  artStyle: "realistic",
   promptTemplates: EMPTY_PROMPT_TEMPLATES,
 };
 
@@ -139,11 +131,10 @@ function summarizeTemplate(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Form component (with tabs: basic / image / voice)
+// Form component (with tabs: basic / image templates / image styles / voice)
 // ---------------------------------------------------------------------------
 
-type FormTab = "basic" | "image" | "voice";
-type ImageStyleTab = ArtStyle;
+type FormTab = "basic" | "imageTemplates" | "imageStyles" | "voice";
 
 function GenreForm({
   form,
@@ -163,21 +154,33 @@ function GenreForm({
   readonly t: TFunction;
 }) {
   const [tab, setTab] = useState<FormTab>("basic");
-  const [imgStyle, setImgStyle] = useState<ImageStyleTab>(form.artStyle);
   const set = <K extends keyof GenreFormData>(key: K, value: GenreFormData[K]) =>
     onChange({ ...form, [key]: value });
 
-  const setImage = (kind: ImageFieldKey, style: ArtStyle, value: string) =>
+  const setImageTemplate = (key: ImageFieldKey, value: string) =>
     onChange({
       ...form,
       promptTemplates: {
         ...form.promptTemplates,
         image: {
           ...form.promptTemplates.image,
-          [kind]: { ...form.promptTemplates.image[kind], [style]: value },
+          templates: { ...form.promptTemplates.image.templates, [key]: value },
         },
       },
     });
+
+  const setImageStyle = (key: ArtStyle, value: string) =>
+    onChange({
+      ...form,
+      promptTemplates: {
+        ...form.promptTemplates,
+        image: {
+          ...form.promptTemplates.image,
+          styles: { ...form.promptTemplates.image.styles, [key]: value },
+        },
+      },
+    });
+
   const setVoice = (key: VoiceFieldKey, value: string) =>
     onChange({
       ...form,
@@ -187,31 +190,27 @@ function GenreForm({
       },
     });
 
-  const tabBtn = (key: FormTab) =>
-    `px-4 py-2 text-sm rounded-t-md border-b-2 transition-colors ${
+  const tabBtn = (key: FormTab, label: string) =>
+    `px-3 py-2 text-sm rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
       tab === key
         ? "border-primary text-primary font-medium"
         : "border-transparent text-muted-foreground hover:text-foreground"
     }`;
 
-  const styleBtn = (key: ArtStyle) =>
-    `px-3 py-1.5 text-xs rounded-md border transition-colors ${
-      imgStyle === key
-        ? "border-primary bg-primary/10 text-primary"
-        : "border-border text-muted-foreground hover:text-foreground"
-    }`;
-
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border">
-        <button className={tabBtn("basic")} onClick={() => setTab("basic")}>
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        <button className={tabBtn("basic", t("genre.tabBasic"))} onClick={() => setTab("basic")}>
           {t("genre.tabBasic")}
         </button>
-        <button className={tabBtn("image")} onClick={() => setTab("image")}>
+        <button className={tabBtn("imageTemplates", t("genre.tabImage"))} onClick={() => setTab("imageTemplates")}>
           {t("genre.tabImage")}
         </button>
-        <button className={tabBtn("voice")} onClick={() => setTab("voice")}>
+        <button className={tabBtn("imageStyles", t("genre.tabStyle"))} onClick={() => setTab("imageStyles")}>
+          {t("genre.tabStyle")}
+        </button>
+        <button className={tabBtn("voice", t("genre.tabVoice"))} onClick={() => setTab("voice")}>
           {t("genre.tabVoice")}
         </button>
       </div>
@@ -241,33 +240,16 @@ function GenreForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("create.language")}</label>
-              <select
-                value={form.language}
-                onChange={(e) => set("language", e.target.value as "zh" | "en")}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              >
-                <option value="zh">zh</option>
-                <option value="en">en</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.artStyle")}</label>
-              <select
-                value={form.artStyle}
-                onChange={(e) => {
-                  const next = e.target.value as ArtStyle;
-                  set("artStyle", next);
-                  setImgStyle(next);
-                }}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              >
-                <option value="realistic">{t("genre.artStyleRealistic")}</option>
-                <option value="cg3d">{t("genre.artStyleCG3D")}</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("create.language")}</label>
+            <select
+              value={form.language}
+              onChange={(e) => set("language", e.target.value as "zh" | "en")}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="zh">zh</option>
+              <option value="en">en</option>
+            </select>
           </div>
 
           <div>
@@ -331,29 +313,37 @@ function GenreForm({
         </div>
       )}
 
-      {/* --- Image tab --- */}
-      {tab === "image" && (
+      {/* --- Image templates tab (style-agnostic content guidance) --- */}
+      {tab === "imageTemplates" && (
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t("genre.templateHint")}</p>
-          {/* Style sub-tab switcher */}
-          <div className="flex gap-2">
-            <button className={styleBtn("realistic")} onClick={() => setImgStyle("realistic")}>
-              {t("genre.artStyleRealistic")}
-            </button>
-            <button className={styleBtn("cg3d")} onClick={() => setImgStyle("cg3d")}>
-              {t("genre.artStyleCG3D")}
-            </button>
-          </div>
           {IMAGE_FIELDS.map(({ key, labelKey }) => (
             <div key={key}>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">
-                {t(labelKey)} ({imgStyle === "realistic" ? t("genre.artStyleRealistic") : t("genre.artStyleCG3D")})
-              </label>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t(labelKey)}</label>
               <textarea
-                value={form.promptTemplates.image[key][imgStyle]}
-                onChange={(e) => setImage(key, imgStyle, e.target.value)}
-                rows={10}
+                value={form.promptTemplates.image.templates[key]}
+                onChange={(e) => setImageTemplate(key, e.target.value)}
+                rows={12}
                 placeholder={t("genre.templateHint")}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* --- Image styles tab (style descriptions appended to templates) --- */}
+      {tab === "imageStyles" && (
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">{t("genre.styleHint")}</p>
+          {STYLE_FIELDS.map(({ key, labelKey }) => (
+            <div key={key}>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t(labelKey)}</label>
+              <textarea
+                value={form.promptTemplates.image.styles[key]}
+                onChange={(e) => setImageStyle(key, e.target.value)}
+                rows={6}
+                placeholder={t("genre.styleHint")}
                 className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
               />
             </div>
@@ -441,7 +431,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
       eraResearch: detail.profile.eraResearch ?? false,
       pacingRule: detail.profile.pacingRule,
       body: detail.body,
-      artStyle: detail.profile.artStyle ?? "realistic",
       promptTemplates: detail.profile.promptTemplates ?? EMPTY_PROMPT_TEMPLATES,
     });
     setFormMode("edit");
@@ -461,7 +450,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
         powerScaling: form.powerScaling,
         eraResearch: form.eraResearch,
         pacingRule: form.pacingRule,
-        artStyle: form.artStyle,
         body: form.body,
         promptTemplates: form.promptTemplates,
       });
@@ -492,7 +480,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
             pacingRule: form.pacingRule,
           },
           body: form.body,
-          artStyle: form.artStyle,
           promptTemplates: form.promptTemplates,
         }),
       });
@@ -581,8 +568,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                     {detail.profile.numericalSystem ? " Numerical" : ""}
                     {detail.profile.powerScaling ? " Power" : ""}
                     {detail.profile.eraResearch ? " Era" : ""}
-                    {" · "}
-                    {detail.profile.artStyle === "cg3d" ? t("genre.artStyleCG3D") : t("genre.artStyleRealistic")}
                   </div>
                 </div>
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">
@@ -648,21 +633,30 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
               <div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">{t("genre.promptTemplates")}</div>
                 <div className="space-y-3">
-                  {/* Image templates summary (both styles) */}
+                  {/* Image templates summary */}
                   <div className="space-y-1.5">
                     {IMAGE_FIELDS.map(({ key, labelKey }) => {
-                      const styles = detail.profile.promptTemplates?.image?.[key];
+                      const value = detail.profile.promptTemplates?.image?.templates?.[key]?.trim() ?? "";
                       return (
                         <div key={key} className="flex items-start gap-2 text-sm">
                           <span className="text-muted-foreground shrink-0 w-28">{t(labelKey)}</span>
-                          <div className="flex flex-col gap-0.5">
-                            <span className={styles?.realistic?.trim() ? "text-foreground/80" : "text-muted-foreground italic"}>
-                              {t("genre.artStyleRealistic")}: {summarizeTemplate(styles?.realistic ?? "") || t("genre.usingDefault")}
-                            </span>
-                            <span className={styles?.cg3d?.trim() ? "text-foreground/80" : "text-muted-foreground italic"}>
-                              {t("genre.artStyleCG3D")}: {summarizeTemplate(styles?.cg3d ?? "") || t("genre.usingDefault")}
-                            </span>
-                          </div>
+                          <span className={value ? "text-foreground/80" : "text-muted-foreground italic"}>
+                            {summarizeTemplate(value) || t("genre.usingDefault")}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Image styles summary */}
+                  <div className="space-y-1.5">
+                    {STYLE_FIELDS.map(({ key, labelKey }) => {
+                      const value = detail.profile.promptTemplates?.image?.styles?.[key]?.trim() ?? "";
+                      return (
+                        <div key={key} className="flex items-start gap-2 text-sm">
+                          <span className="text-muted-foreground shrink-0 w-28">{t(labelKey)}</span>
+                          <span className={value ? "text-foreground/80" : "text-muted-foreground italic"}>
+                            {summarizeTemplate(value) || t("genre.usingDefault")}
+                          </span>
                         </div>
                       );
                     })}
