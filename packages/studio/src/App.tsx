@@ -9,6 +9,7 @@ import { ChapterReader } from "./pages/ChapterReader";
 import { Analytics } from "./pages/Analytics";
 import { ServiceDetailPage } from "./pages/ServiceDetailPage";
 import { ProjectSettings } from "./pages/ProjectSettings";
+import { SkillManager } from "./pages/SkillManager";
 import { TruthFiles } from "./pages/TruthFiles";
 import { DaemonControl } from "./pages/DaemonControl";
 import { LogViewer } from "./pages/LogViewer";
@@ -93,6 +94,7 @@ export function getRouteToolbarTitle(
         logs: "日志",
         genres: "题材",
         "prompt-templates": "提示词模板",
+        skills: "Skill",
         craft: "写作模式",
         import: "导入",
         radar: "市场雷达",
@@ -119,6 +121,7 @@ export function getRouteToolbarTitle(
         logs: "Logs",
         genres: "Genres",
         "prompt-templates": "Prompt Templates",
+        skills: "Skill",
         craft: "Writing Modes",
         import: "Import",
         radar: "Market Radar",
@@ -313,6 +316,7 @@ export function App() {
     toLogs: () => setRoute({ page: "logs" }),
     toGenres: () => setRoute({ page: "genres" }),
     toPromptTemplates: () => setRoute({ page: "prompt-templates" }),
+    toSkills: () => setRoute({ page: "skills" }),
     toCraft: () => setRoute({ page: "craft" }),
     toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => setRoute({ page: "import", ...(tab ? { tab } : {}) }),
     toRadar: () => setRoute({ page: "radar" }),
@@ -548,6 +552,11 @@ export function App() {
           {route.page === "prompt-templates" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <PromptTemplatePage theme={theme} t={t} />
+            </div>
+          )}
+          {route.page === "skills" && (
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
+              <SkillManager theme={theme} lang={currentLang} t={t} />
             </div>
           )}
           {route.page === "craft" && (

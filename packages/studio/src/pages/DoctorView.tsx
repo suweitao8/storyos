@@ -1,4 +1,5 @@
-import { useApi } from "../hooks/use-api";
+import { useCallback, useEffect, useState } from "react";
+import { fetchJson } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
@@ -12,6 +13,11 @@ interface DoctorChecks {
   readonly llmConnected: boolean;
   readonly bookCount: number;
 }
+
+// Module-level cache so switching to the diagnostics tab does not re-trigger
+// the (slow, LLM-probing) /doctor request every time. The cache is populated
+// on the first fetch and updated whenever the user clicks "recheck".
+let doctorCache: DoctorChecks | null = null;
 
 function CheckRow({ label, ok, detail }: { label: string; ok: boolean; detail?: string }) {
   return (
@@ -29,7 +35,26 @@ function CheckRow({ label, ok, detail }: { label: string; ok: boolean; detail?: 
 
 export function EnvironmentDiagnostics({ theme, t }: { theme: Theme; t: TFunction }) {
   const c = useColors(theme);
-  const { data, loading, refetch } = useApi<DoctorChecks>("/doctor");
+  const [data, setData] = useState<DoctorChecks | null>(doctorCache);
+  const [loading, setLoading] = useState<boolean>(doctorCache === null);
+
+  const runCheck = useCallback(async () => {
+    setLoading(true);
+    try {
+      const json = await fetchJson<DoctorChecks>("/doctor");
+      doctorCache = json;
+      setData(json);
+    } catch {
+      // Leave the previous result (if any) in place on transient errors.
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Only auto-fetch when there is no cached result (first visit).
+  useEffect(() => {
+    if (doctorCache === null) void runCheck();
+  }, [runCheck]);
 
   return (
     <section className="rounded-2xl border border-border/50 bg-card/70 p-5 shadow-sm space-y-4">
@@ -41,7 +66,7 @@ export function EnvironmentDiagnostics({ theme, t }: { theme: Theme; t: TFunctio
             <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{t("doctor.settingsHint")}</p>
           </div>
         </div>
-        <button onClick={() => void refetch()} disabled={loading} className={`px-4 py-2 text-sm rounded-lg ${c.btnSecondary} disabled:opacity-50`}>
+        <button onClick={() => void runCheck()} disabled={loading} className={`px-4 py-2 text-sm rounded-lg ${c.btnSecondary} disabled:opacity-50`}>
           {loading && data ? <Loader2 size={14} className="mr-1.5 inline animate-spin" /> : null}
           {t("doctor.recheck")}
         </button>

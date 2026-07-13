@@ -44,6 +44,7 @@ import {
   Rows3,
   Film,
   FileText,
+  Bot,
 } from "lucide-react";
 import { InkosLogo } from "./InkosLogo";
 
@@ -86,6 +87,7 @@ interface Nav {
   toProjectSettings: () => void;
   toGenres: () => void;
   toPromptTemplates: () => void;
+  toSkills: () => void;
   toCraft: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toRadar: () => void;
@@ -583,6 +585,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
               icon={<FileText size={16} />}
               active={activePage === "prompt-templates"}
               onClick={nav.toPromptTemplates}
+            />
+            <SidebarItem
+              label={t("nav.skills")}
+              icon={<Bot size={16} />}
+              active={activePage === "skills"}
+              onClick={nav.toSkills}
             />
             <SidebarItem
               label={t("nav.settings")}
