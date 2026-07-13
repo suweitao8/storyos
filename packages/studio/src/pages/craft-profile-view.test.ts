@@ -22,8 +22,8 @@ describe("craft card list presentation", () => {
     expect(CRAFT_LIST_GRID_CLASS).not.toContain("sm:grid-cols-2");
   });
 
-  it("shows the craft type after the title and the source type separately", () => {
-    expect(craftCardTitle({ sourceName: "测试故事", mode: "ghost-story" })).toBe("测试故事 · 鬼故事");
+  it("shows the source name and source type without a craft subtype", () => {
+    expect(craftCardTitle({ sourceName: "测试故事", mode: "ghost-story" })).toBe("测试故事");
     expect(craftSourceTypeLabel("bilibili")).toBe("视频解析");
     expect(craftSourceTypeLabel("novel")).toBe("小说解析");
     expect(craftSourceTypeLabel(undefined)).toBe("来源未记录");

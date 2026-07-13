@@ -11,6 +11,7 @@ import {
   DEFAULT_CRAFT_TAB,
   type CraftTab,
   resolveAfterCraftDelete,
+  resolveDefaultCraftSelection,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
@@ -37,8 +38,7 @@ interface CraftMeta {
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
 
 export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): string {
-  const typeLabel = craft.mode === "ghost-story" ? "鬼故事" : "通用";
-  return `${normalizeCraftDisplayName(craft.sourceName)} · ${typeLabel}`;
+  return normalizeCraftDisplayName(craft.sourceName);
 }
 
 export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
@@ -50,9 +50,7 @@ export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): s
 export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
   const summary = craft.summary?.trim();
   if (summary) return summary;
-  return craft.mode === "ghost-story"
-    ? "提取恐惧核心、超自然规则、线索系统与惊吓节奏"
-    : "提取开篇结构、场景节奏、信息释放与叙事视角";
+  return "提取开篇结构、场景节奏、信息释放与叙事视角";
 }
 
 interface CraftListResponse {
@@ -88,7 +86,7 @@ export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: 
 
 export function buildCraftAnalyzePayload(
   source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string; sourceDurationSeconds?: number },
-  mode: "general" | "ghost-story",
+  mode: "general" | "ghost-story" = "general",
 ) {
   return {
     text: source.text,
@@ -354,6 +352,19 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 
   const crafts = craftsData?.crafts ?? [];
 
+  useEffect(() => {
+    if (userNavigatedRef.current || selectedCraftIdRef.current) return;
+
+    const defaultCraftId = resolveDefaultCraftSelection(
+      crafts.map((craft) => craft.id),
+      craftsData?.recentCraftId ?? null,
+    );
+    if (!defaultCraftId) return;
+
+    selectedCraftIdRef.current = defaultCraftId;
+    setSelectedCraftId(defaultCraftId);
+  }, [crafts, craftsData?.recentCraftId]);
+
   const markUserNavigation = () => {
     userNavigatedRef.current = true;
     selectionOperationRef.current = advanceCraftNavigationToken(selectionOperationRef.current);
@@ -590,7 +601,6 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [importingBilibili, setImportingBilibili] = useState(false);
   const [bilibiliError, setBilibiliError] = useState("");
   const [sourceType, setSourceType] = useState<CraftSourceType>("novel");
-  const [craftMode, setCraftMode] = useState<"general" | "ghost-story">("general");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
   const [currentStep, setCurrentStep] = useState("");
@@ -656,7 +666,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setProgressLogs((prev) => [...prev, t("craft.progressWaiting")].slice(-12));
     try {
       const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
-        ...buildCraftAnalyzePayload(source, craftMode),
+        ...buildCraftAnalyzePayload(source),
       });
       onSuccess(result.profile, result.craftId);
     } catch (e) {
@@ -664,7 +674,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     } finally {
       setExtracting(false);
     }
-  }, [craftMode, onSuccess, t]);
+  }, [onSuccess, t]);
 
   const handleSourceTypeChange = (nextSourceType: CraftSourceType) => {
     if (busy) return;
@@ -754,23 +764,6 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 
   return (
     <div className="w-full space-y-6">
-      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-2">
-        <label htmlFor="craft-mode" className="text-sm font-medium">模式类型</label>
-        <select
-          id="craft-mode"
-          value={craftMode}
-          onChange={(event) => setCraftMode(event.target.value === "ghost-story" ? "ghost-story" : "general")}
-          disabled={busy}
-          className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary"
-        >
-          <option value="general">通用写作模式</option>
-          <option value="ghost-story">鬼故事模式</option>
-        </select>
-        <p className="text-xs leading-5 text-muted-foreground">
-          选择鬼故事模式后，会额外提取恐惧核心、超自然规则、禁忌、线索链、惊吓节奏和结尾余韵，并用于短篇仿写。
-        </p>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="模式来源">
         {CRAFT_SOURCE_TYPES.map((source) => {
           const selected = sourceType === source.value;
@@ -1039,9 +1032,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
       <div className="space-y-2">
         <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {profile.mode === "ghost-story" && (
-            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">鬼故事模式</span>
-          )}
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
           </span>
@@ -1163,31 +1153,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
               </ul>
             </div>
           )}
-        </section>
-      )}
-
-      {profile.mode === "ghost-story" && profile.ghostStory && (
-        <section className="space-y-3 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-primary">鬼故事仿写约束</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              ["恐惧核心", profile.ghostStory.fearCore],
-              ["超自然规则", profile.ghostStory.supernaturalRules],
-              ["禁忌与触发条件", profile.ghostStory.taboos],
-              ["主角脆弱点", profile.ghostStory.protagonistVulnerability],
-              ["线索系统", profile.ghostStory.clueSystem],
-              ["真相揭示节奏", profile.ghostStory.revealCadence],
-              ["惊吓节奏", profile.ghostStory.scareCadence],
-              ["恐怖升级阶梯", profile.ghostStory.escalationLadder],
-              ["感官母题", profile.ghostStory.sensoryMotifs],
-              ["结尾余韵", profile.ghostStory.endingAftertaste],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-3">
-                <div className="text-xs font-medium text-muted-foreground">{label}</div>
-                <div className="mt-1 text-sm leading-6">{value}</div>
-              </div>
-            ))}
-          </div>
         </section>
       )}
 
