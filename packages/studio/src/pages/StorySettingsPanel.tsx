@@ -34,8 +34,9 @@ type StorySectionGroup = "settings" | "world" | "outline" | "characters" | "othe
 export function groupStorySection(section: Pick<StorySection, "file" | "title">): StorySectionGroup {
   const file = section.file.toLowerCase();
   const title = section.title.toLowerCase();
-  if (file.includes("roles/") || title.includes("角色")) return "characters";
+  if (file.includes("roles/") || title.includes("角色") || title.includes("人物") || title.includes("关系")) return "characters";
   if (file.includes("story_frame") || title.includes("设定")) return "settings";
+  if (title.includes("题材") || title.includes("受众") || title.includes("标题方向") || title.includes("核心压力")) return "settings";
   if (file.includes("rule") || title.includes("规则") || title.includes("世界")) return "world";
   if (file.includes("outline") || title.includes("大纲") || title.includes("走向") || title.includes("提纲")) return "outline";
   return "other";
@@ -83,7 +84,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, onOpe
           <BookOpen size={21} className="mt-1 shrink-0 text-primary" />
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-semibold">{data?.book.title ?? (isZh ? "故事设定" : "Story settings")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{isZh ? "在全宽文档中查看故事基础、世界规则和后续大纲。" : "Review the story foundation, world rules, and outline in one document."}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{isZh ? "按故事设定、角色和大纲分组查看生成内容。" : "Review generated content grouped by setup, characters, and outline."}</p>
           </div>
         </div>
         <button type="button" onClick={onOpenAdjustment} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground"><ArrowRight size={15} />{isZh ? "打开对话调整" : "Open chat adjustment"}</button>
@@ -111,7 +112,8 @@ function MetadataCard({ label, value }: { readonly label: string; readonly value
 }
 
 function DocumentCard({ section }: { readonly section: StorySection }) {
-  return <article className="rounded-2xl border border-border/50 bg-card p-5"><div className="flex items-center gap-2"><FileText size={15} className="text-primary" /><h3 className="font-semibold">{section.title}</h3><span className="truncate text-xs text-muted-foreground/70">{section.file}</span></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(section.content)}</p></article>;
+  const sourceFile = section.file.split("#", 1)[0];
+  return <article className="rounded-2xl border border-border/50 bg-card p-5"><div className="flex items-center gap-2"><FileText size={15} className="text-primary" /><h3 className="font-semibold">{section.title}</h3><span className="truncate text-xs text-muted-foreground/70">{sourceFile}</span></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(section.content)}</p></article>;
 }
 
 function DocumentEmpty({ text }: { readonly text: string }) {

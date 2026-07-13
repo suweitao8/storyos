@@ -142,6 +142,7 @@ import {
 } from "./studio-preferences-db.js";
 import { importBilibiliSubtitles } from "./bilibili.js";
 import { listStudioShortStories } from "./short-story-list.js";
+import { splitShortOutlineSections } from "./short-outline-sections.js";
 
 type StoryAssetRouteKind = "book" | "short";
 
@@ -3214,8 +3215,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       return c.json({ error: `Short story "${id}" not found` }, 404);
     }
 
+    const outlineFile = outlineV2.trim() ? "outline/v002.md" : "outline/v001.md";
     const sections = [
-      outline.trim() ? { file: outlineV2.trim() ? "outline/v002.md" : "outline/v001.md", title: "故事提纲", content: outline } : null,
+      ...splitShortOutlineSections(outline, outlineFile),
       salesPackage.trim() ? { file: "final/sales-package.md", title: "故事包装", content: salesPackage } : null,
       coverPrompt.trim() ? { file: "final/cover-prompt.md", title: "封面提示词", content: coverPrompt } : null,
     ].filter((section): section is { file: string; title: string; content: string } => Boolean(section));
