@@ -4,9 +4,8 @@ import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Modal } from "../components/Modal";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { filterGenresForLanguage } from "./genre-page-state";
 
 // ---------------------------------------------------------------------------
@@ -230,19 +229,12 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   const [selected, setSelected] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<"hidden" | "create" | "edit">("hidden");
   const [form, setForm] = useState<GenreFormData>(EMPTY_FORM);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const filteredGenres = filterGenresForLanguage(data?.genres ?? [], lang);
   const validSelected = selected && filteredGenres.some((g) => g.id === selected) ? selected : null;
   const selectedGenre = filteredGenres.find((g) => g.id === validSelected) ?? null;
 
   const { data: detail } = useApi<GenreDetail>(validSelected ? `/genres/${validSelected}` : "");
-
-  const handleCopy = async (id: string) => {
-    await postApi(`/genres/${id}/copy`);
-    alert(`Copied ${id} to project genres/`);
-    refetch();
-  };
 
   const openCreateForm = () => {
     setForm(EMPTY_FORM);
@@ -318,18 +310,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
       await refetch();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to update genre");
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!validSelected) return;
-    setConfirmDeleteOpen(false);
-    try {
-      await fetchJson(`/genres/${validSelected}`, { method: "DELETE" });
-      setSelected(null);
-      await refetch();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete genre");
     }
   };
 
@@ -410,21 +390,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                     <Pencil size={14} />
                     {t("common.edit")}
                   </button>
-                  {selectedGenre?.source === "project" && (
-                    <button
-                      onClick={() => setConfirmDeleteOpen(true)}
-                      className={`flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-sm ${c.btnDanger} rounded-md sm:w-auto`}
-                    >
-                      <Trash2 size={14} />
-                      {t("common.delete")}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => validSelected && handleCopy(validSelected)}
-                    className={`w-full px-3 py-1.5 text-sm ${c.btnSecondary} rounded-md sm:w-auto`}
-                  >
-                    {t("genre.copyToProject")}
-                  </button>
                 </div>
               </div>
 
@@ -468,17 +433,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
           )}
         </div>
       </div>
-
-      <ConfirmDialog
-        open={confirmDeleteOpen}
-        title={t("genre.deleteGenre")}
-        message={`${t("genre.confirmDelete")} "${validSelected}"`}
-        confirmLabel={t("common.delete") ?? "Delete"}
-        cancelLabel={t("genre.cancel") ?? "Cancel"}
-        variant="danger"
-        onConfirm={() => void handleDelete()}
-        onCancel={() => setConfirmDeleteOpen(false)}
-      />
     </div>
   );
 }
