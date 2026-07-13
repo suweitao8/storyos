@@ -64,6 +64,55 @@ export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">)
   return "提取开篇结构、场景节奏、信息释放与叙事视角";
 }
 
+const CRAFT_TIME_TOKEN = /(?:\d{1,2}:){1,2}\d{1,2}(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:秒|s|sec(?:onds?)?)/gi;
+
+function parseCraftTimestamp(value: string): number | undefined {
+  const normalized = value.trim().replace(/,/g, ".").replace(/[^\d.:]/gi, "");
+  if (!normalized) return undefined;
+  const parts = normalized.split(":").map(Number);
+  if (parts.some((part) => !Number.isFinite(part))) return undefined;
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return undefined;
+}
+
+function formatCraftDurationSeconds(seconds: number): string {
+  const rounded = Math.max(1, Math.round(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  if (minutes === 0) return `耗时 ${rounded} 秒`;
+  return remainder === 0
+    ? `耗时 ${minutes} 分钟`
+    : `耗时 ${minutes} 分 ${remainder} 秒`;
+}
+
+export function formatCraftBeatDuration(timeRange: string | undefined): string | undefined {
+  if (!timeRange?.trim()) return undefined;
+
+  const timestampValues = (timeRange.match(CRAFT_TIME_TOKEN) ?? [])
+    .map(parseCraftTimestamp)
+    .filter((value): value is number => value !== undefined);
+  if (timestampValues.length >= 2) {
+    const duration = timestampValues[1] - timestampValues[0];
+    return duration >= 0 ? formatCraftDurationSeconds(duration) : undefined;
+  }
+
+  if (timestampValues.length === 1 && /耗时|时长|duration/i.test(timeRange)) {
+    return formatCraftDurationSeconds(timestampValues[0]);
+  }
+
+  const numericValues = /[-–—~至到]/.test(timeRange)
+    ? (timeRange.match(/\d+(?:[.,]\d+)?/g) ?? []).map(Number)
+    : [];
+  if (numericValues.length >= 2 && numericValues.every(Number.isFinite)) {
+    const duration = numericValues[1] - numericValues[0];
+    return duration >= 0 ? formatCraftDurationSeconds(duration) : undefined;
+  }
+
+  return undefined;
+}
+
 interface CraftListResponse {
   readonly crafts: ReadonlyArray<CraftMeta>;
   readonly recentCraftId: string | null;
@@ -1237,20 +1286,23 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-medium text-muted-foreground">节拍时间线</div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">事件耗时</div>
             <div className="space-y-2">
-              {detail.videoStory.beats.map((beat) => (
-                <div key={`${beat.order}-${beat.position}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{Math.round(beat.position * 100)}%</span>
-                    {beat.timeRange && <span className="text-muted-foreground">{beat.timeRange}</span>}
-                    <span className="rounded-full bg-secondary/30 px-2 py-0.5 text-muted-foreground">{beat.kind}</span>
+              {detail.videoStory.beats.map((beat) => {
+                const durationLabel = formatCraftBeatDuration(beat.timeRange);
+                return (
+                  <div key={`${beat.order}-${beat.position}`} className="rounded-xl border border-border/60 bg-background/40 p-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{Math.round(beat.position * 100)}%</span>
+                      {durationLabel && <span className="text-muted-foreground">{durationLabel}</span>}
+                      <span className="rounded-full bg-secondary/30 px-2 py-0.5 text-muted-foreground">{beat.kind}</span>
+                    </div>
+                    <div className="mt-2 text-sm font-medium">{beat.event}</div>
+                    <div className="mt-1 text-xs leading-5 text-muted-foreground">功能：{beat.function} · 情绪：{beat.emotionalEffect}</div>
+                    {beat.evidence && <div className="mt-1 text-xs text-muted-foreground">证据：{beat.evidence}</div>}
                   </div>
-                  <div className="mt-2 text-sm font-medium">{beat.event}</div>
-                  <div className="mt-1 text-xs leading-5 text-muted-foreground">功能：{beat.function} · 情绪：{beat.emotionalEffect}</div>
-                  {beat.evidence && <div className="mt-1 text-xs text-muted-foreground">证据：{beat.evidence}</div>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

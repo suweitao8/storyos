@@ -7,6 +7,7 @@ import {
   craftCardTitle,
   craftCardMeta,
   craftSourceTypeLabel,
+  formatCraftBeatDuration,
 } from "./CraftManager";
 
 describe("craft mode presentation", () => {
@@ -48,5 +49,12 @@ describe("craft mode presentation", () => {
       sourceType: "bilibili",
       mode: "general",
     });
+  });
+
+  it("formats beat time ranges as rounded event durations", () => {
+    expect(formatCraftBeatDuration("00:00-00:40")).toBe("耗时 40 秒");
+    expect(formatCraftBeatDuration("3.1s-5.2s")).toBe("耗时 2 秒");
+    expect(formatCraftBeatDuration("00:00:40-00:02:00")).toBe("耗时 1 分 20 秒");
+    expect(formatCraftBeatDuration(undefined)).toBeUndefined();
   });
 });
