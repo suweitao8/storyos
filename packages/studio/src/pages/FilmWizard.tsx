@@ -381,7 +381,7 @@ function MainArea({
   // Content-type views need the same comfortable padding the standalone routes
   // get from App's page wrapper; the wizard's main area is full-bleed, so embed
   // them in a centered, padded column. Canvas (flow) and full-bleed (chat) opt out.
-  const contentWrap = "mx-auto w-full max-w-4xl px-6 py-6";
+  const contentWrap = "mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10";
 
   if (showPreview) {
     return (

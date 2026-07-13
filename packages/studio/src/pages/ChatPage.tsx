@@ -82,6 +82,12 @@ import {
   resolveStoryWorkspaceStage,
 } from "./story-workspace-state";
 
+export const CHAT_LAYOUT_CLASSES = {
+  content: "w-full max-w-[1100px] mx-auto",
+  quickActions: "w-full max-w-[1100px] mx-auto",
+  composer: "w-full max-w-[1100px] mx-auto",
+} as const;
+
 // -- Types --
 
 interface Nav {
@@ -1220,7 +1226,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
             </p>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto space-y-4">
+          <div className={`${CHAT_LAYOUT_CLASSES.content} space-y-4`}>
             {messages.map((msg, i) => (
               <div key={`${msg.timestamp}-${i}`}>
                 {msg.role === "user" ? (
@@ -1323,7 +1329,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       {/* Quick actions (only when a book is active) */}
       {hasBook && !showChoicePanel && (
         <div className={`shrink-0 transition-[padding] duration-200 ${worldPanelInsetClass}`}>
-          <div className="max-w-3xl mx-auto w-full px-4">
+          <div className={`${CHAT_LAYOUT_CLASSES.quickActions} px-4`}>
             <QuickActions
               onAction={handleQuickAction}
               disabled={loading || !activeSessionId}
@@ -1353,7 +1359,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       )}
       {needsPlayModeChoice ? null : (
       <div className={`shrink-0 border-t border-border/40 px-4 py-3 transition-[padding] duration-200 ${worldPanelInsetClass}`}>
-        <div className="max-w-3xl mx-auto">
+        <div className={CHAT_LAYOUT_CLASSES.composer}>
           <div className="flex items-start gap-2">
             <div className="relative flex-1 rounded-xl bg-secondary/30 transition-all">
               {skillPanelOpen ? (

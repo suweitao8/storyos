@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveActiveBookId,
   deriveStartupGate,
+  getAppPageLayoutClass,
   getRouteToolbarTitle,
   isBookCreateChatRoute,
   resolveActiveShortStoryId,
@@ -29,6 +30,17 @@ describe("isBookCreateChatRoute", () => {
   it("routes new-book creation through chat instead of the standalone form page", () => {
     expect(isBookCreateChatRoute({ page: "book-create" })).toBe(true);
     expect(isBookCreateChatRoute({ page: "book", bookId: "alpha" })).toBe(false);
+  });
+});
+
+describe("getAppPageLayoutClass", () => {
+  it("uses a wide work area for ordinary tool pages", () => {
+    expect(getAppPageLayoutClass("services")).toContain("max-w-[1440px]");
+    expect(getAppPageLayoutClass("dashboard")).toContain("max-w-[1440px]");
+  });
+
+  it("gives craft management an extra-wide work area", () => {
+    expect(getAppPageLayoutClass("craft")).toContain("max-w-[1600px]");
   });
 });
 

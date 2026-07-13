@@ -52,6 +52,17 @@ export function isBookCreateChatRoute(route: HashRoute): boolean {
   return route.page === "book-create";
 }
 
+export const APP_PAGE_LAYOUT_CLASSES = {
+  default: "w-full max-w-[1440px] mx-auto px-6 py-10 md:px-10 xl:px-12",
+  wide: "w-full max-w-[1600px] mx-auto px-6 py-8 md:px-10 xl:px-12",
+} as const;
+
+export function getAppPageLayoutClass(page: HashRoute["page"]): string {
+  return page === "craft" || page === "genres"
+    ? APP_PAGE_LAYOUT_CLASSES.wide
+    : APP_PAGE_LAYOUT_CLASSES.default;
+}
+
 export function getRouteToolbarTitle(
   route: HashRoute,
   lang: "zh" | "en",
@@ -424,7 +435,7 @@ export function App() {
         {/* Main Content Area */}
         <main className="flex-1 relative overflow-y-auto scroll-smooth">
           {route.page === "dashboard" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <Dashboard nav={nav} sse={sse} theme={theme} t={t} />
             </div>
           )}
@@ -478,27 +489,27 @@ export function App() {
             </div>
           )}
           {route.page === "book-settings" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <BookDetail bookId={route.bookId} nav={nav} theme={theme} t={t} sse={sse} />
             </div>
           )}
           {route.page === "chapter" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ChapterReader bookId={route.bookId} chapterNumber={route.chapterNumber} nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "analytics" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <Analytics bookId={route.bookId} nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "services" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ServiceListPage nav={nav} />
             </div>
           )}
           {route.page === "project-settings" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ProjectSettings
                 nav={nav}
                 theme={theme}
@@ -513,52 +524,52 @@ export function App() {
             </div>
           )}
           {route.page === "service-detail" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ServiceDetailPage serviceId={route.serviceId} nav={nav} />
             </div>
           )}
           {route.page === "truth" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <TruthFiles bookId={route.bookId} nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "daemon" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <DaemonControl nav={nav} theme={theme} t={t} sse={sse} />
             </div>
           )}
           {route.page === "logs" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <LogViewer nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "genres" && (
-            <div className="max-w-6xl mx-auto px-6 py-10 md:px-12 lg:py-12 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <GenreManager nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "craft" && (
-            <div className="w-full px-6 py-8 md:px-8 lg:py-10 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <CraftManager nav={nav} theme={theme} t={t} sse={sse} />
             </div>
           )}
           {route.page === "import" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <ImportManager nav={nav} theme={theme} t={t} initialTab={route.tab} />
             </div>
           )}
           {route.page === "radar" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <RadarView nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "play" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <StoryPlayer projectId={route.projectId} nav={nav} theme={theme} t={t} />
             </div>
           )}
           {route.page === "film" && (
-            <div className="max-w-4xl mx-auto px-6 py-12 md:px-12 lg:py-16 fade-in">
+            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <StoryGraphTree projectId={route.projectId} nav={nav} theme={theme} t={t} />
             </div>
           )}
