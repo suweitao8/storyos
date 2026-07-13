@@ -1,7 +1,7 @@
 import { fetchJson, useApi, postApi } from "../hooks/use-api";
 import { useState } from "react";
 import type { Theme } from "../hooks/use-theme";
-import type { TFunction, StringKey } from "../hooks/use-i18n";
+import type { TFunction } from "../hooks/use-i18n";
 import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -21,24 +21,6 @@ interface GenreInfo {
   readonly language: "zh" | "en";
 }
 
-/** Shape of the per-genre prompt templates (mirrors core PromptTemplates). */
-interface PromptTemplatesData {
-  readonly image: {
-    readonly templates: { readonly character: string; readonly scene: string; readonly prop: string };
-    readonly styles: { readonly realistic: string; readonly cg3d: string };
-  };
-  readonly voice: {
-    readonly boy: string;
-    readonly girl: string;
-    readonly youngMale: string;
-    readonly youngFemale: string;
-    readonly middleMale: string;
-    readonly middleFemale: string;
-    readonly elderMale: string;
-    readonly elderFemale: string;
-  };
-}
-
 interface GenreDetail {
   readonly profile: {
     readonly name: string;
@@ -51,46 +33,10 @@ interface GenreDetail {
     readonly eraResearch: boolean;
     readonly pacingRule: string;
     readonly auditDimensions: ReadonlyArray<number>;
-    readonly promptTemplates?: PromptTemplatesData;
+    readonly artStyle?: ArtStyle;
   };
   readonly body: string;
 }
-
-type ImageFieldKey = keyof PromptTemplatesData["image"]["templates"];
-type VoiceFieldKey = keyof PromptTemplatesData["voice"];
-
-const IMAGE_FIELDS: ReadonlyArray<{ key: ImageFieldKey; labelKey: StringKey }> = [
-  { key: "character", labelKey: "genre.imageCharacter" },
-  { key: "scene", labelKey: "genre.imageScene" },
-  { key: "prop", labelKey: "genre.imageProp" },
-];
-
-const STYLE_FIELDS: ReadonlyArray<{ key: ArtStyle; labelKey: StringKey }> = [
-  { key: "realistic", labelKey: "genre.artStyleRealistic" },
-  { key: "cg3d", labelKey: "genre.artStyleCG3D" },
-];
-
-const VOICE_FIELDS: ReadonlyArray<{ key: VoiceFieldKey; labelKey: StringKey }> = [
-  { key: "boy", labelKey: "genre.voiceBoy" },
-  { key: "girl", labelKey: "genre.voiceGirl" },
-  { key: "youngMale", labelKey: "genre.voiceYoungMale" },
-  { key: "youngFemale", labelKey: "genre.voiceYoungFemale" },
-  { key: "middleMale", labelKey: "genre.voiceMiddleMale" },
-  { key: "middleFemale", labelKey: "genre.voiceMiddleFemale" },
-  { key: "elderMale", labelKey: "genre.voiceElderMale" },
-  { key: "elderFemale", labelKey: "genre.voiceElderFemale" },
-];
-
-const EMPTY_PROMPT_TEMPLATES: PromptTemplatesData = {
-  image: {
-    templates: { character: "", scene: "", prop: "" },
-    styles: { realistic: "", cg3d: "" },
-  },
-  voice: {
-    boy: "", girl: "", youngMale: "", youngFemale: "",
-    middleMale: "", middleFemale: "", elderMale: "", elderFemale: "",
-  },
-};
 
 interface GenreFormData {
   readonly id: string;
@@ -103,7 +49,7 @@ interface GenreFormData {
   readonly eraResearch: boolean;
   readonly pacingRule: string;
   readonly body: string;
-  readonly promptTemplates: PromptTemplatesData;
+  readonly artStyle: ArtStyle;
 }
 
 const EMPTY_FORM: GenreFormData = {
@@ -117,24 +63,16 @@ const EMPTY_FORM: GenreFormData = {
   eraResearch: false,
   pacingRule: "",
   body: "",
-  promptTemplates: EMPTY_PROMPT_TEMPLATES,
+  artStyle: "realistic",
 };
 
 function parseCommaSeparated(value: string): ReadonlyArray<string> {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-function summarizeTemplate(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) return "";
-  return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed;
-}
-
 // ---------------------------------------------------------------------------
-// Form component (with tabs: basic / image templates / image styles / voice)
+// Form component
 // ---------------------------------------------------------------------------
-
-type FormTab = "basic" | "imageTemplates" | "imageStyles" | "voice";
 
 function GenreForm({
   form,
@@ -153,226 +91,118 @@ function GenreForm({
   readonly c: ReturnType<typeof useColors>;
   readonly t: TFunction;
 }) {
-  const [tab, setTab] = useState<FormTab>("basic");
   const set = <K extends keyof GenreFormData>(key: K, value: GenreFormData[K]) =>
     onChange({ ...form, [key]: value });
 
-  const setImageTemplate = (key: ImageFieldKey, value: string) =>
-    onChange({
-      ...form,
-      promptTemplates: {
-        ...form.promptTemplates,
-        image: {
-          ...form.promptTemplates.image,
-          templates: { ...form.promptTemplates.image.templates, [key]: value },
-        },
-      },
-    });
-
-  const setImageStyle = (key: ArtStyle, value: string) =>
-    onChange({
-      ...form,
-      promptTemplates: {
-        ...form.promptTemplates,
-        image: {
-          ...form.promptTemplates.image,
-          styles: { ...form.promptTemplates.image.styles, [key]: value },
-        },
-      },
-    });
-
-  const setVoice = (key: VoiceFieldKey, value: string) =>
-    onChange({
-      ...form,
-      promptTemplates: {
-        ...form.promptTemplates,
-        voice: { ...form.promptTemplates.voice, [key]: value },
-      },
-    });
-
-  const tabBtn = (key: FormTab, label: string) =>
-    `px-3 py-2 text-sm rounded-t-md border-b-2 transition-colors whitespace-nowrap ${
-      tab === key
-        ? "border-primary text-primary font-medium"
-        : "border-transparent text-muted-foreground hover:text-foreground"
-    }`;
-
   return (
     <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
-        <button className={tabBtn("basic", t("genre.tabBasic"))} onClick={() => setTab("basic")}>
-          {t("genre.tabBasic")}
-        </button>
-        <button className={tabBtn("imageTemplates", t("genre.tabImage"))} onClick={() => setTab("imageTemplates")}>
-          {t("genre.tabImage")}
-        </button>
-        <button className={tabBtn("imageStyles", t("genre.tabStyle"))} onClick={() => setTab("imageStyles")}>
-          {t("genre.tabStyle")}
-        </button>
-        <button className={tabBtn("voice", t("genre.tabVoice"))} onClick={() => setTab("voice")}>
-          {t("genre.tabVoice")}
-        </button>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wide">ID</label>
+          <input
+            type="text"
+            value={form.id}
+            onChange={(e) => set("id", e.target.value)}
+            disabled={isEdit}
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.name")}</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
-      {/* --- Basic tab --- */}
-      {tab === "basic" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">ID</label>
-              <input
-                type="text"
-                value={form.id}
-                onChange={(e) => set("id", e.target.value)}
-                disabled={isEdit}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.name")}</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("create.language")}</label>
-            <select
-              value={form.language}
-              onChange={(e) => set("language", e.target.value as "zh" | "en")}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="zh">zh</option>
-              <option value="en">en</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide">
-              {t("genre.chapterTypes")} ({t("genre.commaSeparated")})
-            </label>
-            <input
-              type="text"
-              value={form.chapterTypes}
-              onChange={(e) => set("chapterTypes", e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide">
-              {t("genre.fatigueWords")} ({t("genre.commaSeparated")})
-            </label>
-            <input
-              type="text"
-              value={form.fatigueWords}
-              onChange={(e) => set("fatigueWords", e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.numericalSystem} onChange={(e) => set("numericalSystem", e.target.checked)} />
-              {t("genre.numericalSystem")}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.powerScaling} onChange={(e) => set("powerScaling", e.target.checked)} />
-              {t("genre.powerScaling")}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.eraResearch} onChange={(e) => set("eraResearch", e.target.checked)} />
-              {t("genre.eraResearch")}
-            </label>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.pacingRule")}</label>
-            <input
-              type="text"
-              value={form.pacingRule}
-              onChange={(e) => set("pacingRule", e.target.value)}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.rulesMd")}</label>
-            <textarea
-              value={form.body}
-              onChange={(e) => set("body", e.target.value)}
-              rows={6}
-              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
-            />
-          </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("create.language")}</label>
+          <select
+            value={form.language}
+            onChange={(e) => set("language", e.target.value as "zh" | "en")}
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="zh">zh</option>
+            <option value="en">en</option>
+          </select>
         </div>
-      )}
-
-      {/* --- Image templates tab (style-agnostic content guidance) --- */}
-      {tab === "imageTemplates" && (
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t("genre.templateHint")}</p>
-          {IMAGE_FIELDS.map(({ key, labelKey }) => (
-            <div key={key}>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t(labelKey)}</label>
-              <textarea
-                value={form.promptTemplates.image.templates[key]}
-                onChange={(e) => setImageTemplate(key, e.target.value)}
-                rows={12}
-                placeholder={t("genre.templateHint")}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
-              />
-            </div>
-          ))}
+        <div>
+          <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.artStyle")}</label>
+          <select
+            value={form.artStyle}
+            onChange={(e) => set("artStyle", e.target.value as ArtStyle)}
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="realistic">{t("genre.artStyleRealistic")}</option>
+            <option value="cg3d">{t("genre.artStyleCG3D")}</option>
+          </select>
         </div>
-      )}
+      </div>
 
-      {/* --- Image styles tab (style descriptions appended to templates) --- */}
-      {tab === "imageStyles" && (
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t("genre.styleHint")}</p>
-          {STYLE_FIELDS.map(({ key, labelKey }) => (
-            <div key={key}>
-              <label className="text-xs text-muted-foreground uppercase tracking-wide">{t(labelKey)}</label>
-              <textarea
-                value={form.promptTemplates.image.styles[key]}
-                onChange={(e) => setImageStyle(key, e.target.value)}
-                rows={6}
-                placeholder={t("genre.styleHint")}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide">
+          {t("genre.chapterTypes")} ({t("genre.commaSeparated")})
+        </label>
+        <input
+          type="text"
+          value={form.chapterTypes}
+          onChange={(e) => set("chapterTypes", e.target.value)}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      {/* --- Voice tab --- */}
-      {tab === "voice" && (
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t("genre.templateHint")}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {VOICE_FIELDS.map(({ key, labelKey }) => (
-              <div key={key}>
-                <label className="text-xs text-muted-foreground uppercase tracking-wide">{t(labelKey)}</label>
-                <textarea
-                  value={form.promptTemplates.voice[key]}
-                  onChange={(e) => setVoice(key, e.target.value)}
-                  rows={5}
-                  placeholder={t("genre.templateHint")}
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide">
+          {t("genre.fatigueWords")} ({t("genre.commaSeparated")})
+        </label>
+        <input
+          type="text"
+          value={form.fatigueWords}
+          onChange={(e) => set("fatigueWords", e.target.value)}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
+      </div>
 
-      <div className="flex gap-2 pt-2 border-t border-border/40">
+      <div className="flex gap-6">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.numericalSystem} onChange={(e) => set("numericalSystem", e.target.checked)} />
+          {t("genre.numericalSystem")}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.powerScaling} onChange={(e) => set("powerScaling", e.target.checked)} />
+          {t("genre.powerScaling")}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.eraResearch} onChange={(e) => set("eraResearch", e.target.checked)} />
+          {t("genre.eraResearch")}
+        </label>
+      </div>
+
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.pacingRule")}</label>
+        <input
+          type="text"
+          value={form.pacingRule}
+          onChange={(e) => set("pacingRule", e.target.value)}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wide">{t("genre.rulesMd")}</label>
+        <textarea
+          value={form.body}
+          onChange={(e) => set("body", e.target.value)}
+          rows={6}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+        />
+      </div>
+
+      <div className="flex gap-2">
         <button onClick={onSubmit} className={`px-4 py-2 text-sm rounded-md ${c.btnPrimary}`}>
           {isEdit ? t("genre.saveChanges") : t("genre.createNew")}
         </button>
@@ -431,7 +261,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
       eraResearch: detail.profile.eraResearch ?? false,
       pacingRule: detail.profile.pacingRule,
       body: detail.body,
-      promptTemplates: detail.profile.promptTemplates ?? EMPTY_PROMPT_TEMPLATES,
+      artStyle: detail.profile.artStyle ?? "realistic",
     });
     setFormMode("edit");
   };
@@ -450,8 +280,8 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
         powerScaling: form.powerScaling,
         eraResearch: form.eraResearch,
         pacingRule: form.pacingRule,
+        artStyle: form.artStyle,
         body: form.body,
-        promptTemplates: form.promptTemplates,
       });
       setFormMode("hidden");
       setSelected(form.id);
@@ -480,7 +310,7 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
             pacingRule: form.pacingRule,
           },
           body: form.body,
-          promptTemplates: form.promptTemplates,
+          artStyle: form.artStyle,
         }),
       });
       setFormMode("hidden");
@@ -568,6 +398,8 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                     {detail.profile.numericalSystem ? " Numerical" : ""}
                     {detail.profile.powerScaling ? " Power" : ""}
                     {detail.profile.eraResearch ? " Era" : ""}
+                    {" · "}
+                    {detail.profile.artStyle === "cg3d" ? t("genre.artStyleCG3D") : t("genre.artStyleRealistic")}
                   </div>
                 </div>
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">
@@ -627,56 +459,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
                 <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-foreground/80 bg-muted/30 p-4 rounded-md max-h-[300px] overflow-y-auto">
                   {detail.body || "—"}
                 </pre>
-              </div>
-
-              {/* Prompt templates summary */}
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">{t("genre.promptTemplates")}</div>
-                <div className="space-y-3">
-                  {/* Image templates summary */}
-                  <div className="space-y-1.5">
-                    {IMAGE_FIELDS.map(({ key, labelKey }) => {
-                      const value = detail.profile.promptTemplates?.image?.templates?.[key]?.trim() ?? "";
-                      return (
-                        <div key={key} className="flex items-start gap-2 text-sm">
-                          <span className="text-muted-foreground shrink-0 w-28">{t(labelKey)}</span>
-                          <span className={value ? "text-foreground/80" : "text-muted-foreground italic"}>
-                            {summarizeTemplate(value) || t("genre.usingDefault")}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Image styles summary */}
-                  <div className="space-y-1.5">
-                    {STYLE_FIELDS.map(({ key, labelKey }) => {
-                      const value = detail.profile.promptTemplates?.image?.styles?.[key]?.trim() ?? "";
-                      return (
-                        <div key={key} className="flex items-start gap-2 text-sm">
-                          <span className="text-muted-foreground shrink-0 w-28">{t(labelKey)}</span>
-                          <span className={value ? "text-foreground/80" : "text-muted-foreground italic"}>
-                            {summarizeTemplate(value) || t("genre.usingDefault")}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Voice templates */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {VOICE_FIELDS.map(({ key, labelKey }) => {
-                      const hasCustom = Boolean(detail.profile.promptTemplates?.voice?.[key]?.trim());
-                      return (
-                        <span
-                          key={key}
-                          className={`px-2 py-1 text-xs rounded ${hasCustom ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"}`}
-                          title={hasCustom ? t("genre.customized") : t("genre.usingDefault")}
-                        >
-                          {t(labelKey)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             </div>
           ) : (

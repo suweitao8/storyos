@@ -2079,77 +2079,6 @@ function yamlScalar(value: unknown): string {
   return JSON.stringify(String(value ?? ""));
 }
 
-/**
- * Serialize a multi-line prompt template as a YAML block scalar (`|`).
- * Each line is indented 4 spaces so it nests cleanly inside the
- * `promptTemplates.image.*` / `promptTemplates.voice.*` keys.
- * Empty / whitespace-only values become `""` so js-yaml parses them back
- * as empty strings (matching the Zod default).
- */
-function yamlBlockScalar(value: string | null | undefined, indent = 4): string {
-  const text = (value ?? "").replace(/\s+$/g, "");
-  if (!text.trim()) return '""';
-  const pad = " ".repeat(indent);
-  const lines = text.split(/\r?\n/);
-  return "|\n" + lines.map((line) => `${pad}${line}`).join("\n");
-}
-
-interface PromptTemplateInput {
-  image?: {
-    templates?: { character?: string; scene?: string; prop?: string };
-    styles?: { realistic?: string; cg3d?: string };
-  };
-  voice?: Record<string, string>;
-}
-
-const ART_STYLES_LIST = ["realistic", "cg3d"] as const;
-
-/**
- * Build the `promptTemplates:` frontmatter block using YAML block scalars
- * for multi-line template text.
- *
- * Structure:
- *   promptTemplates:
- *     image:
- *       templates:
- *         character: |
- *           ...
- *         scene: |
- *           ...
- *         prop: |
- *           ...
- *       styles:
- *         realistic: |
- *           ...
- *         cg3d: |
- *           ...
- *     voice:
- *       boy: |
- *         ...
- *       ...
- */
-function serializePromptTemplates(t: PromptTemplateInput | undefined): string {
-  const image = t?.image ?? {};
-  const templates = image.templates ?? {};
-  const styles = image.styles ?? {};
-  const voice = t?.voice ?? {};
-  const lines: string[] = ["promptTemplates:"];
-  lines.push("  image:");
-  lines.push("    templates:");
-  for (const kind of ["character", "scene", "prop"] as const) {
-    lines.push(`      ${kind}: ${yamlBlockScalar(templates[kind], 8)}`);
-  }
-  lines.push("    styles:");
-  for (const style of ART_STYLES_LIST) {
-    lines.push(`      ${style}: ${yamlBlockScalar(styles[style], 8)}`);
-  }
-  lines.push("  voice:");
-  for (const key of ["boy", "girl", "youngMale", "youngFemale", "middleMale", "middleFemale", "elderMale", "elderFemale"]) {
-    lines.push(`    ${key}: ${yamlBlockScalar(voice[key], 6)}`);
-  }
-  return lines.join("\n");
-}
-
 function radarTimestampForFilename(value: string | undefined): string {
   const date = value ? new Date(value) : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
@@ -5379,8 +5308,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       chapterTypes?: string[]; fatigueWords?: string[];
       numericalSystem?: boolean; powerScaling?: boolean; eraResearch?: boolean;
       pacingRule?: string; satisfactionTypes?: string[]; auditDimensions?: number[];
+      artStyle?: string;
       body?: string;
-      promptTemplates?: PromptTemplateInput;
     }>();
 
     if (!body.id || !body.name) {
@@ -5394,6 +5323,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const genresDir = join(root, "genres");
     await mkdirFs(genresDir, { recursive: true });
 
+    const artStyle = body.artStyle === "cg3d" ? "cg3d" : "realistic";
     const frontmatter = [
       "---",
       `name: ${yamlScalar(body.name)}`,
@@ -5407,7 +5337,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       `pacingRule: ${yamlScalar(body.pacingRule ?? "")}`,
       `satisfactionTypes: ${JSON.stringify(body.satisfactionTypes ?? [])}`,
       `auditDimensions: ${JSON.stringify(body.auditDimensions ?? [])}`,
-      serializePromptTemplates(body.promptTemplates),
+      `artStyle: ${artStyle}`,
       "---",
       "",
       body.body ?? "",
@@ -5425,12 +5355,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       throw new ApiError(400, "INVALID_GENRE_ID", `Invalid genre ID: "${genreId}"`);
     }
 
-    const body = await c.req.json<{ profile: Record<string, unknown>; body: string; promptTemplates?: PromptTemplateInput }>();
+    const body = await c.req.json<{ profile: Record<string, unknown>; body: string; artStyle?: string }>();
     const { writeFile: writeFileFs, mkdir: mkdirFs } = await import("node:fs/promises");
     const genresDir = join(root, "genres");
     await mkdirFs(genresDir, { recursive: true });
 
     const p = body.profile;
+    const artStyle = body.artStyle === "cg3d" ? "cg3d" : "realistic";
     const frontmatter = [
       "---",
       `name: ${yamlScalar(p.name ?? genreId)}`,
@@ -5444,7 +5375,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       `pacingRule: ${yamlScalar(p.pacingRule ?? "")}`,
       `satisfactionTypes: ${JSON.stringify(p.satisfactionTypes ?? [])}`,
       `auditDimensions: ${JSON.stringify(p.auditDimensions ?? [])}`,
-      serializePromptTemplates(body.promptTemplates),
+      `artStyle: ${artStyle}`,
       "---",
       "",
       body.body ?? "",
