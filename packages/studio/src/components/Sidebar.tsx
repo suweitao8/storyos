@@ -779,7 +779,7 @@ function SectionHeader({ label, expanded, onToggle }: {
   );
 }
 
-function CreateItem({ icon, label, active, onClick }: {
+export function CreateItem({ icon, label, active, onClick }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
@@ -789,7 +789,7 @@ function CreateItem({ icon, label, active, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[15px] leading-5 transition-all ${
+      className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[15px] leading-5 transition-all ${
         active
           ? "border border-border bg-secondary text-foreground font-medium shadow-sm"
           : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
