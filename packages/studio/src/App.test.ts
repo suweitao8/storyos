@@ -6,6 +6,7 @@ import {
   isBookCreateChatRoute,
   resolveActiveShortStoryId,
   resolveActiveStoryTitle,
+  resolveActiveCraftTitle,
 } from "./App";
 
 describe("deriveActiveBookId", () => {
@@ -110,6 +111,24 @@ describe("resolveActiveStoryTitle", () => {
     })).toBeUndefined();
   });
 
+  it("shows no content when the short-story surface has no current story", () => {
+    expect(resolveActiveStoryTitle({
+      route: { page: "short", shortId: "missing-short" },
+      lang: "zh",
+      books: [],
+      shorts: [],
+    })).toBe("无内容");
+
+    expect(resolveActiveStoryTitle({
+      route: { page: "chat" },
+      sessionKind: "short",
+      activeShortStoryId: null,
+      lang: "zh",
+      books: [],
+      shorts: [],
+    })).toBe("无内容");
+  });
+
   it("uses the active or first book for long-story pages only", () => {
     const books = [
       { id: "book-1", title: "第一本书" },
@@ -129,7 +148,7 @@ describe("resolveActiveStoryTitle", () => {
       lang: "zh",
       books,
       shorts: [],
-    })).toBeUndefined();
+    })).toBe("无内容");
   });
 
   it("shows no content when long-story has no books", () => {
@@ -145,7 +164,32 @@ describe("resolveActiveStoryTitle", () => {
       lang: "en",
       books: [],
       shorts: [],
-    })).toBeUndefined();
+    })).toBe("No content");
+  });
+});
+
+describe("resolveActiveCraftTitle", () => {
+  it("uses the recent craft or first available craft and falls back to no content", () => {
+    expect(resolveActiveCraftTitle({
+      recentCraftId: "craft-2",
+      crafts: [
+        { id: "craft-1", sourceName: "第一个模式" },
+        { id: "craft-2", sourceName: "当前模式" },
+      ],
+      lang: "zh",
+    })).toBe("当前模式");
+
+    expect(resolveActiveCraftTitle({
+      recentCraftId: null,
+      crafts: [{ id: "craft-1", sourceName: "第一个模式" }],
+      lang: "zh",
+    })).toBe("第一个模式");
+
+    expect(resolveActiveCraftTitle({
+      recentCraftId: null,
+      crafts: [],
+      lang: "zh",
+    })).toBe("无内容");
   });
 });
 
