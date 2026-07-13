@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCraftAnalyzePayload,
+  CRAFT_DETAIL_TABS,
   craftCardDescription,
   craftCardTitle,
   craftCardMeta,
@@ -22,6 +23,16 @@ describe("craft mode presentation", () => {
     expect(craftCardMeta({ sourceType: "bilibili", recommendedWordCount: 22_000 }))
       .toBe("视频解析 · 建议约 22,000 字");
     expect(craftCardMeta({ sourceType: "novel" })).toBe("小说解析");
+  });
+
+  it("organizes craft detail into focused tabs", () => {
+    expect(CRAFT_DETAIL_TABS.map((tab) => tab.value)).toEqual([
+      "overview",
+      "video",
+      "modules",
+      "exemplars",
+      "source",
+    ]);
   });
 
   it("uses a generic fallback description for legacy ghost-story records", () => {

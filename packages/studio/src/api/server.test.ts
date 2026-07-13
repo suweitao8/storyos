@@ -7,6 +7,7 @@ import {
   generateStoryAssetImage as coreGenerateStoryAssetImage,
   storyAssetImagePath as coreStoryAssetImagePath,
 } from "../../../core/src/pipeline/story-assets-runner.js";
+import { loadCraftSourceManifest, resolveCraftSourceFile } from "./craft-source-assets.js";
 
 const schedulerStartMock = vi.fn<() => Promise<void>>();
 const initBookMock = vi.fn();
@@ -27,6 +28,7 @@ const loadChapterIndexMock = vi.fn();
 const loadBookConfigMock = vi.fn();
 const listCraftsMock = vi.fn();
 const loadCraftMock = vi.fn();
+const analyzeCraftMock = vi.fn();
 const deleteCraftMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
@@ -223,6 +225,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     writeNextChapter = writeNextChapterMock;
     listCrafts = listCraftsMock;
     loadCraft = loadCraftMock;
+    analyzeCraft = analyzeCraftMock;
     deleteCraft = deleteCraftMock;
     createAgentContext = vi.fn(() => ({ client: {}, model: "gpt-5.4" }));
   }
@@ -277,6 +280,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     parseStorySeed: actual.parseStorySeed,
+    splitCraftChapters: actual.splitCraftChapters,
     loadProjectConfig: loadProjectConfigMock,
     processProjectInteractionRequest: processProjectInteractionRequestMock,
     createInteractionToolsFromDeps: createInteractionToolsFromDepsMock,
@@ -623,6 +627,7 @@ describe("createStudioServer daemon lifecycle", () => {
     listCraftsMock.mockResolvedValue([
       { id: "craft-1", sourceName: "Existing Craft" },
     ]);
+    analyzeCraftMock.mockReset();
     loadCraftMock.mockImplementation(async (craftId: string) => (
       craftId === "craft-1" || craftId === "craft-2"
         ? { id: craftId, sourceName: "Existing Craft" }
@@ -709,6 +714,100 @@ describe("createStudioServer daemon lifecycle", () => {
       recentCraftId: null,
       recentCraftPreferenceAvailable: true,
     });
+  });
+
+  it("archives the uploaded novel source after craft analysis succeeds", async () => {
+    analyzeCraftMock.mockResolvedValue({
+      craftId: "craft-uploaded",
+      profile: { sourceName: "测试小说" },
+    });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const upload = await app.request("http://localhost/api/v1/craft/upload", {
+      method: "POST",
+      headers: {
+        "content-type": "application/octet-stream",
+        "x-filename": encodeURIComponent("测试小说.txt"),
+      },
+      body: Buffer.from("原始文件", "utf8"),
+    });
+    const uploadBody = await upload.json() as { sourceAssetId: string; text: string };
+    expect(upload.status).toBe(200);
+    expect(uploadBody.sourceAssetId).toEqual(expect.any(String));
+
+    const analyzed = await app.request("http://localhost/api/v1/craft/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        text: uploadBody.text,
+        sourceName: "测试小说",
+        sourceType: "novel",
+        sourceAssetId: uploadBody.sourceAssetId,
+      }),
+    });
+    expect(analyzed.status).toBe(200);
+    expect(analyzeCraftMock).toHaveBeenCalledWith(
+      uploadBody.text,
+      "测试小说",
+      "zh",
+      "general",
+      "novel",
+      undefined,
+      undefined,
+    );
+
+    const manifest = await loadCraftSourceManifest(root, "craft-uploaded");
+    expect(manifest?.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "source", downloadName: "测试小说.txt" }),
+      expect.objectContaining({ key: "analysisInput" }),
+    ]));
+    const sourcePath = await resolveCraftSourceFile(root, "craft-uploaded", "source");
+    expect(await readFile(sourcePath, "utf8")).toBe("原始文件");
+  });
+
+  it("exposes retained source files and reparses into the same craft", async () => {
+    const sourceUpload = await (await import("./craft-source-assets.js")).createCraftSourceUpload(root, {
+      sourceType: "novel",
+      sourceName: "测试小说",
+      originalName: "测试小说.txt",
+      sourceBytes: Buffer.from("原始文件", "utf8"),
+      analysisText: "分析输入",
+    });
+    await (await import("./craft-source-assets.js")).finalizeCraftSourceUpload(root, sourceUpload.assetId, "craft-1", { sourceRef: undefined });
+    loadCraftMock.mockResolvedValue({
+      sourceName: "测试小说",
+      language: "zh",
+      mode: "general",
+      sourceType: "novel",
+    });
+    analyzeCraftMock.mockResolvedValueOnce({ craftId: "craft-1", profile: { sourceName: "测试小说", analyzedAt: "new" } });
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const source = await app.request("http://localhost/api/v1/crafts/craft-1/source");
+    expect(source.status).toBe(200);
+    const sourceBody = await source.json() as { source: { files: ReadonlyArray<{ key: string }> } };
+    expect(sourceBody.source.files).toEqual(expect.arrayContaining([expect.objectContaining({ key: "source" })]));
+
+    const download = await app.request("http://localhost/api/v1/crafts/craft-1/source/source");
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-disposition")).toContain(encodeURIComponent("测试小说.txt"));
+    expect(await download.text()).toBe("原始文件");
+
+    const reparsed = await app.request("http://localhost/api/v1/crafts/craft-1/reparse", { method: "POST" });
+    expect(reparsed.status).toBe(200);
+    expect(analyzeCraftMock).toHaveBeenCalledWith(
+      "分析输入",
+      "测试小说",
+      "zh",
+      "general",
+      "novel",
+      undefined,
+      undefined,
+      "craft-1",
+    );
   });
 
   it("streams a complete short-story seed as final text deltas and a parsed candidate", async () => {

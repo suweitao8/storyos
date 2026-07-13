@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { streamSSE } from "hono/streaming";
+import { stream, streamSSE } from "hono/streaming";
 import type { Context } from "hono";
 import { serve } from "@hono/node-server";
 import { gzipSync } from "node:zlib";
@@ -115,6 +115,7 @@ import {
   type CraftMode,
 } from "@actalk/inkos-core";
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { isSafeBookId } from "./safety.js";
 import { ApiError } from "./errors.js";
@@ -132,7 +133,16 @@ import {
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db.js";
-import { importBilibiliSubtitles } from "./bilibili.js";
+import { importBilibiliSource } from "./bilibili.js";
+import {
+  cleanupCraftSourceUpload,
+  addCraftSourceFile,
+  createCraftSourceUpload,
+  finalizeCraftSourceUpload,
+  loadCraftSourceManifest,
+  resolveCraftSourceFile,
+} from "./craft-source-assets.js";
+import type { CraftSourceManifest } from "./craft-source-assets.js";
 import { registerStudioRoutes } from "./routes/index.js";
 import { normalizeBilibiliCraftName } from "../pages/craft-name.js";
 
@@ -5421,15 +5431,58 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!url?.trim()) return c.json({ error: "Bilibili URL is required" }, 400);
 
     try {
-      const result = await importBilibiliSubtitles(url);
-      return c.json({
-        text: result.text,
-        detectedName: normalizeBilibiliCraftName(result.videoInfo.title),
-        videoInfo: result.videoInfo,
-        subtitleSource: result.subtitleSource,
-        subtitleCount: result.subtitles.length,
-        subtitlePreview: result.subtitles.slice(0, 8),
-      });
+      const result = await importBilibiliSource(url);
+      let sourceAssetId: string | undefined;
+      try {
+        const detectedName = normalizeBilibiliCraftName(result.videoInfo.title);
+        const sourceAsset = await createCraftSourceUpload(root, {
+          sourceType: "bilibili",
+          sourceName: detectedName,
+          originalName: `${result.videoInfo.bvid}.mp4`,
+          analysisText: result.text,
+          sourceRef: result.videoInfo.bvid,
+          sourceDurationSeconds: result.videoInfo.duration,
+          subtitleSource: result.subtitleSource,
+        });
+        sourceAssetId = sourceAsset.assetId;
+        if (result.sourceVideoPath) {
+          await addCraftSourceFile(root, sourceAssetId, {
+            key: "video",
+            fileName: "video.mp4",
+            downloadName: `${detectedName}.mp4`,
+            sourcePath: result.sourceVideoPath,
+            mimeType: "video/mp4",
+          });
+        }
+        await addCraftSourceFile(root, sourceAssetId, {
+          key: "subtitlesJson",
+          fileName: "subtitles.json",
+          downloadName: `${detectedName}-subtitles.json`,
+          content: Buffer.from(JSON.stringify(result.subtitles, null, 2), "utf8"),
+          mimeType: "application/json; charset=utf-8",
+        });
+        await addCraftSourceFile(root, sourceAssetId, {
+          key: "subtitlesText",
+          fileName: "subtitles.txt",
+          downloadName: `${detectedName}-subtitles.txt`,
+          content: Buffer.from(result.text, "utf8"),
+          mimeType: "text/plain; charset=utf-8",
+        });
+        return c.json({
+          sourceAssetId,
+          text: result.text,
+          detectedName,
+          videoInfo: result.videoInfo,
+          subtitleSource: result.subtitleSource,
+          subtitleCount: result.subtitles.length,
+          subtitlePreview: result.subtitles.slice(0, 8),
+        });
+      } catch (error) {
+        if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
+        throw error;
+      } finally {
+        if (result.sourceTempDir) await rm(result.sourceTempDir, { recursive: true, force: true }).catch(() => undefined);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return c.json({ error: `获取 B 站字幕失败：${message}` }, 502);
@@ -5475,8 +5528,23 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
       // Suggest a source name from the filename (strip extension + common suffixes).
         const detectedName = deriveCraftSourceName(filename);
+        const originalName = (() => {
+          try {
+            return decodeURIComponent(filename);
+          } catch {
+            return filename;
+          }
+        })();
+        const sourceAsset = await createCraftSourceUpload(root, {
+          sourceType: "novel",
+          sourceName: detectedName,
+          originalName,
+          sourceBytes: buffer,
+          analysisText: excerptText,
+        });
 
         return c.json({
+        sourceAssetId: sourceAsset.assetId,
         text: excerptText,
         encoding: detectedEncoding,
         chapterCount,
@@ -5491,7 +5559,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft Analyze (writing technique profile) ---
 
   app.post("/api/v1/craft/analyze", async (c) => {
-    const { text, sourceName, language, mode, sourceType, sourceRef, sourceDurationSeconds } = await c.req.json<{
+    const { text, sourceName, language, mode, sourceType, sourceRef, sourceDurationSeconds, sourceAssetId } = await c.req.json<{
       text: string;
       sourceName: string;
       language?: "zh" | "en";
@@ -5499,6 +5567,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       sourceType?: "bilibili" | "novel";
       sourceRef?: string;
       sourceDurationSeconds?: number;
+      sourceAssetId?: string;
     }>();
     if (!text?.trim()) return c.json({ error: "text is required" }, 400);
     if (!sourceName?.trim()) return c.json({ error: "sourceName is required" }, 400);
@@ -5516,9 +5585,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         sourceRef,
         sourceDurationSeconds,
       );
+      if (sourceAssetId) {
+        await finalizeCraftSourceUpload(root, sourceAssetId, craftId, { sourceRef });
+      }
       broadcast("craft:complete", { craftId, sourceName });
       return c.json({ craftId, profile });
     } catch (e) {
+      if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
       broadcast("craft:error", { sourceName, error: String(e) });
       return c.json({ error: String(e) }, 500);
     }
@@ -5579,6 +5652,76 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.delete("/api/v1/crafts/recent", async (c) => {
     await clearRecentCraftId(root);
     return c.json({ ok: true });
+  });
+
+  // --- Retained Craft Source ---
+
+  app.get("/api/v1/crafts/:id/source", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    if (!await pipeline.loadCraft(id)) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    return c.json({ source: await loadCraftSourceManifest(root, id) });
+  });
+
+  app.get("/api/v1/crafts/:id/source/:key", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const key = c.req.param("key");
+    const manifest = await loadCraftSourceManifest(root, id);
+    if (!manifest) throw new ApiError(404, "CRAFT_SOURCE_NOT_FOUND", "Retained source files not found.");
+    const file = manifest.files.find((candidate) => candidate.key === key);
+    if (!file) throw new ApiError(404, "CRAFT_SOURCE_FILE_NOT_FOUND", "Source file not found.");
+
+    let filePath: string;
+    try {
+      filePath = await resolveCraftSourceFile(root, id, key);
+    } catch {
+      throw new ApiError(404, "CRAFT_SOURCE_FILE_NOT_FOUND", "Source file not found.");
+    }
+
+    const fileStat = await stat(filePath);
+    c.header("Content-Type", file.mimeType);
+    c.header("Content-Length", String(fileStat.size));
+    c.header("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.downloadName)}`);
+    c.header("Cache-Control", "private, max-age=3600");
+    return stream(c, async (output) => {
+      const input = createReadStream(filePath);
+      output.onAbort(() => { input.destroy(); });
+      for await (const chunk of input) {
+        if (output.aborted) break;
+        await output.write(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk));
+      }
+    });
+  });
+
+  app.post("/api/v1/crafts/:id/reparse", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+
+    const manifest = await loadCraftSourceManifest(root, id) as CraftSourceManifest | null;
+    if (!manifest) {
+      throw new ApiError(409, "CRAFT_SOURCE_NOT_AVAILABLE", "This craft has no retained source files.");
+    }
+
+    let analysisInputPath: string;
+    try {
+      analysisInputPath = await resolveCraftSourceFile(root, id, "analysisInput");
+    } catch {
+      throw new ApiError(409, "CRAFT_SOURCE_NOT_AVAILABLE", "This craft has no retained analysis input.");
+    }
+    const analysisText = await readFile(analysisInputPath, "utf8");
+    const result = await pipeline.analyzeCraft(
+      analysisText,
+      manifest.sourceName || profile.sourceName,
+      profile.language ?? "zh",
+      profile.mode ?? "general",
+      manifest.sourceType,
+      manifest.sourceRef,
+      manifest.sourceDurationSeconds,
+      id,
+    );
+    return c.json({ craftId: id, profile: result.profile, reparsedAt: new Date().toISOString() });
   });
 
   // --- Craft Detail ---
