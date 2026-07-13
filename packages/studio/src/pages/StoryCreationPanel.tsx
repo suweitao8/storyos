@@ -3,6 +3,7 @@ import { ArrowUp, Loader2, Wand2 } from "lucide-react";
 import type { Theme } from "../hooks/use-theme";
 import { useColors } from "../hooks/use-colors";
 import type { CraftOption } from "./story-creation-state";
+import { craftModeLabel } from "./craft-reference-mode";
 import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
@@ -124,7 +125,7 @@ export function StoryCreationPanel({
             <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option>
             {crafts.map((craft) => (
               <option key={craft.id} value={craft.id}>
-                {craft.sourceName}{craft.mode === "ghost-story" ? (isZh ? " · 鬼故事" : " · Ghost story") : ""}
+                {craft.sourceName}{craftModeLabel(craft.mode, craft.sourceType) ? ` · ${craftModeLabel(craft.mode, craft.sourceType)}` : ""}
               </option>
             ))}
           </select>
@@ -132,7 +133,9 @@ export function StoryCreationPanel({
           {craftsError ? <p className="text-xs text-destructive">{isZh ? `加载失败：${craftsError}` : `Failed to load: ${craftsError}`}</p> : null}
           {selectedCraft ? (
             <p className="text-xs leading-5 text-primary">
-              {isZh ? `当前使用：${selectedCraft.sourceName}${selectedCraft.mode === "ghost-story" ? "（鬼故事模式）" : ""}` : `Using: ${selectedCraft.sourceName}`}
+              {isZh
+                ? `当前使用：${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? `（${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)}）` : ""}`
+                : `Using: ${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? ` (${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)})` : ""}`}
             </p>
           ) : (
             <div className="flex items-center justify-between gap-3 text-xs leading-5 text-muted-foreground">

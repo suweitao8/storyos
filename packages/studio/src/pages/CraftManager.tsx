@@ -13,7 +13,21 @@ import {
   resolveAfterCraftDelete,
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
-import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
+import type { CraftMode, VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
+import {
+  CRAFT_SOURCE_TYPES,
+  CRAFT_VIDEO_MODES,
+  craftModeDescription,
+  craftModeLabel,
+  craftSourceTypeLabel as getCraftSourceTypeLabel,
+} from "./craft-reference-mode";
+export {
+  CRAFT_SOURCE_TYPES,
+  CRAFT_VIDEO_MODES,
+  craftModeLabel,
+} from "./craft-reference-mode";
+export type { CraftSourceType } from "./craft-reference-mode";
+import type { CraftSourceType } from "./craft-reference-mode";
 import {
   Wand2, BookOpen, Trash2,
   Plus, FileUp, Loader2, FileText,
@@ -28,7 +42,7 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: "general" | "ghost-story";
+  readonly mode?: CraftMode;
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
@@ -36,23 +50,25 @@ interface CraftMeta {
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
 
-export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode">): string {
-  const typeLabel = craft.mode === "ghost-story" ? "鬼故事" : "通用";
-  return `${normalizeCraftDisplayName(craft.sourceName)} · ${typeLabel}`;
+export function craftCardTitle(craft: Pick<CraftMeta, "sourceName" | "mode" | "sourceType">): string {
+  const typeLabel = craftModeLabel(craft.mode, craft.sourceType);
+  return typeLabel
+    ? `${normalizeCraftDisplayName(craft.sourceName)} · ${typeLabel}`
+    : normalizeCraftDisplayName(craft.sourceName);
 }
 
 export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): string {
-  if (sourceType === "bilibili") return "视频解析";
-  if (sourceType === "novel") return "小说解析";
-  return "来源未记录";
+  return getCraftSourceTypeLabel(sourceType);
 }
 
-export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
+export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary" | "sourceType">): string {
   const summary = craft.summary?.trim();
   if (summary) return summary;
-  return craft.mode === "ghost-story"
-    ? "提取恐惧核心、超自然规则、线索系统与惊吓节奏"
-    : "提取开篇结构、场景节奏、信息释放与叙事视角";
+  if (craft.mode === "bilibili-commentary") return "提取影视解说的剧情压缩、反转和原创短篇改编骨架";
+  if (craft.mode === "bilibili-short-story") return "提取 B 站短篇故事的钩子、推进、反转和结尾节奏";
+  return craft.sourceType === "bilibili"
+    ? "提取视频的剧情节奏和情绪结构"
+    : "提取小说的结构、场景节奏、信息释放与叙事视角";
 }
 
 interface CraftListResponse {
@@ -79,16 +95,9 @@ interface BilibiliImportResponse {
   }>;
 }
 
-export type CraftSourceType = "bilibili" | "novel";
-
-export const CRAFT_SOURCE_TYPES: ReadonlyArray<{ value: CraftSourceType; label: string }> = [
-  { value: "bilibili", label: "B 站视频链接" },
-  { value: "novel", label: "小说文本文件" },
-];
-
 export function buildCraftAnalyzePayload(
   source: { type: CraftSourceType; text: string; detectedName: string; sourceRef?: string; sourceDurationSeconds?: number },
-  mode: "general" | "ghost-story",
+  mode: CraftMode,
 ) {
   return {
     text: source.text,
@@ -161,7 +170,7 @@ interface CraftProfile {
   readonly sourceName: string;
   readonly analyzedAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: "general" | "ghost-story";
+  readonly mode?: CraftMode;
   readonly worldview?: string;
   readonly storyOutline?: string;
   readonly structure: {
@@ -590,7 +599,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [importingBilibili, setImportingBilibili] = useState(false);
   const [bilibiliError, setBilibiliError] = useState("");
   const [sourceType, setSourceType] = useState<CraftSourceType>("novel");
-  const [craftMode, setCraftMode] = useState<"general" | "ghost-story">("general");
+  const [craftMode, setCraftMode] = useState<CraftMode>("general");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
   const [currentStep, setCurrentStep] = useState("");
@@ -669,6 +678,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const handleSourceTypeChange = (nextSourceType: CraftSourceType) => {
     if (busy) return;
     setSourceType(nextSourceType);
+    setCraftMode(nextSourceType === "bilibili" ? "bilibili-short-story" : "general");
     setUploadError("");
     setUploadResult(null);
     setBilibiliError("");
@@ -754,23 +764,6 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 
   return (
     <div className="w-full space-y-6">
-      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-2">
-        <label htmlFor="craft-mode" className="text-sm font-medium">模式类型</label>
-        <select
-          id="craft-mode"
-          value={craftMode}
-          onChange={(event) => setCraftMode(event.target.value === "ghost-story" ? "ghost-story" : "general")}
-          disabled={busy}
-          className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary"
-        >
-          <option value="general">通用写作模式</option>
-          <option value="ghost-story">鬼故事模式</option>
-        </select>
-        <p className="text-xs leading-5 text-muted-foreground">
-          选择鬼故事模式后，会额外提取恐惧核心、超自然规则、禁忌、线索链、惊吓节奏和结尾余韵，并用于短篇仿写。
-        </p>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="模式来源">
         {CRAFT_SOURCE_TYPES.map((source) => {
           const selected = sourceType === source.value;
@@ -786,15 +779,40 @@ function CraftCreate({ c, t, sse, onSuccess }: {
                 : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
             >
               <div className="text-sm font-semibold">{source.label}</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                {source.value === "bilibili"
-                  ? "提取视频字幕并自动生成写作模式"
-                  : "上传小说文本并自动解析写作模式"}
-              </div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">{source.value === "bilibili" ? "从 B 站视频提取可复用的故事结构" : "从小说文本提取可复用的写作手法"}</div>
             </button>
           );
         })}
       </div>
+
+      {sourceType === "bilibili" && (
+        <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
+          <div>
+            <div className="text-sm font-medium">B站视频类型</div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">影视解说会先拆出剧情骨架，再用于原创短篇故事参考。</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2" role="group" aria-label="B站视频类型">
+            {CRAFT_VIDEO_MODES.map((videoMode) => {
+              const selected = craftMode === videoMode.value;
+              return (
+                <button
+                  key={videoMode.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setCraftMode(videoMode.value)}
+                  disabled={busy}
+                  className={`rounded-xl border p-3 text-left transition-colors ${selected
+                    ? "border-primary/60 bg-primary/5"
+                    : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
+                >
+                  <div className="text-sm font-semibold">{videoMode.label}</div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">{craftModeDescription(videoMode.value, "bilibili")}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {sourceType === "bilibili" && (
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
@@ -1039,8 +1057,8 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
       <div className="space-y-2">
         <h2 className="font-serif text-2xl">{normalizeCraftDisplayName(profile.sourceName)}</h2>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {profile.mode === "ghost-story" && (
-            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">鬼故事模式</span>
+          {craftModeLabel(profile.mode) && (
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">{craftModeLabel(profile.mode)}</span>
           )}
           <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
             {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
@@ -1071,7 +1089,9 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
       {detail.videoStory && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+              {profile.mode === "bilibili-commentary" ? "B站影视解说节奏拆解" : "B站短篇故事节奏拆解"}
+            </h3>
             {detail.videoStory.wordCountEstimate && (
               <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1163,31 +1183,6 @@ function CraftDetail({ craftId, initialProfile, c, t, onNew }: {
               </ul>
             </div>
           )}
-        </section>
-      )}
-
-      {profile.mode === "ghost-story" && profile.ghostStory && (
-        <section className="space-y-3 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-primary">鬼故事仿写约束</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            {[
-              ["恐惧核心", profile.ghostStory.fearCore],
-              ["超自然规则", profile.ghostStory.supernaturalRules],
-              ["禁忌与触发条件", profile.ghostStory.taboos],
-              ["主角脆弱点", profile.ghostStory.protagonistVulnerability],
-              ["线索系统", profile.ghostStory.clueSystem],
-              ["真相揭示节奏", profile.ghostStory.revealCadence],
-              ["惊吓节奏", profile.ghostStory.scareCadence],
-              ["恐怖升级阶梯", profile.ghostStory.escalationLadder],
-              ["感官母题", profile.ghostStory.sensoryMotifs],
-              ["结尾余韵", profile.ghostStory.endingAftertaste],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-border/60 bg-background/40 p-3">
-                <div className="text-xs font-medium text-muted-foreground">{label}</div>
-                <div className="mt-1 text-sm leading-6">{value}</div>
-              </div>
-            ))}
-          </div>
         </section>
       )}
 

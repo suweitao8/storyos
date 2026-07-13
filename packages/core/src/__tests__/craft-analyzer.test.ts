@@ -70,6 +70,15 @@ describe("CraftAnalyzerAgent", () => {
     expect(prompt).toContain("不要输出“未明确说明”");
   });
 
+  it("distinguishes Bilibili commentary from short-story reference material", () => {
+    const commentaryPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-commentary", "bilibili");
+    const shortStoryPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-short-story", "bilibili");
+
+    expect(commentaryPrompt).toContain("影视解说");
+    expect(commentaryPrompt).toContain("原创短篇故事");
+    expect(shortStoryPrompt).toContain("B站短篇故事");
+  });
+
   it("asks for fine-grained modules in the craft-analysis prompt", () => {
     const prompt = buildCraftAnalysisSystemPrompt("zh");
 
