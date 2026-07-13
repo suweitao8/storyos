@@ -20,7 +20,7 @@ describe("ChatPage story workspace integration", () => {
       shortId: null,
     })).toMatchObject({
       view: "creation",
-      activeStage: "settings",
+      activeStage: "create",
       kind: "book",
       storyId: null,
     });
@@ -73,6 +73,32 @@ describe("ChatPage story workspace integration", () => {
       activeStage: "settings",
       kind: "short",
       storyId: "short-42",
+    });
+  });
+
+  it("opens the shared creation tab for both existing long and short stories", () => {
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "book",
+      stage: "create",
+      bookId: "long-1",
+      shortId: null,
+    })).toMatchObject({
+      view: "creation",
+      activeStage: "create",
+      kind: "book",
+      storyId: "long-1",
+    });
+
+    expect(resolveChatPageStoryWorkspace({
+      sessionKind: "short",
+      stage: "create",
+      bookId: null,
+      shortId: "short-1",
+    })).toMatchObject({
+      view: "creation",
+      activeStage: "create",
+      kind: "short",
+      storyId: "short-1",
     });
   });
 

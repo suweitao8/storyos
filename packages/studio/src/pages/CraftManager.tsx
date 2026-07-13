@@ -496,7 +496,6 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
             selectedCraftId={selectedCraftId}
             c={c}
             t={t}
-            onNew={openCreate}
             onOpen={openDetail}
             onDelete={handleDelete}
           />
@@ -529,48 +528,25 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 // Tab 1: Craft list
 // ---------------------------------------------------------------------------
 
-function CraftList({ crafts, selectedCraftId, c, t, onNew, onOpen, onDelete }: {
+function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
   crafts: ReadonlyArray<CraftMeta>;
   selectedCraftId: string | null;
   c: ReturnType<typeof useColors>;
   t: TFunction;
-  onNew: () => void;
   onOpen: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
 }) {
   if (crafts.length === 0) {
     return (
-      <div className={CRAFT_LIST_GRID_CLASS}>
-        <button
-          onClick={onNew}
-          className="relative min-h-40 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.03] p-5 text-left transition-colors hover:bg-primary/[0.08]"
-        >
-          <Plus size={18} className="mb-4 text-primary" />
-          <div className="text-sm font-semibold">{t("craft.newProfile")}</div>
-          <div className="mt-2 text-xs leading-5 text-muted-foreground">
-            上传小说文件或输入 B 站视频链接，自动创建写作模式
-          </div>
-        </button>
-        <div className="min-h-40 rounded-2xl border border-dashed border-border/40 p-5 text-center">
-          <Wand2 size={28} className="mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">{t("craft.noProfiles")}</p>
-        </div>
+      <div className="min-h-40 rounded-2xl border border-dashed border-border/40 p-5 text-center">
+        <Wand2 size={28} className="mx-auto mb-3 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">{t("craft.noProfiles")}</p>
       </div>
     );
   }
 
   return (
     <div className={CRAFT_LIST_GRID_CLASS}>
-      <button
-        onClick={onNew}
-        className="relative min-h-40 rounded-2xl border border-dashed border-primary/40 bg-primary/[0.03] p-5 text-left transition-colors hover:bg-primary/[0.08]"
-      >
-        <Plus size={18} className="mb-4 text-primary" />
-        <div className="text-sm font-semibold">{t("craft.newProfile")}</div>
-        <div className="mt-2 text-xs leading-5 text-muted-foreground">
-          上传小说文件或输入 B 站视频链接，自动创建写作模式
-        </div>
-      </button>
       {crafts.map((craft) => (
         <div
           key={craft.id}
