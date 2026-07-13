@@ -51,10 +51,10 @@ describe("craft mode presentation", () => {
     });
   });
 
-  it("formats beat time ranges as rounded event durations", () => {
-    expect(formatCraftBeatDuration("00:00-00:40")).toBe("耗时 40 秒");
-    expect(formatCraftBeatDuration("3.1s-5.2s")).toBe("耗时 2 秒");
-    expect(formatCraftBeatDuration("00:00:40-00:02:00")).toBe("耗时 1 分 20 秒");
+  it("formats beat time ranges as clean start–end labels", () => {
+    expect(formatCraftBeatDuration("00:00-00:40")).toBe("0秒–40秒");
+    expect(formatCraftBeatDuration("3.1s-5.2s")).toBe("3秒–5秒");
+    expect(formatCraftBeatDuration("00:00:40-00:02:00")).toBe("40秒–2分");
     expect(formatCraftBeatDuration(undefined)).toBeUndefined();
   });
 });
