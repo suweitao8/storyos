@@ -163,7 +163,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, regen
               <section className="flex min-h-0 flex-1" role="tabpanel" data-testid="outline-master-detail">
                 <nav className="w-56 shrink-0 overflow-y-auto border-r border-border/50 bg-card/30 px-3 py-4" aria-label={isZh ? "大纲条目" : "Outline items"}>
                   <ul className="space-y-0.5">
-                    {outlineSections.map((section) => {
+                    {outlineSections.map((section, index) => {
                       const isActive = (activeOutline?.file ?? "") === section.file;
                       return (
                         <li key={section.file}>
@@ -173,6 +173,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, regen
                             onClick={() => setSelectedOutlineFile(section.file)}
                             className={`block w-full truncate rounded-md px-3 py-2 text-left text-sm transition-colors ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}
                           >
+                            <span className="mr-1.5 text-xs tabular-nums opacity-60">{index + 1}.</span>
                             {section.title}
                           </button>
                         </li>
@@ -185,6 +186,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, regen
                     <article>
                       <h3 className="flex items-center gap-2 text-base font-semibold">
                         <FileText size={16} className="text-primary" />
+                        <span className="text-xs tabular-nums text-muted-foreground">{outlineSections.findIndex((s) => s.file === activeOutline.file) + 1}</span>
                         {activeOutline.title}
                       </h3>
                       <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(activeOutline.content)}</p>
