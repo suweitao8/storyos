@@ -1,46 +1,34 @@
-// StoryOS 品牌 logo（与 README 顶部 assets/logo.svg 同款）：深色圆底 + 橙色墨滴 + 羽毛笔尖。
-// 内联为组件，避免 Vite 静态资源/类型声明依赖。渐变 id 加 inkos- 前缀防全局冲突。
+// StoryOS 品牌 logo：渐变圆角方块底 + 风格化白色 "S"。
+// 内联 SVG 组件，渐变 id 加 storyos- 前缀防全局冲突。
 export function InkosLogo({ className }: { readonly className?: string }) {
   return (
     <svg viewBox="0 0 512 512" fill="none" className={className} role="img" aria-label="StoryOS">
       <defs>
         <linearGradient id="storyos-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#2d1b0e" />
-          <stop offset="100%" stopColor="#1a1008" />
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="50%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#f97316" />
         </linearGradient>
-        <linearGradient id="storyos-drop" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#f4a261" />
-          <stop offset="100%" stopColor="#e76f51" />
+        <linearGradient id="storyos-s" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#fef3c7" />
         </linearGradient>
-        <linearGradient id="storyos-nib" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fefae0" />
-          <stop offset="100%" stopColor="#dda15e" />
-        </linearGradient>
-        <filter id="storyos-glow">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+        <filter id="storyos-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="8" stdDeviation="12" floodColor="#000000" floodOpacity="0.15" />
         </filter>
       </defs>
 
-      <circle cx="256" cy="256" r="240" fill="url(#inkos-bg)" stroke="#f4a261" strokeWidth="2.5" opacity="0.95" />
-      <circle cx="256" cy="256" r="210" fill="none" stroke="#dda15e" strokeWidth="1" strokeDasharray="8 8" opacity="0.25" />
+      {/* Gradient rounded-square background */}
+      <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#storyos-bg)" filter="url(#storyos-shadow)" />
 
+      {/* Stylized "S" — two opposing arcs forming an S-curve */}
       <path
-        d="M256 120 C256 120, 340 230, 340 305 C340 352, 302 392, 256 392 C210 392, 172 352, 172 305 C172 230, 256 120, 256 120Z"
-        fill="url(#inkos-drop)"
-        filter="url(#inkos-glow)"
-        opacity="0.9"
+        d="M340 175 C340 140, 305 120, 260 120 C205 120, 165 155, 165 200 C165 240, 200 260, 250 270 C300 280, 340 295, 340 335 C340 375, 300 405, 245 405 C195 405, 160 380, 160 345"
+        stroke="url(#storyos-s)"
+        strokeWidth="42"
+        strokeLinecap="round"
+        fill="none"
       />
-      <path d="M256 180 L240 315 L256 345 L272 315 Z" fill="url(#inkos-nib)" opacity="0.85" />
-      <line x1="256" y1="215" x2="256" y2="335" stroke="#2d1b0e" strokeWidth="1.5" opacity="0.4" />
-
-      <circle cx="190" cy="240" r="3" fill="#f4a261" opacity="0.5" />
-      <circle cx="322" cy="240" r="3" fill="#f4a261" opacity="0.5" />
-      <circle cx="170" cy="325" r="3" fill="#e9c46a" opacity="0.4" />
-      <circle cx="342" cy="325" r="3" fill="#e9c46a" opacity="0.4" />
     </svg>
   );
 }

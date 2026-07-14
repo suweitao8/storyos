@@ -14,8 +14,8 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-8">
       {/* Logo — cinematic scale */}
       <div className="mb-16 text-center">
-        <div className="flex items-baseline justify-center gap-1.5 mb-4">
-          <span className="font-serif text-6xl italic text-primary">Ink</span>
+        <div className="flex items-baseline justify-center gap-0.5 mb-4">
+          <span className="font-serif text-6xl italic text-primary">Story</span>
           <span className="text-5xl font-semibold tracking-tight text-foreground">OS</span>
         </div>
         <div className="text-base text-muted-foreground tracking-widest uppercase">Studio</div>
