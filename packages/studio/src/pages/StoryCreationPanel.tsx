@@ -259,51 +259,46 @@ export function StoryCreationPanel({
       <div className={STORY_CREATION_LAYOUT_CLASSES.columns}>
         <div className="min-w-0 space-y-5">
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-5">
-        <div className="space-y-2">
-          <label htmlFor="story-craft-select" className="text-sm font-medium">
-            {isZh ? "写作模式" : "Writing mode"}
-          </label>
-          <select
-            id="story-craft-select"
-            aria-label={isZh ? "写作模式" : "Writing mode"}
-            value={selectedCraftId}
-            onChange={(event) => onCraftChange(event.target.value)}
-            disabled={busy || (craftsLoading && crafts.length === 0)}
-            className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50"
-          >
-            <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option>
-            {crafts.map((craft) => (
-              <option key={craft.id} value={craft.id}>
-                {craft.sourceName}{craftModeLabel(craft.mode, craft.sourceType) ? ` · ${craftModeLabel(craft.mode, craft.sourceType)}` : ""}
-              </option>
-            ))}
-          </select>
-          {craftsLoading && crafts.length === 0 ? <p className="text-xs text-muted-foreground">{isZh ? "正在加载写作模式…" : "Loading writing modes…"}</p> : null}
-          {craftsError ? <p className="text-xs text-destructive">{isZh ? `加载失败：${craftsError}` : `Failed to load: ${craftsError}`}</p> : null}
-          {selectedCraft ? (
-            <p className="text-xs leading-5 text-primary">
-              {isZh
-                ? `当前使用：${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? `（${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)}）` : ""}`
-                : `Using: ${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? ` (${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)})` : ""}`}
-            </p>
-          ) : (
-            <div className="flex items-center justify-between gap-3 text-xs leading-5 text-muted-foreground">
-              <span>{isZh ? "未选择模式，将使用默认写作规则。" : "No mode selected; default writing rules will be used."}</span>
-              {onOpenCraft ? (
-                <button type="button" onClick={onOpenCraft} className="shrink-0 text-primary hover:underline">
-                  {isZh ? "去创建模式" : "Create a mode"}
-                </button>
-              ) : null}
-            </div>
-          )}
-        </div>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <label className="space-y-2 text-sm">
-            <span>{isZh ? "每章字数" : "Words / chapter"}</span>
-            <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
-              {wordCountOptions.map((count) => <option key={count} value={count}>{formatStoryWordCount(count, isZh ? "zh" : "en")}{count === selectedCraftRecommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
+        {/* Row 1: 写作模式 + 生成质量 */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="story-craft-select" className="text-sm font-medium">
+              {isZh ? "写作模式" : "Writing mode"}
+            </label>
+            <select
+              id="story-craft-select"
+              aria-label={isZh ? "写作模式" : "Writing mode"}
+              value={selectedCraftId}
+              onChange={(event) => onCraftChange(event.target.value)}
+              disabled={busy || (craftsLoading && crafts.length === 0)}
+              className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50"
+            >
+              <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option>
+              {crafts.map((craft) => (
+                <option key={craft.id} value={craft.id}>
+                  {craft.sourceName}{craftModeLabel(craft.mode, craft.sourceType) ? ` · ${craftModeLabel(craft.mode, craft.sourceType)}` : ""}
+                </option>
+              ))}
             </select>
-          </label>
+            {craftsLoading && crafts.length === 0 ? <p className="text-xs text-muted-foreground">{isZh ? "正在加载写作模式…" : "Loading writing modes…"}</p> : null}
+            {craftsError ? <p className="text-xs text-destructive">{isZh ? `加载失败：${craftsError}` : `Failed to load: ${craftsError}`}</p> : null}
+            {selectedCraft ? (
+              <p className="text-xs leading-5 text-primary">
+                {isZh
+                  ? `当前使用：${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? `（${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)}）` : ""}`
+                  : `Using: ${selectedCraft.sourceName}${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType) ? ` (${craftModeLabel(selectedCraft.mode, selectedCraft.sourceType)})` : ""}`}
+              </p>
+            ) : (
+              <div className="flex items-center justify-between gap-3 text-xs leading-5 text-muted-foreground">
+                <span>{isZh ? "未选择模式，将使用默认写作规则。" : "No mode selected; default writing rules will be used."}</span>
+                {onOpenCraft ? (
+                  <button type="button" onClick={onOpenCraft} className="shrink-0 text-primary hover:underline">
+                    {isZh ? "去创建模式" : "Create a mode"}
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </div>
           {kind === "short" ? (
             <label className="space-y-2 text-sm">
               <span>{isZh ? "生成质量" : "Generation quality"}</span>
@@ -316,7 +311,18 @@ export function StoryCreationPanel({
                 <option value="quick">{isZh ? "极速：跳过审查" : "Quick: skip reviews"}</option>
               </select>
             </label>
-          ) : null}
+          ) : (
+            <div />
+          )}
+        </div>
+        {/* Row 2: 每章字数 + 重新随机生成 */}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="space-y-2 text-sm">
+            <span>{isZh ? "每章字数" : "Words / chapter"}</span>
+            <select value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary">
+              {wordCountOptions.map((count) => <option key={count} value={count}>{formatStoryWordCount(count, isZh ? "zh" : "en")}{count === selectedCraftRecommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
+            </select>
+          </label>
           <div className="flex items-end">
             <button
               type="button"
