@@ -230,6 +230,12 @@ export interface CraftMeta {
   readonly storySeed?: StorySeed;
   /** Genre id this craft is associated with (e.g. xianxia, horror). User-editable. */
   readonly genre?: string;
+  /** Background processing state for asynchronously-created crafts. */
+  readonly processingStatus?: "processing" | "ready" | "error";
+  /** Human-readable background stage shown while a craft is being prepared. */
+  readonly processingStage?: string;
+  /** Retryable background error summary. */
+  readonly processingError?: string;
 }
 
 export function normalizeCraftSourceRef(
