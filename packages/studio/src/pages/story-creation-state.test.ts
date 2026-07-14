@@ -61,6 +61,30 @@ describe("story creation actions", () => {
     expect(direction).toContain("不得复制原作");
   });
 
+  it("gives legacy cached seeds a generic originality contract", () => {
+    const direction = buildDefaultStoryDirection({
+      id: "legacy-seed",
+      sourceName: "旧模式",
+      mode: "bilibili-short-story",
+      storySeed: {
+        title: "旧故事设定",
+        genreTone: "悬疑",
+        hook: "旧钩子",
+        worldview: "旧世界规则",
+        characters: "旧角色关系",
+        conflict: "旧冲突",
+        outline: "旧事件顺序",
+        reversals: "旧反转",
+        ending: "旧结局",
+        visualAudioMotifs: "旧母题",
+      },
+    }, "short", true);
+
+    expect(direction).toContain("当前模式没有缓存的原创化改编方案");
+    expect(direction).toContain("重新设计故事空间、身份、关系、因果链、关键事件与结局");
+    expect(direction).not.toContain("请先执行以上‘原创化改编方案’");
+  });
+
   it("builds an editable original direction for the selected craft", () => {
     const direction = buildDefaultStoryDirection({ id: "ghost", sourceName: "reference", mode: "ghost-story" }, "short", true);
 
