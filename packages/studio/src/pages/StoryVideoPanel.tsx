@@ -125,29 +125,6 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                 </button>
               ))}
             </div>
-
-            {/* 底部操作栏 */}
-            <div className="shrink-0 space-y-2 border-t border-border/30 p-2">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={withVoice}
-                  onChange={(e) => setWithVoice(e.target.checked)}
-                  className="h-3.5 w-3.5"
-                />
-                {withVoice ? <Volume2 size={12} /> : <VolumeX size={12} />}
-                {isZh ? "合成语音" : "Voice"}
-              </label>
-              <button
-                type="button"
-                onClick={() => void generate()}
-                disabled={busy}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-              >
-                <Sparkles size={12} />
-                {busy ? (isZh ? "生成中..." : "Generating...") : isZh ? "生成视频" : "Generate video"}
-              </button>
-            </div>
           </aside>
 
           {/* 右侧：视频预览 */}
@@ -160,37 +137,43 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
 
             {selection.type === "collection" ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                <h2 className="mb-3 shrink-0 text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
+                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                  <h2 className="text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
+                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} />
+                </div>
                 {data.video.exists ? (
                   <video
                     key={collectionVideoUrl}
-                    className="aspect-video w-full max-w-4xl rounded-xl border border-border/50 bg-black"
+                    className="aspect-video w-full rounded-xl border border-border/50 bg-black"
                     src={collectionVideoUrl}
                     controls
                     preload="metadata"
                   />
                 ) : (
-                  <div className="flex aspect-video max-w-4xl items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
-                    {isZh ? "还没有合集视频，点击左下角生成。" : "No collection video yet. Generate from the left panel."}
+                  <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
+                    {isZh ? "还没有合集视频，点击右上角生成。" : "No collection video yet. Generate from the top right."}
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
-                <h2 className="mb-3 shrink-0 text-base font-semibold">
-                  {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
-                </h2>
+                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                  <h2 className="truncate text-base font-semibold">
+                    {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
+                  </h2>
+                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} />
+                </div>
                 {selectedSceneVideoUrl && selectedScene?.videoExists ? (
                   <video
                     key={selectedSceneVideoUrl}
-                    className="aspect-video w-full max-w-4xl rounded-xl border border-border/50 bg-black"
+                    className="aspect-video w-full rounded-xl border border-border/50 bg-black"
                     src={selectedSceneVideoUrl}
                     controls
                     preload="metadata"
                   />
                 ) : (
-                  <div className="flex aspect-video max-w-4xl items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
-                    {isZh ? "该场景暂无视频，生成后会自动出现。" : "No video for this scene yet. It will appear after generation."}
+                  <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
+                    {isZh ? "该场景暂无视频，点击右上角生成。" : "No video for this scene yet. Generate from the top right."}
                   </div>
                 )}
               </div>
@@ -199,6 +182,44 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
         </div>
       )}
     </section>
+  );
+}
+
+function GenerateButton({
+  busy,
+  withVoice,
+  setWithVoice,
+  onGenerate,
+  isZh,
+}: {
+  readonly busy: boolean;
+  readonly withVoice: boolean;
+  readonly setWithVoice: (value: boolean) => void;
+  readonly onGenerate: () => void;
+  readonly isZh: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={withVoice}
+          onChange={(e) => setWithVoice(e.target.checked)}
+          className="h-3.5 w-3.5"
+        />
+        {withVoice ? <Volume2 size={12} /> : <VolumeX size={12} />}
+        {isZh ? "语音" : "Voice"}
+      </label>
+      <button
+        type="button"
+        onClick={() => void onGenerate()}
+        disabled={busy}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+      >
+        <Sparkles size={12} />
+        {busy ? (isZh ? "生成中..." : "Generating...") : isZh ? "生成视频" : "Generate video"}
+      </button>
+    </div>
   );
 }
 
