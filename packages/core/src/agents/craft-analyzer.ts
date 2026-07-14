@@ -244,10 +244,64 @@ function extractFirstJSONObject(value: string): string | null {
 }
 
 function sanitizeCraftJSON(value: string): string {
-  return stripCodeFence(value)
+  const stripped = stripCodeFence(value)
+    // Normalise smart/typographic quotes that LLMs commonly emit.
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    // Remove control characters that break JSON.parse.
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    .replace(/,\s*([}\]])/g, "$1")
-    .replace(/}\s*{/g, "},{");
+    // Remove trailing commas before closing braces/brackets.
+    .replace(/,\s*([}\]])/g, "$1");
+  return insertMissingCommasBetweenObjects(stripped);
+}
+
+/**
+ * Walk the JSON text outside of string values and insert a missing comma
+ * wherever a `}` is directly followed by a `{` — a common LLM mistake when
+ * listing exemplar objects.  Unlike a blanket regex, this preserves `}{`
+ * patterns that legitimately appear inside string values.
+ */
+function insertMissingCommasBetweenObjects(value: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i]!;
+
+    if (inString) {
+      result += ch;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      result += ch;
+      continue;
+    }
+
+    // Detect `}` followed by optional whitespace then `{` — insert a comma.
+    if (ch === "}") {
+      result += ch;
+      let j = i + 1;
+      while (j < value.length && /\s/.test(value[j]!)) j += 1;
+      if (j < value.length && value[j] === "{") {
+        result += ","; // insert the missing comma
+      }
+      continue;
+    }
+
+    result += ch;
+  }
+
+  return result;
 }
 
 function normalizeCraftFieldKey(value: string): string {
