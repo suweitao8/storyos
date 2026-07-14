@@ -55,7 +55,10 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
     setBusy(true);
     setActionError(null);
     try {
-      await postApi(`${path}/video`, { voice: withVoice });
+      const endpoint = selection.type === "scene"
+        ? `${path}/video/scene/${selection.index}`
+        : `${path}/video`;
+      await postApi(endpoint, { voice: withVoice });
       await refetch();
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
@@ -139,7 +142,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                   <h2 className="text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
-                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} />
+                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} scope="collection" />
                 </div>
                 {data.video.exists ? (
                   <video
@@ -151,7 +154,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   />
                 ) : (
                   <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
-                    {isZh ? "还没有合集视频，点击右上角生成。" : "No collection video yet. Generate from the top right."}
+                    {isZh ? "还没有合集视频，点击右上角「生成合集」。" : "No collection video yet. Click \"Generate all\" above."}
                   </div>
                 )}
               </div>
@@ -161,7 +164,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   <h2 className="truncate text-base font-semibold">
                     {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
                   </h2>
-                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} />
+                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} scope="scene" />
                 </div>
                 {selectedSceneVideoUrl && selectedScene?.videoExists ? (
                   <video
@@ -173,7 +176,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   />
                 ) : (
                   <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">
-                    {isZh ? "该场景暂无视频，点击右上角生成。" : "No video for this scene yet. Generate from the top right."}
+                    {isZh ? "该场景暂无视频，点击右上角「生成本场景」。" : "No video for this scene yet. Click \"Generate scene\" above."}
                   </div>
                 )}
               </div>
@@ -191,12 +194,14 @@ function GenerateButton({
   setWithVoice,
   onGenerate,
   isZh,
+  scope,
 }: {
   readonly busy: boolean;
   readonly withVoice: boolean;
   readonly setWithVoice: (value: boolean) => void;
   readonly onGenerate: () => void;
   readonly isZh: boolean;
+  readonly scope: "collection" | "scene";
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
@@ -217,7 +222,11 @@ function GenerateButton({
         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
       >
         <Sparkles size={12} />
-        {busy ? (isZh ? "生成中..." : "Generating...") : isZh ? "生成视频" : "Generate video"}
+        {busy
+          ? (isZh ? "生成中..." : "Generating...")
+          : scope === "scene"
+            ? (isZh ? "生成本场景" : "Generate scene")
+            : (isZh ? "生成合集" : "Generate all")}
       </button>
     </div>
   );
