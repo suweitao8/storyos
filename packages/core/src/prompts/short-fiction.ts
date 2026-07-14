@@ -93,6 +93,7 @@ export function buildShortFictionOutlineUserPrompt(
       `A complete short story of ${input.chapterCount} chapters, about ${input.charsPerChapter} words per chapter.`,
       "",
       input.reference?.text ? "## Optional Reference Text\n" + input.reference.text.trim() + "\n" : "",
+      input.craftGuide ?? "",
       "## Deliverable",
       "Start with one platform-ready clickable title, then the full story plan. The plan must make clear why the protagonist is pinned down, what payoff the reader is waiting for, how the protagonist turns the tables, how evidence/relationships/identity/rules escalate step by step, why the antagonist strikes back, and how the ending lands.",
       "The chapter plan must spell out, chapter by chapter: the direction of the chapter title, the key on-page scene, the characters' actions, the escalation or payoff, and the reason to keep reading at the chapter break.",

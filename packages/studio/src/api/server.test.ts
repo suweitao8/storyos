@@ -285,6 +285,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
+    isStorySeedWithOriginalizationPlan: actual.isStorySeedWithOriginalizationPlan,
     parseStorySeed: actual.parseStorySeed,
     serializeStorySeed: actual.serializeStorySeed,
     splitCraftChapters: actual.splitCraftChapters,
@@ -458,7 +459,11 @@ const storySeedMarkdown = `## 故事名称
 主角救人但忘记姓名。
 
 ## 画面与声音母题
-坏钟和第二次敲门声。`;
+坏钟和第二次敲门声。
+
+## 原创化改编方案
+保留“声音改变记录”的节奏机制，但将人物关系、地点、因果线索和结局代价全部重构为新的故事。
+`;
 
 function cloneProjectConfig() {
   return structuredClone(projectConfig);
@@ -753,8 +758,43 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", storySeed);
   });
 
+  it("rejects a streamed story seed from an obsolete generation", async () => {
+    listCraftsMock.mockResolvedValue([{
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      storySeedGenerationId: "generation-current",
+    }]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    const storySeed = {
+      title: "凌晨两点十七分",
+      genreTone: "都市灵异悬疑",
+      hook: "维修员接到已故邻居的来电。",
+      worldview: "老楼会抹去一户人的存在。",
+      characters: "维修员与只能通过电话留下痕迹的邻居。",
+      conflict: "每次调查都会牺牲一段记忆。",
+      outline: "发现电话、调查门牌、面对第二次敲门。",
+      reversals: "主角曾主动参与抹除记录。",
+      ending: "救回孩子，却忘记孩子的名字。",
+      visualAudioMotifs: "坏钟、敲门声和熄灭的感应灯。",
+    };
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ storySeed, generationId: "generation-old" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "STORY_SEED_GENERATION_STALE" },
+    });
+    expect(saveCraftStorySeedMock).not.toHaveBeenCalled();
+  });
+
   it("queues story foundation generation and returns before the model finishes", async () => {
-    const pendingMeta = {
+    const currentMeta: Record<string, unknown> = {
       id: "craft-1",
       sourceName: "Existing Craft",
       createdAt: "2026-07-14T00:00:00.000Z",
@@ -762,12 +802,16 @@ describe("createStudioServer daemon lifecycle", () => {
       processingStatus: "ready",
       storySeedStatus: "pending",
     };
+    listCraftsMock.mockResolvedValue([currentMeta]);
     let resolveModel!: (value: { content: string }) => void;
     chatCompletionMock.mockReturnValueOnce(new Promise((resolve) => {
       resolveModel = resolve;
     }));
     loadCraftMock.mockResolvedValue(storySeedCraftProfile);
-    updateCraftStorySeedStatusMock.mockResolvedValue(pendingMeta);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
 
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
@@ -790,22 +834,19 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("auto-starts story foundation generation when a saved craft has no foundation state", async () => {
-    listCraftsMock.mockResolvedValueOnce([{
+    const currentMeta: Record<string, unknown> = {
       id: "craft-1",
       sourceName: "Existing Craft",
       createdAt: "2026-07-14T00:00:00.000Z",
       language: "zh",
       processingStatus: "ready",
-    }]);
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
     loadCraftMock.mockResolvedValue(storySeedCraftProfile);
-    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => ({
-      id: "craft-1",
-      sourceName: "Existing Craft",
-      createdAt: "2026-07-14T00:00:00.000Z",
-      language: "zh",
-      processingStatus: "ready",
-      ...patch,
-    }));
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
     chatCompletionMock.mockResolvedValueOnce({ content: storySeedMarkdown });
     saveCraftStorySeedMock.mockResolvedValueOnce(undefined);
 
@@ -891,7 +932,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns after craft analysis and generates the default story seed in the background", async () => {
-    const pendingMeta = {
+    const currentMeta: Record<string, unknown> = {
       id: "craft-1",
       sourceName: "测试小说",
       createdAt: "2026-07-14T00:00:00.000Z",
@@ -899,12 +940,13 @@ describe("createStudioServer daemon lifecycle", () => {
       processingStatus: "ready",
       storySeedStatus: "pending",
     };
+    listCraftsMock.mockResolvedValue([currentMeta]);
     analyzeCraftMock.mockResolvedValueOnce({ craftId: "craft-1", profile: storySeedCraftProfile });
     loadCraftMock.mockResolvedValue(storySeedCraftProfile);
-    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => ({
-      ...pendingMeta,
-      ...patch,
-    }));
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
     saveCraftStorySeedMock.mockResolvedValue(undefined);
     chatCompletionMock.mockResolvedValueOnce({
       content: storySeedMarkdown,

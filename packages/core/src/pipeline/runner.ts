@@ -853,7 +853,7 @@ export class PipelineRunner {
   /** Update the background state for the cached story foundation. */
   async updateCraftStorySeedStatus(
     craftId: string,
-    patch: Pick<CraftMeta, "storySeedStatus" | "storySeedError">,
+    patch: Pick<CraftMeta, "storySeedStatus" | "storySeedError" | "storySeedGenerationId">,
   ): Promise<CraftMeta> {
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);
     const metaPath = join(craftsDir, "meta.json");

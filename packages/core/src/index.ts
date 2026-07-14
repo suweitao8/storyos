@@ -65,7 +65,7 @@ export {
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
 export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";
-export { STORY_SEED_SECTION_DEFINITIONS, StorySeedParseError, isStorySeed, parseStorySeed, serializeStorySeed, type StorySeed, type StorySeedSectionKey } from "./models/story-seed.js";
+export { STORY_SEED_SECTION_DEFINITIONS, StorySeedParseError, isStorySeed, isStorySeedWithOriginalizationPlan, parseStorySeed, serializeStorySeed, type StorySeed, type StorySeedSectionKey } from "./models/story-seed.js";
 export { estimateVideoNovelWordCount } from "./craft/video-word-count.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
 export {

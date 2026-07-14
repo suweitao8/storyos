@@ -968,11 +968,11 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     onEvent: (event: StorySeedStreamEvent) => void,
   ): Promise<StorySeed> => streamStorySeed(input, onEvent), []);
 
-  const handleSaveStorySeed = useCallback(async (craftId: string, storySeed: StorySeed) => {
+  const handleSaveStorySeed = useCallback(async (craftId: string, storySeed: StorySeed, generationId?: string) => {
     await fetchJson(`/crafts/${encodeURIComponent(craftId)}/story-seed`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storySeed }),
+      body: JSON.stringify({ storySeed, ...(generationId ? { generationId } : {}) }),
     });
     await refetchCrafts();
   }, [refetchCrafts]);
@@ -1005,7 +1005,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     }
   };
 
-  const handleCreateLong = (input: LongStoryCreationInput) => {
+  const handleCreateLong = async (input: LongStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildLongStoryCreationAction(input);
     const title = input.title;
@@ -1036,7 +1036,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     );
   };
 
-  const handleCreateShort = (input: ShortStoryCreationInput) => {
+  const handleCreateShort = async (input: ShortStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildShortStoryCreationAction(input);
 

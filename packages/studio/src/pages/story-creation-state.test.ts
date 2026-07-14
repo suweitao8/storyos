@@ -10,6 +10,7 @@ import {
   STORY_WORD_COUNT_OPTIONS,
   normalizeStoryWordCount,
   resolveDefaultStoryWordCount,
+  resolveStorySeedGenerationStatus,
   shouldAutoGenerateShortStorySeed,
 } from "./story-creation-state";
 import {
@@ -32,6 +33,16 @@ describe("story creation actions", () => {
       visualAudioMotifs: "母题",
     })).toBe(false);
     expect(shouldAutoGenerateShortStorySeed()).toBe(false);
+  });
+
+  it("reflects the persisted background story-seed state", () => {
+    expect(resolveStorySeedGenerationStatus({ id: "ready", sourceName: "ready", storySeed: {
+      title: "标题", genreTone: "类型", hook: "钩子", worldview: "世界", characters: "角色",
+      conflict: "冲突", outline: "大纲", reversals: "反转", ending: "结局", visualAudioMotifs: "母题",
+    } })).toBe("ready");
+    expect(resolveStorySeedGenerationStatus({ id: "pending", sourceName: "pending", storySeedStatus: "pending" })).toBe("generating");
+    expect(resolveStorySeedGenerationStatus({ id: "error", sourceName: "error", storySeedStatus: "error" })).toBe("error");
+    expect(resolveStorySeedGenerationStatus({ id: "idle", sourceName: "idle" })).toBe("idle");
   });
 
   it("uses the cached story seed as the default direction", () => {
@@ -151,11 +162,21 @@ describe("story creation actions", () => {
       chapters: SHORT_STORY_CHAPTERS,
       charsPerChapter: 10_000,
       cover: false,
-      quick: true,
+      quick: false,
     });
     expect(action.instruction).toContain("原创化改编");
     expect(action.instruction).toContain("不复制原作");
     expect(action.instruction).not.toContain("世界观、故事大纲和写作手法");
+  });
+
+  it("supports an explicit fast short-story path", () => {
+    const action = buildShortStoryCreationAction({
+      direction: "快速生成一个原创悬疑短篇",
+      chapterWordCount: 5_000,
+      quality: "quick",
+    });
+
+    expect(action.actionPayload.shortRun?.quick).toBe(true);
   });
 
   it("turns a Bilibili commentary craft into an original short-story direction", () => {

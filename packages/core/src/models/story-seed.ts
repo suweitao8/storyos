@@ -45,6 +45,15 @@ export function isStorySeed(value: unknown): value is StorySeed {
   ));
 }
 
+/** Newly generated seeds must include a concrete originality transformation plan. */
+export function isStorySeedWithOriginalizationPlan(
+  value: unknown,
+): value is StorySeed & { readonly originalizationPlan: string } {
+  return isStorySeed(value)
+    && typeof value.originalizationPlan === "string"
+    && value.originalizationPlan.trim().length > 0;
+}
+
 export class StorySeedParseError extends Error {
   readonly missingSections: ReadonlyArray<StorySeedSectionKey>;
 

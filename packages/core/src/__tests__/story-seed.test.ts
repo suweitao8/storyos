@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   StorySeedParseError,
   isStorySeed,
+  isStorySeedWithOriginalizationPlan,
   parseStorySeed,
   serializeStorySeed,
   type StorySeed,
@@ -102,5 +103,14 @@ describe("short story seed", () => {
 
     expect(seed.originalizationPlan).toBeUndefined();
     expect(isStorySeed(seed)).toBe(true);
+    expect(isStorySeedWithOriginalizationPlan(seed)).toBe(false);
+  });
+
+  it("requires an originality transformation plan for newly generated seeds", () => {
+    expect(isStorySeedWithOriginalizationPlan({
+      ...COMPLETE_SEED,
+      originalizationPlan: "重新设计空间、身份、关系、因果链和结局。",
+    })).toBe(true);
+    expect(isStorySeedWithOriginalizationPlan(COMPLETE_SEED)).toBe(false);
   });
 });

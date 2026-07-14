@@ -17,6 +17,7 @@ import {
   buildStoryWordCountOptions,
   formatStoryWordCount,
   resolveDefaultStoryWordCount,
+  resolveStorySeedGenerationStatus,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
   type StoryDirectionGenerationInput,
@@ -44,7 +45,7 @@ interface StoryCreationPanelProps {
   readonly onCreateShort: (input: ShortStoryCreationInput) => Promise<void>;
   readonly onGenerateDirection?: (input: StoryDirectionGenerationInput) => Promise<string>;
   readonly onGenerateSeed?: (input: StorySeedGenerationInput, onEvent: (event: StorySeedStreamEvent) => void) => Promise<StorySeed>;
-  readonly onSaveSeed?: (craftId: string, seed: StorySeed) => Promise<void>;
+  readonly onSaveSeed?: (craftId: string, seed: StorySeed, generationId?: string) => Promise<void>;
   readonly onOpenCraft?: () => void;
 }
 
@@ -76,6 +77,7 @@ export function StoryCreationPanel({
   const [shortSeedStreamedContent, setShortSeedStreamedContent] = useState("");
   const [shortSeedStatus, setShortSeedStatus] = useState<StorySeedGenerationStatus>("idle");
   const [shortSeedError, setShortSeedError] = useState<string | null>(null);
+  const [shortQuality, setShortQuality] = useState<"standard" | "quick">("standard");
   const [directionGenerating, setDirectionGenerating] = useState(false);
   const [directionGenerationError, setDirectionGenerationError] = useState<string | null>(null);
   const directionRequestRef = useRef(0);
@@ -130,8 +132,8 @@ export function StoryCreationPanel({
       }
       setShortSeed(null);
       setShortSeedStreamedContent("");
-      setShortSeedError(null);
-      setShortSeedStatus("idle");
+      setShortSeedError(selectedCraft?.storySeedError ?? null);
+      setShortSeedStatus(resolveStorySeedGenerationStatus(selectedCraft));
       return;
     }
 
@@ -146,7 +148,7 @@ export function StoryCreationPanel({
     setLongDirection(defaultDirection);
     setDirectionGenerationError(null);
     setDirectionGenerating(false);
-  }, [craftsLoading, isZh, kind, selectedCraft?.id, selectedCraft?.storySeed]);
+  }, [craftsLoading, isZh, kind, selectedCraft?.id, selectedCraft?.storySeed, selectedCraft?.storySeedError, selectedCraft?.storySeedStatus]);
 
   useEffect(() => {
     setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
@@ -163,6 +165,7 @@ export function StoryCreationPanel({
       setShortSeed(null);
       setShortSeedStreamedContent("");
       seedAlreadyReadyRef.current = false;
+      let streamGenerationId: string | undefined;
       void onGenerateSeed({
         ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
         kind,
@@ -170,6 +173,7 @@ export function StoryCreationPanel({
         previousDirection: shortSeed ? serializeStorySeed(shortSeed, isZh ? "zh" : "en") : shortDirection,
       }, (event) => {
         if (requestId !== directionRequestRef.current) return;
+        if (typeof event.data.generationId === "string") streamGenerationId = event.data.generationId;
         if (event.event === "delta" && typeof event.data.text === "string") {
           setShortSeedStreamedContent((current) => current + event.data.text);
         }
@@ -181,7 +185,7 @@ export function StoryCreationPanel({
           setShortSeedStatus("ready");
           seedAlreadyReadyRef.current = true;
           if (selectedCraft && onSaveSeed) {
-            void onSaveSeed(selectedCraft.id, seed).catch((error) => {
+            void onSaveSeed(selectedCraft.id, seed, streamGenerationId).catch((error) => {
               if (requestId !== directionRequestRef.current) return;
               setShortSeedError(isZh ? `已生成，但保存到写作模式失败：${error instanceof Error ? error.message : String(error)}` : `Generated, but saving to the writing mode failed: ${error instanceof Error ? error.message : String(error)}`);
             });
@@ -245,6 +249,7 @@ export function StoryCreationPanel({
     void onCreateShort({
       direction: shortSeed ? serializeStorySeed(shortSeed, isZh ? "zh" : "en") : shortDirection,
       chapterWordCount: Number(chapterWordCount),
+      quality: shortQuality,
       ...(hasCraftSelection ? { craftId: selectedCraftId } : {}),
     });
   };
@@ -299,6 +304,19 @@ export function StoryCreationPanel({
               {wordCountOptions.map((count) => <option key={count} value={count}>{formatStoryWordCount(count, isZh ? "zh" : "en")}{count === selectedCraftRecommendedWordCount ? (isZh ? "（模式建议）" : " (mode recommendation)") : ""}</option>)}
             </select>
           </label>
+          {kind === "short" ? (
+            <label className="space-y-2 text-sm">
+              <span>{isZh ? "生成质量" : "Generation quality"}</span>
+              <select
+                value={shortQuality}
+                onChange={(event) => setShortQuality(event.target.value as "standard" | "quick")}
+                className="w-full rounded-lg border border-border bg-secondary/20 px-3 py-2 outline-none focus:border-primary"
+              >
+                <option value="standard">{isZh ? "标准：包含审纲和审稿" : "Standard: outline and draft review"}</option>
+                <option value="quick">{isZh ? "极速：跳过审查" : "Quick: skip reviews"}</option>
+              </select>
+            </label>
+          ) : null}
           <div className="flex items-end">
             <button
               type="button"
