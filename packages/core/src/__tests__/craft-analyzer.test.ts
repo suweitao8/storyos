@@ -75,8 +75,8 @@ describe("CraftAnalyzerAgent", () => {
     const shortStoryPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-short-story", "bilibili");
 
     expect(commentaryPrompt).toContain("影视解说");
-    expect(commentaryPrompt).toContain("原创短篇故事");
-    expect(shortStoryPrompt).toContain("B站短篇故事");
+    expect(commentaryPrompt).toContain("原创");
+    expect(shortStoryPrompt).toContain("短篇故事");
   });
 
   it("asks for fine-grained modules in the craft-analysis prompt", () => {

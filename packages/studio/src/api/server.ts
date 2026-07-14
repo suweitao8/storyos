@@ -2522,7 +2522,7 @@ export function normalizeCraftMode(
 ): CraftMode {
   if (mode === "ghost-story") return "ghost-story";
   if (sourceType === "bilibili") {
-    return mode === "bilibili-commentary" || mode === "bilibili-short-story"
+    return mode === "bilibili-commentary" || mode === "bilibili-short-story" || mode === "bilibili-review"
       ? mode
       : "bilibili-short-story";
   }
@@ -2869,7 +2869,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   }
 
-  const runBilibiliCraftTask = async (craftId: string, url: string): Promise<void> => {
+  const runBilibiliCraftTask = async (craftId: string, url: string, craftMode: CraftMode): Promise<void> => {
     let pipeline: PipelineRunner | undefined;
     let sourceAssetId: string | undefined;
     try {
@@ -2889,7 +2889,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         prepared.analysisText,
         prepared.detectedName,
         "zh",
-        "bilibili-short-story",
+        craftMode,
         "bilibili",
         prepared.videoInfo.bvid,
         prepared.videoInfo.duration,
@@ -2926,9 +2926,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   };
 
-  const startBilibiliCraftTask = (craftId: string, url: string): void => {
+  const startBilibiliCraftTask = (craftId: string, url: string, craftMode: CraftMode): void => {
     if (craftProcessingTasks.has(craftId)) return;
-    const task = runBilibiliCraftTask(craftId, url);
+    const task = runBilibiliCraftTask(craftId, url, craftMode);
     craftProcessingTasks.set(craftId, task);
     void task.finally(() => {
       if (craftProcessingTasks.get(craftId) === task) craftProcessingTasks.delete(craftId);
@@ -5814,10 +5814,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Craft Bilibili Create (register immediately, process in background) ---
 
   app.post("/api/v1/craft/bilibili/create", async (c) => {
-    const { url } = await c.req.json<{ url?: string }>();
+    const { url, mode: modeParam } = await c.req.json<{ url?: string; mode?: string }>();
     if (!url?.trim()) return c.json({ error: "Bilibili URL is required" }, 400);
     const bvid = parseBvid(url);
     if (!bvid) return c.json({ error: "Invalid Bilibili video URL" }, 400);
+
+    const craftMode: CraftMode = modeParam === "bilibili-commentary" || modeParam === "bilibili-review"
+      ? modeParam
+      : "bilibili-short-story";
 
     const pipeline = new PipelineRunner(await buildPipelineConfig());
     const existing = (await pipeline.listCrafts()).find((craft) =>
@@ -5830,10 +5834,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           processingStage: "等待重新处理",
           processingError: undefined,
         });
-        startBilibiliCraftTask(existing.id, url);
+        startBilibiliCraftTask(existing.id, url, existing.mode ?? craftMode);
         return c.json({ status: "processing", craftId: existing.id, meta });
       }
-      if (existing.processingStatus === "processing") startBilibiliCraftTask(existing.id, url);
+      if (existing.processingStatus === "processing") startBilibiliCraftTask(existing.id, url, existing.mode ?? craftMode);
       return c.json({
         status: existing.processingStatus ?? "ready",
         craftId: existing.id,
@@ -5844,11 +5848,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const meta = await pipeline.createPendingCraft({
       sourceName: bvid,
       language: "zh",
-      mode: "bilibili-short-story",
+      mode: craftMode,
       sourceType: "bilibili",
       sourceRef: bvid,
     });
-    startBilibiliCraftTask(meta.id, url);
+    startBilibiliCraftTask(meta.id, url, craftMode);
     return c.json({ status: "processing", craftId: meta.id, meta });
   });
 
@@ -6046,7 +6050,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     let meta = (await pipeline.listCrafts({ includeDeleted: true })).find((craft) => craft.id === id);
     if (!meta) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     if (meta.processingStatus === "processing" && meta.sourceRef) {
-      startBilibiliCraftTask(id, meta.sourceRef);
+      startBilibiliCraftTask(id, meta.sourceRef, meta.mode ?? "bilibili-short-story");
     }
     if (meta.storySeedStatus === "pending" && meta.storySeedGenerationId) {
       startCraftStorySeedGeneration(id, { generationId: meta.storySeedGenerationId });
@@ -6096,7 +6100,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       processingStage: "等待重新处理",
       processingError: undefined,
     });
-    startBilibiliCraftTask(id, meta.sourceRef);
+    startBilibiliCraftTask(id, meta.sourceRef, meta.mode ?? "bilibili-short-story");
     return c.json({ status: "processing", craftId: id, meta: nextMeta });
   });
 
