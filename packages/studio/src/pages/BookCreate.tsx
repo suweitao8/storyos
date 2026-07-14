@@ -158,7 +158,6 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
   },
   en: {
     idleTitle: "Start from a rough idea",
-    idleBody: "Fill in the title, genre, and story core first. StoryOS will generate the foundation and open the new workspace.",
     formHeading: "Book basics",
     titleLabel: "Title",
     titlePlaceholder: "Example: Ledger of the Night Port",

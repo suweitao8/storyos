@@ -88,6 +88,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
   const path = storyId ? `/shorts/${encodeURIComponent(storyId)}/content` : bookId ? `/books/${encodeURIComponent(bookId)}/content` : "";
   const { data, loading, error } = useApi<StoryContentResponse>(path);
   const [activeTab, setActiveTab] = useState<StorySettingsTab>("settings");
+  const [selectedOutlineFile, setSelectedOutlineFile] = useState<string | null>(null);
   const isShortStory = Boolean(storyId);
   const groups = useMemo(() => {
     const grouped = new Map<StorySectionGroup, StorySection[]>();
@@ -102,6 +103,8 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
   const tabs = useMemo(() => buildStorySettingsTabItems(groups, data?.chapters.length ?? 0, isZh, isShortStory), [data?.chapters.length, groups, isShortStory, isZh]);
   const selectedTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : (tabs[0]?.id ?? "settings");
   const selectedGroup = selectedTab === "chapters" ? undefined : groups.find(([group]) => group === selectedTab);
+  const outlineSections = selectedGroup && selectedTab === "outline" ? selectedGroup[1] : [];
+  const activeOutline = outlineSections.find((s) => s.file === selectedOutlineFile) ?? outlineSections[0] ?? null;
 
   if (!loading && (!bookId && !storyId || data && !hasStorySettingsContent(data))) {
     return (
@@ -115,11 +118,11 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
 
   return (
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-settings-panel">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {!bookId && !storyId ? <DocumentEmpty text={isZh ? "创建故事后，这里会显示故事设定。" : "Story settings will appear after creation."} /> : loading && !data ? <DocumentEmpty text={isZh ? "正在加载故事设定..." : "Loading story settings..."} /> : error ? <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div> : !data ? <DocumentEmpty text={isZh ? "暂时没有故事设定。" : "No story settings yet."} /> : (
-          <div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {!bookId && !storyId ? <div className="h-full overflow-y-auto"><DocumentEmpty text={isZh ? "创建故事后，这里会显示故事设定。" : "Story settings will appear after creation."} /></div> : loading && !data ? <div className="h-full overflow-y-auto"><DocumentEmpty text={isZh ? "正在加载故事设定..." : "Loading story settings..."} /></div> : error ? <div className="h-full overflow-y-auto"><div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div></div> : !data ? <div className="h-full overflow-y-auto"><DocumentEmpty text={isZh ? "暂时没有故事设定。" : "No story settings yet." } /></div> : (
+          <div className={`flex h-full min-h-0 flex-col ${selectedTab === "outline" && outlineSections.length > 0 ? "" : "overflow-y-auto"}`}>
             {tabs.length > 0 ? (
-              <nav className="sticky top-0 z-10 bg-background/95 px-6 py-2 backdrop-blur" aria-label={isZh ? "故事设定分区" : "Story setting sections"}>
+              <nav className="sticky top-0 z-10 shrink-0 bg-background/95 px-6 py-2 backdrop-blur" aria-label={isZh ? "故事设定分区" : "Story setting sections"}>
                 <div className="flex min-w-max gap-1 overflow-x-auto" role="tablist">
                   {tabs.map((tab) => (
                     <button
@@ -139,6 +142,41 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
             {selectedTab === "chapters" ? (
               <section className="space-y-4 px-6 py-7" role="tabpanel">
                 <div className="space-y-5">{data.chapters.map((chapter) => <article key={chapter.number} className="rounded-2xl border border-border/50 bg-card p-5"><div className="flex flex-wrap items-baseline justify-between gap-3"><h3 className="font-semibold">{isZh ? `第 ${chapter.number} 章 ${chapter.title}` : `Chapter ${chapter.number} ${chapter.title}`}</h3><span className="text-xs text-muted-foreground">{chapter.wordCount.toLocaleString()} {isZh ? "字" : "words"}</span></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(chapter.content) || (isZh ? "本章暂时没有正文。" : "This chapter has no content yet.")}</p></article>)}</div>
+              </section>
+            ) : selectedTab === "outline" && outlineSections.length > 0 ? (
+              <section className="flex min-h-0 flex-1" role="tabpanel" data-testid="outline-master-detail">
+                <nav className="w-56 shrink-0 overflow-y-auto border-r border-border/50 bg-card/30 px-3 py-4" aria-label={isZh ? "大纲条目" : "Outline items"}>
+                  <ul className="space-y-0.5">
+                    {outlineSections.map((section) => {
+                      const isActive = (activeOutline?.file ?? "") === section.file;
+                      return (
+                        <li key={section.file}>
+                          <button
+                            type="button"
+                            aria-current={isActive ? "true" : undefined}
+                            onClick={() => setSelectedOutlineFile(section.file)}
+                            className={`block w-full truncate rounded-md px-3 py-2 text-left text-sm transition-colors ${isActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}
+                          >
+                            {section.title}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </nav>
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                  {activeOutline ? (
+                    <article>
+                      <h3 className="flex items-center gap-2 text-base font-semibold">
+                        <FileText size={16} className="text-primary" />
+                        {activeOutline.title}
+                      </h3>
+                      <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(activeOutline.content)}</p>
+                    </article>
+                  ) : (
+                    <DocumentEmpty text={isZh ? "请选择左侧条目" : "Select an item"} />
+                  )}
+                </div>
               </section>
             ) : selectedGroup ? (
               <section className="space-y-4 px-6 py-7" role="tabpanel">
