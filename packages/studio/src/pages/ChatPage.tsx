@@ -31,6 +31,8 @@ import type { StorySeed } from "@actalk/inkos-core";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
+import { StoryScriptPanel } from "./StoryScriptPanel";
+import { StoryVideoPanel } from "./StoryVideoPanel";
 import {
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
@@ -142,8 +144,8 @@ interface CraftListResponse {
 }
 
 export interface ChatPageStoryWorkspace {
-  readonly view: "creation" | "list" | "settings" | "assets" | "adjust";
-  readonly activeStage: "list" | "create" | "settings" | "assets" | "adjust";
+  readonly view: "creation" | "list" | "settings" | "assets" | "adjust" | "script" | "video";
+  readonly activeStage: "list" | "create" | "settings" | "assets" | "adjust" | "script" | "video";
   readonly kind: "book" | "short" | null;
   readonly storyId: string | null;
 }
@@ -168,7 +170,7 @@ export function resolveChatPageStoryWorkspace(input: {
   const enabledStage = !isStorySession
     ? "adjust"
     : needsCreation && activeStage !== "list" ? "create"
-      : activeStage === "list" || activeStage === "create" || activeStage === "assets" || activeStage === "adjust" ? activeStage : "settings";
+      : activeStage === "list" || activeStage === "create" || activeStage === "assets" || activeStage === "adjust" || activeStage === "script" || activeStage === "video" ? activeStage : "settings";
 
   return {
     view: !isStorySession
@@ -1100,6 +1102,20 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       ) : storyWorkspace.view === "assets" ? (
         <StoryAssetsPanel
           key={`story-assets-${storyContentRefreshToken}`}
+          kind={storyWorkspace.kind ?? "book"}
+          storyId={storyWorkspace.storyId}
+          theme={theme}
+          isZh={isZh}
+        />
+      ) : storyWorkspace.view === "script" ? (
+        <StoryScriptPanel
+          kind={storyWorkspace.kind ?? "book"}
+          storyId={storyWorkspace.storyId}
+          theme={theme}
+          isZh={isZh}
+        />
+      ) : storyWorkspace.view === "video" ? (
+        <StoryVideoPanel
           kind={storyWorkspace.kind ?? "book"}
           storyId={storyWorkspace.storyId}
           theme={theme}
