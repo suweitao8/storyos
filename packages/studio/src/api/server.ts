@@ -139,7 +139,7 @@ import {
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db.js";
-import { importBilibiliSource, subtitleText } from "./bilibili.js";
+import { importBilibiliSource, parseBvid, subtitleText } from "./bilibili.js";
 import { correctBilibiliSubtitles } from "./bilibili-subtitle-correction.js";
 import {
   cleanupCraftSourceUpload,
@@ -1627,6 +1627,7 @@ interface StudioBookListSummary {
 type EventHandler = (event: string, data: unknown) => void;
 const subscribers = new Set<EventHandler>();
 const bookCreateStatus = new Map<string, { status: "creating" | "error"; error?: string }>();
+const craftProcessingTasks = new Map<string, Promise<void>>();
 
 // 内存缓存：service -> 模型列表 + 更新时间戳；避免每次 sidebar 挂载时都打真实 LLM /models
 const modelListCache = new Map<string, { models: Array<{ id: string; name: string }>; at: number }>();
@@ -2638,6 +2639,134 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       externalContext: overrides?.externalContext,
     };
   }
+
+  async function prepareBilibiliCraftSource(
+    url: string,
+    pipelineConfig: PipelineConfig,
+    onStage?: (stage: string) => Promise<void>,
+  ) {
+    const result = await importBilibiliSource(url);
+    let sourceAssetId: string | undefined;
+    try {
+      await onStage?.("正在校正字幕文字");
+      const correction = await correctBilibiliSubtitles(result.subtitles, {
+        client: pipelineConfig.client,
+        model: pipelineConfig.model,
+      });
+      const analysisText = subtitleText(correction.entries);
+      if (correction.status === "fallback") {
+        pipelineConfig.logger?.warn(correction.message ?? "字幕文字校正失败，已使用原始字幕");
+      }
+
+      const detectedName = normalizeBilibiliCraftName(result.videoInfo.title);
+      const sourceAsset = await createCraftSourceUpload(root, {
+        sourceType: "bilibili",
+        sourceName: detectedName,
+        originalName: `${result.videoInfo.bvid}.mp4`,
+        analysisText,
+        sourceRef: result.videoInfo.bvid,
+        sourceDurationSeconds: result.videoInfo.duration,
+        subtitleSource: result.subtitleSource,
+      });
+      sourceAssetId = sourceAsset.assetId;
+      if (result.sourceVideoPath) {
+        await addCraftSourceFile(root, sourceAssetId, {
+          key: "video",
+          fileName: "video.mp4",
+          downloadName: `${detectedName}.mp4`,
+          sourcePath: result.sourceVideoPath,
+          mimeType: "video/mp4",
+        });
+      }
+      await addCraftSourceFile(root, sourceAssetId, {
+        key: "subtitlesJson",
+        fileName: "subtitles.json",
+        downloadName: `${detectedName}-subtitles.json`,
+        content: Buffer.from(JSON.stringify(result.subtitles, null, 2), "utf8"),
+        mimeType: "application/json; charset=utf-8",
+      });
+      await addCraftSourceFile(root, sourceAssetId, {
+        key: "subtitlesText",
+        fileName: "subtitles.txt",
+        downloadName: `${detectedName}-subtitles.txt`,
+        content: Buffer.from(result.text, "utf8"),
+        mimeType: "text/plain; charset=utf-8",
+      });
+      return {
+        ...result,
+        sourceAssetId,
+        analysisText,
+        detectedName,
+        subtitlePreview: correction.entries.slice(0, 8),
+        correctionStatus: correction.status,
+        correctionChangedCount: correction.changedCount,
+        ...(correction.message ? { correctionMessage: correction.message } : {}),
+      };
+    } catch (error) {
+      if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
+      throw error;
+    } finally {
+      if (result.sourceTempDir) await rm(result.sourceTempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
+  const runBilibiliCraftTask = async (craftId: string, url: string): Promise<void> => {
+    let pipeline: PipelineRunner | undefined;
+    let sourceAssetId: string | undefined;
+    try {
+      const pipelineConfig = await buildPipelineConfig();
+      pipeline = new PipelineRunner(pipelineConfig);
+      await pipeline.updateCraftProcessing(craftId, {
+        processingStatus: "processing",
+        processingStage: "正在获取视频与字幕",
+        processingError: undefined,
+      });
+      const prepared = await prepareBilibiliCraftSource(url, pipelineConfig, async (stage) => {
+        await pipeline.updateCraftProcessing(craftId, { processingStage: stage });
+      });
+      sourceAssetId = prepared.sourceAssetId;
+      await pipeline.updateCraftProcessing(craftId, { processingStage: "正在解析写作模式" });
+      const analyzed = await pipeline.analyzeCraft(
+        prepared.analysisText,
+        prepared.detectedName,
+        "zh",
+        "bilibili-short-story",
+        "bilibili",
+        prepared.videoInfo.bvid,
+        prepared.videoInfo.duration,
+        craftId,
+      );
+      await finalizeCraftSourceUpload(root, sourceAssetId, analyzed.craftId, {
+        sourceRef: prepared.videoInfo.bvid,
+      });
+      await pipeline.updateCraftProcessing(craftId, {
+        processingStatus: "ready",
+        processingStage: "处理完成",
+        processingError: undefined,
+      });
+      broadcast("craft:complete", { craftId, sourceName: prepared.detectedName, status: "ready" });
+    } catch (error) {
+      if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      if (pipeline) {
+        await pipeline.updateCraftProcessing(craftId, {
+          processingStatus: "error",
+          processingStage: "后台任务失败",
+          processingError: message,
+        }).catch(() => undefined);
+      }
+      broadcast("craft:error", { craftId, error: message });
+    }
+  };
+
+  const startBilibiliCraftTask = (craftId: string, url: string): void => {
+    if (craftProcessingTasks.has(craftId)) return;
+    const task = runBilibiliCraftTask(craftId, url);
+    craftProcessingTasks.set(craftId, task);
+    void task.finally(() => {
+      if (craftProcessingTasks.get(craftId) === task) craftProcessingTasks.delete(craftId);
+    }).catch(() => undefined);
+  };
 
   const routeContext: StudioRouteContext = {
     app,
@@ -5483,6 +5612,47 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   });
 
+  // --- Craft Bilibili Create (register immediately, process in background) ---
+
+  app.post("/api/v1/craft/bilibili/create", async (c) => {
+    const { url } = await c.req.json<{ url?: string }>();
+    if (!url?.trim()) return c.json({ error: "Bilibili URL is required" }, 400);
+    const bvid = parseBvid(url);
+    if (!bvid) return c.json({ error: "Invalid Bilibili video URL" }, 400);
+
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const existing = (await pipeline.listCrafts()).find((craft) =>
+      craft.sourceType === "bilibili" && craft.sourceRef?.toLowerCase() === bvid.toLowerCase(),
+    );
+    if (existing) {
+      if (existing.processingStatus === "error") {
+        const meta = await pipeline.updateCraftProcessing(existing.id, {
+          processingStatus: "processing",
+          processingStage: "等待重新处理",
+          processingError: undefined,
+        });
+        startBilibiliCraftTask(existing.id, url);
+        return c.json({ status: "processing", craftId: existing.id, meta });
+      }
+      if (existing.processingStatus === "processing") startBilibiliCraftTask(existing.id, url);
+      return c.json({
+        status: existing.processingStatus ?? "ready",
+        craftId: existing.id,
+        meta: existing,
+      });
+    }
+
+    const meta = await pipeline.createPendingCraft({
+      sourceName: bvid,
+      language: "zh",
+      mode: "bilibili-short-story",
+      sourceType: "bilibili",
+      sourceRef: bvid,
+    });
+    startBilibiliCraftTask(meta.id, url);
+    return c.json({ status: "processing", craftId: meta.id, meta });
+  });
+
   app.post("/api/v1/craft/upload", async (c) => {
     const filename = c.req.header("X-Filename") ?? "novel.txt";
     const body = await c.req.arrayBuffer();
@@ -5637,7 +5807,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
     const pipelineConfig = await buildPipelineConfig();
     const pipeline = new PipelineRunner(pipelineConfig);
-    if (!await pipeline.loadCraft(safeCraftId)) return c.json({ error: "craft not found" }, 404);
+    const profile = await pipeline.loadCraft(safeCraftId);
+    if (!profile) {
+      const craft = (await pipeline.listCrafts()).find((candidate) => candidate.id === safeCraftId);
+      if (!craft) return c.json({ error: "craft not found" }, 404);
+    }
 
     await setRecentCraftId(root, safeCraftId);
     return c.json({ ok: true });
@@ -5646,6 +5820,44 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.delete("/api/v1/crafts/recent", async (c) => {
     await clearRecentCraftId(root);
     return c.json({ ok: true });
+  });
+
+  // --- Async Bilibili Craft Status ---
+
+  app.get("/api/v1/crafts/:id/status", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const meta = (await pipeline.listCrafts()).find((craft) => craft.id === id);
+    if (!meta) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    if (meta.processingStatus === "processing" && meta.sourceRef) {
+      startBilibiliCraftTask(id, meta.sourceRef);
+    }
+    return c.json({
+      craftId: id,
+      status: meta.processingStatus ?? "ready",
+      meta,
+      error: meta.processingError ?? null,
+    });
+  });
+
+  app.post("/api/v1/crafts/:id/retry", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const meta = (await pipeline.listCrafts()).find((craft) => craft.id === id);
+    if (!meta) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    if (meta.sourceType !== "bilibili" || !meta.sourceRef) {
+      throw new ApiError(409, "CRAFT_RETRY_NOT_AVAILABLE", "Only Bilibili crafts can be retried.");
+    }
+    if (craftProcessingTasks.has(id)) {
+      return c.json({ status: "processing", craftId: id, meta }, 409);
+    }
+    const nextMeta = await pipeline.updateCraftProcessing(id, {
+      processingStatus: "processing",
+      processingStage: "等待重新处理",
+      processingError: undefined,
+    });
+    startBilibiliCraftTask(id, meta.sourceRef);
+    return c.json({ status: "processing", craftId: id, meta: nextMeta });
   });
 
   // --- Retained Craft Source ---

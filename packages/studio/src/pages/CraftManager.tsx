@@ -29,11 +29,14 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: "general" | "ghost-story";
+  readonly mode?: "general" | "ghost-story" | "bilibili-commentary" | "bilibili-short-story";
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
   readonly genre?: string;
+  readonly processingStatus?: "processing" | "ready" | "error";
+  readonly processingStage?: string;
+  readonly processingError?: string;
 }
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
@@ -130,6 +133,18 @@ interface BilibiliImportResponse {
     readonly to: number;
     readonly content: string;
   }>;
+}
+
+interface BilibiliCreateResponse {
+  readonly status: "processing" | "ready" | "error";
+  readonly craftId: string;
+  readonly meta: CraftMeta;
+}
+
+export function craftProcessingLabel(craft: Pick<CraftMeta, "processingStatus" | "processingStage">): string | null {
+  if (craft.processingStatus === "processing") return craft.processingStage?.trim() || "后台处理中";
+  if (craft.processingStatus === "error") return "处理失败，可重试";
+  return null;
 }
 
 export type CraftSourceType = "bilibili" | "novel";
@@ -432,6 +447,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
   const [tab, setTab] = useState<CraftTab>(DEFAULT_CRAFT_TAB);
   const [selectedCraftId, setSelectedCraftId] = useState<string | null>(null);
   const [newProfile, setNewProfile] = useState<CraftProfile | null>(null);
+  const [newMeta, setNewMeta] = useState<CraftMeta | null>(null);
   const userNavigatedRef = useRef(false);
   const selectedCraftIdRef = useRef<string | null>(null);
   const selectionOperationRef = useRef(0);
@@ -484,13 +500,15 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     selectedCraftIdRef.current = craftId;
     setSelectedCraftId(craftId);
     setNewProfile(null);
+    setNewMeta(null);
     setTab("detail");
     void persistRecentCraft(craftId);
   };
 
-  const handleCreated = async (profile: CraftProfile, craftId: string) => {
+  const handleCreated = async (profile: CraftProfile | null, craftId: string, meta?: CraftMeta) => {
     markUserNavigation();
     setNewProfile(profile);
+    setNewMeta(meta ?? null);
     selectedCraftIdRef.current = craftId;
     setSelectedCraftId(craftId);
     setTab("detail");
@@ -524,6 +542,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       selectedCraftIdRef.current = deletion.selectedCraftId;
       setSelectedCraftId(deletion.selectedCraftId);
       setNewProfile(null);
+      setNewMeta(null);
       await persistRecentCraft(deletion.selectedCraftId);
     } catch {
       // Keep the current view intact when deletion or refresh fails.
@@ -605,6 +624,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
         <CraftDetail
           craftId={selectedCraftId}
           initialProfile={newProfile}
+          initialMeta={newMeta ?? crafts.find((cr) => cr.id === selectedCraftId)}
           initialGenre={crafts.find((cr) => cr.id === selectedCraftId)?.genre}
           c={c}
           t={t}
@@ -648,6 +668,13 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
             <span className="rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[11px] text-muted-foreground">
               {craftCardMeta(craft)}
             </span>
+            {craftProcessingLabel(craft) && (
+              <span className={`rounded-full border px-2 py-0.5 text-[11px] ${craft.processingStatus === "error"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"}`}>
+                {craftProcessingLabel(craft)}
+              </span>
+            )}
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
           <button
@@ -680,7 +707,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   c: ReturnType<typeof useColors>;
   t: TFunction;
   sse: SseState;
-  onSuccess: (profile: CraftProfile, craftId: string) => void;
+  onSuccess: (profile: CraftProfile | null, craftId: string, meta?: CraftMeta) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeSourceNameRef = useRef<string | null>(null);
@@ -831,38 +858,17 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setUploadResult(null);
     setUploadError("");
     setExtractError("");
-    setCurrentStep("正在读取 B 站视频信息");
-    setProgressLogs(["正在读取 B 站视频信息", "优先查找公开 CC 字幕，不需要 Cookie"]);
+    setCurrentStep("正在创建模式，后台将获取视频与字幕");
+    setProgressLogs(["正在创建模式，后台将获取视频与字幕"]);
     try {
-      const response = await fetch("/api/v1/craft/bilibili/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: bilibiliUrl.trim() }),
-      });
-      const data = await response.json() as BilibiliImportResponse & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? `字幕获取失败（${response.status}）`);
-      setBilibiliResult(data);
-      const correctionProgress = data.correctionStatus === "corrected"
-        ? `已完成字幕文字校正，修正 ${data.correctionChangedCount} 处`
-        : (data.correctionMessage ?? "字幕文字校正失败，已使用原始字幕");
-      setCurrentStep(correctionProgress);
-      setProgressLogs((prev) => [
-        ...prev,
-        `字幕获取完成，共 ${data.subtitleCount} 条`,
-        correctionProgress,
-      ]);
-      await runExtraction({
-        type: "bilibili",
-        text: data.text,
-        detectedName: data.detectedName,
-        sourceRef: data.videoInfo.bvid,
-        sourceDurationSeconds: data.videoInfo.duration,
-        sourceAssetId: data.sourceAssetId,
-      });
+      const data = await postApi<BilibiliCreateResponse>("/craft/bilibili/create", { url: bilibiliUrl.trim() });
+      setCurrentStep(data.meta.processingStage ?? "后台处理中");
+      setProgressLogs((prev) => [...prev, data.meta.processingStage ?? "后台处理中"]);
+      onSuccess(null, data.craftId, data.meta);
     } catch (e) {
       setBilibiliError(e instanceof Error ? e.message : String(e));
-      setCurrentStep("B 站字幕获取失败");
-      setProgressLogs((prev) => [...prev, "B 站字幕获取失败"]);
+      setCurrentStep("B 站模式创建失败");
+      setProgressLogs((prev) => [...prev, "B 站模式创建失败"]);
     } finally {
       setImportingBilibili(false);
     }
@@ -920,7 +926,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
             className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm ${c.btnPrimary} disabled:opacity-30`}
           >
             {importingBilibili ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-            {importingBilibili ? "获取字幕中" : "获取字幕"}
+            {importingBilibili ? "创建中" : "创建写作模式"}
           </button>
         </div>
         {bilibiliError && (
@@ -1062,16 +1068,25 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 // Tab 3: Detail
 // ---------------------------------------------------------------------------
 
-function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
+interface CraftStatusResponse {
+  readonly craftId: string;
+  readonly status: "processing" | "ready" | "error";
+  readonly meta: CraftMeta;
+  readonly error?: string | null;
+}
+
+function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
+  initialMeta?: CraftMeta;
   initialGenre?: string;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onNew: () => void;
 }) {
   const [profile, setProfile] = useState<CraftProfile | null>(initialProfile);
-  const [loading, setLoading] = useState(!initialProfile && !!craftId);
+  const [meta, setMeta] = useState<CraftMeta | undefined>(initialMeta);
+  const [loading, setLoading] = useState(!!craftId && !initialProfile && initialMeta?.processingStatus !== "processing" && initialMeta?.processingStatus !== "error");
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<CraftSourceManifest | null>(null);
   const [sourceLoading, setSourceLoading] = useState(!!craftId);
@@ -1102,7 +1117,7 @@ function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
   }, [craftId]);
 
   const loadProfile = useCallback(async () => {
-    if (!craftId || initialProfile) return;
+    if (!craftId) return;
     setLoading(true);
     setError(null);
     try {
@@ -1114,17 +1129,48 @@ function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
     } finally {
       setLoading(false);
     }
-  }, [craftId, initialProfile]);
+  }, [craftId]);
 
   useEffect(() => {
     setProfile(initialProfile);
+    setMeta(initialMeta);
     setError(null);
-    if (!craftId || initialProfile) {
+    if (!craftId || initialProfile || initialMeta?.processingStatus === "processing" || initialMeta?.processingStatus === "error") {
       setLoading(false);
       return;
     }
     void loadProfile();
-  }, [craftId, initialProfile, loadProfile]);
+  }, [craftId, initialMeta, initialProfile, loadProfile]);
+
+  const loadStatus = useCallback(async () => {
+    if (!craftId) return;
+    try {
+      const data = await fetchJson<CraftStatusResponse>(`/crafts/${craftId}/status`, { method: "GET" });
+      setMeta(data.meta);
+      if (data.status === "ready") {
+        await loadProfile();
+      } else if (data.status === "error") {
+        setError(data.error ?? data.meta.processingError ?? "后台处理失败");
+      }
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : String(statusError));
+    }
+  }, [craftId, loadProfile]);
+
+  useEffect(() => {
+    if (!craftId || meta?.processingStatus !== "processing") return;
+    let active = true;
+    const poll = async () => {
+      if (!active) return;
+      await loadStatus();
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 2500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [craftId, loadStatus, meta?.processingStatus]);
 
   const loadSource = useCallback(async () => {
     if (!craftId) return;
@@ -1144,9 +1190,21 @@ function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
   useEffect(() => {
     setDetailTab("overview");
     setSource(null);
-    if (craftId) void loadSource();
+    if (craftId && profile && meta?.processingStatus !== "processing" && meta?.processingStatus !== "error") void loadSource();
     else setSourceLoading(false);
-  }, [craftId, loadSource]);
+  }, [craftId, loadSource, meta?.processingStatus, profile]);
+
+  const handleRetry = useCallback(async () => {
+    if (!craftId) return;
+    setError(null);
+    try {
+      const data = await postApi<{ status: "processing"; craftId: string; meta: CraftMeta }>(`/crafts/${craftId}/retry`);
+      setProfile(null);
+      setMeta(data.meta);
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : String(retryError));
+    }
+  }, [craftId]);
 
   const handleReparse = useCallback(async () => {
     if (!craftId || !source?.files.some((file) => file.key === "analysisInput") || reparsing) return;
@@ -1167,6 +1225,56 @@ function CraftDetail({ craftId, initialProfile, initialGenre, c, t, onNew }: {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 size={24} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (meta?.processingStatus === "processing") {
+    return (
+      <div className={`mx-auto w-full max-w-2xl space-y-5 rounded-2xl border ${c.cardStatic} p-6`}>
+        <div className="flex items-center gap-3">
+          <Loader2 size={24} className="animate-spin text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold">正在创建写作模式</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{meta.sourceName}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
+          <div className="text-sm font-medium text-primary">{meta.processingStage ?? "后台处理中"}</div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            你可以先离开此页面，后台会继续处理。返回后会自动刷新，完成后即可查看完整模式分析。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadStatus()}
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-secondary/40"
+        >
+          <RefreshCw size={14} /> 刷新状态
+        </button>
+      </div>
+    );
+  }
+
+  if (meta?.processingStatus === "error") {
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-4 rounded-2xl border border-destructive/20 bg-destructive/[0.03] p-6" role="alert">
+        <div>
+          <h2 className="text-lg font-semibold text-destructive">写作模式处理失败</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{meta.processingError ?? error ?? "后台任务失败"}</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => void handleRetry()}
+            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ${c.btnPrimary}`}
+          >
+            <RefreshCw size={14} /> 重试处理
+          </button>
+          <button type="button" onClick={onNew} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-secondary/40">
+            创建其他模式
+          </button>
+        </div>
       </div>
     );
   }

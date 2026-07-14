@@ -10,6 +10,7 @@ const createLLMClientMock = vi.hoisted(() => vi.fn(() => ({})));
 
 vi.mock("../api/bilibili.js", () => ({
   importBilibiliSource: importBilibiliSourceMock,
+  parseBvid: (input: string) => input.trim().match(/^BV[a-zA-Z0-9]{10}$/)?.[0] ?? null,
   subtitleText: (entries: Array<{ from: number; to: number; content: string }>) =>
     entries.map((entry) => `[${entry.from.toFixed(1)}s-${entry.to.toFixed(1)}s] ${entry.content}`).join("\n"),
 }));
@@ -101,5 +102,28 @@ describe("Bilibili craft import subtitle correction", () => {
       expect.anything(),
       expect.objectContaining({ client: {}, model: "test-model" }),
     );
+  });
+
+  it("returns a pending craft immediately and exposes its background status", async () => {
+    importBilibiliSourceMock.mockImplementationOnce(() => new Promise(() => undefined));
+    const { createStudioServer } = await import("../api/server.js");
+    const app = createStudioServer(projectConfig as never, root);
+
+    const response = await app.request("http://localhost/api/v1/craft/bilibili/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "BV1test00001" }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as { status: string; craftId: string; meta: { processingStatus?: string } };
+    expect(body.status).toBe("processing");
+    expect(body.meta.processingStatus).toBe("processing");
+
+    const statusResponse = await app.request(`http://localhost/api/v1/crafts/${body.craftId}/status`);
+    expect(statusResponse.status).toBe(200);
+    const status = await statusResponse.json() as { status: string; meta: { id: string; processingStatus?: string } };
+    expect(status.status).toBe("processing");
+    expect(status.meta.id).toBe(body.craftId);
   });
 });
