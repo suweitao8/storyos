@@ -863,8 +863,12 @@ export class CraftAnalyzerAgent extends BaseAgent {
     const videoNeedsRefine = sourceType === "bilibili" && (
       !profile.videoStory
       || profile.videoStory.beats.length < 8
+      || profile.videoStory.beats.some((beat) => !beat.function.trim() || !beat.emotionalEffect.trim())
       || profile.videoStory.reversals.length < 2
+      || profile.videoStory.reversals.some((reversal) => !reversal.apparentTruth.trim() || !reversal.reveal.trim())
       || profile.videoStory.payoffs.length < 3
+      || !profile.videoStory.audiencePromise.trim()
+      || !profile.videoStory.pacingCurve.trim()
     );
     if (weakFields.length > 0 || videoNeedsRefine) {
       onProgress?.(language === "zh" ? "补全不明确的技法字段…" : "Refining weak craft fields…");
@@ -1120,7 +1124,23 @@ export class CraftAnalyzerAgent extends BaseAgent {
   ): Promise<CraftProfile> {
     const weakFieldList = [
       ...weakFields.map((field) => `- ${field.section}.${field.key}: ${field.value}`),
-      ...(videoNeedsRefine ? ["- videoStory: expand the timestamp-aligned beats, reversals, payoffs, and originalizationRules"] : []),
+      ...(videoNeedsRefine
+        ? language === "en"
+          ? [
+              "- videoStory: return a COMPLETE videoStory object with:",
+              "  - beats: 8-14 items, each with event, function (what narrative role this beat plays), emotionalEffect (how the audience feels), position (0-1), timeRange, kind",
+              "  - reversals: 2-5 items, each with trigger, apparentTruth, reveal, reinterpretedClues, emotionalEffect, setupBeatOrders",
+              "  - payoffs: 3-8 items, each with setup, release, costOrConsequence, emotionalEffect",
+              "  - logline, audiencePromise, outline, pacingCurve, hookStrategy, climaxStrategy, endingAftertaste: ALL filled with plain language",
+            ]
+          : [
+              "- videoStory: 返回完整的 videoStory 对象，包含：",
+              "  - beats: 8-14 个，每个必须有 event、function（这段在故事里起什么作用）、emotionalEffect（观众看到会有什么感受）、position（0-1）、timeRange、kind",
+              "  - reversals: 2-5 个，每个必须有 trigger、apparentTruth（反转前读者以为）、reveal（反转后真相）、reinterpretedClues、emotionalEffect、setupBeatOrders",
+              "  - payoffs: 3-8 个，每个必须有 setup（前面的铺垫）、release（怎么释放）、costOrConsequence（代价）、emotionalEffect",
+              "  - logline、audiencePromise、outline、pacingCurve、hookStrategy、climaxStrategy、endingAftertaste: 全部用大白话填写，不要留空",
+            ]
+        : []),
     ]
       .join("\n");
 
@@ -1128,23 +1148,25 @@ export class CraftAnalyzerAgent extends BaseAgent {
       ? [
           "You refine an extracted craft profile from novel excerpts.",
           "Return one valid JSON patch containing only the sections and fields listed for rewriting.",
-          "Do not repeat or regenerate modules, exemplars, video beats, or unrelated sections unless they are explicitly listed.",
+          "Do not repeat or regenerate modules, exemplars, or unrelated sections unless they are explicitly listed.",
           "Rewrite vague fields into concrete, evidence-based craft descriptions grounded in the excerpts.",
           "Do not use placeholders such as \"Not specified\", \"Unknown\", or \"N/A\".",
           "If the pattern is implicit, infer the dominant technique from repeated evidence.",
           "Keep strong fields and valid exemplar text unless you can make them more precise without changing meaning.",
-          ...(sourceType === "bilibili" ? ["If videoStory is incomplete, expand it to 8-14 beats, 2-5 reversals, and 3-8 payoffs with normalized positions and originalizationRules."] : []),
+          ...(sourceType === "bilibili" ? ["If videoStory needs refinement, return the COMPLETE videoStory object with every beat, reversal, and payoff field filled with plain-language content based on the source text."] : []),
           "Output JSON only.",
         ].join("\n")
       : [
           "你负责精炼一份从小说节选中提取出来的写作模式。",
           "只返回一个合法 JSON 补丁对象，只包含下面列出的待重写 section 和字段。",
-          "不要重复生成 modules、exemplars、视频节拍或未列出的 section，避免覆盖已有结果。",
+          "不要重复生成 modules、exemplars 或未列出的 section，避免覆盖已有结果。",
           "把含糊或占位的字段改写成基于节选证据的具体技法描述。",
-          "不要再输出“未明确说明”“未知”“N/A”之类的占位词。",
-          "如果某种模式没有被原文直接点明,就根据重复出现的写法推断主导手法。",
-          "已有足够具体的字段和有效范例尽量保留,只在能更准确时再改写。",
-          "只输出 JSON,不要解释。",
+          "不要再输出「未明确说明」「未知」「N/A」之类的占位词。",
+          "如果某种模式没有被原文直接点明，就根据重复出现的写法推断主导手法。",
+          "已有足够具体的字段和有效范例尽量保留，只在能更准确时再改写。",
+          ...(sourceType === "bilibili" ? ["如果 videoStory 需要精炼，返回完整的 videoStory 对象，每个 beat、reversal、payoff 的所有字段都必须用大白话填写，基于原文内容。"] : []),
+          "用日常中文写，像给朋友讲故事一样，不要用术语。",
+          "只输出 JSON，不要解释。",
         ].join("\n");
 
     const userPrompt = language === "en"
