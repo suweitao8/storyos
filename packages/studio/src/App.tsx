@@ -518,6 +518,7 @@ export function App() {
                   await putApi("/project", { language: nextLang });
                   refetchProject();
                 }}
+                initialTab={route.tab}
                 t={t}
               />
             </div>

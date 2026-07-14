@@ -310,7 +310,7 @@ export function GenreManager({ theme, t }: { theme: Theme; t: TFunction }) {
               <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
             </div>
           </div>
-          <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-260px)] overflow-x-auto overflow-y-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/30 text-xs text-muted-foreground">
                 <tr>
@@ -324,7 +324,15 @@ export function GenreManager({ theme, t }: { theme: Theme; t: TFunction }) {
                   <tr
                     key={g.id}
                     onClick={() => setSelected(g.id)}
-                    className={`cursor-pointer transition-colors ${
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelected(g.id);
+                      }
+                    }}
+                    tabIndex={0}
+                    aria-selected={validSelected === g.id}
+                    className={`cursor-pointer outline-none transition-colors focus-visible:bg-primary/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40 ${
                       validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
                     }`}
                   >

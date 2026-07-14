@@ -47,6 +47,11 @@ describe("hash route", () => {
       expect(parseHash("#/settings")).toEqual({ page: "project-settings" });
     });
 
+    it("redirects legacy skills and genres links into their settings tabs", () => {
+      expect(parseHash("#/skills")).toEqual({ page: "project-settings", tab: "skills" });
+      expect(parseHash("#/genres")).toEqual({ page: "project-settings", tab: "genres" });
+    });
+
     it("parses service-detail", () => {
       expect(parseHash("#/services/openai")).toEqual({ page: "service-detail", serviceId: "openai" });
     });
