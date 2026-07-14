@@ -43,12 +43,12 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain("一篇单章节短篇故事");
   });
 
-  it("keeps story directions plain and simple for a general audience", () => {
+  it("keeps story directions extremely concise", () => {
     const directionPrompt = buildStoryDirectionPrompt(profile, "short", "zh");
     const seedPrompt = buildStorySeedPrompt(profile, "short", "zh");
 
     for (const prompt of [directionPrompt, seedPrompt]) {
-      expect(prompt.system).toContain("普通观众");
+      expect(prompt.user).toContain("500");
       expect(prompt.user).toContain("说人话");
     }
   });
@@ -73,7 +73,7 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain(profile.worldview);
     expect(prompt.system).toContain("Do not output <think>");
     expect(prompt.system).toContain("十个基础 Markdown 板块");
-    expect(prompt.user).toContain("原创化改编方案");
+    expect(prompt.system).toContain("500");
   });
 
   it("can build a direct-output seed prompt without a selected craft", () => {
@@ -87,8 +87,7 @@ describe("story direction prompt", () => {
   it("emphasizes originality over copying the source story", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
-    expect(prompt.user).toContain("原创化改编方案");
-    expect(prompt.user).toContain("新的空间、身份、关系、因果链、关键事件和结局");
     expect(prompt.system).toContain("严禁照搬");
+    expect(prompt.user).toContain("原创故事");
   });
 });

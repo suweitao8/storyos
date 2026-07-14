@@ -462,26 +462,22 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
   if (language === "zh") {
     return {
       system: [
-        "你是在给普通观众讲故事，不是在写剧本分析报告。用最直白的大白话，像跟朋友安利一部好片那样说。",
-        "可以有悬疑和反转，但每个设定一眼就能看懂，不用反复琢磨。",
+        "你是在给朋友讲一个故事点子，用最短的话把剧情说清楚就行。",
       ],
       user: [
-        "说人话。写具体的人做了什么事、出了什么问题、最后怎样了。不要用'叙事张力''情感弧线''信息释放策略'这类术语。",
-        "每个板块三五句话就够了。大纲只写情节——'发生了什么→主角怎么应对→带来什么新麻烦'，不写写作手法。",
-        "原创化改编方案也用大白话写清新的空间、人物、关系和结局。",
+        "极简。全部板块加起来控制在 500 字左右。每个板块一两句话就够了，不要展开。",
+        "说人话，不写术语。大纲只写'发生了什么→主角怎么应对→结果怎样'。",
       ],
     };
   }
 
   return {
     system: [
-      "You are pitching a story to a friend, not writing a script analysis. Use the plainest language possible.",
-      "Suspense and twists are fine, but every setup should be instantly understandable.",
+      "You are pitching a story idea to a friend in the shortest way possible.",
     ],
     user: [
-      "Write like you talk. Describe concrete people, actions, problems, and outcomes. No craft jargon like 'narrative tension', 'emotional arc', or 'information release strategy'.",
-      "Three to five sentences per section is enough. The outline tells only what happens — no writing techniques.",
-      "Explain the transformation plan in plain language: the new setting, people, relationships, and ending.",
+      "Keep it minimal. All sections combined should be around 500 words. One or two sentences per section.",
+      "Plain language, no jargon. The outline only tells what happens.",
     ],
   };
 }
@@ -616,23 +612,21 @@ export function buildStorySeedPrompt(
       "只返回下方要求的十个基础 Markdown 板块和一个原创化改编方案板块。",
       "Return only the ten required Markdown sections plus one originality transformation plan.",
       "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。Do not output <think>, reasoning, analysis, prefaces, or Markdown fences.",
-      "每个板块必须包含具体的、最终的故事素材，可以直接编辑并交给写作器。",
+      language === "zh"
+        ? "极简输出。全部板块正文加起来控制在 500 字左右。每个板块一两句话就行，概括核心即可，不要展开细节。"
+        : "Be extremely concise. All section bodies combined should be around 500 words. One or two sentences per section — summarize the core, do not elaborate.",
     ].join("\n"),
     user: [
       base.user,
       language === "zh"
-        ? `严格按以下顺序输出十一个二级 Markdown 标题：${labels}。每个标题下面写完整内容，不要合并、跳过或改名。`
-        : `Output exactly these eleven level-two Markdown headings in this order: ${labels}. Write complete content under every heading; do not merge, skip, or rename them.`,
+        ? `严格按以下顺序输出十一个二级 Markdown 标题：${labels}。每个标题下面写一两句话就行，不要展开。`
+        : `Output exactly these eleven level-two Markdown headings in this order: ${labels}. One or two sentences under each heading.`,
       language === "zh"
-        ? "这是给短片创作使用的故事种子：大纲要能落到可拍摄的段落，角色要写清目标、弱点和关系，反转要能回收前文线索，结局要写清代价与情绪余味。"
-        : "This seed is for a short film: make the outline shootable, give characters goals, vulnerabilities, and relationships, make reversals pay off earlier clues, and state the ending cost and emotional aftertaste.",
+        ? "这是给短片创作使用的故事种子：大纲按'发生了什么→主角怎么应对→结果怎样'概括剧情走向就行，不写写作手法。"
+        : "This seed is for a short film: summarize the plot flow as what happens, how the protagonist responds, and the outcome. No writing techniques.",
       language === "zh"
-        ? "分段故事大纲只写故事里发生了什么——按时间顺序列出每个段落的情节推进：谁做了什么、遇到了什么问题、如何应对、结果怎样。不要写写作手法或创作技巧，例如'首句嗅觉锚定''不交代场景''信息释放节奏''视角策略'等。这些是参考素材里的创作机制，应内化为具体的情节，而不是作为指导说明出现在大纲里。"
-        : "The beat outline must describe only WHAT HAPPENS in the story — list each beat in chronological order: who does what, what problem arises, how they respond, and what follows. Do not include writing techniques or craft instructions such as 'olfactory anchoring in the opening line', 'withhold the setting', 'information release rhythm', or 'POV strategy'. Those are reference mechanisms to internalize into concrete plot events, not instructions to state in the outline.",
-      language === "zh"
-        ? "原创化改编方案必须具体写出新的空间、身份、关系、因果链、关键事件和结局，并列出不得继承的专有名词、独特道具、对白和连续事件顺序。创作时不是给原故事换名词，而是重建关系和因果链。"
-        : "The originality transformation plan must specify a new setting, identities, relationships, causal chain, key events, and ending, plus a do-not-carry list for proper nouns, signature objects, dialogue, and contiguous event order. Do not merely rename the source story; rebuild its relationships and causality.",
-      "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。如果读者看完觉得和参考作品太像，那就是失败的。",
+        ? "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。如果读者看完觉得和参考作品太像，那就是失败的。"
+        : "Remember: you are creating an original story, not adapting the reference material. Only borrow why it works, never copy its characters, plot, dialogue, or events. If the result feels like the same story with different names, it has failed.",
     ].join("\n\n"),
   };
 }

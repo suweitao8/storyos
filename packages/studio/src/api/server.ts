@@ -2735,7 +2735,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         ],
         {
           temperature: 0.85,
-          maxTokens: 3_000,
+          maxTokens: 1_500,
           retry: false,
         },
       );
