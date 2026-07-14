@@ -83,7 +83,6 @@ describe("getRouteToolbarTitle", () => {
       { page: "truth", bookId: "book-1" },
       { page: "daemon" },
       { page: "logs" },
-      { page: "genres" },
       { page: "craft" },
       { page: "import" },
       { page: "radar" },

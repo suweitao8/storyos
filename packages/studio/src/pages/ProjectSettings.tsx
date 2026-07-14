@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, Globe, Moon, Stethoscope, Sun } from "lucide-react";
+import { Bot, Globe, Moon, Stethoscope, Sun } from "lucide-react";
 import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
-import { useColors } from "../hooks/use-colors";
 import { EnvironmentDiagnostics } from "./DoctorView";
 import { ServiceListPage } from "./ServiceListPage";
-import { GenreManager } from "./GenreManager";
 import type { ProjectSettingsTabId } from "../hooks/use-hash-route";
 
-export const PROJECT_SETTINGS_TAB_IDS = ["common", "models", "genres", "diagnostics"] as const;
+export const PROJECT_SETTINGS_TAB_IDS = ["common", "models", "diagnostics"] as const;
 type ProjectSettingsTab = typeof PROJECT_SETTINGS_TAB_IDS[number];
 
 function SettingsCard({
@@ -37,8 +35,6 @@ function SettingsCard({
   );
 }
 
-const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
-
 export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initialTab }: {
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -47,8 +43,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
   t: TFunction;
   initialTab?: ProjectSettingsTabId;
 }) {
-  const c = useColors(theme);
-  const isZh = lang === "zh";
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>(initialTab ?? "common");
 
   useEffect(() => {
@@ -59,7 +53,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
     tabs: [
       { id: "common", label: t("settings.tab.common"), icon: <Globe size={14} /> },
       { id: "models", label: t("settings.tab.models"), icon: <Bot size={14} /> },
-      { id: "genres", label: t("settings.tab.genres"), icon: <Boxes size={14} /> },
       { id: "diagnostics", label: t("settings.tab.diagnostics"), icon: <Stethoscope size={14} /> },
     ],
     activeTab,
@@ -117,10 +110,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
 
       {activeTab === "models" && (
         <ServiceListPage />
-      )}
-
-      {activeTab === "genres" && (
-        <GenreManager theme={theme} t={t} />
       )}
 
       {activeTab === "diagnostics" && (
