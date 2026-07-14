@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, RefreshCw } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
 import { useApi } from "../hooks/use-api";
@@ -82,9 +82,11 @@ interface StorySettingsPanelProps {
   readonly storyId: string | null;
   readonly theme: Theme;
   readonly isZh: boolean;
+  readonly regenerating?: boolean;
+  readonly onRegenerate?: () => void;
 }
 
-export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: StorySettingsPanelProps) {
+export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, regenerating, onRegenerate }: StorySettingsPanelProps) {
   const path = storyId ? `/shorts/${encodeURIComponent(storyId)}/content` : bookId ? `/books/${encodeURIComponent(bookId)}/content` : "";
   const { data, loading, error } = useApi<StoryContentResponse>(path);
   const [activeTab, setActiveTab] = useState<StorySettingsTab>("settings");
@@ -123,19 +125,33 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
           <div className={`flex h-full min-h-0 flex-col ${selectedTab === "outline" && outlineSections.length > 0 ? "" : "overflow-y-auto"}`}>
             {tabs.length > 0 ? (
               <nav className="sticky top-0 z-10 shrink-0 bg-background/95 px-6 py-2 backdrop-blur" aria-label={isZh ? "故事设定分区" : "Story setting sections"}>
-                <div className="flex min-w-max gap-1 overflow-x-auto" role="tablist">
-                  {tabs.map((tab) => (
+                <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedTab === tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`shrink-0 rounded-lg px-3 py-2 text-sm transition-colors ${selectedTab === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"}`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  {onRegenerate ? (
                     <button
-                      key={tab.id}
                       type="button"
-                      role="tab"
-                      aria-selected={selectedTab === tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`rounded-lg px-3 py-2 text-sm transition-colors ${selectedTab === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"}`}
+                      onClick={onRegenerate}
+                      disabled={regenerating}
+                      title={isZh ? "基于当前故事设定重新生成角色、场景、道具等资产" : "Re-extract story assets from current settings"}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground disabled:opacity-50"
                     >
-                      {tab.label}
+                      <RefreshCw size={14} className={regenerating ? "animate-spin" : undefined} />
+                      {regenerating ? (isZh ? "重新生成中…" : "Regenerating…") : (isZh ? "重新生成" : "Regenerate")}
                     </button>
-                  ))}
+                  ) : null}
                 </div>
               </nav>
             ) : null}

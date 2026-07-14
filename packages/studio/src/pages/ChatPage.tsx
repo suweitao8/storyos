@@ -461,6 +461,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       : null;
   const [storyWorkspaceStage, setStoryWorkspaceStage] = useState<unknown>(DEFAULT_STORY_WORKSPACE_STAGE);
   const [storyContentRefreshToken, setStoryContentRefreshToken] = useState(0);
+  const [storyRegenerating, setStoryRegenerating] = useState(false);
   const [storyAssetExtractionFailure, setStoryAssetExtractionFailure] = useState<{
     readonly kind: "book" | "short";
     readonly storyId: string;
@@ -987,6 +988,23 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     }
   };
 
+  const handleRegenerateStory = async () => {
+    const kind = storyWorkspace.kind;
+    const storyId = storyWorkspace.storyId;
+    if (!kind || !storyId || storyRegenerating) return;
+    setStoryRegenerating(true);
+    try {
+      await fetchJson(buildStoryAssetExtractionPath(kind, storyId), { method: "POST" });
+      setStoryAssetExtractionFailure(null);
+      setStoryContentRefreshToken((value) => value + 1);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(isZh ? "重新生成失败" : "Regeneration failed", message);
+    } finally {
+      setStoryRegenerating(false);
+    }
+  };
+
   const handleCreateLong = (input: LongStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildLongStoryCreationAction(input);
@@ -1118,6 +1136,8 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           storyId={storyWorkspace.kind === "short" ? storyWorkspace.storyId : null}
           theme={theme}
           isZh={isZh}
+          regenerating={storyRegenerating}
+          onRegenerate={() => void handleRegenerateStory()}
         />
       ) : storyWorkspace.view === "assets" ? (
         <StoryAssetsPanel
