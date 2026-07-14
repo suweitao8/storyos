@@ -462,6 +462,37 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     return c.json({ ...(await readProduction(context, kind, id)), warning: result.warning ?? null });
   });
 
+  context.app.post(`${prefix}/:id/production/video/scene/:index`, async (c) => {
+    const id = c.req.param("id");
+    if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
+    const index = Number(c.req.param("index"));
+    if (!Number.isInteger(index) || index < 0) return c.json({ error: "Invalid scene index" }, 400);
+    const dir = productionPath(context.root, kind, id);
+    const scriptText = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
+    if (!scriptText.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
+    const scenes = groupShotsByScene(parseUnifiedScript(scriptText).shots);
+    const scene = scenes.find((item) => item.index === index);
+    if (!scene) return c.json({ error: "场景不存在" }, 404);
+    const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
+    const raw = await context.loadRawConfig();
+    const secrets = await context.loadSecrets();
+    const scenesDir = join(dir, "scenes");
+    const tempDir = join(dir, ".tmp-video", `scene-${index}`);
+    await mkdir(scenesDir, { recursive: true });
+    await mkdir(tempDir, { recursive: true });
+    const sceneOutput = join(scenesDir, `scene-${String(index).padStart(3, "0")}.mp4`);
+    const result = await composeSegmentVideo({
+      tempDir,
+      outputPath: sceneOutput,
+      shots: scene.shots,
+      voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
+      withVoice: body.voice !== false,
+    });
+    // 单场景生成不更新合集（story.mp4）：合集可能因此与单场景不一致，
+    // 前端可提示用户重新生成合集以合并最新场景。
+    return c.json({ ...(await readProduction(context, kind, id)), warning: result.warning ?? null });
+  });
+
   context.app.get(`${prefix}/:id/production/video/file`, async (c) => {
     const id = c.req.param("id");
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
