@@ -426,7 +426,7 @@ function AssetDetails({
           <Field label={isZh ? "图片提示词" : "Image prompt"}>
             <textarea
               defaultValue={asset.imagePrompt}
-              rows={3}
+              rows={6}
               onBlur={(e) => onEdit("imagePrompt", e.target.value)}
               className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary"
             />
