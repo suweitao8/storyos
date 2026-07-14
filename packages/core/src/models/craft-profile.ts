@@ -230,6 +230,8 @@ export interface CraftMeta {
   readonly storySeed?: StorySeed;
   /** Background state for generating the cached story foundation. */
   readonly storySeedStatus?: "pending" | "ready" | "error";
+  /** Monotonic generation token used to ignore stale background results. */
+  readonly storySeedGenerationId?: string;
   /** Retryable background error summary for story foundation generation. */
   readonly storySeedError?: string;
   /** Visual art style for image prompt generation (realistic or 3D国漫). User-editable. */

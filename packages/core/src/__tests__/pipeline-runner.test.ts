@@ -373,12 +373,14 @@ describe("PipelineRunner", () => {
       await runner.updateCraftStorySeedStatus("craft-seed", {
         storySeedStatus: "error",
         storySeedError: "模型暂时不可用",
+        storySeedGenerationId: "generation-1",
       });
       await expect(runner.loadCraft("craft-seed")).resolves.toMatchObject({ storySeed });
       const failedMeta = JSON.parse(await readFile(join(craftDir, "meta.json"), "utf-8")) as Record<string, unknown>;
       expect(failedMeta).toMatchObject({
         storySeedStatus: "error",
         storySeedError: "模型暂时不可用",
+        storySeedGenerationId: "generation-1",
       });
     } finally {
       await rm(root, { recursive: true, force: true });

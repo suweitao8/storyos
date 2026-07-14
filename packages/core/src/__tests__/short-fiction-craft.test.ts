@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
-import { buildShortFictionWriterUserPrompt } from "../prompts/short-fiction.js";
+import {
+  buildShortFictionOutlineUserPrompt,
+  buildShortFictionWriterUserPrompt,
+} from "../prompts/short-fiction.js";
 
 const filteredProfile: CraftProfile = {
   sourceName: "reference",
@@ -124,5 +127,16 @@ describe("short-fiction originality craft guide", () => {
     expect(guide).not.toContain("REFERENCE_REVEAL");
     expect(guide).not.toContain("REFERENCE_PAYOFF");
     expect(guide).not.toContain("REFERENCE_EXEMPLAR_PROSE");
+  });
+
+  it("passes the filtered craft guide to the English outline prompt", () => {
+    const prompt = buildShortFictionOutlineUserPrompt({
+      direction: "An office mystery with a new causal chain",
+      chapterCount: 1,
+      charsPerChapter: 650,
+      craftGuide: "ORIGINALITY_GUIDE",
+    }, "en");
+
+    expect(prompt).toContain("ORIGINALITY_GUIDE");
   });
 });

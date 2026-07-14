@@ -1,7 +1,10 @@
 import type { ActionPayload } from "@actalk/inkos-core";
 import type { StorySeed } from "@actalk/inkos-core";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
-import { serializeStorySeed } from "./story-seed-stream";
+import {
+  serializeStorySeed,
+  type StorySeedGenerationStatus,
+} from "./story-seed-stream";
 
 export const LONG_STORY_CHAPTERS = 10;
 export const SHORT_STORY_CHAPTERS = 1;
@@ -37,11 +40,21 @@ export interface CraftOption {
   readonly sourceType?: "bilibili" | "novel";
   readonly recommendedWordCount?: number;
   readonly storySeed?: StorySeed;
+  readonly storySeedStatus?: "pending" | "ready" | "error";
+  readonly storySeedError?: string;
+  readonly storySeedGenerationId?: string;
 }
 
 export function shouldAutoGenerateShortStorySeed(storySeed?: StorySeed): boolean {
   void storySeed;
   return false;
+}
+
+export function resolveStorySeedGenerationStatus(craft?: CraftOption): StorySeedGenerationStatus {
+  if (craft?.storySeed) return "ready";
+  if (craft?.storySeedStatus === "pending") return "generating";
+  if (craft?.storySeedStatus === "error") return "error";
+  return "idle";
 }
 
 export function buildDefaultStoryDirection(
@@ -98,6 +111,7 @@ export interface ShortStoryCreationInput {
   readonly direction: string;
   readonly chapterWordCount: number;
   readonly craftId?: string;
+  readonly quality?: "standard" | "quick";
 }
 
 export interface StoryDirectionGenerationInput {
@@ -153,7 +167,7 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
         chapters: SHORT_STORY_CHAPTERS,
         charsPerChapter: input.chapterWordCount,
         cover: false,
-        quick: true,
+        quick: input.quality === "quick",
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },
     },

@@ -44,6 +44,7 @@ import {
   buildStorySeedPrompt,
   STORY_SEED_SECTION_DEFINITIONS,
   isStorySeed,
+  isStorySeedWithOriginalizationPlan,
   parseStorySeed,
   serializeStorySeed,
   buildExportArtifact,
@@ -2651,20 +2652,73 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     };
   }
 
-  const craftStorySeedTasks = new Map<string, Promise<void>>();
+  type CraftStorySeedTask = {
+    readonly generationId: string;
+    readonly promise: Promise<void>;
+  };
+
+  const craftStorySeedTasks = new Map<string, CraftStorySeedTask>();
+  const craftStorySeedWriteTasks = new Map<string, Promise<void>>();
 
   interface CraftStorySeedGenerationOptions {
     readonly force?: boolean;
     readonly kind?: "long" | "short";
     readonly language?: "zh" | "en";
     readonly previousDirection?: string;
+    readonly generationId?: string;
   }
+
+  const queueCraftStorySeedWrite = async <T>(
+    craftId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    const previous = craftStorySeedWriteTasks.get(craftId) ?? Promise.resolve();
+    const operationPromise = previous.then(operation);
+    const settled = operationPromise.then(() => undefined, () => undefined);
+    craftStorySeedWriteTasks.set(craftId, settled);
+    void settled.then(() => {
+      if (craftStorySeedWriteTasks.get(craftId) === settled) craftStorySeedWriteTasks.delete(craftId);
+    });
+    return operationPromise;
+  };
+
+  const isCurrentCraftStorySeedGeneration = async (
+    pipeline: PipelineRunner,
+    craftId: string,
+    generationId: string,
+  ): Promise<boolean> => {
+    const meta = (await pipeline.listCrafts({ includeDeleted: true })).find((craft) => craft.id === craftId);
+    return meta?.storySeedGenerationId === generationId;
+  };
+
+  const saveCraftStorySeedIfCurrent = async (
+    pipeline: PipelineRunner,
+    craftId: string,
+    generationId: string,
+    storySeed: Parameters<PipelineRunner["saveCraftStorySeed"]>[1],
+  ): Promise<boolean> => queueCraftStorySeedWrite(craftId, async () => {
+    if (!await isCurrentCraftStorySeedGeneration(pipeline, craftId, generationId)) return false;
+    await pipeline.saveCraftStorySeed(craftId, storySeed);
+    return true;
+  });
+
+  const updateCraftStorySeedStatusIfCurrent = async (
+    pipeline: PipelineRunner,
+    craftId: string,
+    generationId: string,
+    patch: Parameters<PipelineRunner["updateCraftStorySeedStatus"]>[1],
+  ): Promise<boolean> => queueCraftStorySeedWrite(craftId, async () => {
+    if (!await isCurrentCraftStorySeedGeneration(pipeline, craftId, generationId)) return false;
+    await pipeline.updateCraftStorySeedStatus(craftId, patch);
+    return true;
+  });
 
   const generateCraftStorySeed = async (
     craftId: string,
     options: CraftStorySeedGenerationOptions = {},
   ): Promise<void> => {
     const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const generationId = options.generationId ?? randomUUID();
     try {
       const profile = await pipeline.loadCraft(craftId);
       if (!profile || (!options.force && profile.storySeed)) return;
@@ -2686,15 +2740,20 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         },
       );
       const storySeed = parseStorySeed(response.content);
-      await pipeline.saveCraftStorySeed(craftId, storySeed);
-      broadcast("craft:story-seed-complete", { craftId, status: "ready" });
+      if (!isStorySeedWithOriginalizationPlan(storySeed)) {
+        throw new Error("Generated story seed is missing the originality transformation plan.");
+      }
+      if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
+        broadcast("craft:story-seed-complete", { craftId, generationId, status: "ready" });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await pipeline.updateCraftStorySeedStatus(craftId, {
+      const current = await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, generationId, {
         storySeedStatus: "error",
         storySeedError: message,
-      }).catch(() => undefined);
-      broadcast("craft:story-seed-error", { craftId, error: message });
+        storySeedGenerationId: generationId,
+      }).catch(() => false);
+      if (current) broadcast("craft:story-seed-error", { craftId, generationId, error: message });
     }
   };
 
@@ -2702,13 +2761,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     craftId: string,
     options: CraftStorySeedGenerationOptions = {},
   ): void => {
-    if (craftStorySeedTasks.has(craftId)) return;
-    const task = generateCraftStorySeed(craftId, options);
-    craftStorySeedTasks.set(craftId, task);
+    const existing = craftStorySeedTasks.get(craftId);
+    if (existing && !options.force) return;
+    const generationId = options.generationId ?? randomUUID();
+    const task = generateCraftStorySeed(craftId, { ...options, generationId });
+    const taskRecord = { generationId, promise: task } satisfies CraftStorySeedTask;
+    craftStorySeedTasks.set(craftId, taskRecord);
     void task.then(() => {
-      if (craftStorySeedTasks.get(craftId) === task) craftStorySeedTasks.delete(craftId);
+      if (craftStorySeedTasks.get(craftId) === taskRecord) craftStorySeedTasks.delete(craftId);
     }, () => {
-      if (craftStorySeedTasks.get(craftId) === task) craftStorySeedTasks.delete(craftId);
+      if (craftStorySeedTasks.get(craftId) === taskRecord) craftStorySeedTasks.delete(craftId);
     });
   };
 
@@ -2724,18 +2786,17 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!meta) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     if (!options.force && (profile.storySeed || meta.storySeed)) return meta;
 
-    if (!craftStorySeedTasks.has(craftId)) {
-      const pendingMeta = meta.storySeedStatus === "pending"
-        ? meta
-        : await pipeline.updateCraftStorySeedStatus(craftId, {
-            storySeedStatus: "pending",
-            storySeedError: undefined,
-          });
-      startCraftStorySeedGeneration(craftId, options);
-      return pendingMeta;
-    }
+    const existing = craftStorySeedTasks.get(craftId);
+    if (existing && !options.force) return meta;
 
-    return meta;
+    const generationId = randomUUID();
+    const pendingMeta = await pipeline.updateCraftStorySeedStatus(craftId, {
+      storySeedStatus: "pending",
+      storySeedError: undefined,
+      storySeedGenerationId: generationId,
+    });
+    startCraftStorySeedGeneration(craftId, { ...options, force: true, generationId });
+    return pendingMeta;
   };
 
   async function prepareBilibiliCraftSource(
@@ -2843,11 +2904,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         processingStage: "模式解析完成，故事设定后台生成中",
         processingError: undefined,
       });
+      const generationId = randomUUID();
       await pipeline.updateCraftStorySeedStatus(craftId, {
         storySeedStatus: "pending",
         storySeedError: undefined,
+        storySeedGenerationId: generationId,
       });
-      startCraftStorySeedGeneration(craftId);
+      startCraftStorySeedGeneration(craftId, { generationId });
       broadcast("craft:complete", { craftId, sourceName: prepared.detectedName, status: "ready" });
     } catch (error) {
       if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
@@ -5888,11 +5951,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       if (sourceAssetId) {
         await finalizeCraftSourceUpload(root, sourceAssetId, craftId, { sourceRef });
       }
+      const generationId = randomUUID();
       const meta = await pipeline.updateCraftStorySeedStatus(craftId, {
         storySeedStatus: "pending",
         storySeedError: undefined,
+        storySeedGenerationId: generationId,
       });
-      startCraftStorySeedGeneration(craftId);
+      startCraftStorySeedGeneration(craftId, { generationId });
       broadcast("craft:complete", { craftId, sourceName });
       return c.json({ craftId, profile, meta });
     } catch (e) {
@@ -5908,6 +5973,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const pipelineConfig = await buildPipelineConfig();
     const pipeline = new PipelineRunner(pipelineConfig);
     const crafts = await pipeline.listCrafts({ includeDeleted: true });
+    for (const craft of crafts) {
+      if (craft.deletedAt || craft.storySeedStatus !== "pending") continue;
+      if (craft.storySeedGenerationId) {
+        startCraftStorySeedGeneration(craft.id, { generationId: craft.storySeedGenerationId });
+      } else {
+        void ensureCraftStorySeedGeneration(craft.id).catch((error) => {
+          pipelineConfig.logger?.warn(`Failed to resume story seed generation for ${craft.id}: ${String(error)}`);
+        });
+      }
+    }
     let recentCraftId: string | null = null;
     let recentCraftPreferenceAvailable = true;
     try {
@@ -5973,8 +6048,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (meta.processingStatus === "processing" && meta.sourceRef) {
       startBilibiliCraftTask(id, meta.sourceRef);
     }
-    if (meta.storySeedStatus === "pending") {
-      startCraftStorySeedGeneration(id);
+    if (meta.storySeedStatus === "pending" && meta.storySeedGenerationId) {
+      startCraftStorySeedGeneration(id, { generationId: meta.storySeedGenerationId });
+    } else if (meta.storySeedStatus === "pending") {
+      meta = await ensureCraftStorySeedGeneration(id);
     } else if (meta.processingStatus !== "processing" && !meta.storySeed && !meta.storySeedStatus) {
       meta = await ensureCraftStorySeedGeneration(id);
     }
@@ -6120,6 +6197,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (craftId && !profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
     const prompt = buildStorySeedPrompt(profile ?? undefined, kind, language, request.previousDirection);
     const agent = pipeline.createAgentContext(kind === "long" ? "architect" : "short-outline");
+    const hasCachedShortSeed = kind === "short" && craftId && profile?.storySeed && !request.previousDirection?.trim();
+    const generationId = craftId && !hasCachedShortSeed ? randomUUID() : undefined;
+    if (craftId && generationId) {
+      await pipeline.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "pending",
+        storySeedError: undefined,
+        storySeedGenerationId: generationId,
+      });
+    }
 
     return streamSSE(c, async (stream) => {
       let generated = "";
@@ -6133,11 +6219,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         data: JSON.stringify({
           kind,
           language,
+          ...(generationId ? { generationId } : {}),
           sections: STORY_SEED_SECTION_DEFINITIONS.map((definition) => language === "en" ? definition.en : definition.zh),
         }),
       });
 
-      if (kind === "short" && craftId && profile?.storySeed && !request.previousDirection?.trim()) {
+      if (hasCachedShortSeed) {
         const content = serializeStorySeed(profile.storySeed, language);
         await stream.writeSSE({ event: "complete", data: JSON.stringify({ seed: profile.storySeed, content }) });
         return;
@@ -6163,12 +6250,30 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         );
         await writeChain;
         const seed = parseStorySeed(response.content || generated);
-        await stream.writeSSE({ event: "complete", data: JSON.stringify({ seed, content: response.content || generated }) });
+        if (!isStorySeedWithOriginalizationPlan(seed)) {
+          throw new Error("Generated story seed is missing the originality transformation plan.");
+        }
+        await stream.writeSSE({ event: "complete", data: JSON.stringify({
+          seed,
+          content: response.content || generated,
+          ...(generationId ? { generationId } : {}),
+        }) });
       } catch (error) {
         await writeChain.catch(() => undefined);
+        if (craftId && generationId) {
+          await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, generationId, {
+            storySeedStatus: "error",
+            storySeedError: error instanceof Error ? error.message : String(error),
+            storySeedGenerationId: generationId,
+          }).catch(() => false);
+        }
         await stream.writeSSE({
           event: "error",
-          data: JSON.stringify({ message: error instanceof Error ? error.message : String(error), content: generated }),
+          data: JSON.stringify({
+            message: error instanceof Error ? error.message : String(error),
+            content: generated,
+            ...(generationId ? { generationId } : {}),
+          }),
         });
       }
     });
@@ -6192,13 +6297,22 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be an object");
     }
     const storySeed = (body as { storySeed?: unknown }).storySeed;
+    const generationId = (body as { generationId?: unknown }).generationId;
     if (!isStorySeed(storySeed)) {
       throw new ApiError(400, "INVALID_CRAFT_REQUEST", "storySeed must contain all non-empty story sections");
     }
 
     const pipeline = new PipelineRunner(await buildPipelineConfig());
     if (!await pipeline.loadCraft(id)) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
-    await pipeline.saveCraftStorySeed(id, storySeed);
+    if (generationId !== undefined && typeof generationId !== "string") {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "generationId must be a string");
+    }
+    if (generationId) {
+      const saved = await saveCraftStorySeedIfCurrent(pipeline, id, generationId, storySeed);
+      if (!saved) throw new ApiError(409, "STORY_SEED_GENERATION_STALE", "This story seed was superseded by a newer generation.");
+    } else {
+      await pipeline.saveCraftStorySeed(id, storySeed);
+    }
     return c.json({ storySeed });
   });
 

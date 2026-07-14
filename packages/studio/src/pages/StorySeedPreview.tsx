@@ -53,8 +53,8 @@ export function StorySeedPreview({
               || (status === "generating"
                 ? (isZh ? "模型正在后台生成故事设定。你可以离开此页面，完成后回来查看结果。" : "The model is generating this foundation in the background. You can leave this page and return when it is ready.")
                 : status === "idle"
-                  ? (isZh ? "后台任务尚未启动。进入页面后会自动检查并开始生成。" : "The background job has not started yet. Entering this page will check and start it automatically.")
-                : "")}
+                  ? (isZh ? "还没有默认故事设定。你可以点击‘重新随机生成’，也可以直接使用默认规则创作。" : "No default story foundation exists yet. Regenerate one, or create directly with the default rules.")
+                  : "")}
           </pre>
         </div>
       </div>
