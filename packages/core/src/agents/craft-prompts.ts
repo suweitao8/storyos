@@ -278,6 +278,99 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
   return lines.join("\n");
 }
 
+/**
+ * Build the source-isolated craft contract used by short-fiction generation.
+ *
+ * Short fiction may transfer rhythm and narrative function, but must not see
+ * the reference plot, concrete video events, or verbatim exemplar prose.
+ */
+export function buildShortFictionCraftGuide(craftProfile?: CraftProfile): string {
+  if (!craftProfile) return "";
+
+  const s = craftProfile.structure;
+  const r = craftProfile.sceneRhythm;
+  const i = craftProfile.informationDisclosure;
+  const n = craftProfile.narrativePerspective;
+  const lines = [
+    "## 短篇原创化写作契约",
+    "",
+    "写作模式只提供可迁移的叙事功能和节奏，不提供可复述的原故事。先按改编方案重建故事，再按节拍功能组织新事件。",
+    "",
+    "### 允许迁移的叙事机制",
+    `- 开篇功能: ${s.openingPattern}`,
+    `- 单章弧线功能: ${s.chapterArc}`,
+    `- 章末钩子功能: ${s.endingHookType}`,
+    `- 场景切换功能: ${r.sceneTransitionTechnique}`,
+    `- 节奏曲线: ${r.pacingCurve}`,
+    `- 冲突升级方法: ${r.conflictEscalation}`,
+    `- 伏笔密度: ${i.foreshadowingDensity}`,
+    `- 信息释放节奏: ${i.informationReleaseRhythm}`,
+    `- 悬念管理: ${i.suspenseManagement}`,
+    `- 视角策略: ${n.povStrategy}`,
+    `- 叙述/对话比例: ${n.narrationDialogueRatio}`,
+    `- 叙事距离: ${n.narrativeDistance}`,
+  ];
+
+  if (craftProfile.storySeed?.originalizationPlan?.trim()) {
+    lines.push(
+      "",
+      "### 缓存的原创化改编方案",
+      craftProfile.storySeed.originalizationPlan.trim(),
+    );
+  } else {
+    lines.push(
+      "",
+      "### 默认原创化改编方案",
+      "没有缓存的改编方案。每次创作必须主动选择新的故事空间、职业/身份、关系结构、核心规则、因果链、关键道具、场景事件和结局代价。",
+    );
+  }
+
+  if (craftProfile.mode === "ghost-story" && craftProfile.ghostStory) {
+    const h = craftProfile.ghostStory;
+    lines.push(
+      "",
+      "### 可迁移的恐怖机制",
+      `- 恐惧核心: ${h.fearCore}`,
+      `- 规则设计方法: ${h.supernaturalRules}`,
+      `- 禁忌与触发方法: ${h.taboos}`,
+      `- 主角脆弱点功能: ${h.protagonistVulnerability}`,
+      `- 线索系统方法: ${h.clueSystem}`,
+      `- 真相揭示节奏: ${h.revealCadence}`,
+      `- 惊吓节奏: ${h.scareCadence}`,
+      `- 恐怖升级方法: ${h.escalationLadder}`,
+      `- 感官母题功能: ${h.sensoryMotifs}`,
+      `- 结尾余味功能: ${h.endingAftertaste}`,
+    );
+  }
+
+  if (craftProfile.videoStory) {
+    const v = craftProfile.videoStory;
+    lines.push(
+      "",
+      "### 视频节奏功能（只迁移位置和功能）",
+      ...v.beats.map((beat) => `- ${Math.round(beat.position * 100)}% [${beat.kind}] 功能：${beat.function}；情绪：${beat.emotionalEffect}`),
+      ...v.reversals.map((reversal) => `- ${Math.round(reversal.position * 100)}% 反转功能；情绪：${reversal.emotionalEffect}`),
+      ...v.payoffs.map((payoff) => `- ${Math.round(payoff.position * 100)}% 收束功能；情绪：${payoff.emotionalEffect}`),
+      `- 节奏曲线功能: ${v.pacingCurve}`,
+      `- 钩子功能: ${v.hookStrategy}`,
+      `- 高潮功能: ${v.climaxStrategy}`,
+      `- 结尾余味功能: ${v.endingAftertaste}`,
+      "- 原创化分析规则:",
+      ...v.originalizationRules.map((rule) => `  - ${rule}`),
+    );
+  }
+
+  lines.push(
+    "",
+    "### 硬性原创要求",
+    "- 原始 worldview、故事大纲、视频 logline、具体事件、反转揭示、收束事件和范例原文不是创作素材，不得复述或改写。",
+    "- 新故事至少重建故事空间、职业/身份、关系结构、核心因果链、关键道具/规则、场景事件和结局代价。",
+    "- 节拍只能迁移开场钩子、压力间距、信息释放、反转位置、高潮功能和余味功能，不能迁移事件顺序。",
+    "- 写大纲前先完成替换检查：如果只是给原人物改名、给原地点换称呼或保留同一条因果链，必须推倒重建。",
+  );
+  return lines.join("\n");
+}
+
 export interface StoryDirectionPrompt {
   readonly system: string;
   readonly user: string;
@@ -362,7 +455,8 @@ export function buildStoryDirectionPrompt(
       "你是一位故事开发编辑。",
       languageRule,
       "仅将参考素材用于可复用的机制、世界逻辑、节奏功能和情感运动。",
-      "创造一个全新的故事方向，包含新的身份、设定细节、因果链、场景和结局。绝不复制 distinctive 的名字、对话、措辞或连续的事件序列。",
+      "创造一个全新的故事方向，包含新的身份、设定细节、因果链、场景和结局。绝不复制 distinctive 的名字、对话、措辞或连续的事件序列；不得复用连续事件顺序。",
+      "Originality gate: use new identities, settings, relationships, causal chains, scenes, and endings; never reuse a contiguous event sequence.",
       "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
     ].join("\n"),
     user: [
@@ -395,6 +489,7 @@ export function buildStorySeedPrompt(
         ].join("\n"),
         user: [
           "从零开始创建一个单章节短篇故事种子。",
+          "Create a complete one-chapter short story seed.",
           "未选择创作参考素材；请发明原创的前提、设定、角色、冲突和结局。",
           previousDirection?.trim()
             ? `待改进或替换的上一版种子：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
@@ -408,18 +503,22 @@ export function buildStorySeedPrompt(
   return {
     system: [
       base.system,
-      "只返回下方要求的十个 Markdown 板块。",
-      "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。",
+      "只返回下方要求的十个基础 Markdown 板块和一个原创化改编方案板块。",
+      "Return only the ten required Markdown sections plus one originality transformation plan.",
+      "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。Do not output <think>, reasoning, analysis, prefaces, or Markdown fences.",
       "每个板块必须包含具体的、最终的故事素材，可以直接编辑并交给写作器。",
     ].join("\n"),
     user: [
       base.user,
       language === "zh"
-        ? `严格按以下顺序输出十个二级 Markdown 标题：${labels}。每个标题下面写完整内容，不要合并、跳过或改名。`
-        : `Output exactly these ten level-two Markdown headings in this order: ${labels}. Write complete content under every heading; do not merge, skip, or rename them.`,
+        ? `严格按以下顺序输出十一个二级 Markdown 标题：${labels}。每个标题下面写完整内容，不要合并、跳过或改名。`
+        : `Output exactly these eleven level-two Markdown headings in this order: ${labels}. Write complete content under every heading; do not merge, skip, or rename them.`,
       language === "zh"
         ? "这是给短片创作使用的故事种子：大纲要能落到可拍摄的段落，角色要写清目标、弱点和关系，反转要能回收前文线索，结局要写清代价与情绪余味。"
         : "This seed is for a short film: make the outline shootable, give characters goals, vulnerabilities, and relationships, make reversals pay off earlier clues, and state the ending cost and emotional aftertaste.",
+      language === "zh"
+        ? "原创化改编方案必须具体写出新的空间、身份、关系、因果链、关键事件和结局，并列出不得继承的专有名词、独特道具、对白和连续事件顺序。创作时不是给原故事换名词，而是重建关系和因果链。"
+        : "The originality transformation plan must specify a new setting, identities, relationships, causal chain, key events, and ending, plus a do-not-carry list for proper nouns, signature objects, dialogue, and contiguous event order. Do not merely rename the source story; rebuild its relationships and causality.",
       "仅保留来自任何参考素材的可复用创作机制；创造新的身份、设定细节、因果链、场景和结局。不要复制 distinctive 的名字、对话、措辞或事件序列。",
     ].join("\n\n"),
   };

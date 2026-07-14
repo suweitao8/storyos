@@ -1,4 +1,4 @@
-export const STORY_SEED_SECTION_DEFINITIONS = [
+const REQUIRED_STORY_SEED_SECTION_DEFINITIONS = [
   { key: "title", zh: "故事名称", en: "Story title" },
   { key: "genreTone", zh: "类型与基调", en: "Genre and tone" },
   { key: "hook", zh: "一句话故事钩子", en: "One-line story hook" },
@@ -9,6 +9,15 @@ export const STORY_SEED_SECTION_DEFINITIONS = [
   { key: "reversals", zh: "关键反转与线索回收", en: "Key reversals and clue payoffs" },
   { key: "ending", zh: "结局与情绪余味", en: "Ending and emotional aftertaste" },
   { key: "visualAudioMotifs", zh: "画面与声音母题", en: "Visual and audio motifs" },
+] as const;
+
+const OPTIONAL_STORY_SEED_SECTION_DEFINITIONS = [
+  { key: "originalizationPlan", zh: "原创化改编方案", en: "Originality transformation plan" },
+] as const;
+
+export const STORY_SEED_SECTION_DEFINITIONS = [
+  ...REQUIRED_STORY_SEED_SECTION_DEFINITIONS,
+  ...OPTIONAL_STORY_SEED_SECTION_DEFINITIONS,
 ] as const;
 
 export type StorySeedSectionKey = typeof STORY_SEED_SECTION_DEFINITIONS[number]["key"];
@@ -24,12 +33,14 @@ export interface StorySeed {
   readonly reversals: string;
   readonly ending: string;
   readonly visualAudioMotifs: string;
+  /** Optional for backwards compatibility with legacy ten-section seeds. */
+  readonly originalizationPlan?: string;
 }
 
 export function isStorySeed(value: unknown): value is StorySeed {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
-  return STORY_SEED_SECTION_DEFINITIONS.every(({ key }) => (
+  return REQUIRED_STORY_SEED_SECTION_DEFINITIONS.every(({ key }) => (
     typeof candidate[key] === "string" && candidate[key].trim().length > 0
   ));
 }
@@ -91,11 +102,12 @@ export function parseStorySeed(markdown: string): StorySeed {
     if (value) values.set(key, value);
   }
 
-  const missingSections = STORY_SEED_SECTION_DEFINITIONS
+  const missingSections = REQUIRED_STORY_SEED_SECTION_DEFINITIONS
     .map((definition) => definition.key)
     .filter((key) => !values.get(key));
   if (missingSections.length > 0) throw new StorySeedParseError(missingSections);
 
+  const optionalOriginalizationPlan = values.get("originalizationPlan");
   return {
     title: values.get("title")!,
     genreTone: values.get("genreTone")!,
@@ -107,11 +119,17 @@ export function parseStorySeed(markdown: string): StorySeed {
     reversals: values.get("reversals")!,
     ending: values.get("ending")!,
     visualAudioMotifs: values.get("visualAudioMotifs")!,
+    ...(optionalOriginalizationPlan ? { originalizationPlan: optionalOriginalizationPlan } : {}),
   };
 }
 
 export function serializeStorySeed(seed: StorySeed, language: "zh" | "en" = "zh"): string {
   return STORY_SEED_SECTION_DEFINITIONS
-    .map((definition) => `## ${language === "en" ? definition.en : definition.zh}\n${seed[definition.key]}`)
+    .map((definition) => {
+      const value = seed[definition.key];
+      if (!value?.trim()) return null;
+      return `## ${language === "en" ? definition.en : definition.zh}\n${value}`;
+    })
+    .filter((section): section is string => section !== null)
     .join("\n\n");
 }

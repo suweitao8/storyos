@@ -11,11 +11,17 @@ export const STORY_SEED_SECTION_DEFINITIONS = [
   { key: "reversals", zh: "关键反转与线索回收", en: "Key reversals and clue payoffs" },
   { key: "ending", zh: "结局与情绪余味", en: "Ending and emotional aftertaste" },
   { key: "visualAudioMotifs", zh: "画面与声音母题", en: "Visual and audio motifs" },
+  { key: "originalizationPlan", zh: "原创化改编方案", en: "Originality transformation plan" },
 ] as const;
 
 export function serializeStorySeed(seed: StorySeed, language: "zh" | "en" = "zh"): string {
   return STORY_SEED_SECTION_DEFINITIONS
-    .map((definition) => `## ${language === "en" ? definition.en : definition.zh}\n${seed[definition.key]}`)
+    .map((definition) => {
+      const value = seed[definition.key];
+      if (!value?.trim()) return null;
+      return `## ${language === "en" ? definition.en : definition.zh}\n${value}`;
+    })
+    .filter((section): section is string => section !== null)
     .join("\n\n");
 }
 

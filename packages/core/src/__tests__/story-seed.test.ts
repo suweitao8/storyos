@@ -51,6 +51,11 @@ const COMPLETE_SEED: StorySeed = {
   visualAudioMotifs: "坏掉的电子钟、重复的敲门声和逐渐熄灭的感应灯。",
 };
 
+const ORIGINALIZED_SEED_MARKDOWN = `${COMPLETE_SEED_MARKDOWN.trim()}
+
+## 原创化改编方案
+把封闭住宅替换为高压写字楼，把邻里关系重建为项目组与物业的利益关系，重新设计因果链和结局代价。`;
+
 describe("short story seed", () => {
   it("recognizes complete seeds and rejects incomplete runtime values", () => {
     expect(isStorySeed(COMPLETE_SEED)).toBe(true);
@@ -82,5 +87,20 @@ describe("short story seed", () => {
 
   it("serializes a seed in stable section order", () => {
     expect(serializeStorySeed(COMPLETE_SEED)).toBe(COMPLETE_SEED_MARKDOWN.trim());
+  });
+
+  it("parses and serializes the optional originality transformation plan", () => {
+    const seed = parseStorySeed(ORIGINALIZED_SEED_MARKDOWN);
+
+    expect(seed.originalizationPlan).toContain("高压写字楼");
+    expect(serializeStorySeed(seed)).toContain("## 原创化改编方案");
+    expect(serializeStorySeed(seed)).toContain("重新设计因果链");
+  });
+
+  it("keeps legacy ten-section story seeds valid without a transformation plan", () => {
+    const seed = parseStorySeed(COMPLETE_SEED_MARKDOWN);
+
+    expect(seed.originalizationPlan).toBeUndefined();
+    expect(isStorySeed(seed)).toBe(true);
   });
 });

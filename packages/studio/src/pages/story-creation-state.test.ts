@@ -50,12 +50,39 @@ describe("story creation actions", () => {
         reversals: "主角曾经主动参与过删除。",
         ending: "救回住户，却失去自己的名字。",
         visualAudioMotifs: "坏钟、敲门声、忽明忽暗的灯。",
+        originalizationPlan: "把住宅改造成写字楼，重建身份、关系和因果链。",
       },
     }, "short", true);
 
     expect(direction).toContain("午夜的门");
     expect(direction).toContain("整栋楼会删除住户的痕迹");
+    expect(direction).toContain("原创化改编方案");
+    expect(direction).toContain("把住宅改造成写字楼");
     expect(direction).toContain("不得复制原作");
+  });
+
+  it("gives legacy cached seeds a generic originality contract", () => {
+    const direction = buildDefaultStoryDirection({
+      id: "legacy-seed",
+      sourceName: "旧模式",
+      mode: "bilibili-short-story",
+      storySeed: {
+        title: "旧故事设定",
+        genreTone: "悬疑",
+        hook: "旧钩子",
+        worldview: "旧世界规则",
+        characters: "旧角色关系",
+        conflict: "旧冲突",
+        outline: "旧事件顺序",
+        reversals: "旧反转",
+        ending: "旧结局",
+        visualAudioMotifs: "旧母题",
+      },
+    }, "short", true);
+
+    expect(direction).toContain("当前模式没有缓存的原创化改编方案");
+    expect(direction).toContain("重新设计故事空间、身份、关系、因果链、关键事件与结局");
+    expect(direction).not.toContain("请先执行以上‘原创化改编方案’");
   });
 
   it("builds an editable original direction for the selected craft", () => {
@@ -126,8 +153,9 @@ describe("story creation actions", () => {
       cover: false,
       quick: true,
     });
-    expect(action.instruction).toContain("世界观、故事大纲和写作手法");
+    expect(action.instruction).toContain("原创化改编");
     expect(action.instruction).toContain("不复制原作");
+    expect(action.instruction).not.toContain("世界观、故事大纲和写作手法");
   });
 
   it("turns a Bilibili commentary craft into an original short-story direction", () => {
