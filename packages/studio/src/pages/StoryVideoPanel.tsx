@@ -67,9 +67,10 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   };
 
   const selectedScene = selection.type === "scene" ? scenes.find((s) => s.index === selection.index) : null;
+  const videoTs = encodeURIComponent(data?.video.generatedAt ?? "0");
   const selectedSceneVideoUrl =
     selection.type === "scene" && storyId
-      ? `/api/v1${path}/video/scene/${selection.index}/file`
+      ? `/api/v1${path}/video/scene/${selection.index}/file?ts=${videoTs}`
       : null;
 
   return (
