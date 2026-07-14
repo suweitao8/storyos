@@ -6,6 +6,9 @@ import {
   PipelineRunner,
   ScriptCreationAgent,
   voiceSecretKey,
+  type StoryAsset,
+  type StoryAssetKind,
+  type StoryAssetManifest,
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
 import { isSafeBookId } from "../safety.js";
@@ -69,6 +72,45 @@ async function readJson<T>(path: string): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+/** 读取故事资产清单（角色 / 场景 / 道具），资产未提取时返回空数组。 */
+async function readStoryAssets(root: string, kind: StoryKind, id: string): Promise<StoryAsset[]> {
+  const manifest = await readJson<StoryAssetManifest>(join(kindPath(root, kind, id), "assets", "manifest.json"));
+  return manifest?.assets ?? [];
+}
+
+const ASSET_KIND_LABELS: Record<StoryAssetKind, { zh: string; field: string }> = {
+  character: { zh: "角色", field: "人物/角色" },
+  scene: { zh: "场景", field: "场景/环境" },
+  prop: { zh: "道具", field: "道具/物件" },
+};
+
+/** 把资产格式化成模型可用的 Markdown 上下文，按角色/场景/道具分组。 */
+export function buildAssetsContext(assets: ReadonlyArray<StoryAsset>): string {
+  const byKind = (kind: StoryAssetKind) => assets.filter((asset) => asset.kind === kind);
+  const sections: string[] = [];
+
+  for (const kind of ["character", "scene", "prop"] as const) {
+    const list = byKind(kind);
+    if (list.length === 0) continue;
+    const label = ASSET_KIND_LABELS[kind];
+    const lines = list.map((asset) => {
+      const parts = [`- ${asset.name}`];
+      const aliasText = asset.aliases?.filter(Boolean).join("、");
+      if (aliasText) parts.push(`（别名：${aliasText}）`);
+      if (asset.summary.trim()) parts.push(`：${asset.summary.trim()}`);
+      const detailEntries = Object.entries(asset.details).filter(([, value]) => value?.trim());
+      if (detailEntries.length > 0) parts.push(detailEntries.map(([key, value]) => `${key}：${value.trim()}`).join("；"));
+      if (asset.imagePrompt.trim()) parts.push(`。视觉参考：${asset.imagePrompt.trim()}`);
+      return parts.join("");
+    });
+    sections.push(`### ${label.zh}\n${lines.join("\n")}`);
+  }
+
+  return sections.length > 0
+    ? `## 故事资产（生成分镜时必须引用这些资产，并在「- 画面：」行末用【资产名】标注出场的角色/场景/道具）\n\n${sections.join("\n\n")}`
+    : "";
 }
 
 async function readShortSource(root: string, id: string): Promise<StorySource> {
@@ -155,8 +197,10 @@ function unifiedScriptRequirements(): string {
     "每一个镜头都必须有旁白，没有旁白的镜头是不允许的——没有旁白就没有声音，这个镜头就不该存在。",
     "字幕就是旁白，旁白就是字幕：统一用「- 旁白：」字段写，不要另外写「台词」「字幕」「对白」。旁白内容会被直接用做配音和字幕。",
     "旁白要用口语化、有画面感的讲述语气，像在给观众讲故事；每条旁白 20-80 字，一个镜头一段旁白，一个旁白对应一个分镜。",
-    "画面只写这个镜头观众能看到的内容：谁、在哪、做什么、关键细节；不要把旁白要讲的话再写到画面里。",
-    "镜头按剧情节奏拆分，保留开场、冲突、反转、高潮和结尾钩子；画面提示词要能直接作为后续参考图提示词。",
+    "「- 画面：」只写这个镜头观众能看到的内容：谁、在哪、做什么、关键细节。如果画面里出现了故事资产中的角色/场景/道具，必须在画面描述末尾用【资产名】标注出来，例如：走廊尽头站着一个穿白裙的女人【林小雨】。没有资产可引用时不用标注。",
+    "「- 景别/机位：」每个镜头都要写，从这些里选：远景（全景交代环境）、全景（人物全身）、中景（人物腰部以上）、近景（胸部以上）、特写（面部或手部细节）、大特写（极局部）。不同景别交替使用，避免全是同一种。",
+    "「- 图像提示词：」必须详细，不能只写几个字。格式：主体（谁、穿着、表情/动作）+ 场景环境 + 光线/色调 + 构图/景别 + 氛围/情绪。例如：「年轻女人，黑色长发，穿白色连衣裙，低头微笑，站在昏暗老旧的电梯里，冷蓝色调，侧光，中景，压抑不安的氛围」。每条 30-60 字。",
+    "镜头按剧情节奏拆分，保留开场、冲突、反转、高潮和结尾钩子。",
     "镜头数量以素材长度和剧情节奏为准，不要为了凑数量重复内容；宁可多拆几个旁白清晰的镜头，也不要合并成长段落。",
   ].join("\n");
 }
@@ -423,6 +467,12 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     let content: string;
     let warning: string | undefined;
     try {
+      // 读取故事资产（角色/场景/道具），拼进生成提示词，让模型能引用具体设定。
+      const assets = await readStoryAssets(context.root, kind, id);
+      const assetsContext = buildAssetsContext(assets);
+      const requirements = assetsContext
+        ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
+        : unifiedScriptRequirements();
       const pipeline = new PipelineRunner(await context.buildPipelineConfig());
       const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
       content = await agent.writeScript({
@@ -430,7 +480,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
         sourceKind: kind === "short" ? "StoryOS short story" : "StoryOS book",
         targetFormat: "general_script",
         sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
-        requirements: unifiedScriptRequirements(),
+        requirements,
         language: "zh",
       });
       if (!parseUnifiedScript(content).shots.length) throw new Error("模型没有输出可解析的镜头");

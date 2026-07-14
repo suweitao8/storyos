@@ -4,7 +4,7 @@ import {
   buildSubtitleEntries,
   parseUnifiedScript,
 } from "./story-production";
-import { buildBookSourceFallbackText } from "./routes/story-production";
+import { buildBookSourceFallbackText, buildAssetsContext } from "./routes/story-production";
 
 describe("unified story production", () => {
   it("can use book settings as script source before chapters exist", () => {
@@ -74,5 +74,55 @@ describe("unified story production", () => {
     expect(result.shots[0]?.subtitle).toBe("他朝着光走去。");
     expect(result.shots[1]?.subtitle).toBe("门外是另一片天地。");
     expect(result.shots[2]?.subtitle).toBe("一切都回不去了。");
+  });
+});
+
+describe("buildAssetsContext", () => {
+  it("formats characters, scenes and props into markdown grouped by kind", () => {
+    const markdown = buildAssetsContext([
+      {
+        id: "char-1", kind: "character", name: "林小雨",
+        aliases: ["小雨"], summary: "20岁的女大学生，性格内向",
+        details: { 外貌: "黑色长发，穿白色连衣裙" },
+        imagePrompt: "young woman, black long hair, white dress",
+        sourceRefs: [], image: { status: "missing" },
+        createdAt: "", updatedAt: "",
+      },
+      {
+        id: "scene-1", kind: "scene", name: "老旧电梯",
+        summary: "十三层的废弃居民楼电梯，灯光昏暗",
+        details: {}, imagePrompt: "old elevator, dim light",
+        sourceRefs: [], image: { status: "missing" },
+        createdAt: "", updatedAt: "",
+      },
+      {
+        id: "prop-1", kind: "prop", name: "红色信封",
+        summary: "引发整个故事的关键道具",
+        details: {}, imagePrompt: "red envelope",
+        sourceRefs: [], image: { status: "missing" },
+        createdAt: "", updatedAt: "",
+      },
+    ]);
+
+    // 三个分组都在
+    expect(markdown).toContain("### 角色");
+    expect(markdown).toContain("### 场景");
+    expect(markdown).toContain("### 道具");
+    // 角色名、别名、摘要、详情、视觉参考都在
+    expect(markdown).toContain("林小雨");
+    expect(markdown).toContain("别名：小雨");
+    expect(markdown).toContain("20岁的女大学生");
+    expect(markdown).toContain("外貌：黑色长发");
+    expect(markdown).toContain("young woman");
+    // 场景和道具内容在
+    expect(markdown).toContain("老旧电梯");
+    expect(markdown).toContain("红色信封");
+    // 必须包含引用指令
+    expect(markdown).toContain("必须引用这些资产");
+    expect(markdown).toContain("【资产名】");
+  });
+
+  it("returns empty string when no assets", () => {
+    expect(buildAssetsContext([])).toBe("");
   });
 });
