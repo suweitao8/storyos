@@ -30,6 +30,7 @@ const listCraftsMock = vi.fn();
 const loadCraftMock = vi.fn();
 const analyzeCraftMock = vi.fn();
 const saveCraftStorySeedMock = vi.fn();
+const updateCraftStorySeedStatusMock = vi.fn();
 const deleteCraftMock = vi.fn();
 const createLLMClientMock = vi.fn(() => ({}));
 const chatCompletionMock = vi.fn();
@@ -228,6 +229,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     loadCraft = loadCraftMock;
     analyzeCraft = analyzeCraftMock;
     saveCraftStorySeed = saveCraftStorySeedMock;
+    updateCraftStorySeedStatus = updateCraftStorySeedStatusMock;
     deleteCraft = deleteCraftMock;
     createAgentContext = vi.fn(() => ({ client: {}, model: "gpt-5.4" }));
   }
@@ -633,6 +635,7 @@ describe("createStudioServer daemon lifecycle", () => {
     ]);
     analyzeCraftMock.mockReset();
     saveCraftStorySeedMock.mockReset();
+    updateCraftStorySeedStatusMock.mockReset();
     loadCraftMock.mockImplementation(async (craftId: string) => (
       craftId === "craft-1" || craftId === "craft-2"
         ? { id: craftId, sourceName: "Existing Craft" }
@@ -818,6 +821,49 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(await readFile(sourcePath, "utf8")).toBe("原始文件");
   });
 
+  it("returns after craft analysis and generates the default story seed in the background", async () => {
+    const pendingMeta = {
+      id: "craft-1",
+      sourceName: "测试小说",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+      storySeedStatus: "pending",
+    };
+    analyzeCraftMock.mockResolvedValueOnce({ craftId: "craft-1", profile: storySeedCraftProfile });
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => ({
+      ...pendingMeta,
+      ...patch,
+    }));
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+    chatCompletionMock.mockResolvedValueOnce({
+      content: storySeedMarkdown,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/craft/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "小说文本", sourceName: "测试小说", sourceType: "novel" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      craftId: "craft-1",
+      meta: { storySeedStatus: "pending" },
+    });
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+    expect(chatCompletionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ retry: false }),
+    );
+  });
+
   it("exposes retained source files and reparses into the same craft", async () => {
     const sourceUpload = await (await import("./craft-source-assets.js")).createCraftSourceUpload(root, {
       sourceType: "novel",
@@ -891,6 +937,38 @@ describe("createStudioServer daemon lifecycle", () => {
       expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("十个") })]),
       expect.objectContaining({ onTextDelta: expect.any(Function), retry: false }),
     );
+  });
+
+  it("returns a cached craft story seed without calling the model", async () => {
+    const cachedStorySeed = {
+      title: "缓存故事",
+      genreTone: "都市悬疑",
+      hook: "第二次敲门来自不存在的住户。",
+      worldview: "整栋楼会删除住户的痕迹。",
+      characters: "夜班维修员和被抹去的一家人。",
+      conflict: "回应敲门就会失去一段记忆。",
+      outline: "调查门牌、追查住户、面对敲门者。",
+      reversals: "主角曾经主动参与过删除。",
+      ending: "救回住户，却失去自己的名字。",
+      visualAudioMotifs: "坏钟、敲门声、忽明忽暗的灯。",
+    };
+    loadCraftMock.mockResolvedValueOnce({ ...storySeedCraftProfile, storySeed: cachedStorySeed });
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-direction/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("event: start");
+    expect(body).toContain("event: complete");
+    expect(body).toContain('"title":"缓存故事"');
+    expect(body).not.toContain("event: delta");
+    expect(chatCompletionMock).not.toHaveBeenCalled();
   });
 
   it("streams a direct-output seed without a craft reference", async () => {

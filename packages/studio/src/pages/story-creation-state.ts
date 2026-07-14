@@ -1,6 +1,7 @@
 import type { ActionPayload } from "@actalk/inkos-core";
 import type { StorySeed } from "@actalk/inkos-core";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
+import { serializeStorySeed } from "./story-seed-stream";
 
 export const LONG_STORY_CHAPTERS = 10;
 export const SHORT_STORY_CHAPTERS = 1;
@@ -39,7 +40,8 @@ export interface CraftOption {
 }
 
 export function shouldAutoGenerateShortStorySeed(storySeed?: StorySeed): boolean {
-  return !storySeed;
+  void storySeed;
+  return false;
 }
 
 export function buildDefaultStoryDirection(
@@ -47,6 +49,13 @@ export function buildDefaultStoryDirection(
   kind: "long" | "short",
   isZh: boolean,
 ): string {
+  if (craft.storySeed) {
+    const serializedSeed = serializeStorySeed(craft.storySeed, isZh ? "zh" : "en");
+    return `${serializedSeed}\n\n${isZh
+      ? "请基于以上已确认的故事设定进行原创创作，不得复制原作的人物、情节、措辞或场景。"
+      : "Use the approved story foundation above for an original story; do not copy the reference work's characters, plot, wording, or scenes."}`;
+  }
+
   if (craft.mode === "bilibili-commentary") {
     return isZh
       ? `参考这条 B 站影视解说提取出的剧情骨架、反转和节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}。影视解说只提供结构参考，必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`

@@ -16,6 +16,14 @@ import {
 } from "./craft-navigation-state";
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
+import type { StorySeed } from "@actalk/inkos-core";
+import { StorySeedPreview } from "./StorySeedPreview";
+import {
+  serializeStorySeed,
+  streamStorySeed,
+  type StorySeedGenerationStatus,
+  type StorySeedStreamEvent,
+} from "./story-seed-stream";
 import {
   Wand2, BookOpen, Trash2, RotateCcw,
   Plus, FileUp, Loader2, FileText, RefreshCw, Download, Video, FileArchive,
@@ -34,6 +42,8 @@ interface CraftMeta {
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
+  readonly storySeedStatus?: "pending" | "ready" | "error";
+  readonly storySeedError?: string;
   readonly genre?: string;
   readonly processingStatus?: "processing" | "ready" | "error";
   readonly processingStage?: string;
@@ -179,6 +189,7 @@ interface CraftSourceResponse {
 
 export const CRAFT_DETAIL_TABS = [
   { value: "overview", label: "概览" },
+  { value: "story", label: "故事设定" },
   { value: "video", label: "视频拆解" },
   { value: "modules", label: "写作要点" },
   { value: "exemplars", label: "示例" },
@@ -273,6 +284,7 @@ interface CraftProfile {
   readonly sourceType?: CraftSourceType;
   readonly worldview?: string;
   readonly storyOutline?: string;
+  readonly storySeed?: StorySeed;
   readonly structure: {
     readonly openingPattern: string;
     readonly chapterArc: string;
@@ -823,11 +835,11 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setCurrentStep(t("craft.progressWaiting"));
     setProgressLogs((prev) => [...prev, t("craft.progressWaiting")].slice(-12));
     try {
-      const result = await postApi<{ craftId: string; profile: CraftProfile }>("/craft/analyze", {
+      const result = await postApi<{ craftId: string; profile: CraftProfile; meta?: CraftMeta }>("/craft/analyze", {
         ...buildCraftAnalyzePayload(source),
         ...(source.sourceAssetId ? { sourceAssetId: source.sourceAssetId } : {}),
       });
-      onSuccess(result.profile, result.craftId);
+      onSuccess(result.profile, result.craftId, result.meta);
     } catch (e) {
       setExtractError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1130,6 +1142,15 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [reparsing, setReparsing] = useState(false);
   const [detailTab, setDetailTab] = useState<CraftDetailTab>("overview");
+  const [storySeed, setStorySeed] = useState<StorySeed | null>(initialProfile?.storySeed ?? null);
+  const [storySeedStreamedContent, setStorySeedStreamedContent] = useState(
+    initialProfile?.storySeed ? serializeStorySeed(initialProfile.storySeed, initialProfile.language) : "",
+  );
+  const [storySeedStatus, setStorySeedStatus] = useState<StorySeedGenerationStatus>(
+    initialProfile?.storySeed ? "ready" : "idle",
+  );
+  const [storySeedError, setStorySeedError] = useState<string | null>(initialMeta?.storySeedError ?? null);
+  const [storySeedGenerating, setStorySeedGenerating] = useState(false);
   const [subtitleText, setSubtitleText] = useState<string | null>(null);
   const [subtitleLoading, setSubtitleLoading] = useState(false);
   const [genre, setGenre] = useState<string>(initialGenre ?? "");
@@ -1160,6 +1181,12 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
     try {
       const data = await fetchJson<CraftProfile>(`/crafts/${craftId}`, { method: "GET" });
       setProfile(data);
+      if (data.storySeed) {
+        setStorySeed(data.storySeed);
+        setStorySeedStreamedContent(serializeStorySeed(data.storySeed, data.language));
+        setStorySeedStatus("ready");
+        setStorySeedError(null);
+      }
     } catch (loadError) {
       setProfile(null);
       setError(loadError instanceof Error ? loadError.message : String(loadError));
@@ -1171,6 +1198,10 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
   useEffect(() => {
     setProfile(initialProfile);
     setMeta(initialMeta);
+    setStorySeed(initialProfile?.storySeed ?? null);
+    setStorySeedStreamedContent(initialProfile?.storySeed ? serializeStorySeed(initialProfile.storySeed, initialProfile.language) : "");
+    setStorySeedStatus(initialProfile?.storySeed ? "ready" : "idle");
+    setStorySeedError(initialMeta?.storySeedError ?? null);
     setError(null);
     if (!craftId || initialProfile || initialMeta?.processingStatus === "processing" || initialMeta?.processingStatus === "error") {
       setLoading(false);
@@ -1184,6 +1215,13 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
     try {
       const data = await fetchJson<CraftStatusResponse>(`/crafts/${craftId}/status`, { method: "GET" });
       setMeta(data.meta);
+      if (data.meta.storySeedStatus === "pending") {
+        setStorySeedStatus((current) => current === "generating" ? current : "idle");
+        setStorySeedError(null);
+      } else if (data.meta.storySeedStatus === "error") {
+        setStorySeedStatus("error");
+        setStorySeedError(data.meta.storySeedError ?? "默认故事设定生成失败");
+      }
       if (data.status === "ready") {
         await loadProfile();
       } else if (data.status === "error") {
@@ -1193,6 +1231,20 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       setError(statusError instanceof Error ? statusError.message : String(statusError));
     }
   }, [craftId, loadProfile]);
+
+  useEffect(() => {
+    if (!craftId || meta?.storySeedStatus !== "pending" || meta.processingStatus === "processing") return;
+    let active = true;
+    const poll = async () => {
+      if (active) await loadStatus();
+    };
+    void poll();
+    const timer = window.setInterval(() => { void poll(); }, 2500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus]);
 
   useEffect(() => {
     if (!craftId || meta?.processingStatus !== "processing") return;
@@ -1257,6 +1309,45 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       setReparsing(false);
     }
   }, [craftId, loadSource, reparsing, source]);
+
+  const handleRegenerateStorySeed = useCallback(async () => {
+    if (!craftId || storySeedGenerating || meta?.storySeedStatus === "pending") return;
+    const language = profile?.language ?? meta?.language ?? "zh";
+    setStorySeedGenerating(true);
+    setStorySeedStatus("generating");
+    setStorySeedError(null);
+    setStorySeedStreamedContent("");
+    try {
+      const nextSeed = await streamStorySeed({
+        craftId,
+        kind: "short",
+        language,
+        ...(storySeed ? { previousDirection: serializeStorySeed(storySeed, language) } : {}),
+      }, (event: StorySeedStreamEvent) => {
+        if (event.event === "delta" && typeof event.data.text === "string") {
+          setStorySeedStreamedContent((current) => current + event.data.text);
+        }
+        if (event.event === "complete" && typeof event.data.content === "string") {
+          setStorySeedStreamedContent(event.data.content);
+        }
+      });
+      setStorySeed(nextSeed);
+      setProfile((current) => current ? { ...current, storySeed: nextSeed } : current);
+      setStorySeedStreamedContent(serializeStorySeed(nextSeed, language));
+      setStorySeedStatus("ready");
+      await putApi(`/crafts/${craftId}/story-seed`, { storySeed: nextSeed });
+      setMeta((current) => current ? {
+        ...current,
+        storySeedStatus: "ready",
+        storySeedError: undefined,
+      } : current);
+    } catch (generationError) {
+      setStorySeedStatus("error");
+      setStorySeedError(generationError instanceof Error ? generationError.message : String(generationError));
+    } finally {
+      setStorySeedGenerating(false);
+    }
+  }, [craftId, meta?.language, meta?.storySeedStatus, profile?.language, storySeed, storySeedGenerating]);
 
   if (loading) {
     return (
@@ -1401,6 +1492,39 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
             ))}
         </div>
       </div>
+
+      {detailTab === "story" && (
+        <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">默认故事设定</h3>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+                这份设定会保存到当前写作模式，并在短篇故事、长篇故事等创建流程中直接复用。只有点击按钮时才会重新调用模型。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleRegenerateStorySeed()}
+              disabled={storySeedGenerating || meta?.storySeedStatus === "pending"}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {storySeedGenerating || meta?.storySeedStatus === "pending" ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {storySeedGenerating ? "正在重新生成" : meta?.storySeedStatus === "pending" ? "后台生成中" : "重新随机生成"}
+            </button>
+          </div>
+          {meta?.storySeedStatus === "pending" && !storySeedGenerating ? (
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-2 text-xs leading-5 text-primary">
+              模式创建完成后正在后台生成默认故事设定。你可以先浏览其他页签，完成后刷新会自动显示。
+            </div>
+          ) : null}
+          <StorySeedPreview
+            streamedContent={storySeedStreamedContent}
+            status={storySeedStatus}
+            error={storySeedError}
+            isZh={profile.language === "zh"}
+          />
+        </section>
+      )}
 
       {detailTab === "overview" && craftId && (
         <section className={`border ${c.cardStatic} rounded-xl p-4`}>

@@ -18,7 +18,7 @@ import {
 } from "./story-seed-stream";
 
 describe("story creation actions", () => {
-  it("skips automatic short-story generation when the selected craft has a cached seed", () => {
+  it("never automatically generates a short-story seed", () => {
     expect(shouldAutoGenerateShortStorySeed({
       title: "缓存故事",
       genreTone: "悬疑",
@@ -31,7 +31,31 @@ describe("story creation actions", () => {
       ending: "结局",
       visualAudioMotifs: "母题",
     })).toBe(false);
-    expect(shouldAutoGenerateShortStorySeed()).toBe(true);
+    expect(shouldAutoGenerateShortStorySeed()).toBe(false);
+  });
+
+  it("uses the cached story seed as the default direction", () => {
+    const direction = buildDefaultStoryDirection({
+      id: "seeded",
+      sourceName: "有默认设定的模式",
+      mode: "ghost-story",
+      storySeed: {
+        title: "午夜的门",
+        genreTone: "都市灵异",
+        hook: "第二次敲门来自不存在的住户。",
+        worldview: "整栋楼会删除住户的痕迹。",
+        characters: "夜班维修员和被抹去的一家人。",
+        conflict: "回应敲门就会失去一段记忆。",
+        outline: "调查门牌、追查住户、面对敲门者。",
+        reversals: "主角曾经主动参与过删除。",
+        ending: "救回住户，却失去自己的名字。",
+        visualAudioMotifs: "坏钟、敲门声、忽明忽暗的灯。",
+      },
+    }, "short", true);
+
+    expect(direction).toContain("午夜的门");
+    expect(direction).toContain("整栋楼会删除住户的痕迹");
+    expect(direction).toContain("不得复制原作");
   });
 
   it("builds an editable original direction for the selected craft", () => {
