@@ -6,7 +6,7 @@ import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { Modal } from "../components/Modal";
 import { Pencil } from "lucide-react";
-import { filterGenresForLanguage } from "./genre-page-state";
+import { filterGenresForLanguage, getGenreListDisplayName } from "./genre-page-state";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -310,31 +310,26 @@ export function GenreManager({ theme, t }: { theme: Theme; t: TFunction }) {
               <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
             </div>
           </div>
-          <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/30 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">{t("genre.name")}</th>
-                  <th className="px-4 py-3 font-medium">ID</th>
-                  <th className="px-4 py-3 font-medium">{isZh ? "来源" : "Source"}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {filteredGenres.map((g) => (
-                  <tr
-                    key={g.id}
-                    onClick={() => setSelected(g.id)}
-                    className={`cursor-pointer transition-colors ${
-                      validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-medium">{g.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{g.id}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{g.source}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="max-h-[calc(100vh-260px)] overflow-y-auto p-2">
+            <div className="space-y-1" role="listbox" aria-label={t("genre.list")}>
+              {filteredGenres.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="option"
+                  aria-selected={validSelected === g.id}
+                  onClick={() => setSelected(g.id)}
+                  className={`block w-full truncate rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
+                  }`}
+                >
+                  {getGenreListDisplayName(g)}
+                </button>
+              ))}
+              {filteredGenres.length === 0 && (
+                <div className="px-3 py-3 text-sm text-muted-foreground">{t("genre.selectHint")}</div>
+              )}
+            </div>
           </div>
         </div>
 
