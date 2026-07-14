@@ -35,11 +35,11 @@ describe("story direction prompt", () => {
   it("uses the craft worldview and outline while asking for an original direction", () => {
     const prompt = buildStoryDirectionPrompt(profile, "short", "zh", "old direction");
 
-    expect(prompt.system).toContain("new identities");
+    expect(prompt.system).toContain("新的身份");
     expect(prompt.user).toContain(profile.worldview);
     expect(prompt.user).toContain(profile.storyOutline);
     expect(prompt.user).toContain("old direction");
-    expect(prompt.user).toContain("one-chapter short story");
+    expect(prompt.user).toContain("一篇单章节短篇故事");
   });
 
   it("requests a complete editable short-story seed without thinking output", () => {
@@ -62,7 +62,8 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain(profile.worldview);
     expect(prompt.user).toContain(profile.storyOutline);
     expect(prompt.system).toContain("Do not output <think>");
-    expect(prompt.system).toContain("only the ten Markdown sections");
+    expect(prompt.system).toContain("十个基础 Markdown 板块");
+    expect(prompt.user).toContain("原创化改编方案");
   });
 
   it("can build a direct-output seed prompt without a selected craft", () => {
@@ -70,6 +71,14 @@ describe("story direction prompt", () => {
 
     expect(prompt.user).toContain("Story title");
     expect(prompt.user).toContain("one-chapter short story");
-    expect(prompt.user).toContain("No craft reference is selected");
+    expect(prompt.user).toContain("未选择创作参考素材");
+  });
+
+  it("requires a concrete originality transformation plan", () => {
+    const prompt = buildStorySeedPrompt(profile, "short", "zh");
+
+    expect(prompt.user).toContain("原创化改编方案");
+    expect(prompt.user).toContain("新的空间、身份、关系、因果链、关键事件和结局");
+    expect(prompt.system).toContain("不得复用连续事件顺序");
   });
 });

@@ -45,6 +45,7 @@ import {
   STORY_SEED_SECTION_DEFINITIONS,
   isStorySeed,
   parseStorySeed,
+  serializeStorySeed,
   buildExportArtifact,
   evaluateBookQuality,
   ConsolidatorAgent,
@@ -6075,9 +6076,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       });
 
       if (kind === "short" && craftId && profile?.storySeed && !request.previousDirection?.trim()) {
-        const content = STORY_SEED_SECTION_DEFINITIONS
-          .map((definition) => `## ${language === "en" ? definition.en : definition.zh}\n${profile.storySeed![definition.key]}`)
-          .join("\n\n");
+        const content = serializeStorySeed(profile.storySeed, language);
         await stream.writeSSE({ event: "complete", data: JSON.stringify({ seed: profile.storySeed, content }) });
         return;
       }

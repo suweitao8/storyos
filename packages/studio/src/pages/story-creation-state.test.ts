@@ -50,11 +50,14 @@ describe("story creation actions", () => {
         reversals: "主角曾经主动参与过删除。",
         ending: "救回住户，却失去自己的名字。",
         visualAudioMotifs: "坏钟、敲门声、忽明忽暗的灯。",
+        originalizationPlan: "把住宅改造成写字楼，重建身份、关系和因果链。",
       },
     }, "short", true);
 
     expect(direction).toContain("午夜的门");
     expect(direction).toContain("整栋楼会删除住户的痕迹");
+    expect(direction).toContain("原创化改编方案");
+    expect(direction).toContain("把住宅改造成写字楼");
     expect(direction).toContain("不得复制原作");
   });
 
@@ -126,8 +129,9 @@ describe("story creation actions", () => {
       cover: false,
       quick: true,
     });
-    expect(action.instruction).toContain("世界观、故事大纲和写作手法");
+    expect(action.instruction).toContain("原创化改编");
     expect(action.instruction).toContain("不复制原作");
+    expect(action.instruction).not.toContain("世界观、故事大纲和写作手法");
   });
 
   it("turns a Bilibili commentary craft into an original short-story direction", () => {

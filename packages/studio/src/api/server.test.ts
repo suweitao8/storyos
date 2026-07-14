@@ -286,6 +286,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
     parseStorySeed: actual.parseStorySeed,
+    serializeStorySeed: actual.serializeStorySeed,
     splitCraftChapters: actual.splitCraftChapters,
     loadProjectConfig: loadProjectConfigMock,
     processProjectInteractionRequest: processProjectInteractionRequestMock,
@@ -951,6 +952,7 @@ describe("createStudioServer daemon lifecycle", () => {
       reversals: "主角曾经主动参与过删除。",
       ending: "救回住户，却失去自己的名字。",
       visualAudioMotifs: "坏钟、敲门声、忽明忽暗的灯。",
+      originalizationPlan: "把住宅改造成写字楼，重建身份、关系和因果链。",
     };
     loadCraftMock.mockResolvedValueOnce({ ...storySeedCraftProfile, storySeed: cachedStorySeed });
     const { createStudioServer } = await import("./server.js");
@@ -967,6 +969,8 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(body).toContain("event: start");
     expect(body).toContain("event: complete");
     expect(body).toContain('"title":"缓存故事"');
+    expect(body).toContain("把住宅改造成写字楼");
+    expect(body).not.toContain("undefined");
     expect(body).not.toContain("event: delta");
     expect(chatCompletionMock).not.toHaveBeenCalled();
   });

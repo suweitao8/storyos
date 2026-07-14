@@ -33,7 +33,7 @@ import { coverSecretKey, resolveCoverProviderPreset, type CoverProviderPreset } 
 import { loadSecrets } from "../llm/secrets.js";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath as projectPath } from "../utils/posix-path.js";
-import { buildCraftGuide, buildCraftExemplars } from "../agents/craft-prompts.js";
+import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 
 // Continuation is only for structurally truncated responses. A non-empty but
@@ -198,7 +198,7 @@ async function produceShort(
       chapterCount,
       charsPerChapter,
       reference: options.reference,
-      craftGuide: options.craftProfile ? buildCraftGuide(options.craftProfile) : undefined,
+      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
       language,
     });
 
@@ -246,8 +246,7 @@ async function produceShort(
       outlineMarkdown,
       chapterCount,
       charsPerChapter,
-      craftGuide: options.craftProfile ? buildCraftGuide(options.craftProfile) : undefined,
-      craftExemplars: options.craftProfile ? buildCraftExemplars(options.craftProfile) : undefined,
+      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
       language,
     });
     let missingFromDraft = findEmptyShortFictionChapters(draftV1);

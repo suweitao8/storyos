@@ -52,8 +52,8 @@ export function buildDefaultStoryDirection(
   if (craft.storySeed) {
     const serializedSeed = serializeStorySeed(craft.storySeed, isZh ? "zh" : "en");
     return `${serializedSeed}\n\n${isZh
-      ? "请基于以上已确认的故事设定进行原创创作，不得复制原作的人物、情节、措辞或场景。"
-      : "Use the approved story foundation above for an original story; do not copy the reference work's characters, plot, wording, or scenes."}`;
+      ? "请先执行以上‘原创化改编方案’，再基于它创作新故事：必须重建故事空间、身份、关系、因果链、关键事件与结局，不得复制原作的人物、情节、措辞或场景。"
+      : "First apply the originality transformation plan above, then create a new story: rebuild the setting, identities, relationships, causal chain, key events, and ending; do not copy the reference work's characters, plot, wording, or scenes."}`;
   }
 
   if (craft.mode === "bilibili-commentary") {
@@ -140,7 +140,7 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
 } {
   const direction = input.direction.trim();
   return {
-    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式提取的世界观、故事大纲和写作手法进行原创仿写，重新设计人物、地点、因果链与结局，不复制原作。" : "。"}`,
+    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式的原创化改编方案和节奏功能作为参考，重新设计故事空间、身份、关系、因果链、关键事件与结局，不复制原作。" : "。"}`,
     requestedIntent: "short_run",
     actionPayload: {
       shortRun: {
