@@ -14,6 +14,7 @@ import {
   buildSubtitleEntries,
   parseUnifiedScript,
   type UnifiedScriptDocument,
+  type UnifiedScriptShot,
 } from "../story-production.js";
 
 const execFileAsync = promisify(execFile);
@@ -213,20 +214,38 @@ function escapeFfmpegFilterPath(path: string): string {
   return path.replace(/\\/gu, "/").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
 }
 
-async function composeVideo(args: {
-  readonly productionDir: string;
-  readonly script: UnifiedScriptDocument;
+interface SceneGroup {
+  readonly index: number;
+  readonly name: string;
+  readonly shots: ReadonlyArray<UnifiedScriptShot>;
+}
+
+function groupShotsByScene(shots: ReadonlyArray<UnifiedScriptShot>): SceneGroup[] {
+  const groups: SceneGroup[] = [];
+  for (const shot of shots) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === shot.scene) {
+      (groups[groups.length - 1]!.shots as UnifiedScriptShot[]).push(shot);
+    } else {
+      groups.push({ index: groups.length, name: shot.scene, shots: [shot] });
+    }
+  }
+  return groups;
+}
+
+async function composeSegmentVideo(args: {
+  readonly tempDir: string;
+  readonly outputPath: string;
+  readonly shots: ReadonlyArray<UnifiedScriptShot>;
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string }> {
-  const entries = buildSubtitleEntries(args.script.shots);
-  if (entries.length === 0) throw new Error("剧本中没有可用于字幕或配音的台词");
+  const entries = buildSubtitleEntries(args.shots);
+  if (entries.length === 0) throw new Error("场景中没有可用于字幕或配音的台词");
   const durationMs = entries[entries.length - 1]!.endTimeMs + 800;
-  const tempDir = join(args.productionDir, ".tmp-video");
-  await mkdir(tempDir, { recursive: true });
-  const srtPath = join(tempDir, "story.srt");
-  const audioPath = join(tempDir, "story.wav");
-  const videoPath = join(args.productionDir, "story.mp4");
+  await mkdir(args.tempDir, { recursive: true });
+  const srtPath = join(args.tempDir, "sub.srt");
+  const audioPath = join(args.tempDir, "audio.wav");
   await writeFile(srtPath, buildSrtContent(entries), "utf-8");
 
   let voiceEnabled = false;
@@ -234,14 +253,14 @@ async function composeVideo(args: {
   if (args.withVoice && args.voiceConfig) {
     try {
       const clips: string[] = [];
-      for (const [index, shot] of args.script.shots.filter((item) => item.subtitle.trim()).slice(0, MAX_TTS_SHOTS).entries()) {
-        const clipPath = join(tempDir, `clip-${index}.wav`);
+      for (const [index, shot] of args.shots.filter((item) => item.subtitle.trim()).slice(0, MAX_TTS_SHOTS).entries()) {
+        const clipPath = join(args.tempDir, `clip-${index}.wav`);
         await synthesizeVoice(shot.subtitle.trim().slice(0, 600), args.voiceConfig, clipPath);
         clips.push(clipPath);
       }
       if (clips.length > 0) {
-        await writeFile(join(tempDir, "audio-list.txt"), clips.map((path) => `file '${path.replace(/'/gu, "'\\''")}'`).join("\n"), "utf-8");
-        await execFileAsync(FFMPEG_PATH, ["-y", "-f", "concat", "-safe", "0", "-i", join(tempDir, "audio-list.txt"), "-c", "copy", audioPath], { timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
+        await writeFile(join(args.tempDir, "audio-list.txt"), clips.map((path) => `file '${path.replace(/'/gu, "'\\''")}'`).join("\n"), "utf-8");
+        await execFileAsync(FFMPEG_PATH, ["-y", "-f", "concat", "-safe", "0", "-i", join(args.tempDir, "audio-list.txt"), "-c", "copy", audioPath], { timeout: 120_000, maxBuffer: 4 * 1024 * 1024 });
         voiceEnabled = true;
       }
     } catch (error) {
@@ -259,10 +278,74 @@ async function composeVideo(args: {
     "-vf", subtitleFilter,
   ];
   const commandArgs = voiceEnabled
-    ? [...baseArgs, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "libx264", "-c:a", "aac", "-shortest", "-pix_fmt", "yuv420p", "-movflags", "+faststart", videoPath]
-    : [...baseArgs, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", videoPath];
+    ? [...baseArgs, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "libx264", "-c:a", "aac", "-shortest", "-pix_fmt", "yuv420p", "-movflags", "+faststart", args.outputPath]
+    : [...baseArgs, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", args.outputPath];
   await execFileAsync(FFMPEG_PATH, commandArgs, { timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
   return { durationMs, voiceEnabled, ...(warning ? { warning } : {}) };
+}
+
+async function composeVideo(args: {
+  readonly productionDir: string;
+  readonly script: UnifiedScriptDocument;
+  readonly voiceConfig: TtsConfig | null;
+  readonly withVoice: boolean;
+}): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string; scenes: SceneGroup[] }> {
+  const scenes = groupShotsByScene(args.script.shots);
+  if (scenes.length === 0) throw new Error("剧本中没有可用于字幕或配音的台词");
+
+  const scenesDir = join(args.productionDir, "scenes");
+  await mkdir(scenesDir, { recursive: true });
+  const tempDir = join(args.productionDir, ".tmp-video");
+  await mkdir(tempDir, { recursive: true });
+
+  let voiceEnabled = false;
+  let warning: string | undefined;
+  const segmentPaths: string[] = [];
+
+  for (const scene of scenes) {
+    const sceneOutput = join(scenesDir, `scene-${String(scene.index).padStart(3, "0")}.mp4`);
+    const sceneTemp = join(tempDir, `scene-${scene.index}`);
+    const result = await composeSegmentVideo({
+      tempDir: sceneTemp,
+      outputPath: sceneOutput,
+      shots: scene.shots,
+      voiceConfig: args.voiceConfig,
+      withVoice: args.withVoice,
+    }).catch((error) => {
+      warning = `场景 ${scene.index + 1}「${scene.name}」视频生成失败：${error instanceof Error ? error.message : String(error)}`;
+      return null;
+    });
+    if (result) {
+      segmentPaths.push(sceneOutput);
+      if (result.voiceEnabled) voiceEnabled = true;
+      if (result.warning && !warning) warning = result.warning;
+    }
+  }
+
+  if (segmentPaths.length === 0) throw new Error("所有场景视频生成失败");
+
+  // 拼接合集
+  const videoPath = join(args.productionDir, "story.mp4");
+  if (segmentPaths.length === 1) {
+    const file = await readFile(segmentPaths[0]!);
+    await writeFile(videoPath, file);
+  } else {
+    const listPath = join(tempDir, "concat-list.txt");
+    await writeFile(listPath, segmentPaths.map((path) => `file '${escapeFfmpegFilterPath(path)}'`).join("\n"), "utf-8");
+    await execFileAsync(FFMPEG_PATH, [
+      "-y", "-f", "concat", "-safe", "0", "-i", listPath,
+      "-c", "copy", "-movflags", "+faststart", videoPath,
+    ], { timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
+  }
+
+  // 计算合集总时长：读每个场景文件太慢，用字幕估算
+  const totalDurationMs = scenes.reduce((sum, scene) => {
+    const entries = buildSubtitleEntries(scene.shots);
+    const sceneDuration = entries.length > 0 ? entries[entries.length - 1]!.endTimeMs + 800 : 0;
+    return sum + sceneDuration;
+  }, 0);
+
+  return { durationMs: totalDurationMs, voiceEnabled, ...(warning ? { warning } : {}), scenes };
 }
 
 async function readProduction(context: StudioRouteContext, kind: StoryKind, id: string) {
@@ -270,11 +353,36 @@ async function readProduction(context: StudioRouteContext, kind: StoryKind, id: 
   const script = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
   const manifest = await readManifest(dir);
   const videoExists = await access(join(dir, "story.mp4")).then(() => true).catch(() => false);
+  const parsed = script.trim() ? parseUnifiedScript(script) : null;
+
+  // 场景列表：从剧本分组，检查每个场景视频是否存在
+  const sceneList = parsed ? groupShotsByScene(parsed.shots).map((scene) => {
+    const sceneFile = join(dir, "scenes", `scene-${String(scene.index).padStart(3, "0")}.mp4`);
+    return {
+      index: scene.index,
+      name: scene.name,
+      shotCount: scene.shots.length,
+      videoExists: false as boolean, // 异步检查在下面做
+    };
+  }) : [];
+
+  // 批量检查场景视频文件是否存在
+  if (sceneList.length > 0) {
+    const scenesDir = join(dir, "scenes");
+    const checks = await Promise.all(
+      sceneList.map((s) =>
+        access(join(scenesDir, `scene-${String(s.index).padStart(3, "0")}.mp4`))
+          .then(() => true).catch(() => false),
+      ),
+    );
+    checks.forEach((exists, i) => { sceneList[i]!.videoExists = exists; });
+  }
+
   return {
     script: {
       exists: Boolean(script.trim()),
       content: script,
-      ...(script.trim() ? parseUnifiedScript(script) : { title: "", shots: [] }),
+      ...(parsed ?? { title: "", shots: [] }),
       generatedAt: manifest.scriptGeneratedAt ?? null,
     },
     video: {
@@ -284,6 +392,7 @@ async function readProduction(context: StudioRouteContext, kind: StoryKind, id: 
       warning: manifest.warning ?? null,
       generatedAt: manifest.videoGeneratedAt ?? null,
     },
+    scenes: sceneList,
   };
 }
 
@@ -358,6 +467,17 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
     const file = await readFile(join(productionPath(context.root, kind, id), "story.mp4")).catch(() => null);
     if (!file) return c.json({ error: "Video not found" }, 404);
+    return new Response(file, { headers: { "Content-Type": "video/mp4", "Cache-Control": "no-cache" } });
+  });
+
+  context.app.get(`${prefix}/:id/production/video/scene/:index/file`, async (c) => {
+    const id = c.req.param("id");
+    if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
+    const index = Number(c.req.param("index"));
+    if (!Number.isInteger(index) || index < 0) return c.json({ error: "Invalid scene index" }, 400);
+    const sceneFile = join(productionPath(context.root, kind, id), "scenes", `scene-${String(index).padStart(3, "0")}.mp4`);
+    const file = await readFile(sceneFile).catch(() => null);
+    if (!file) return c.json({ error: "Scene video not found" }, 404);
     return new Response(file, { headers: { "Content-Type": "video/mp4", "Cache-Control": "no-cache" } });
   });
 }
