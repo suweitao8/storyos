@@ -229,6 +229,10 @@ export function buildShortFictionWriterSystemPrompt(language: ShortFictionLangua
       "Every chapter needs drama happening on the page: character action, dialogue or reaction, a shift in the situation, and a reason to keep reading at the chapter break.",
       "Keep the drama dialed up, web-fiction style: real-world pressure may be amplified as far as readers will still believe, but never so absurd that immersion breaks.",
       "The story title and chapter titles must read like platform content, not literary summaries. Keep the prose paced for mobile reading — short paragraphs, but never telegram-style fragments.",
+      "Dialogue must sound like real speech: colloquial, with pauses, interruptions, and things left unsaid. Different characters should have distinct voices, not all the same register.",
+      "Every scene needs at least one sensory detail — light, sound, smell, or texture — to ground the reader in the moment rather than watching from above.",
+      "Avoid interior-monologue markers like 'he thought' or 'she couldn't help but'; show psychology through behavior and dialogue instead.",
+      "Vary paragraph rhythm: use short paragraphs for tension, longer ones for atmosphere. Never let every paragraph be the same length.",
       "Before writing, allocate the target word budget across the story's scenes and beats. Write the complete prose in this pass; the target is a planning constraint, not a request to append padding later. Aim for roughly 85%-115% of the target, with real scenes carrying the length.",
       "Output must strictly use the specified blocks. No author notes, no word-count remarks, no review comments, no format explanations.",
     ].join("\n");
@@ -241,6 +245,10 @@ export function buildShortFictionWriterSystemPrompt(language: ShortFictionLangua
     "去AI味铁律：叙述者永远不得替读者下结论；正文严禁出现分析报告式语言（核心动机、信息边界、信息落差、利益最大化、当前处境等术语），人物内心独白必须口语化、直觉化。转折/惊讶标记词（仿佛、忽然、竟、竟然、猛地）全篇总数不超过每 3000 字 1 次。",
     "明喻节制：不要把「像/仿佛/如同」当默认修辞反复用，每个场景明喻最多 1 处，优先用准确的动词和具体动作。",
     "情绪用动作外化：不写「他感到愤怒」，写「他捏碎了茶杯，滚烫的茶水流过指缝」。",
+    "对话要像真人说话：口语化、有停顿、有打断、有言不由衷，不要书面语堆砌。不同角色的语气要有区分，不能所有人都用同一种说话方式。",
+    "每个场景至少有一个感官细节：看见的光线、听到的声响、闻到的气味或触到的温度，让读者身临其境而不是旁观概要。",
+    "避免内心独白标记词：少用「他心想」「她暗自」「不禁」「心中一凛」等词，用行为和对话来暗示心理状态。",
+    "段落节奏要有长短交替：不要全是相同长度的段落，用短段制造紧张感，用长段铺陈氛围。",
     "写作前先按目标字数规划场景和节奏，正文一次完成；目标字数是写作规划约束，不是后续强行补字任务。整体尽量落在目标的 85% 到 115%，用有效场面承载篇幅。",
     "输出必须严格使用指定 block，不要写作者说明、字数说明、审稿意见或格式解释。",
   ].join("\n");
@@ -424,10 +432,12 @@ export function buildShortFictionDraftReviewUserPrompt(
       "## Draft Under Review",
       input.draftMarkdown,
       "",
+      input.craftGuide ?? "",
       "## Review Instructions",
       "Talk like a person: where does this story pull, where does it break immersion, where does it read like a synopsis, where does the back half sag, which title or chapter titles would nobody tap?",
       "Never condemn a chapter just for running slightly short or long; judge first whether the content is complete, dramatic, and paying off.",
-    ].join("\n");
+      "If a writing-mode craft guide was provided, also judge whether the draft follows its rhythm, scene-craft, and narrative techniques.",
+    ].filter(Boolean).join("\n");
   }
   return [
     "## 创作方向",
@@ -439,10 +449,12 @@ export function buildShortFictionDraftReviewUserPrompt(
     "## 待审正文",
     input.draftMarkdown,
     "",
+    input.craftGuide ?? "",
     "## 审稿要求",
     "直接说人话：这本读起来哪里有欲望、哪里出戏、哪里像梗概、哪里后半段泄气、哪里标题或章节标题不想点。",
     "不要因为某章略短或略长就判死；先判断内容是否完整、有戏、有回报。",
-  ].join("\n");
+    "如果提供了写作模式指南，也要判断正文是否遵循了参考作品的节奏、场景调度和叙事手法。",
+  ].filter(Boolean).join("\n");
 }
 
 export function buildShortFictionDraftRevisionFollowup(
@@ -455,6 +467,7 @@ export function buildShortFictionDraftRevisionFollowup(
       "This is round two of the same story: keep what worked in the last version, fix what breaks immersion or kills the desire to keep reading.",
       "Do not output a list of suggested edits, and do not patch just a few chapters — output the complete draft.",
       "",
+      input.craftGuide ?? "",
       "## Review Notes",
       input.review.trim(),
       "",
@@ -463,6 +476,7 @@ export function buildShortFictionDraftRevisionFollowup(
       "- Add real scenes to the back half; never close on result summaries.",
       "- Keep the title, opening, chapter titles, and main title consistent with the prose, though the title may be re-sharpened from the final draft for platform click appeal.",
       "- Word count is calibration only: pad short chapters with real scenes; trim long ones by cutting explanation and repeated reactions.",
+      "- If a writing-mode craft guide was provided, match its rhythm, scene-craft, and narrative techniques while keeping the story original.",
       "",
       "## Output Format",
       "=== SHORT_FICTION_TITLE ===",
@@ -485,6 +499,7 @@ export function buildShortFictionDraftRevisionFollowup(
     "这是同一篇的第二轮写作：保留上一版能打的地方，修掉会让读者出戏或不想读的问题。",
     "不要只列修改建议，不要只改几章片段，输出完整正文。",
     "",
+    input.craftGuide ?? "",
     "## 审稿意见",
     input.review.trim(),
     "",
@@ -493,6 +508,7 @@ export function buildShortFictionDraftRevisionFollowup(
     "- 补后半段有效场面，不要用结果摘要收尾。",
     "- 保持标题、开篇、章节标题和正文主标题一致，但标题可以基于正文重新压得更有平台点击感。",
     "- 字数只做校准：偏短补有效场面，偏长删解释和重复反应。",
+    "- 如果提供了写作模式指南，要匹配参考作品的节奏、场景调度和叙事手法，同时保持故事原创。",
     "",
     "## 输出格式",
     "=== SHORT_FICTION_TITLE ===",

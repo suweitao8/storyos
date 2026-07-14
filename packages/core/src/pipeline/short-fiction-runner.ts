@@ -290,6 +290,7 @@ async function produceShort(
       draft: draftV1,
       chapterCount,
       charsPerChapter,
+      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
       language,
     });
     await writeText(root, join(baseDir, "reviews", "draft-v001.md"), draftReview);
@@ -304,6 +305,7 @@ async function produceShort(
         review: draftReview,
         chapterCount,
         charsPerChapter,
+        craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
         language,
       });
       validateShortFictionDraftForFinal(draftV2, {
