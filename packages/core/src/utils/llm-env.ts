@@ -1,10 +1,24 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parse } from "dotenv";
 
 export const GLOBAL_CONFIG_DIR = join(homedir(), ".storyos");
 export const GLOBAL_ENV_PATH = join(GLOBAL_CONFIG_DIR, ".env");
+/** Pre-rename path — kept so existing users' ~/.inkos/.env keeps working. */
+const LEGACY_GLOBAL_ENV_PATH = join(homedir(), ".inkos", ".env");
+
+/**
+ * Returns the effective global .env path. Prefers the current ~/.storyos/.env,
+ * but falls back to the legacy ~/.inkos/.env so existing setups keep working
+ * after the brand rename.
+ */
+export function resolveGlobalEnvPath(): string {
+  if (existsSync(GLOBAL_ENV_PATH)) return GLOBAL_ENV_PATH;
+  if (existsSync(LEGACY_GLOBAL_ENV_PATH)) return LEGACY_GLOBAL_ENV_PATH;
+  return GLOBAL_ENV_PATH;
+}
 
 export type LLMEnvMap = Record<string, string | undefined>;
 
@@ -18,7 +32,7 @@ export async function loadLLMEnvLayers(
   root: string,
   processEnv: NodeJS.ProcessEnv = process.env,
 ): Promise<LLMEnvLayers> {
-  const global = await parseEnvFile(GLOBAL_ENV_PATH);
+  const global = await parseEnvFile(resolveGlobalEnvPath());
   const project = await parseEnvFile(join(root, ".env"));
   // Compatibility: modelOverrides.apiKeyEnv and detector config still read process.env directly.
   hydrateProcessEnvFromEnvFiles(processEnv, global, project);

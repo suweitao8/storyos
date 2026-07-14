@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { BookConfig } from "../models/book.js";
 import type { ChapterMeta } from "../models/chapter.js";
 import { bootstrapStructuredStateFromMarkdown, resolveDurableStoryProgress } from "./state-bootstrap.js";
+import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 
 export class StateManager {
   /** Books actively being written by this process — used for same-process stale lock detection. */
@@ -175,7 +176,7 @@ export class StateManager {
   }
 
   async loadProjectConfig(): Promise<Record<string, unknown>> {
-    const configPath = join(this.projectRoot, "storyos.json");
+    const configPath = await resolveProjectConfigPath(this.projectRoot);
     const raw = await readFile(configPath, "utf-8");
     return JSON.parse(raw);
   }

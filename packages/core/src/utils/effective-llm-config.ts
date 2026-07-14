@@ -1,9 +1,9 @@
-import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { ProjectConfigSchema, type LLMConfig, type ProjectConfig } from "../models/project.js";
 import { loadSecrets } from "../llm/secrets.js";
 import { getEndpoint } from "../llm/providers/index.js";
 import { guessServiceFromBaseUrl, resolveServicePreset, resolveServiceProviderFamily } from "../llm/service-presets.js";
+import { resolveProjectConfigPath } from "./project-config-path.js";
 import { isApiKeyOptionalForEndpoint } from "./llm-endpoint-auth.js";
 import { cliOverlayEnv, legacyEnv, studioIgnoredEnv, type LLMEnvLayers, type LLMEnvMap } from "./llm-env.js";
 
@@ -122,16 +122,16 @@ export async function resolveEffectiveLLMConfig(
 }
 
 async function readProjectConfig(root: string): Promise<Record<string, unknown>> {
-  const configPath = join(root, "storyos.json");
+  const configPath = await resolveProjectConfigPath(root);
+  let raw: string;
   try {
-    await access(configPath);
+    raw = await readFile(configPath, "utf-8");
   } catch {
     throw new Error(
       `storyos.json not found in ${root}.\nMake sure you are inside an StoryOS project directory (cd into the project created by 'storyos init').`,
     );
   }
 
-  const raw = await readFile(configPath, "utf-8");
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {

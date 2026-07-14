@@ -4,12 +4,13 @@ import { join } from "node:path";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { TranscriptEventSchema, type TranscriptEvent } from "./session-transcript-schema.js";
 import type { SessionKind, TranscriptRole } from "./session-transcript-schema.js";
+import { resolveRuntimeDir, resolveWriteRuntimeDir } from "../utils/runtime-dirs.js";
 
-const SESSIONS_DIR = ".storyos/sessions";
+const SESSIONS_SUBDIR = "sessions";
 const appendQueues = new Map<string, Promise<void>>();
 
 export function sessionsDir(projectRoot: string): string {
-  return join(projectRoot, SESSIONS_DIR);
+  return join(resolveRuntimeDir(projectRoot), SESSIONS_SUBDIR);
 }
 
 export function transcriptPath(projectRoot: string, sessionId: string): string {
@@ -76,7 +77,7 @@ export async function appendTranscriptEvents(
     result = built.map((event) => TranscriptEventSchema.parse(event));
     if (result.length === 0) return;
 
-    await mkdir(sessionsDir(projectRoot), { recursive: true });
+    await mkdir(join(resolveWriteRuntimeDir(projectRoot), SESSIONS_SUBDIR), { recursive: true });
     await appendFile(
       transcriptPath(projectRoot, sessionId),
       `${result.map((event) => JSON.stringify(event)).join("\n")}\n`,

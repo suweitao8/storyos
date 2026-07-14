@@ -777,6 +777,11 @@ function projectSkillsDir(root: string): string {
   return join(root, ".storyos", "skills");
 }
 
+/** Legacy pre-rename skills directory — checked for backward compatibility. */
+function legacyProjectSkillsDir(root: string): string {
+  return join(root, ".inkos", "skills");
+}
+
 function projectSkillDir(root: string, id: string): string {
   return join(projectSkillsDir(root), id);
 }
@@ -898,24 +903,27 @@ function normalizeStudioPromptId(value: unknown): string {
 }
 
 async function listProjectSkillIds(root: string): Promise<Set<string>> {
-  try {
-    const entries = await readdir(projectSkillsDir(root), { withFileTypes: true });
-    const ids = new Set<string>();
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const id = normalizeStudioSkillId(entry.name, "skillId");
-      try {
-        const info = await stat(projectSkillPath(root, id));
-        if (info.isFile()) ids.add(id);
-      } catch {
-        // Ignore incomplete project skill directories.
+  const ids = new Set<string>();
+  // Scan both the new .storyos/skills and the legacy .inkos/skills directories.
+  for (const skillsRoot of [projectSkillsDir(root), legacyProjectSkillsDir(root)]) {
+    try {
+      const entries = await readdir(skillsRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const id = normalizeStudioSkillId(entry.name, "skillId");
+        try {
+          const skillFile = join(skillsRoot, entry.name, "SKILL.md");
+          const info = await stat(skillFile);
+          if (info.isFile()) ids.add(id);
+        } catch {
+          // Ignore incomplete project skill directories.
+        }
       }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    return ids;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return new Set();
-    throw error;
   }
+  return ids;
 }
 
 function normalizeStudioPlayMode(value: unknown): PlayMode | undefined {
@@ -1837,7 +1845,8 @@ function syncTopLevelLlmMirror(llm: Record<string, unknown>): void {
 }
 
 async function loadRawConfig(root: string): Promise<Record<string, unknown>> {
-  const configPath = join(root, "storyos.json");
+  const { resolveProjectConfigPath } = await import("@actalk/inkos-core");
+  const configPath = await resolveProjectConfigPath(root);
   const raw = await readFile(configPath, "utf-8");
   return JSON.parse(raw) as Record<string, unknown>;
 }
@@ -4977,8 +4986,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const { language } = await c.req.json<{ language: "zh" | "en" }>();
     const configPath = join(root, "storyos.json");
     try {
-      const raw = await readFile(configPath, "utf-8");
-      const existing = JSON.parse(raw);
+      const existing = await loadRawConfig(root);
       existing.language = language;
       const { writeFile: writeFileFs } = await import("node:fs/promises");
       await writeFileFs(configPath, JSON.stringify(existing, null, 2), "utf-8");
@@ -5154,14 +5162,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Model overrides ---
 
   app.get("/api/v1/project/model-overrides", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
+    const raw = await loadRawConfig(root);
     return c.json({ overrides: raw.modelOverrides ?? {} });
   });
 
   app.put("/api/v1/project/model-overrides", async (c) => {
     const { overrides } = await c.req.json<{ overrides: Record<string, unknown> }>();
     const configPath = join(root, "storyos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8"));
+    const raw = await loadRawConfig(root);
     raw.modelOverrides = overrides;
     const { writeFile: writeFileFs } = await import("node:fs/promises");
     await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
@@ -5307,14 +5315,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Notify channels ---
 
   app.get("/api/v1/project/notify", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
+    const raw = await loadRawConfig(root);
     return c.json({ channels: raw.notify ?? [] });
   });
 
   app.put("/api/v1/project/notify", async (c) => {
     const { channels } = await c.req.json<{ channels: unknown[] }>();
     const configPath = join(root, "storyos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8"));
+    const raw = await loadRawConfig(root);
     raw.notify = channels;
     const { writeFile: writeFileFs } = await import("node:fs/promises");
     await writeFileFs(configPath, JSON.stringify(raw, null, 2), "utf-8");
@@ -6474,12 +6482,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.get("/api/v1/doctor", async (c) => {
     const { existsSync } = await import("node:fs");
-    const { GLOBAL_ENV_PATH } = await import("@actalk/inkos-core");
+    const { resolveGlobalEnvPath } = await import("@actalk/inkos-core");
 
     const checks = {
-      inkosJson: existsSync(join(root, "storyos.json")),
+      inkosJson: existsSync(join(root, "storyos.json")) || existsSync(join(root, "inkos.json")),
       projectEnv: existsSync(join(root, ".env")),
-      globalEnv: existsSync(GLOBAL_ENV_PATH),
+      globalEnv: existsSync(resolveGlobalEnvPath()),
       booksDir: existsSync(join(root, "books")),
       llmConnected: false,
       bookCount: 0,

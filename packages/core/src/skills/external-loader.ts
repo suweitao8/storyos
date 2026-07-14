@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
+import { existsSync } from "node:fs";
 import yaml from "js-yaml";
 import {
   CapabilitySkillManifestSchema,
@@ -78,15 +79,33 @@ interface ConfiguredSkillDir {
   readonly explicit: boolean;
 }
 
+/** Resolve the project-level skills root: prefer `.storyos/`, fall back to legacy `.inkos/`. */
+function resolveProjectSkillsRoot(projectRoot: string): string {
+  const newPath = join(projectRoot, ".storyos");
+  if (existsSync(newPath)) return newPath;
+  const legacyPath = join(projectRoot, ".inkos");
+  if (existsSync(legacyPath)) return legacyPath;
+  return newPath;
+}
+
+/** Resolve the global skills root: prefer `~/.storyos/`, fall back to legacy `~/.inkos/`. */
+function resolveGlobalSkillsRoot(): string {
+  const newPath = join(homedir(), ".storyos");
+  if (existsSync(newPath)) return newPath;
+  const legacyPath = join(homedir(), ".inkos");
+  if (existsSync(legacyPath)) return legacyPath;
+  return newPath;
+}
+
 function configuredSkillDirs(input: LoadConfiguredCapabilitySkillsInput): ConfiguredSkillDir[] {
   const env = input.env ?? process.env;
   const envDirs = (env.STORYOS_SKILL_DIRS ?? "")
     .split(delimiter)
     .map((value) => value.trim())
     .filter(Boolean);
-  const userRoot = input.userRoot ?? join(homedir(), ".storyos");
+  const userRoot = input.userRoot ?? resolveGlobalSkillsRoot();
   return [
-    { path: join(input.projectRoot, ".storyos", "skills"), explicit: false },
+    { path: join(resolveProjectSkillsRoot(input.projectRoot), "skills"), explicit: false },
     { path: join(userRoot, "skills"), explicit: false },
     ...envDirs.map((path) => ({ path, explicit: true })),
   ];

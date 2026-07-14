@@ -12,6 +12,8 @@ import { assertSafeTruthFileName, createInteractionToolsFromDeps } from "../inte
 import { writeExportArtifact } from "../interaction/export-artifact.js";
 import { assertSafeBookId, deriveBookIdFromTitle } from "../utils/book-id.js";
 import { safeChildPath } from "../utils/path-safety.js";
+import { resolveWriteRuntimeDir } from "../utils/runtime-dirs.js";
+import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 import { normalizePlatformId, normalizePlatformOrOther } from "../models/book.js";
 import { generateShortFictionCover, runShortFictionProduction } from "../pipeline/short-fiction-runner.js";
 import { runInteractiveFilmCreation, runScriptCreation, runStoryboardCreation } from "../pipeline/script-storyboard-runner.js";
@@ -896,7 +898,7 @@ export function createResearchWebTool(projectRoot: string): AgentTool<typeof Res
       }, {
         search: (query, maxResults) => searchWeb(query, maxResults, searchOptions),
       });
-      const reportDir = join(projectRoot, ".storyos", "research");
+      const reportDir = join(resolveWriteRuntimeDir(projectRoot), "research");
       await mkdir(reportDir, { recursive: true });
       const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugResearchTopic(params.topic)}.md`;
       const reportPath = join(reportDir, fileName);
@@ -1195,7 +1197,7 @@ function slugResearchTopic(topic: string): string {
 
 async function readResearchSearchConfig(projectRoot: string) {
   try {
-    const raw = JSON.parse(await readFile(join(projectRoot, "storyos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = JSON.parse(await readFile(await resolveProjectConfigPath(projectRoot), "utf-8")) as Record<string, unknown>;
     return ResearchSearchConfigSchema.parse(raw.researchSearch ?? {});
   } catch {
     return ResearchSearchConfigSchema.parse({});
