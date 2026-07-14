@@ -1205,6 +1205,19 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
     }
   }, [craftId]);
 
+  // Auto-load subtitle text when source is available.
+  useEffect(() => {
+    if (!craftId || !source?.files.some((file) => file.key === "subtitlesText")) return;
+    let active = true;
+    setSubtitleLoading(true);
+    fetch(`/api/v1/crafts/${craftId}/source/subtitlesText`)
+      .then((res) => res.text())
+      .then((text) => { if (active) setSubtitleText(text); })
+      .catch(() => { if (active) setSubtitleText("加载字幕失败"); })
+      .finally(() => { if (active) setSubtitleLoading(false); });
+    return () => { active = false; };
+  }, [craftId, source]);
+
   const loadProfile = useCallback(async () => {
     if (!craftId) return;
     setLoading(true);
@@ -1753,41 +1766,6 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
                 />
               )}
 
-              {/* Subtitle viewer */}
-              {source.files.some((file) => file.key === "subtitlesText") && (
-                <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">字幕数据</span>
-                    <button
-                      onClick={async () => {
-                        if (subtitleText !== null) {
-                          setSubtitleText(null);
-                          return;
-                        }
-                        setSubtitleLoading(true);
-                        try {
-                          const res = await fetch(`/api/v1/crafts/${craftId}/source/subtitlesText`);
-                          const text = await res.text();
-                          setSubtitleText(text);
-                        } catch {
-                          setSubtitleText("加载字幕失败");
-                        } finally {
-                          setSubtitleLoading(false);
-                        }
-                      }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {subtitleLoading ? "加载中…" : subtitleText !== null ? "收起字幕" : "查看字幕"}
-                    </button>
-                  </div>
-                  {subtitleText !== null && (
-                    <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-background/60 p-3 text-xs leading-5 text-foreground/80 font-mono">
-                      {subtitleText}
-                    </pre>
-                  )}
-                </div>
-              )}
-
               <div className="grid gap-2 md:grid-cols-2">
                 {source.files.map((file) => (
                   <a
@@ -1809,6 +1787,23 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
                 {source.subtitleSource ? <span>字幕来源：{source.subtitleSource === "bili" ? "B 站" : "必剪转写"}</span> : null}
                 {source.sourceRef ? <span className="max-w-full truncate">来源：{source.sourceRef}</span> : null}
               </div>
+
+              {/* Subtitle text — auto-loaded, displayed inline at the bottom */}
+              {source.files.some((file) => file.key === "subtitlesText") && (
+                <div className="rounded-xl border border-border/60 bg-secondary/20 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">字幕全文</span>
+                    {subtitleLoading && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
+                  </div>
+                  {subtitleText !== null ? (
+                    <pre className="max-h-[500px] overflow-auto whitespace-pre-wrap rounded-lg bg-background/60 p-3 text-xs leading-5 text-foreground/80 font-mono">
+                      {subtitleText}
+                    </pre>
+                  ) : !subtitleLoading && (
+                    <div className="text-xs text-muted-foreground/60">暂无字幕</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>
