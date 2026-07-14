@@ -4,8 +4,17 @@ import {
   buildSubtitleEntries,
   parseUnifiedScript,
 } from "./story-production";
+import { buildBookSourceFallbackText } from "./routes/story-production";
 
 describe("unified story production", () => {
+  it("can use book settings as script source before chapters exist", () => {
+    const source = buildBookSourceFallbackText([
+      { title: "故事设定", content: "旧港每晚都会少一个住户。" },
+      { title: "故事大纲", content: "主角追查消失的门牌。" },
+    ]);
+    expect(source).toContain("旧港每晚都会少一个住户。\n\n故事大纲");
+    expect(source).toContain("主角追查消失的门牌。");
+  });
   it("parses shots embedded in the script", () => {
     const result = parseUnifiedScript(`# 夜班电梯
 

@@ -28,6 +28,15 @@ interface StorySource {
   readonly text: string;
 }
 
+export function buildBookSourceFallbackText(
+  sections: ReadonlyArray<{ readonly title: string; readonly content: string }>,
+): string {
+  return sections
+    .map((section) => `${section.title}\n\n${section.content.trim()}`)
+    .filter((section) => section.trim())
+    .join("\n\n");
+}
+
 interface ProductionManifest {
   readonly scriptGeneratedAt?: string;
   readonly videoGeneratedAt?: string;
@@ -85,7 +94,20 @@ async function readBookSource(context: StudioRouteContext, id: string): Promise<
     const text = await readFile(join(chapterDir, file), "utf-8").catch(() => "");
     if (text.trim()) parts.push(`第${chapter.number}章 ${chapter.title}\n\n${text}`);
   }
-  return { title: book.title, text: parts.join("\n\n") };
+  if (parts.length > 0) return { title: book.title, text: parts.join("\n\n") };
+  const storyDir = join(dir, "story");
+  const sourceFiles = [
+    ["故事设定", "outline/story_frame.md"],
+    ["故事走向", "outline/volume_map.md"],
+    ["写作规则", "book_rules.md"],
+    ["悬念与伏笔", "pending_hooks.md"],
+    ["当前状态", "current_state.md"],
+  ] as const;
+  const sections = (await Promise.all(sourceFiles.map(async ([title, file]) => {
+    const content = await readFile(join(storyDir, file), "utf-8").catch(() => "");
+    return content.trim() ? { title, content } : null;
+  }))).filter((section): section is NonNullable<typeof section> => Boolean(section));
+  return { title: book.title, text: buildBookSourceFallbackText(sections) };
 }
 
 async function readStorySource(context: StudioRouteContext, kind: StoryKind, id: string): Promise<StorySource> {
