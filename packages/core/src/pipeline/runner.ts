@@ -709,6 +709,7 @@ export class PipelineRunner {
       mode,
       sourceType,
       ...(normalizedSourceRef ? { sourceRef: normalizedSourceRef } : {}),
+      processingStatus: "ready",
       summary: buildCraftMetaSummary(profile),
       ...(profile.videoStory?.wordCountEstimate?.recommended
         ? { recommendedWordCount: profile.videoStory.wordCountEstimate.recommended }
@@ -719,6 +720,49 @@ export class PipelineRunner {
     await writeFile(join(craftsDir, "meta.json"), JSON.stringify(meta, null, 2), "utf-8");
 
     return { craftId, profile };
+  }
+
+  async createPendingCraft(input: {
+    readonly craftId?: string;
+    readonly sourceName: string;
+    readonly language?: "zh" | "en";
+    readonly mode?: CraftMode;
+    readonly sourceType: "bilibili" | "novel";
+    readonly sourceRef?: string;
+  }): Promise<CraftMeta> {
+    const craftId = input.craftId?.trim() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const normalizedSourceRef = normalizeCraftSourceRef(input.sourceType, input.sourceRef);
+    const meta: CraftMeta = {
+      id: craftId,
+      sourceName: input.sourceName.trim(),
+      createdAt: new Date().toISOString(),
+      language: input.language ?? "zh",
+      ...(input.mode ? { mode: input.mode } : {}),
+      sourceType: input.sourceType,
+      ...(normalizedSourceRef ? { sourceRef: normalizedSourceRef } : {}),
+      processingStatus: "processing",
+      processingStage: "等待后台任务启动",
+      summary: "正在获取视频、字幕并解析写作模式",
+    };
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    await mkdir(craftsDir, { recursive: true });
+    await writeFile(join(craftsDir, "meta.json"), JSON.stringify(meta, null, 2), "utf-8");
+    return meta;
+  }
+
+  async updateCraftProcessing(
+    craftId: string,
+    patch: Pick<CraftMeta, "processingStatus" | "processingStage" | "processingError">,
+  ): Promise<CraftMeta> {
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    const metaPath = join(craftsDir, "meta.json");
+    const current = JSON.parse(await readFile(metaPath, "utf-8")) as CraftMeta;
+    const next: CraftMeta = {
+      ...current,
+      ...patch,
+    };
+    await writeFile(metaPath, JSON.stringify(next, null, 2), "utf-8");
+    return next;
   }
 
   /** List all saved craft profiles. */

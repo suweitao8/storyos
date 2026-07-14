@@ -35,6 +35,86 @@ const profile: CraftProfile = {
 describe("video craft source idempotency", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("persists processing status before analysis and marks the same craft ready after analysis", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-craft-processing-"));
+    try {
+      vi.spyOn(CraftAnalyzerAgent.prototype, "analyze").mockResolvedValue(profile);
+      const runner = new PipelineRunner({
+        client: {
+          provider: "openai",
+          apiFormat: "chat",
+          stream: false,
+          defaults: { temperature: 0, maxTokens: 1000, thinkingBudget: 0 },
+        } as never,
+        model: "test-model",
+        projectRoot: root,
+      });
+
+      const pending = await runner.createPendingCraft({
+        craftId: "pending-craft",
+        sourceName: "BV1YBTb6sEEr",
+        language: "zh",
+        mode: "bilibili-short-story",
+        sourceType: "bilibili",
+        sourceRef: "BV1YBTb6sEEr",
+      });
+      expect(pending.processingStatus).toBe("processing");
+      expect((await runner.listCrafts())[0]?.processingStatus).toBe("processing");
+
+      await runner.updateCraftProcessing("pending-craft", {
+        processingStage: "正在获取字幕",
+      });
+      expect((await runner.listCrafts())[0]?.processingStage).toBe("正在获取字幕");
+
+      const result = await runner.analyzeCraft(
+        "字幕",
+        "测试视频",
+        "zh",
+        "bilibili-short-story",
+        "bilibili",
+        "BV1YBTb6sEEr",
+        undefined,
+        "pending-craft",
+      );
+      expect(result.craftId).toBe("pending-craft");
+      const readyMeta = JSON.parse(await readFile(join(root, "crafts", "pending-craft", "meta.json"), "utf8")) as { processingStatus?: string };
+      expect(readyMeta.processingStatus).toBe("ready");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("persists a retryable processing error without deleting the craft", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-craft-processing-error-"));
+    try {
+      const runner = new PipelineRunner({
+        client: {} as never,
+        model: "test-model",
+        projectRoot: root,
+      });
+      await runner.createPendingCraft({
+        craftId: "failed-craft",
+        sourceName: "BV1YBTb6sEEr",
+        language: "zh",
+        mode: "bilibili-short-story",
+        sourceType: "bilibili",
+        sourceRef: "BV1YBTb6sEEr",
+      });
+
+      const errorMeta = await runner.updateCraftProcessing("failed-craft", {
+        processingStatus: "error",
+        processingStage: "后台任务失败",
+        processingError: "字幕获取失败",
+      });
+
+      expect(errorMeta.processingStatus).toBe("error");
+      expect(errorMeta.processingError).toBe("字幕获取失败");
+      expect((await runner.listCrafts())[0]?.id).toBe("failed-craft");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("reuses the existing craft directory when the same BVID is reparsed", async () => {
     const root = await mkdtemp(join(tmpdir(), "storyos-craft-idempotency-"));
     try {
