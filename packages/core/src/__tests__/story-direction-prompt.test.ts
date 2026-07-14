@@ -58,21 +58,14 @@ describe("story direction prompt", () => {
 
     for (const section of [
       "故事名称",
-      "类型与基调",
-      "一句话故事钩子",
       "世界观与运行规则",
-      "角色与关系",
-      "核心冲突、代价与 stakes",
       "分段故事大纲",
-      "关键反转与线索回收",
-      "结局与情绪余味",
-      "画面与声音母题",
+      "原创要点",
     ]) {
       expect(prompt.user).toContain(section);
     }
     expect(prompt.user).toContain(profile.worldview);
     expect(prompt.system).toContain("Do not output <think>");
-    expect(prompt.system).toContain("十个基础 Markdown 板块");
     expect(prompt.system).toContain("500");
   });
 

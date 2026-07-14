@@ -1045,7 +1045,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(chatCompletionMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),
-      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("十个") })]),
+      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("500") })]),
       expect.objectContaining({ onTextDelta: expect.any(Function), retry: false }),
     );
   });

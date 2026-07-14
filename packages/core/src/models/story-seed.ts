@@ -1,17 +1,17 @@
-const REQUIRED_STORY_SEED_SECTION_DEFINITIONS = [
+export const REQUIRED_STORY_SEED_SECTION_DEFINITIONS = [
   { key: "title", zh: "故事名称", en: "Story title" },
-  { key: "genreTone", zh: "类型与基调", en: "Genre and tone" },
-  { key: "hook", zh: "一句话故事钩子", en: "One-line story hook" },
   { key: "worldview", zh: "世界观与运行规则", en: "Worldview and rules" },
-  { key: "characters", zh: "角色与关系", en: "Characters and relationships" },
-  { key: "conflict", zh: "核心冲突、代价与 stakes", en: "Core conflict, stakes, and cost" },
   { key: "outline", zh: "分段故事大纲", en: "Beat outline" },
-  { key: "reversals", zh: "关键反转与线索回收", en: "Key reversals and clue payoffs" },
-  { key: "ending", zh: "结局与情绪余味", en: "Ending and emotional aftertaste" },
-  { key: "visualAudioMotifs", zh: "画面与声音母题", en: "Visual and audio motifs" },
 ] as const;
 
 const OPTIONAL_STORY_SEED_SECTION_DEFINITIONS = [
+  { key: "genreTone", zh: "类型与基调", en: "Genre and tone" },
+  { key: "hook", zh: "一句话故事钩子", en: "One-line story hook" },
+  { key: "characters", zh: "角色与关系", en: "Characters and relationships" },
+  { key: "conflict", zh: "核心冲突、代价与 stakes", en: "Core conflict, stakes, and cost" },
+  { key: "reversals", zh: "关键反转与线索回收", en: "Key reversals and clue payoffs" },
+  { key: "ending", zh: "结局与情绪余味", en: "Ending and emotional aftertaste" },
+  { key: "visualAudioMotifs", zh: "画面与声音母题", en: "Visual and audio motifs" },
   { key: "originalizationPlan", zh: "原创化改编方案", en: "Originality transformation plan" },
 ] as const;
 
@@ -24,15 +24,16 @@ export type StorySeedSectionKey = typeof STORY_SEED_SECTION_DEFINITIONS[number][
 
 export interface StorySeed {
   readonly title: string;
-  readonly genreTone: string;
-  readonly hook: string;
   readonly worldview: string;
-  readonly characters: string;
-  readonly conflict: string;
   readonly outline: string;
-  readonly reversals: string;
-  readonly ending: string;
-  readonly visualAudioMotifs: string;
+  /** Optional — kept for backwards compatibility with legacy seeds. */
+  readonly genreTone?: string;
+  readonly hook?: string;
+  readonly characters?: string;
+  readonly conflict?: string;
+  readonly reversals?: string;
+  readonly ending?: string;
+  readonly visualAudioMotifs?: string;
   /** Optional for backwards compatibility with legacy ten-section seeds. */
   readonly originalizationPlan?: string;
 }
@@ -116,19 +117,16 @@ export function parseStorySeed(markdown: string): StorySeed {
     .filter((key) => !values.get(key));
   if (missingSections.length > 0) throw new StorySeedParseError(missingSections);
 
-  const optionalOriginalizationPlan = values.get("originalizationPlan");
+  const optionalFields: Record<string, string> = {};
+  for (const key of ["genreTone", "hook", "characters", "conflict", "reversals", "ending", "visualAudioMotifs", "originalizationPlan"] as const) {
+    const value = values.get(key);
+    if (value) optionalFields[key] = value;
+  }
   return {
     title: values.get("title")!,
-    genreTone: values.get("genreTone")!,
-    hook: values.get("hook")!,
     worldview: values.get("worldview")!,
-    characters: values.get("characters")!,
-    conflict: values.get("conflict")!,
     outline: values.get("outline")!,
-    reversals: values.get("reversals")!,
-    ending: values.get("ending")!,
-    visualAudioMotifs: values.get("visualAudioMotifs")!,
-    ...(optionalOriginalizationPlan ? { originalizationPlan: optionalOriginalizationPlan } : {}),
+    ...optionalFields,
   };
 }
 

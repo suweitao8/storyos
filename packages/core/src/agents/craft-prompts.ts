@@ -1,5 +1,5 @@
 import type { CraftMode, CraftProfile } from "../models/craft-profile.js";
-import { STORY_SEED_SECTION_DEFINITIONS } from "../models/story-seed.js";
+import { STORY_SEED_SECTION_DEFINITIONS, REQUIRED_STORY_SEED_SECTION_DEFINITIONS } from "../models/story-seed.js";
 import { formatCraftBreakdownModules } from "./craft-breakdown.js";
 
 // ---------------------------------------------------------------------------
@@ -602,31 +602,33 @@ export function buildStorySeedPrompt(
             : "没有上一版种子。请生成一个有力的初版。",
         ].join("\n\n"),
       };
-  const labels = STORY_SEED_SECTION_DEFINITIONS
-    .map((definition) => language === "zh" ? definition.zh : definition.en)
-    .join(", ");
+  const labels = [
+    ...REQUIRED_STORY_SEED_SECTION_DEFINITIONS,
+    { key: "originalizationPlan", zh: "原创要点", en: "Originality notes" },
+  ].map((definition) => language === "zh" ? definition.zh : definition.en).join(", ");
 
   return {
     system: [
       base.system,
-      "只返回下方要求的十个基础 Markdown 板块和一个原创化改编方案板块。",
-      "Return only the ten required Markdown sections plus one originality transformation plan.",
+      language === "zh"
+        ? "只返回下方要求的 Markdown 板块。"
+        : "Return only the Markdown sections listed below.",
       "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。Do not output <think>, reasoning, analysis, prefaces, or Markdown fences.",
       language === "zh"
-        ? "极简输出。全部板块正文加起来控制在 500 字左右。每个板块一两句话就行，概括核心即可，不要展开细节。"
-        : "Be extremely concise. All section bodies combined should be around 500 words. One or two sentences per section — summarize the core, do not elaborate.",
+        ? "极简输出。故事名称一句话，世界观两三句话，大纲是核心——用 300-400 字讲清楚整个故事从开头到结局发生了什么。原创要点一两句话。总共控制在 500 字左右。"
+        : "Be extremely concise. Story title: one line. Worldview: 2-3 sentences. Outline is the core — 300-400 words covering the entire story from beginning to end. Total around 500 words.",
     ].join("\n"),
     user: [
       base.user,
       language === "zh"
-        ? `严格按以下顺序输出十一个二级 Markdown 标题：${labels}。每个标题下面写一两句话就行，不要展开。`
-        : `Output exactly these eleven level-two Markdown headings in this order: ${labels}. One or two sentences under each heading.`,
+        ? `按以下顺序输出二级 Markdown 标题：${labels}。`
+        : `Output these level-two Markdown headings in this order: ${labels}.`,
       language === "zh"
-        ? "这是给短片创作使用的故事种子：大纲按'发生了什么→主角怎么应对→结果怎样'概括剧情走向就行，不写写作手法。"
-        : "This seed is for a short film: summarize the plot flow as what happens, how the protagonist responds, and the outcome. No writing techniques.",
+        ? "大纲只写剧情：谁做了什么、出了什么事、结果怎样。按时间顺序从头到尾讲一遍，不要写写作手法或节奏术语。"
+        : "The outline tells only what happens: who does what, what goes wrong, how it ends. Chronological from start to finish. No writing techniques.",
       language === "zh"
-        ? "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。如果读者看完觉得和参考作品太像，那就是失败的。"
-        : "Remember: you are creating an original story, not adapting the reference material. Only borrow why it works, never copy its characters, plot, dialogue, or events. If the result feels like the same story with different names, it has failed.",
+        ? "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。"
+        : "Remember: you are creating an original story, not adapting the reference material. Only borrow why it works, never copy its characters, plot, dialogue, or events.",
     ].join("\n\n"),
   };
 }

@@ -11,23 +11,23 @@ import {
 const COMPLETE_SEED_MARKDOWN = `## 故事名称
 凌晨两点十七分
 
+## 世界观与运行规则
+老楼会在固定时间抹去一户人的存在，回应电话会丢失一条相关记忆。
+
+## 分段故事大纲
+开场发现电话；中段调查门牌；转折发现自己已忘记林槐；高潮在第二次敲门前选择回应；结局留下代价。
+
 ## 类型与基调
 都市灵异悬疑，冷峻压迫
 
 ## 一句话故事钩子
 守夜维修员接到已故邻居的来电，必须在第二次敲门前找回一户被抹掉的人。
 
-## 世界观与运行规则
-老楼会在固定时间抹去一户人的存在，回应电话会丢失一条相关记忆。
-
 ## 角色与关系
 周砚是害怕被遗忘的维修员；林槐只能通过电话留下痕迹。
 
 ## 核心冲突、代价与 stakes
 周砚要找回林槐一家，但每次接听都会牺牲自己的记忆。
-
-## 分段故事大纲
-开场发现电话；中段调查门牌；转折发现自己已忘记林槐；高潮在第二次敲门前选择回应；结局留下代价。
 
 ## 关键反转与线索回收
 门牌变化不是诅咒的结果，而是周砚主动参与抹除的记录。
@@ -60,8 +60,11 @@ const ORIGINALIZED_SEED_MARKDOWN = `${COMPLETE_SEED_MARKDOWN.trim()}
 describe("short story seed", () => {
   it("recognizes complete seeds and rejects incomplete runtime values", () => {
     expect(isStorySeed(COMPLETE_SEED)).toBe(true);
-    expect(isStorySeed({ ...COMPLETE_SEED, ending: "" })).toBe(false);
+    // Optional fields can be empty
+    expect(isStorySeed({ ...COMPLETE_SEED, ending: "" })).toBe(true);
+    // Required fields cannot be wrong type
     expect(isStorySeed({ ...COMPLETE_SEED, outline: 42 })).toBe(false);
+    expect(isStorySeed({ ...COMPLETE_SEED, title: "" })).toBe(false);
     expect(isStorySeed(null)).toBe(false);
   });
 
@@ -81,8 +84,8 @@ describe("short story seed", () => {
   });
 
   it("reports the missing required section instead of returning a partial seed", () => {
-    expect(() => parseStorySeed(COMPLETE_SEED_MARKDOWN.replace("## 结局与情绪余味\n周砚救回一个孩子，却忘记了孩子的名字，楼道恢复安静。\n\n", ""))).toThrowError(
-      new StorySeedParseError(["ending"]),
+    expect(() => parseStorySeed(COMPLETE_SEED_MARKDOWN.replace("## 故事名称\n凌晨两点十七分\n\n", ""))).toThrowError(
+      new StorySeedParseError(["title"]),
     );
   });
 

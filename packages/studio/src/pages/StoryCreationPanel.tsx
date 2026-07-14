@@ -229,7 +229,7 @@ export function StoryCreationPanel({
       && (kind === "long"
         ? longTitle.trim() && longGenre.trim() && longDirection.trim()
         : shortSeed
-          ? Object.values(shortSeed).every((value) => value.trim())
+          ? Boolean(shortSeed.title?.trim() && shortSeed.worldview?.trim() && shortSeed.outline?.trim())
           : shortDirection.trim()),
   );
 
