@@ -13,7 +13,7 @@ import {
 import type { StudioRouteContext } from "./context.js";
 import { isSafeBookId } from "../safety.js";
 import {
-  buildSrtContent,
+  buildAssContent,
   buildSubtitleEntries,
   parseUnifiedScript,
   type UnifiedScriptDocument,
@@ -296,9 +296,9 @@ async function composeSegmentVideo(args: {
   if (entries.length === 0) throw new Error("场景中没有可用于字幕或配音的台词");
   const durationMs = entries[entries.length - 1]!.endTimeMs + 800;
   await mkdir(args.tempDir, { recursive: true });
-  const srtPath = join(args.tempDir, "sub.srt");
+  const assPath = join(args.tempDir, "sub.ass");
   const audioPath = join(args.tempDir, "audio.wav");
-  await writeFile(srtPath, buildSrtContent(entries), "utf-8");
+  await writeFile(assPath, buildAssContent(entries, { blur: 3, shadow: 1, fontSize: 12 }), "utf-8");
 
   let voiceEnabled = false;
   let warning: string | undefined;
@@ -322,7 +322,7 @@ async function composeSegmentVideo(args: {
     warning = "未配置可用的语音模型或 API Key，已降级为字幕视频。";
   }
 
-  const subtitleFilter = `subtitles='${escapeFfmpegFilterPath(srtPath)}':force_style='FontName=Microsoft YaHei,FontSize=12,PrimaryColour=&HFFFFFF,OutlineColour=&H80000000,Outline=0,Shadow=4,Alignment=2,MarginV=48'`;
+  const subtitleFilter = `subtitles='${escapeFfmpegFilterPath(assPath)}'`;
   const baseArgs = [
     "-y",
     "-f", "lavfi",
