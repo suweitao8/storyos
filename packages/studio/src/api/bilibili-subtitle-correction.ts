@@ -49,16 +49,17 @@ export function applySubtitleCorrection(
 
   const byIndex = new Map<number, string>();
   for (const item of parsed as SubtitleCorrectionItem[]) {
-    if (!Number.isInteger(item.index) || item.index < 0 || item.index >= source.length) {
+    const index = item.index;
+    if (typeof index !== "number" || !Number.isInteger(index) || index < 0 || index >= source.length) {
       throw new Error("字幕校正结果包含无效段落序号");
     }
     if (typeof item.content !== "string" || !item.content.trim()) {
       throw new Error("字幕校正结果包含空字幕正文");
     }
-    if (byIndex.has(item.index)) {
+    if (byIndex.has(index)) {
       throw new Error("字幕校正结果包含重复段落序号");
     }
-    byIndex.set(item.index, item.content.trim());
+    byIndex.set(index, item.content.trim());
   }
 
   const entries = source.map((entry, index) => {
