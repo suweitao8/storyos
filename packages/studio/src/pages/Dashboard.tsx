@@ -32,6 +32,7 @@ interface BookSummary {
   readonly chaptersWritten: number;
   readonly language?: string;
   readonly fanficMode?: string;
+  readonly deletedAt?: string;
 }
 
 interface Nav {
@@ -42,12 +43,14 @@ interface Nav {
   toServices: () => void;
 }
 
-function BookMenu({ bookId, bookTitle, nav, t, onDelete, onOpenChange }: {
+function BookMenu({ bookId, bookTitle, deletedAt, nav, t, onDelete, onRestore, onOpenChange }: {
   readonly bookId: string;
   readonly bookTitle: string;
+  readonly deletedAt?: string;
   readonly nav: Nav;
   readonly t: TFunction;
   readonly onDelete: () => void;
+  readonly onRestore: () => void;
   readonly onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpenRaw] = useState(false);
@@ -87,36 +90,48 @@ function BookMenu({ bookId, bookTitle, nav, t, onDelete, onOpenChange }: {
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-card border border-border rounded-xl shadow-lg shadow-primary/5 py-1 z-50 fade-in">
-          <button
-            onClick={() => { setOpen(false); nav.toBookSettings(bookId); }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-secondary/50 transition-colors cursor-pointer"
-          >
-            <Settings size={14} className="text-muted-foreground" />
-            {t("book.settings")}
-          </button>
-          <a
-            href={`/api/v1/books/${bookId}/export?format=txt`}
-            download
-            onClick={() => setOpen(false)}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-secondary/50 transition-colors cursor-pointer"
-          >
-            <Download size={14} className="text-muted-foreground" />
-            {t("book.export")}
-          </a>
-          <div className="border-t border-border/50 my-1" />
-          <button
-            onClick={() => { setOpen(false); setConfirmDelete(true); }}
-            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-          >
-            <Trash2 size={14} />
-            {t("book.deleteBook")}
-          </button>
+          {deletedAt ? (
+            <button
+              onClick={() => { setOpen(false); onRestore(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+            >
+              <Trash2 size={14} />
+              {t("common.restore")}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { setOpen(false); nav.toBookSettings(bookId); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-secondary/50 transition-colors cursor-pointer"
+              >
+                <Settings size={14} className="text-muted-foreground" />
+                {t("book.settings")}
+              </button>
+              <a
+                href={`/api/v1/books/${bookId}/export?format=txt`}
+                download
+                onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-secondary/50 transition-colors cursor-pointer"
+              >
+                <Download size={14} className="text-muted-foreground" />
+                {t("book.export")}
+              </a>
+              <div className="border-t border-border/50 my-1" />
+              <button
+                onClick={() => { setOpen(false); setConfirmDelete(true); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+              >
+                <Trash2 size={14} />
+                {t("book.deleteBook")}
+              </button>
+            </>
+          )}
         </div>
       )}
       <ConfirmDialog
-        open={confirmDelete}
+        open={confirmDelete && !deletedAt}
         title={t("book.deleteBook")}
-        message={`${t("book.confirmDelete")}\n\n"${bookTitle}"`}
+        message={`${t("book.confirmTrash")}\n\n"${bookTitle}"`}
         confirmLabel={t("common.delete")}
         cancelLabel={t("common.cancel")}
         variant="danger"
@@ -216,12 +231,13 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
 
       <div className="grid gap-6">
         {data.books.map((book, index) => {
-          const isWriting = writingBooks.has(book.id);
+          const isWriting = writingBooks.has(book.id) && !book.deletedAt;
+          const isDeleted = Boolean(book.deletedAt);
           const staggerClass = `stagger-${Math.min(index + 1, 5)}`;
           return (
             <div
               key={book.id}
-              className={`paper-sheet group relative rounded-2xl fade-in ${staggerClass} ${menuOpenBookId === book.id ? "z-50" : ""}`}
+              className={`paper-sheet group relative rounded-2xl fade-in ${staggerClass} ${menuOpenBookId === book.id ? "z-50" : ""} ${isDeleted ? "opacity-55 grayscale" : ""}`}
             >
               <div className="p-8 flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -230,14 +246,16 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                       <BookOpen size={20} />
                     </div>
                     <button
+                      disabled={isDeleted}
                       onClick={() => nav.toBook(book.id)}
-                      className="font-serif text-2xl hover:text-primary transition-all text-left truncate block font-medium hover:underline underline-offset-4 decoration-primary/30"
+                      className={`font-serif text-2xl transition-all text-left truncate block font-medium ${isDeleted ? "cursor-not-allowed text-muted-foreground" : "hover:text-primary hover:underline underline-offset-4 decoration-primary/30"}`}
                     >
                       {book.title}
                     </button>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-[13px] text-muted-foreground font-medium">
+                    {isDeleted && <span className="rounded bg-secondary px-2 py-0.5 text-xs">垃圾桶 · 72 小时后自动清理</span>}
                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary/50">
                       <span className="uppercase tracking-wider">{book.genre}</span>
                     </div>
@@ -278,7 +296,7 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                       try { await postApi(`/books/${book.id}/write-next`); }
                       catch (e) { alert(e instanceof Error ? e.message : "Write failed"); }
                     }}
-                    disabled={isWriting}
+                    disabled={isWriting || isDeleted}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
                       isWriting
                         ? "bg-primary/20 text-primary cursor-wait animate-pulse"
@@ -299,7 +317,8 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                   </button>
                   <button
                     onClick={() => nav.toAnalytics(book.id)}
-                    className="p-3 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30 hover:shadow-md hover:scale-105 active:scale-95 transition-all border border-border/50 shadow-sm"
+                    disabled={isDeleted}
+                    className="p-3 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10 hover:border-primary/30 hover:shadow-md hover:scale-105 active:scale-95 transition-all border border-border/50 shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
                     title={t("dash.stats")}
                   >
                     <BarChart2 size={18} />
@@ -307,9 +326,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                   <BookMenu
                     bookId={book.id}
                     bookTitle={book.title}
+                    deletedAt={book.deletedAt}
                     nav={nav}
                     t={t}
                     onDelete={() => refetch()}
+                    onRestore={async () => {
+                      await fetchJson(`/books/${book.id}/restore`, { method: "POST" });
+                      await refetch();
+                    }}
                     onOpenChange={(isOpen) => setMenuOpenBookId(isOpen ? book.id : null)}
                   />
                 </div>

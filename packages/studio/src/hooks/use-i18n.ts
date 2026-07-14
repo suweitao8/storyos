@@ -109,6 +109,7 @@ const strings = {
   // Book Detail extras
   "book.deleteBook": { zh: "删除书籍", en: "Delete Book" },
   "book.confirmDelete": { zh: "确认删除此书及所有章节？", en: "Delete this book and all chapters?" },
+  "book.confirmTrash": { zh: "确认将此书移入垃圾桶吗？72 小时后会自动删除。", en: "Move this book to trash? It will be deleted automatically after 72 hours." },
   "book.settings": { zh: "书籍设置", en: "Book Settings" },
   "book.status": { zh: "状态", en: "Status" },
   "book.drafting": { zh: "草稿中...", en: "Drafting..." },
@@ -383,6 +384,7 @@ const strings = {
   "common.save": { zh: "保存", en: "Save" },
   "common.cancel": { zh: "取消", en: "Cancel" },
   "common.delete": { zh: "删除", en: "Delete" },
+  "common.restore": { zh: "恢复", en: "Restore" },
   "common.edit": { zh: "编辑", en: "Edit" },
   "common.error": { zh: "错误", en: "Error" },
   "common.loading": { zh: "加载中...", en: "Loading..." },

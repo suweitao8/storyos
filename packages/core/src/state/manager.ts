@@ -214,7 +214,7 @@ export class StateManager {
     });
   }
 
-  async listBooks(): Promise<ReadonlyArray<string>> {
+  async listBooks(options: { readonly includeDeleted?: boolean } = {}): Promise<ReadonlyArray<string>> {
     try {
       const entries = await readdir(this.booksDir);
       const bookIds: string[] = [];
@@ -222,6 +222,10 @@ export class StateManager {
         const bookJsonPath = join(this.booksDir, entry, "book.json");
         try {
           await stat(bookJsonPath);
+          if (!options.includeDeleted) {
+            const config = JSON.parse(await readFile(bookJsonPath, "utf-8")) as { deletedAt?: unknown };
+            if (typeof config.deletedAt === "string" && config.deletedAt.length > 0) continue;
+          }
           bookIds.push(entry);
         } catch {
           // not a book directory

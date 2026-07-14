@@ -1,6 +1,7 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isSafeBookId } from "./safety.js";
+import { isSoftDeleteExpired, sortSoftDeletedLast } from "./soft-delete.js";
 
 export interface StudioShortStorySummary {
   readonly id: string;
@@ -10,6 +11,42 @@ export interface StudioShortStorySummary {
   readonly chaptersWritten: number;
   readonly wordCount: number;
   readonly updatedAt: number;
+  readonly deletedAt?: string;
+}
+
+const TRASH_MARKER = ".trash.json";
+
+interface TrashMarker {
+  readonly deletedAt: string;
+}
+
+function shortStoryDir(root: string, storyId: string): string {
+  if (!isSafeBookId(storyId)) throw new Error("Invalid short story id");
+  return join(root, "shorts", storyId);
+}
+
+async function readTrashMarker(directory: string): Promise<TrashMarker | null> {
+  try {
+    return JSON.parse(await readFile(join(directory, TRASH_MARKER), "utf-8")) as TrashMarker;
+  } catch {
+    return null;
+  }
+}
+
+export async function softDeleteShortStory(root: string, storyId: string, deletedAt = new Date().toISOString()): Promise<void> {
+  const directory = shortStoryDir(root, storyId);
+  await writeFile(join(directory, TRASH_MARKER), JSON.stringify({ deletedAt }, null, 2), "utf-8");
+}
+
+export async function restoreShortStory(root: string, storyId: string): Promise<void> {
+  const directory = shortStoryDir(root, storyId);
+  await stat(directory);
+  await rm(join(directory, TRASH_MARKER), { force: true });
+}
+
+export async function getShortStoryDeletedAt(root: string, storyId: string): Promise<string | undefined> {
+  const marker = await readTrashMarker(shortStoryDir(root, storyId));
+  return marker?.deletedAt;
 }
 
 interface ShortStoryArtifact {
@@ -39,6 +76,12 @@ export async function listStudioShortStories(root: string): Promise<ReadonlyArra
   const stories = await Promise.all(entries
     .filter((entry) => entry.isDirectory() && isSafeBookId(entry.name))
     .map(async (entry): Promise<StudioShortStorySummary | null> => {
+      const directory = join(shortRoot, entry.name);
+      const trash = await readTrashMarker(directory);
+      if (trash?.deletedAt && isSoftDeleteExpired(trash.deletedAt)) {
+        await rm(directory, { recursive: true, force: true });
+        return null;
+      }
       const finalDir = join(shortRoot, entry.name, "final");
       const fullPath = join(finalDir, "full.md");
       try {
@@ -81,13 +124,18 @@ export async function listStudioShortStories(root: string): Promise<ReadonlyArra
           chaptersWritten: chapters,
           wordCount,
           updatedAt: fileStats.mtimeMs,
+          ...(trash?.deletedAt ? { deletedAt: trash.deletedAt } : {}),
         };
       } catch {
         return null;
       }
     }));
 
-  return stories
-    .filter((story): story is StudioShortStorySummary => story !== null)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const visibleStories = stories.filter((story): story is StudioShortStorySummary => story !== null);
+  return [...sortSoftDeletedLast(visibleStories)].sort((a, b) => {
+    const leftDeleted = Boolean(a.deletedAt);
+    const rightDeleted = Boolean(b.deletedAt);
+    if (leftDeleted !== rightDeleted) return leftDeleted ? 1 : -1;
+    return b.updatedAt - a.updatedAt;
+  });
 }

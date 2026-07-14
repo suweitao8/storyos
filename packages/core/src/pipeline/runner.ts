@@ -36,6 +36,7 @@ import type { ChapterMemo, ContextPackage, RuleStack } from "../models/input-gov
 import type { ContextCompressionCallback } from "../models/context-compression.js";
 import { buildLengthSpec, countChapterLength, formatLengthCount, isOutsideHardRange, resolveLengthCountingMode, type LengthLanguage } from "../utils/length-metrics.js";
 import { analyzeLongSpanFatigue } from "../utils/long-span-fatigue.js";
+import { isSoftDeleteExpired, sortSoftDeletedLast } from "../utils/soft-delete.js";
 import {
   isNewLayoutBook,
   readCharacterContext,
@@ -722,7 +723,7 @@ export class PipelineRunner {
   }
 
   /** List all saved craft profiles. */
-  async listCrafts(): Promise<CraftMeta[]> {
+  async listCrafts(options: { readonly includeDeleted?: boolean } = {}): Promise<CraftMeta[]> {
     const craftsRoot = join(this.config.projectRoot, "crafts");
     try {
       const entries = await readdir(craftsRoot, { withFileTypes: true });
@@ -732,6 +733,11 @@ export class PipelineRunner {
         try {
           const raw = await readFile(join(craftsRoot, entry.name, "meta.json"), "utf-8");
           const meta = JSON.parse(raw) as CraftMeta;
+          if (isSoftDeleteExpired(meta.deletedAt)) {
+            await rm(join(craftsRoot, entry.name), { recursive: true, force: true });
+            continue;
+          }
+          if (meta.deletedAt && !options.includeDeleted) continue;
           const storySeed = await this.loadCraftStorySeed(entry.name);
           if (!meta.summary || meta.recommendedWordCount === undefined) {
             const profile = await this.loadCraft(entry.name);
@@ -750,7 +756,12 @@ export class PipelineRunner {
           // skip broken entries
         }
       }
-      return metas.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return [...sortSoftDeletedLast(metas)].sort((a, b) => {
+        const leftDeleted = Boolean(a.deletedAt);
+        const rightDeleted = Boolean(b.deletedAt);
+        if (leftDeleted !== rightDeleted) return leftDeleted ? 1 : -1;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
     } catch {
       return [];
     }
@@ -758,6 +769,13 @@ export class PipelineRunner {
 
   /** Load a single craft profile by ID. */
   async loadCraft(craftId: string): Promise<CraftProfile | null> {
+    try {
+      const rawMeta = await readFile(join(this.config.projectRoot, "crafts", craftId, "meta.json"), "utf-8");
+      const meta = JSON.parse(rawMeta) as CraftMeta;
+      if (meta.deletedAt) return null;
+    } catch {
+      // Keep the existing profile-only compatibility path for legacy crafts.
+    }
     const profilePath = join(this.config.projectRoot, "crafts", craftId, "craft_profile.json");
     try {
       const raw = await readFile(profilePath, "utf-8");
@@ -805,10 +823,22 @@ export class PipelineRunner {
     }
   }
 
-  /** Delete a craft profile by ID. */
+  /** Move a craft profile to the trash. */
   async deleteCraft(craftId: string): Promise<void> {
     const craftDir = join(this.config.projectRoot, "crafts", craftId);
-    await rm(craftDir, { recursive: true, force: true });
+    const metaPath = join(craftDir, "meta.json");
+    const meta = JSON.parse(await readFile(metaPath, "utf-8")) as CraftMeta;
+    if (meta.deletedAt) return;
+    await writeFile(metaPath, JSON.stringify({ ...meta, deletedAt: new Date().toISOString() }, null, 2), "utf-8");
+  }
+
+  /** Restore a craft profile from the trash. */
+  async restoreCraft(craftId: string): Promise<void> {
+    const metaPath = join(this.config.projectRoot, "crafts", craftId, "meta.json");
+    const meta = JSON.parse(await readFile(metaPath, "utf-8")) as CraftMeta;
+    if (!meta.deletedAt) return;
+    const { deletedAt: _deletedAt, ...restored } = meta;
+    await writeFile(metaPath, JSON.stringify(restored, null, 2), "utf-8");
   }
 
   async initBook(book: BookConfig, options: InitBookOptions = {}): Promise<void> {

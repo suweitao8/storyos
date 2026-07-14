@@ -230,6 +230,8 @@ export interface CraftMeta {
   readonly storySeed?: StorySeed;
   /** Genre id this craft is associated with (e.g. xianxia, horror). User-editable. */
   readonly genre?: string;
+  /** ISO timestamp when the craft was moved to the trash. */
+  readonly deletedAt?: string;
 }
 
 export function normalizeCraftSourceRef(

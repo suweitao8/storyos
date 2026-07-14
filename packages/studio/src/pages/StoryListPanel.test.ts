@@ -74,4 +74,23 @@ describe("StoryListPanel model", () => {
     expect(resolveStoryListStatus({ loading: false, error: null, records: [] })).toBe("empty");
     expect(resolveStoryListStatus({ loading: false, error: null, records: [{ id: "book-1", title: "Night Harbor" }] })).toBe("ready");
   });
+
+  it("renders trash records as disabled items with a restore action", () => {
+    const markup = renderToStaticMarkup(React.createElement(StoryListPanel, {
+      kind: "book",
+      records: [{
+        id: "deleted-book",
+        title: "Deleted book",
+        deletedAt: "2026-07-10T00:00:00.000Z",
+      }],
+      isZh: true,
+      onSelect: vi.fn(),
+      onDelete: vi.fn(),
+      onRestore: vi.fn(),
+    }));
+
+    expect(markup).toContain("垃圾桶");
+    expect(markup).toContain("恢复");
+    expect(markup).toContain("disabled");
+  });
 });

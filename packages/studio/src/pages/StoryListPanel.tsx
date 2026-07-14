@@ -1,8 +1,11 @@
-import { BookOpen, Feather, ScrollText, Trash2 } from "lucide-react";
+import { BookOpen, Feather, RotateCcw, ScrollText, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { sortSoftDeletedLast } from "../api/soft-delete";
 
 export type StoryListKind = "book" | "short" | "craft";
 
@@ -17,6 +20,7 @@ export interface StoryListRecord {
   readonly chaptersWritten?: number;
   readonly wordCount?: number;
   readonly recommendedWordCount?: number;
+  readonly deletedAt?: string;
 }
 
 export interface StoryListItem {
@@ -26,6 +30,7 @@ export interface StoryListItem {
   readonly wordCountLabel: string;
   readonly active: boolean;
   readonly onSelect: () => void;
+  readonly deleted: boolean;
 }
 
 export type StoryListStatus = "loading" | "error" | "empty" | "ready";
@@ -50,12 +55,13 @@ export function buildStoryListItems(
   activeId: string | null | undefined,
   onSelect: (id: string) => void,
 ): ReadonlyArray<StoryListItem> {
-  return records.map((record) => ({
+  return sortSoftDeletedLast(records).map((record) => ({
     id: record.id,
     title: record.title ?? record.sourceName ?? record.id,
     summary: formatSummary(record),
     wordCountLabel: formatWordCount(record),
     active: record.id === activeId,
+    deleted: Boolean(record.deletedAt),
     onSelect: () => onSelect(record.id),
   }));
 }
@@ -85,6 +91,7 @@ export interface StoryListPanelProps {
   readonly isZh: boolean;
   readonly onSelect: (id: string) => void;
   readonly onDelete?: (id: string) => void;
+  readonly onRestore?: (id: string) => void;
 }
 
 export function StoryListPanel({
@@ -96,7 +103,9 @@ export function StoryListPanel({
   isZh,
   onSelect,
   onDelete,
+  onRestore,
 }: StoryListPanelProps) {
+  const [deleteTarget, setDeleteTarget] = useState<StoryListItem | null>(null);
   const status = resolveStoryListStatus({ loading, error, records });
   const items = buildStoryListItems(kind, records, activeId, onSelect);
 
@@ -124,7 +133,9 @@ export function StoryListPanel({
               key={item.id}
               className={cn(
                 "relative min-h-40 rounded-2xl border p-5 transition-colors",
-                item.active
+                item.deleted
+                  ? "border-border/50 bg-secondary/30 text-muted-foreground opacity-65"
+                  : item.active
                   ? "border-primary/50 bg-primary/5 shadow-sm"
                   : "border-border/70 bg-card/40 hover:bg-secondary/20",
               )}
@@ -132,8 +143,9 @@ export function StoryListPanel({
               <button
                 type="button"
                 aria-current={item.active ? "page" : undefined}
+                disabled={item.deleted}
                 onClick={item.onSelect}
-                className="flex min-w-0 w-full flex-col items-start gap-3 pr-7 text-left"
+                className={cn("flex min-w-0 w-full flex-col items-start gap-3 pr-7 text-left", item.deleted ? "cursor-not-allowed" : "")}
               >
                 <span className={cn("shrink-0", item.active ? "text-primary" : "text-muted-foreground/60")}>
                   {kindIcon(kind)}
@@ -142,17 +154,34 @@ export function StoryListPanel({
                   <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
                   <span className="mt-2 block line-clamp-3 text-xs leading-5 text-muted-foreground">{item.summary}</span>
                 </span>
-                <span className="rounded-full border border-primary/20 bg-primary/[0.06] px-2 py-0.5 text-[11px] text-primary">
-                  {item.wordCountLabel}
+                <span className={cn(
+                  "rounded-full border px-2 py-0.5 text-[11px]",
+                  item.deleted
+                    ? "border-border/60 bg-secondary/50 text-muted-foreground"
+                    : "border-primary/20 bg-primary/[0.06] text-primary",
+                )}>
+                  {item.deleted ? (isZh ? "垃圾桶 · 72 小时后自动清理" : "Trash · auto-clears after 72 hours") : item.wordCountLabel}
                 </span>
               </button>
-              {onDelete ? (
+              {item.deleted && onRestore ? (
+                <button
+                  type="button"
+                  aria-label={isZh ? "恢复故事" : "Restore story"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRestore(item.id);
+                  }}
+                  className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              ) : onDelete && !item.deleted ? (
                 <button
                   type="button"
                   aria-label={isZh ? "删除故事" : "Delete story"}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onDelete(item.id);
+                    setDeleteTarget(item);
                   }}
                   className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-destructive"
                 >
@@ -163,6 +192,21 @@ export function StoryListPanel({
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={isZh ? "移入垃圾桶" : "Move to trash"}
+        message={isZh
+          ? `确认将“${deleteTarget?.title ?? ""}”移入垃圾桶吗？72 小时后会自动删除。`
+          : `Move “${deleteTarget?.title ?? ""}” to trash? It will be deleted automatically after 72 hours.`}
+        confirmLabel={isZh ? "移入垃圾桶" : "Move to trash"}
+        cancelLabel={isZh ? "取消" : "Cancel"}
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) onDelete?.(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </section>
   );
 }

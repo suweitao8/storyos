@@ -12,6 +12,7 @@ export const STUDIO_SSE_EVENTS = [
   "book:creating",
   "book:created",
   "book:deleted",
+  "book:restored",
   "book:error",
   "write:start",
   "write:complete",
