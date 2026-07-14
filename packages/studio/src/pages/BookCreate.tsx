@@ -82,9 +82,7 @@ interface SessionResponse {
 
 interface PlatformCopy {
   readonly idleTitle: string;
-  readonly idleBody: string;
   readonly formHeading: string;
-  readonly formHint: string;
   readonly titleLabel: string;
   readonly titlePlaceholder: string;
   readonly genreLabel: string;
@@ -99,7 +97,6 @@ interface PlatformCopy {
   readonly creationStatus: string;
   readonly creationSteps: ReadonlyArray<string>;
   readonly assistantHeading: string;
-  readonly assistantHint: string;
   readonly applyDraft: string;
   readonly promptLabel: string;
   readonly promptPlaceholder: string;
@@ -111,10 +108,7 @@ interface PlatformCopy {
   readonly discard: string;
   readonly draftHeading: string;
   readonly missingHeading: string;
-  readonly missingHint: string;
-  readonly syncedHint: string;
   readonly helperTitle: string;
-  readonly helperBody: string;
 }
 
 const PLATFORMS_ZH: ReadonlyArray<PlatformOption> = [
@@ -134,9 +128,7 @@ const PLATFORMS_EN: ReadonlyArray<PlatformOption> = [
 const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
   zh: {
     idleTitle: "从一句模糊想法开始",
-    idleBody: "先填清楚书名、题材和故事核心，系统会生成基础设定并进入新书工作台。",
     formHeading: "书籍基础信息",
-    formHint: "这些字段会直接进入建书流程。简介写得越具体，后续基础设定越稳定。",
     titleLabel: "书名",
     titlePlaceholder: "例如：夜港账本",
     genreLabel: "题材 / 类型",
@@ -151,7 +143,6 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
     creationStatus: "正在创建书籍，完成后会自动进入工作台。",
     creationSteps: ["写入书籍配置", "生成基础设定", "准备工作台"],
     assistantHeading: "需要先让 AI 帮你补设定？",
-    assistantHint: "这块是辅助草案，不是必须步骤。已有草案可以一键套用到左侧表单。",
     applyDraft: "套用草案",
     promptLabel: "继续打磨这本书",
     promptPlaceholder: "例如：我想写个港风商战悬疑，主角先做灰产再洗白。",
@@ -163,16 +154,11 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
     discard: "丢弃草案",
     draftHeading: "当前基础设定草案",
     missingHeading: "还缺这些关键信息",
-    missingHint: "这些字段未必都要一次填满，但缺得太多时不要急着建书。",
-    syncedHint: "这份草案和 TUI / Studio Chat 共享。",
     helperTitle: "建议这样推进",
-    helperBody: "先定世界观和主角，再定核心冲突、简介和卷一方向。想看当前草案时，可以在 TUI 里用 /draft。",
   },
   en: {
     idleTitle: "Start from a rough idea",
-    idleBody: "Fill in the title, genre, and story core first. InkOS will generate the foundation and open the new workspace.",
     formHeading: "Book basics",
-    formHint: "These fields go straight into creation. A concrete brief gives the foundation generator better material.",
     titleLabel: "Title",
     titlePlaceholder: "Example: Ledger of the Night Port",
     genreLabel: "Genre",
@@ -187,7 +173,6 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
     creationStatus: "Creating the book. The workspace will open automatically when it is ready.",
     creationSteps: ["Saving config", "Generating foundation", "Preparing workspace"],
     assistantHeading: "Want AI to shape the idea first?",
-    assistantHint: "This draft area is optional. If a draft looks useful, apply it to the form.",
     applyDraft: "Apply draft",
     promptLabel: "Refine this book",
     promptPlaceholder: "Example: I want a harbor-noir business thriller about a fixer trying to go legit.",
@@ -199,10 +184,7 @@ const PAGE_COPY: Record<"zh" | "en", PlatformCopy> = {
     discard: "Discard draft",
     draftHeading: "Current foundation draft",
     missingHeading: "Still missing",
-    missingHint: "You do not need every field immediately, but do not create the book while the foundation is still vague.",
-    syncedHint: "This draft is shared with TUI and Studio Chat.",
     helperTitle: "Recommended flow",
-    helperBody: "Lock the world and protagonist first, then settle the conflict, blurb, and volume-one direction. In TUI, use /draft to inspect the same draft.",
   },
 };
 
@@ -843,7 +825,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
 
       <div className="space-y-3">
         <h1 className="font-serif text-4xl">{t("create.title")}</h1>
-        <p className="text-sm text-muted-foreground leading-7 max-w-2xl">{copy.idleBody}</p>
       </div>
 
       {error && (
@@ -864,7 +845,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
             <div className="text-[11px] uppercase text-muted-foreground font-bold">
               {copy.formHeading}
             </div>
-            <p className="text-xs text-muted-foreground leading-6">{copy.formHint}</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -981,7 +961,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
               <div className="text-[11px] uppercase text-muted-foreground font-bold">
                 {copy.assistantHeading}
               </div>
-              <p className="text-xs text-muted-foreground leading-6">{copy.assistantHint}</p>
             </div>
 
             <textarea
@@ -1017,7 +996,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
               <div className="text-[11px] uppercase text-muted-foreground font-bold">
                 {copy.draftHeading}
               </div>
-              <p className="text-xs text-muted-foreground leading-6">{copy.syncedHint}</p>
             </div>
 
             {loadingDraft ? (
@@ -1075,7 +1053,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
                         </span>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground leading-6">{copy.missingHint}</p>
                   </div>
                 ) : null}
 
@@ -1098,9 +1075,6 @@ export function BookCreate({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunc
             ) : (
               <div className="rounded-md border border-dashed border-border/70 bg-background/50 px-4 py-5">
                 <div className="font-medium">{copy.idleTitle}</div>
-                <p className="mt-2 text-sm text-muted-foreground leading-7">
-                  {copy.helperBody}
-                </p>
               </div>
             )}
           </section>

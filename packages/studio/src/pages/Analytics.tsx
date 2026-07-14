@@ -37,8 +37,6 @@ export function Analytics({ bookId, nav, theme, t }: { bookId: string; nav: Nav;
         <span className={c.subtle}>{t("analytics.title")}</span>
       </div>
 
-      <h1 className="text-2xl font-semibold">{t("analytics.title")}</h1>
-
       <div className="grid grid-cols-3 gap-4">
         <StatCard label={t("analytics.totalChapters")} value={data.totalChapters.toString()} c={c} />
         <StatCard label={t("analytics.totalWords")} value={data.totalWords.toLocaleString()} c={c} />

@@ -66,7 +66,6 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
             {actionError || data.warning || data.video.warning ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">{actionError ?? data.warning ?? data.video.warning}</div> : null}
             {data.video.exists ? <video key={videoUrl} className="aspect-video w-full rounded-2xl border border-border/50 bg-black shadow-lg" src={videoUrl} controls preload="metadata" /> : <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">{isZh ? "还没有视频，点击右上角生成基础版本。" : "No video yet. Generate a first version above."}</div>}
             <div className="grid gap-3 sm:grid-cols-3"><MetaCard label={isZh ? "剧本镜头" : "Script shots"} value={String(data.script.shots.length)} /><MetaCard label={isZh ? "视频时长" : "Duration"} value={formatDuration(data.video.durationMs)} /><MetaCard label={isZh ? "音频" : "Audio"} value={data.video.voiceEnabled ? (isZh ? "已合成" : "Generated") : (isZh ? "字幕视频" : "Subtitles only")} /></div>
-            <p className="text-sm leading-6 text-muted-foreground">{isZh ? "这是今天可直接验证的基础版本：画面先使用统一底色和字幕，后续可把每个镜头的图像提示词替换成故事资产参考图。" : "This is the first verifiable version: a simple background and subtitles are used first, and shot image prompts can later be replaced with story asset references."}</p>
           </div>
         )}
       </div>

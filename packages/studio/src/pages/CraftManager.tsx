@@ -941,11 +941,6 @@ function CraftCreate({ c, t, sse, onSuccess }: {
                 : "border-border/60 bg-secondary/10 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
             >
               <div className="text-sm font-semibold">{source.label}</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                {source.value === "bilibili"
-                  ? "提取视频字幕并自动生成写作模式"
-                  : "上传小说文本并自动解析写作模式"}
-              </div>
             </button>
           );
         })}
@@ -953,12 +948,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
 
       {sourceType === "bilibili" && (
       <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
-        <div>
-          <div className="text-sm font-medium">B 站视频字幕</div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            只获取字幕，不保存完整视频。不需要 Cookie，优先读取公开 CC 字幕；没有公开字幕时会临时尝试音频识别。
-          </p>
-        </div>
+        <div className="text-sm font-medium">B 站视频字幕</div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="url"
@@ -1357,9 +1347,6 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
         </div>
         <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
           <div className="text-sm font-medium text-primary">{meta.processingStage ?? "后台处理中"}</div>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            你可以先离开此页面，后台会继续处理。返回后会自动刷新，完成后即可查看完整模式分析。
-          </p>
         </div>
         <button
           type="button"
@@ -1484,12 +1471,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       {detailTab === "story" && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold">默认故事设定</h3>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                系统会保留悬疑、反转和创作重点，但会用普通观众容易理解的表达，减少专业术语和过长说明。系统会自动检查当前模式是否已有故事设定；没有时会在后台生成并保存。生成期间可以离开页面，回来后会继续显示进度或结果。
-              </p>
-            </div>
+            <h3 className="text-sm font-semibold">默认故事设定</h3>
             <button
               type="button"
               onClick={() => void handleRegenerateStorySeed()}
@@ -1517,12 +1499,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       {detailTab === "overview" && craftId && (
         <section className={`border ${c.cardStatic} rounded-xl p-4`}>
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">题材</h3>
-              <p className="mt-1 text-xs text-muted-foreground/70">
-                选择该写作模式对应的题材，建书时会自动带入。
-              </p>
-            </div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">题材</h3>
             <div className="flex items-center gap-2">
               <select
                 value={genre}
@@ -1563,17 +1540,13 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       {detailTab === "video" && detail.videoStory && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary">视频节奏拆解</h3>
             {detail.videoStory.wordCountEstimate && (
               <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="text-xs font-medium text-muted-foreground">目标小说字数</div>
+                  <div className="text-xs font-medium text-muted-foreground">目标字数</div>
                   <div className="text-lg font-semibold text-primary">
                     目标 {detail.videoStory.wordCountEstimate.recommended.toLocaleString()} 字
                   </div>
-                </div>
-                <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                  这是创建原创短篇时使用的目标字数，按千字取整，不代表必须机械扩写到更长时长。
                 </div>
                 <div className="mt-2 text-xs leading-5 text-muted-foreground">
                   {detail.videoStory.wordCountEstimate.rationale}
@@ -1729,12 +1702,6 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       {detailTab === "source" && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold">原始资料</h3>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                创建模式时保存的文件和解析输入会一直保留，之后可以基于同一份资料重新解析。
-              </p>
-            </div>
             {source && <span className="text-xs text-muted-foreground">导入于 {new Date(source.importedAt).toLocaleString()}</span>}
           </div>
 
