@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BookOpen, FileText } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
@@ -30,6 +30,7 @@ interface StoryContentResponse {
 }
 
 type StorySectionGroup = "settings" | "world" | "outline" | "characters" | "other";
+type StorySettingsTab = StorySectionGroup | "chapters";
 
 export function groupStorySection(section: Pick<StorySection, "file" | "title">): StorySectionGroup {
   const file = section.file.toLowerCase();
@@ -54,6 +55,28 @@ const GROUP_LABELS: Record<StorySectionGroup, { readonly zh: string; readonly en
   other: { zh: "其他设定", en: "Other notes" },
 };
 
+export interface StorySettingsTabItem {
+  readonly id: StorySettingsTab;
+  readonly label: string;
+  readonly count: number;
+}
+
+export function buildStorySettingsTabItems(
+  groups: ReadonlyArray<readonly [StorySectionGroup, ReadonlyArray<unknown>]>,
+  chapterCount: number,
+  isZh: boolean,
+  isShortStory = false,
+): ReadonlyArray<StorySettingsTabItem> {
+  return [
+    ...groups.map(([group, sections]) => ({
+      id: group,
+      label: GROUP_LABELS[group][isZh ? "zh" : "en"],
+      count: sections.length,
+    })),
+    ...(chapterCount > 0 ? [{ id: "chapters" as const, label: isShortStory ? (isZh ? "故事正文" : "Story text") : (isZh ? "章节" : "Chapters"), count: isShortStory ? 0 : chapterCount }] : []),
+  ];
+}
+
 interface StorySettingsPanelProps {
   readonly bookId: string | null;
   readonly storyId: string | null;
@@ -64,6 +87,8 @@ interface StorySettingsPanelProps {
 export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: StorySettingsPanelProps) {
   const path = storyId ? `/shorts/${encodeURIComponent(storyId)}/content` : bookId ? `/books/${encodeURIComponent(bookId)}/content` : "";
   const { data, loading, error, refetch } = useApi<StoryContentResponse>(path);
+  const [activeTab, setActiveTab] = useState<StorySettingsTab>("settings");
+  const isShortStory = Boolean(storyId);
   const groups = useMemo(() => {
     const grouped = new Map<StorySectionGroup, StorySection[]>();
     for (const section of data?.sections ?? []) {
@@ -74,6 +99,9 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
     }
     return [...grouped.entries()];
   }, [data?.sections]);
+  const tabs = useMemo(() => buildStorySettingsTabItems(groups, data?.chapters.length ?? 0, isZh, isShortStory), [data?.chapters.length, groups, isShortStory, isZh]);
+  const selectedTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : (tabs[0]?.id ?? "settings");
+  const selectedGroup = selectedTab === "chapters" ? undefined : groups.find(([group]) => group === selectedTab);
   const wordCount = (data?.chapters ?? []).reduce((total, chapter) => total + (chapter.wordCount || 0), 0);
 
   return (
@@ -90,13 +118,39 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7">
         {!bookId && !storyId ? <DocumentEmpty text={isZh ? "创建故事后，这里会显示故事设定。" : "Story settings will appear after creation."} /> : loading && !data ? <DocumentEmpty text={isZh ? "正在加载故事设定..." : "Loading story settings..."} /> : error ? <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div> : !data ? <DocumentEmpty text={isZh ? "暂时没有故事设定。" : "No story settings yet."} /> : (
           <div className="space-y-8">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className={`grid gap-3 ${isShortStory ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               <MetadataCard label={isZh ? "类型" : "Type"} value={data.book.genre || (isZh ? "未设置" : "Not set")} />
               <MetadataCard label={isZh ? "字数" : "Words"} value={`${wordCount.toLocaleString()} ${isZh ? "字" : "words"}`} />
-              <MetadataCard label={isZh ? "章节" : "Chapters"} value={`${data.chapters.length}${data.book.targetChapters ? ` / ${data.book.targetChapters}` : ""}`} />
+              {!isShortStory ? <MetadataCard label={isZh ? "章节" : "Chapters"} value={`${data.chapters.length}${data.book.targetChapters ? ` / ${data.book.targetChapters}` : ""}`} /> : null}
             </div>
-            {groups.map(([group, sections]) => <section key={group} className="space-y-4"><h2 className="flex items-center gap-2 text-base font-semibold"><span className="h-5 w-1 rounded-full bg-primary" />{GROUP_LABELS[group][isZh ? "zh" : "en"]}</h2><div className="grid gap-5 lg:grid-cols-2">{sections.map((section) => <DocumentCard key={section.file} section={section} />)}</div></section>)}
-            {data.chapters.length > 0 ? <section className="space-y-4"><h2 className="flex items-center gap-2 text-base font-semibold"><span className="h-5 w-1 rounded-full bg-primary" />{isZh ? "章节" : "Chapters"}</h2><div className="space-y-5">{data.chapters.map((chapter) => <article key={chapter.number} className="rounded-2xl border border-border/50 bg-card p-5"><div className="flex flex-wrap items-baseline justify-between gap-3"><h3 className="font-semibold">{isZh ? `第 ${chapter.number} 章 ${chapter.title}` : `Chapter ${chapter.number} ${chapter.title}`}</h3><span className="text-xs text-muted-foreground">{chapter.wordCount.toLocaleString()} {isZh ? "字" : "words"}</span></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(chapter.content) || (isZh ? "本章暂时没有正文。" : "This chapter has no content yet.")}</p></article>)}</div></section> : null}
+            {tabs.length > 0 ? (
+              <nav className="sticky top-0 z-10 -mx-2 overflow-x-auto rounded-xl border border-border/50 bg-background/90 p-1 backdrop-blur" aria-label={isZh ? "故事设定分区" : "Story setting sections"}>
+                <div className="flex min-w-max gap-1" role="tablist">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedTab === tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`rounded-lg px-3 py-2 text-sm transition-colors ${selectedTab === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"}`}
+                    >
+                      {tab.label}<span className={`ml-1.5 text-xs ${selectedTab === tab.id ? "text-primary-foreground/75" : "text-muted-foreground/70"}`}>{tab.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </nav>
+            ) : null}
+            {selectedTab === "chapters" ? (
+              <section className="space-y-4" role="tabpanel">
+                <div className="space-y-5">{data.chapters.map((chapter) => <article key={chapter.number} className="rounded-2xl border border-border/50 bg-card p-5"><div className="flex flex-wrap items-baseline justify-between gap-3"><h3 className="font-semibold">{isZh ? `第 ${chapter.number} 章 ${chapter.title}` : `Chapter ${chapter.number} ${chapter.title}`}</h3><span className="text-xs text-muted-foreground">{chapter.wordCount.toLocaleString()} {isZh ? "字" : "words"}</span></div><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{trimStoryHeading(chapter.content) || (isZh ? "本章暂时没有正文。" : "This chapter has no content yet.")}</p></article>)}</div>
+              </section>
+            ) : selectedGroup ? (
+              <section className="space-y-4" role="tabpanel">
+                <h2 className="flex items-center gap-2 text-base font-semibold"><span className="h-5 w-1 rounded-full bg-primary" />{GROUP_LABELS[selectedGroup[0]][isZh ? "zh" : "en"]}</h2>
+                <div className="grid gap-5 lg:grid-cols-2">{selectedGroup[1].map((section) => <DocumentCard key={section.file} section={section} />)}</div>
+              </section>
+            ) : null}
             <button type="button" onClick={() => void refetch()} disabled={loading} className="text-sm text-primary hover:underline disabled:opacity-50">{isZh ? "刷新文档" : "Refresh document"}</button>
           </div>
         )}

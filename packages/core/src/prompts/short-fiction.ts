@@ -38,6 +38,12 @@ export interface ShortFictionDraftPromptInput {
 export interface ShortFictionDraftContinuationPromptInput extends ShortFictionDraftPromptInput {
   readonly existingDraftMarkdown: string;
   readonly missingChapters: readonly number[];
+  readonly underLengthChapters?: ReadonlyArray<{
+    readonly chapter: number;
+    readonly currentLength: number;
+    readonly targetLength: number;
+    readonly minimumLength: number;
+  }>;
 }
 
 export interface ShortFictionDraftReviewPromptInput extends ShortFictionDraftPromptInput {
@@ -311,12 +317,21 @@ export function buildShortFictionDraftContinuationUserPrompt(
   language: ShortFictionLanguage = "zh",
 ): string {
   const missing = input.missingChapters.join(", ");
+  const underLength = input.underLengthChapters ?? [];
   if (language === "en") {
     return [
       "## Task",
-      `The previous draft was truncated or skipped chapters. Write ONLY the missing chapters: ${missing}.`,
+      ...(underLength.length > 0
+        ? [`The previous draft contains chapters that are below the requested length. Add new, fully dramatized scenes to chapters ${underLength.map((chapter) => `${chapter.chapter} (${chapter.currentLength}/${chapter.targetLength} words; minimum ${chapter.minimumLength})`).join(", ")}. Continue from the existing ending; do not repeat existing prose.`]
+        : []),
+      ...(input.missingChapters.length > 0 && underLength.length === 0
+        ? [`The previous draft was truncated or skipped chapters. Write ONLY the missing chapters: ${missing}.`]
+        : []),
+      ...(input.missingChapters.length > 0 && underLength.length > 0
+        ? [`Also complete any missing chapters among: ${missing}.`]
+        : []),
       `Stay calibrated to the complete ${input.chapterCount}-chapter short at about ${input.charsPerChapter} words per chapter.`,
-      "Do not rewrite finished chapters, do not write summary notes, do not apologize, do not output review comments.",
+      "Do not rewrite finished chapters, do not write summary notes, do not apologize, do not output review comments. Add real scenes, actions, dialogue, consequences, and a clear progression rather than padding or repetition.",
       "",
       buildShortFictionCraftPrompt("en"),
       "",
@@ -340,9 +355,17 @@ export function buildShortFictionDraftContinuationUserPrompt(
   }
   return [
     "## 任务",
-    `上一次正文被截断或漏章。现在只补写缺失章节：${missing}。`,
+    ...(underLength.length > 0
+      ? [`上一次正文虽然有内容，但以下章节明显低于目标字数。请从已有正文结尾继续补写有效场面：${underLength.map((chapter) => `第${chapter.chapter}章（当前 ${chapter.currentLength}/${chapter.targetLength} 字，至少补到 ${chapter.minimumLength} 字）`).join("、")}。不要重复已有正文。`]
+      : []),
+    ...(input.missingChapters.length > 0 && underLength.length === 0
+      ? [`上一次正文被截断或漏章。现在只补写缺失章节：${missing}。`]
+      : []),
+    ...(input.missingChapters.length > 0 && underLength.length > 0
+      ? [`同时补齐缺失章节：${missing}。`]
+      : []),
     `仍然按完整短篇 ${input.chapterCount} 章、每章约 ${input.charsPerChapter} 字校准。`,
-    "不要重写已完成章节，不要写总结说明，不要道歉，不要输出审稿意见。",
+    "不要重写已完成章节，不要写总结说明，不要道歉，不要输出审稿意见。必须补写人物行动、对话、冲突后果和推进，不要用重复句子凑字数。",
     "",
     buildShortFictionCraftPrompt(),
     "",

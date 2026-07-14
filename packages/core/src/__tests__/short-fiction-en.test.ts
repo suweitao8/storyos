@@ -199,7 +199,7 @@ describe("short-fiction runner English branch", () => {
         `=== CHAPTER ${index + 1} TITLE ===`,
         `Room ${index + 1}`,
         `=== CHAPTER ${index + 1} CONTENT ===`,
-        "The corridor bends where no corridor should bend. ".repeat(20),
+        "The corridor bends where no corridor should bend. ".repeat(90),
       ].join("\n")),
     ].join("\n");
     const draft = parseShortFictionBatchDraft(draftMd, { expectedChapters: CH, language: "en" });
