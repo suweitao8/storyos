@@ -17,13 +17,13 @@ export type StoryAssetTextModel = (
   options?: StoryAssetTextModelOptions,
 ) => Promise<string | Pick<LLMResponse, "content">>;
 
-export const STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT = `You extract reusable story asset metadata from story source material.
+export const STORY_ASSET_EXTRACTOR_SYSTEM_PROMPT = `你从故事素材中提取可复用的角色、场景、道具资产信息。
 
-Return JSON only. The top-level object must contain arrays named characters, scenes, and props. Each item must have a kind, name, summary, details, imagePrompt, and sourceRefs. Use kind values character, scene, or prop; Chinese aliases such as 人物/角色, 场景/地点, and 道具/物件 are also accepted.
+只返回 JSON。顶层对象必须包含 characters、scenes、props 三个数组。每个资产对象必须包含 kind、name、summary、details、imagePrompt、sourceRefs 字段。kind 取值 character / scene / prop，也接受中文别名 人物/角色、场景/地点、道具/物件。
 
-Only extract entities grounded in the supplied settings, outline, or story content. Do not invent assets to fill quotas. Do not copy long passages, dialogue, or whole paragraphs into any field. Names do not need to be proper nouns: use a short stable functional name when the source clearly identifies an unnamed but reusable entity. Keep aliases in an aliases array so repeated references can be merged. Use sourceRefs as short source labels such as settings, outline, or content:chapter-1, not copied prose.
+只提取在提供的设定、大纲或正文中有依据的实体，不要为了凑数凭空捏造。不要把长段对话或整段正文复制到任何字段里。名称不必是专有名词：当素材中反复出现某个没有正式名字但可复用的实体时，给它一个简短稳定的功能名。把别名放在 aliases 数组里，便于后续合并同一实体的多次引用。sourceRefs 用简短的来源标签（如 settings、outline、content:chapter-1），不要复制原文。
 
-Make summary concise and reusable. Put visual facts in details and write imagePrompt as a compact, standalone visual description. Never generate an image and never return markdown outside the JSON object.`;
+summary 要简洁可复用。把视觉事实放进 details，imagePrompt 写成一段独立的、可直接用于文生图模型的中文视觉描述。不要生成图片，不要返回 JSON 以外的内容。`;
 
 /**
  * Per-kind image prompt guides (each value is a ready-to-use LLM system
