@@ -19,7 +19,6 @@ describe("story workspace stages", () => {
       "settings",
       "assets",
       "script",
-      "storyboard",
       "video",
     ]);
   });
@@ -33,7 +32,6 @@ describe("story workspace stages", () => {
     expect(resolveStoryWorkspaceStage("assets")).toBe("assets");
     expect(resolveStoryWorkspaceStage("adjust")).toBe("settings");
     expect(resolveStoryWorkspaceStage("script")).toBe("script");
-    expect(resolveStoryWorkspaceStage("storyboard")).toBe("storyboard");
     expect(resolveStoryWorkspaceStage("video")).toBe("video");
   });
 
@@ -42,27 +40,25 @@ describe("story workspace stages", () => {
     expect(resolveStoryWorkspaceStage(" SETTINGS ")).toBe("settings");
   });
 
-  it("builds Chinese PageToolbar-compatible tabs with future stages disabled", () => {
+  it("builds enabled Chinese production tabs", () => {
     expect(buildStoryWorkspaceTabs(true)).toEqual([
       { id: "list", label: "故事列表" },
       { id: "create", label: "创建故事" },
       { id: "settings", label: "故事设定" },
       { id: "assets", label: "故事资产" },
-      { id: "script", label: "剧本", disabled: true },
-      { id: "storyboard", label: "分镜", disabled: true },
-      { id: "video", label: "视频", disabled: true },
+      { id: "script", label: "剧本" },
+      { id: "video", label: "视频" },
     ]);
   });
 
-  it("builds English PageToolbar-compatible tabs with future stages disabled", () => {
+  it("builds enabled English production tabs", () => {
     expect(buildStoryWorkspaceTabs(false)).toEqual([
       { id: "list", label: "Story list" },
       { id: "create", label: "Create story" },
       { id: "settings", label: "Story Settings" },
       { id: "assets", label: "Story Assets" },
-      { id: "script", label: "Script", disabled: true },
-      { id: "storyboard", label: "Storyboard", disabled: true },
-      { id: "video", label: "Video", disabled: true },
+      { id: "script", label: "Script" },
+      { id: "video", label: "Video" },
     ]);
   });
 });

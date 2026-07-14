@@ -7,7 +7,6 @@ export type StoryWorkspaceStage =
   | "assets"
   | "adjust"
   | "script"
-  | "storyboard"
   | "video";
 
 export const STORY_WORKSPACE_STAGES = [
@@ -16,7 +15,6 @@ export const STORY_WORKSPACE_STAGES = [
   "settings",
   "assets",
   "script",
-  "storyboard",
   "video",
 ] as const satisfies ReadonlyArray<StoryWorkspaceStage>;
 
@@ -29,7 +27,6 @@ const STORY_WORKSPACE_STAGE_LABELS: Readonly<Record<StoryWorkspaceStage, { reado
   assets: { zh: "故事资产", en: "Story Assets" },
   adjust: { zh: "对话调整", en: "Chat Adjustment" },
   script: { zh: "剧本", en: "Script" },
-  storyboard: { zh: "分镜", en: "Storyboard" },
   video: { zh: "视频", en: "Video" },
 };
 
@@ -46,6 +43,5 @@ export function buildStoryWorkspaceTabs(isZh: boolean): ReadonlyArray<PageToolba
   return STORY_WORKSPACE_STAGES.map((id) => ({
     id,
     label: STORY_WORKSPACE_STAGE_LABELS[id][isZh ? "zh" : "en"],
-    ...(id === "script" || id === "storyboard" || id === "video" ? { disabled: true } : {}),
   }));
 }
