@@ -55,7 +55,7 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
   const imageKinds = data ? Object.keys(data.imageTemplates) : [];
 
   return (
-    <div className={`mx-auto w-full max-w-[1000px] space-y-5`}>
+    <div className={`space-y-5`}>
       <div className={`border ${c.cardStatic} rounded-xl p-6 space-y-5`}>
         {loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">

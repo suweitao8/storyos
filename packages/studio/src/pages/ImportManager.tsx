@@ -144,7 +144,7 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+    <div className="space-y-6">
       {/* Tab content */}
       <div className={`border ${c.cardStatic} rounded-lg p-6 space-y-4`}>
         {tab === "chapters" && (

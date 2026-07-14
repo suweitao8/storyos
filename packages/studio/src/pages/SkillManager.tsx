@@ -56,7 +56,7 @@ export function SkillManager({ theme, lang, t }: {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1000px] space-y-6">
+    <div className="space-y-6">
       {notice && (
         <div
           className={`rounded-xl px-4 py-3 text-sm ${
