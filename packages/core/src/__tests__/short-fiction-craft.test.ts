@@ -17,4 +17,11 @@ describe("short-fiction writer craft prompt", () => {
   it("restrains simile over-reliance (B2)", () => {
     expect(prompt).toContain("明喻节制");
   });
+
+  it("frames length as a first-pass planning target instead of a continuation task", () => {
+    expect(prompt).toContain("写作前先按目标字数规划场景和节奏");
+    expect(prompt).toContain("一次写完整");
+    expect(prompt).toContain("85% 到 115%");
+    expect(prompt).not.toContain("低于目标字数");
+  });
 });

@@ -104,7 +104,7 @@ describe("short-fiction English prompt branch", () => {
   it("keeps the zh default identical to the explicit zh branch", () => {
     expect(buildShortFictionWriterSystemPrompt()).toBe(buildShortFictionWriterSystemPrompt("zh"));
     expect(buildShortFictionOutlineSystemPrompt()).toBe(buildShortFictionOutlineSystemPrompt("zh"));
-    expect(buildShortFictionWriterSystemPrompt()).toContain("中文短篇 BatchWriter");
+    expect(buildShortFictionWriterSystemPrompt()).toContain("专业的中文短篇故事作家");
     const zhWriterUser = buildShortFictionWriterUserPrompt({ ...DRAFT_INPUT, charsPerChapter: 1000 });
     expect(zhWriterUser).toContain("高潮即场景");
     expect(zhWriterUser).toContain("每章约 1000 字");

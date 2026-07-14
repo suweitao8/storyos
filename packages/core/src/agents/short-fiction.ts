@@ -204,12 +204,7 @@ export class ShortFictionWriterAgent extends BaseAgent {
 
   async continueDraft(input: ShortFictionDraftInput & { readonly draft: ShortFictionBatchDraft }): Promise<ShortFictionBatchDraft> {
     const missingChapters = findEmptyShortFictionChapters(input.draft);
-    const underLengthChapters = findShortFictionLengthDeficits(input.draft, input.charsPerChapter, input.language);
-    const continuationChapters = [...new Set([
-      ...missingChapters,
-      ...underLengthChapters.map((chapter) => chapter.chapter),
-    ])];
-    if (continuationChapters.length === 0) return input.draft;
+    if (missingChapters.length === 0) return input.draft;
 
     const response = await retryShortFictionCall(async () => {
       const systemPrompt = await this.withPromptPackGuidance(
@@ -222,12 +217,11 @@ export class ShortFictionWriterAgent extends BaseAgent {
           chapterCount: input.chapterCount,
           charsPerChapter: input.charsPerChapter,
           existingDraftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
-          missingChapters: continuationChapters,
-          underLengthChapters,
+          missingChapters,
         }, input.language) },
       ], {
         temperature: 0.68,
-        maxTokens: estimateShortFictionMaxTokens(continuationChapters.length, input.charsPerChapter),
+        maxTokens: estimateShortFictionMaxTokens(missingChapters.length, input.charsPerChapter),
       });
     }, this.name, this.log);
 
@@ -235,7 +229,7 @@ export class ShortFictionWriterAgent extends BaseAgent {
       expectedChapters: input.chapterCount,
       language: input.language,
     });
-    return mergeShortFictionContinuation(input.draft, continuation, missingChapters, underLengthChapters, input.language);
+    return mergeShortFictionContinuation(input.draft, continuation, missingChapters, [], input.language);
   }
 }
 
