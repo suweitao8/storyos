@@ -73,6 +73,6 @@ describe("prompt pack loader", () => {
     const builtin = getBuiltinPrompt("longform.reviser");
 
     expect(builtin?.source).toBe("builtin");
-    expect(builtin?.content).toContain("长篇修订器");
+    expect(builtin?.content).toContain("长篇故事修订编辑");
   });
 });

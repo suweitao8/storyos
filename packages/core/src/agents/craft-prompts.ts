@@ -568,6 +568,28 @@ export function buildStoryDirectionPrompt(
     : "Output the result in English.";
   const plainLanguageGuidance = buildPlainLanguageGuidance(language);
 
+  // Genre-lock: when the craft profile has a specific mode (ghost-story,
+  // video-story, etc.), the generated story MUST stay in the same genre.
+  // The originalization step is about swapping concrete details (location,
+  // props, character identities), NOT changing the genre or emotional core.
+  const genreLockZh = craftProfile.mode === "ghost-story"
+    ? [
+        "【题材锁定·硬约束】参考素材是恐怖鬼故事。你生成的故事必须是恐怖鬼故事——保留超自然元素、恐惧氛围、鬼怪或灵异规则。绝对不允许把题材改成现实主义社会议题、劳动事故、职场纠纷等非恐怖方向。",
+        "原创化改编只替换具体的空间、道具和角色身份（比如公交车改地铁、旧小区改写字楼），但超自然设定和恐怖基调必须原封不动保留。",
+      ]
+    : craftProfile.mode === "bilibili-short-story" || craftProfile.mode === "bilibili-commentary"
+      ? ["保持参考素材的故事类型和情绪基调不变。原创化改编只替换具体细节，不改变故事类型。"]
+      : [];
+  const genreLockEn = craftProfile.mode === "ghost-story"
+    ? [
+        "[GENRE LOCK · HARD CONSTRAINT] The reference is a horror ghost story. Your story MUST be a horror ghost story — keep the supernatural elements, fear atmosphere, and ghost/spirit rules. Absolutely do not drift into realistic social issues, workplace accidents, or other non-horror directions.",
+        "Originalization only swaps concrete details (location, props, character identities). The supernatural setting and horror tone must be preserved as-is.",
+      ]
+    : craftProfile.mode === "bilibili-short-story" || craftProfile.mode === "bilibili-commentary"
+      ? ["Keep the reference's story type and emotional tone unchanged. Originalization only swaps concrete details, never the genre."]
+      : [];
+  const genreLock = language === "zh" ? genreLockZh : genreLockEn;
+
   return {
     system: [
       "你是一位故事创作者。",
@@ -575,6 +597,7 @@ export function buildStoryDirectionPrompt(
       ...plainLanguageGuidance.system,
       "你的任务是基于参考素材的世界观和故事大纲，创作一个同框架但细节不同的故事。保持原故事的核心设定、因果走向和情绪节奏不变，但替换具体的空间、道具、角色身份和事件载体。",
       "比如：原故事在公交车上发生，你可以改到末班地铁上；原角色手机没电，你可以改成信号消失；原场景在老旧小区，你可以换到深夜写字楼。保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。",
+      ...genreLock,
       "不要照搬原作的名字、对白和标志性细节，但世界观规则、核心冲突类型、反转结构要和原故事保持一致。",
       "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
     ].join("\n"),
@@ -646,6 +669,11 @@ export function buildStorySeedPrompt(
       language === "zh"
         ? "保持参考素材的世界观框架和大纲走向不变，只替换具体的空间、道具、角色身份和事件载体。比如公交车改地铁、手机没电改信号消失——保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。"
         : "Keep the reference material's worldview framework and plot outline intact; only swap the specific setting, props, character identities, and event vehicles. Same logic for why it works, different implementation.",
+      ...(craftProfile?.mode === "ghost-story"
+        ? [language === "zh"
+            ? "再次强调：这必须是恐怖鬼故事。超自然元素和恐怖氛围是核心卖点，不能去掉。"
+            : "Reminder: this MUST be a horror ghost story. Supernatural elements and horror atmosphere are the core selling point — do not remove them."]
+        : []),
     ].join("\n\n"),
   };
 }
