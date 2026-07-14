@@ -51,4 +51,28 @@ describe("unified story production", () => {
     expect(entries[0]).toMatchObject({ startTimeMs: 0, endTimeMs: 1000, text: "短句" });
     expect(entries[1]).toMatchObject({ startTimeMs: 1200, endTimeMs: 3200, text: "第二句" });
   });
+
+  it("treats 字幕/旁白/台词/对白 as the same narration field", () => {
+    const result = parseUnifiedScript(`# 旁白测试
+
+## 场景一
+
+### 镜头 1
+- 画面：走廊尽头。
+- 旁白：他朝着光走去。
+
+### 镜头 2
+- 画面：推开门。
+- 字幕：门外是另一片天地。
+
+### 镜头 3
+- 画面：他回头看。
+- 台词：一切都回不去了。`);
+
+    expect(result.shots).toHaveLength(3);
+    // 旁白、字幕、台词都应归入同一个 subtitle 字段
+    expect(result.shots[0]?.subtitle).toBe("他朝着光走去。");
+    expect(result.shots[1]?.subtitle).toBe("门外是另一片天地。");
+    expect(result.shots[2]?.subtitle).toBe("一切都回不去了。");
+  });
 });

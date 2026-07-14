@@ -29,9 +29,9 @@ const FIELD_LABELS: Readonly<Record<string, keyof ParsedShot>> = {
   "机位": "camera",
   "景别/机位": "camera",
   "动作": "action",
-  "台词": "dialogue",
-  "对白": "dialogue",
-  "旁白": "dialogue",
+  "台词": "subtitle",
+  "对白": "subtitle",
+  "旁白": "subtitle",
   "字幕": "subtitle",
   "时长": "duration",
   "图像提示词": "imagePrompt",
@@ -43,7 +43,6 @@ interface ParsedShot {
   visual: string;
   camera: string;
   action: string;
-  dialogue: string;
   subtitle: string;
   duration: number;
   imagePrompt: string;
@@ -55,7 +54,6 @@ function emptyShot(scene: string): ParsedShot {
     visual: "",
     camera: "",
     action: "",
-    dialogue: "",
     subtitle: "",
     duration: 0,
     imagePrompt: "",
@@ -73,16 +71,17 @@ function parseDurationMs(value: string): number {
 }
 
 function shotFromParsed(shot: ParsedShot, number: number): UnifiedScriptShot | null {
-  const subtitle = cleanFieldValue(shot.subtitle || shot.dialogue);
+  // 旁白/字幕/台词已统一为 subtitle。每个镜头必须有旁白——没有旁白的镜头不保留。
+  const subtitle = cleanFieldValue(shot.subtitle);
   const visual = cleanFieldValue(shot.visual || shot.action);
   if (!subtitle && !visual && !shot.imagePrompt) return null;
   return {
     number,
     scene: shot.scene || "未命名场景",
-    visual: visual || "画面待补充",
+    visual: visual || subtitle.slice(0, 40) || "画面待补充",
     ...(shot.camera ? { camera: cleanFieldValue(shot.camera) } : {}),
     ...(shot.action ? { action: cleanFieldValue(shot.action) } : {}),
-    subtitle: subtitle || "",
+    subtitle,
     durationMs: shot.duration,
     ...(shot.imagePrompt ? { imagePrompt: cleanFieldValue(shot.imagePrompt) } : {}),
   };
