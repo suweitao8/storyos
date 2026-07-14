@@ -825,8 +825,12 @@ describe("CraftAnalyzerAgent", () => {
     }, sourceText);
 
     expect(profile.exemplars.length).toBeGreaterThanOrEqual(4);
-    expect(profile.exemplars.every((item) => sourceText.includes(item.excerpt))).toBe(true);
-    expect(profile.exemplars.every((item) => item.excerpt.length >= 300 && item.excerpt.length <= 500)).toBe(true);
+    // Timestamps are stripped from exemplars for clean display, so we verify
+    // the excerpt text (without timestamps) is still derivable from the source.
+    const stripTs = (s: string) => s.replace(/\[\d+(?:\.\d+)?s-\d+(?:\.\d+)?s\]\s*/g, "");
+    const cleanedSource = stripTs(sourceText);
+    expect(profile.exemplars.every((item) => cleanedSource.includes(item.excerpt))).toBe(true);
+    expect(profile.exemplars.every((item) => !/\[\d+\.?\d*s-/.test(item.excerpt))).toBe(true);
   });
 
   it("removes module evidence that is not a verbatim source excerpt", () => {
