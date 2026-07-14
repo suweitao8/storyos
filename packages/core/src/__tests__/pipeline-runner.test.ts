@@ -372,6 +372,44 @@ describe("PipelineRunner", () => {
     }
   });
 
+  it("moves crafts to trash, hides them by default, and restores them", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-craft-trash-"));
+    const craftDir = join(root, "crafts", "craft-trash");
+    await mkdir(craftDir, { recursive: true });
+    const meta = {
+      id: "craft-trash",
+      sourceName: "待删除模式",
+      createdAt: "2026-07-13T00:00:00.000Z",
+      language: "zh",
+    };
+    await writeFile(join(craftDir, "meta.json"), JSON.stringify(meta), "utf-8");
+
+    const runner = new PipelineRunner({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: { temperature: 0.7, thinkingBudget: 0 },
+      } as ConstructorParameters<typeof PipelineRunner>[0]["client"],
+      model: "test-model",
+      projectRoot: root,
+    });
+
+    try {
+      await runner.deleteCraft("craft-trash");
+      await expect(runner.listCrafts()).resolves.toEqual([]);
+      await expect(runner.listCrafts({ includeDeleted: true })).resolves.toEqual([
+        expect.objectContaining({ id: "craft-trash", deletedAt: expect.any(String) }),
+      ]);
+      await runner.restoreCraft("craft-trash");
+      const restored = await runner.listCrafts();
+      expect(restored).toEqual([expect.objectContaining({ id: "craft-trash" })]);
+      expect(restored[0]).not.toHaveProperty("deletedAt");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not reuse override clients when credential sources differ", () => {
     const previousKeyA = process.env.TEST_KEY_A;
     const previousKeyB = process.env.TEST_KEY_B;

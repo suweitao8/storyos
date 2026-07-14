@@ -1,12 +1,19 @@
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { computeAnalytics, countChapterLength } from "@actalk/inkos-core";
 import { isSafeBookId } from "../safety.js";
 import { splitShortOutlineSections } from "../short-outline-sections.js";
+import { getShortStoryDeletedAt } from "../short-story-list.js";
+import { isSoftDeleteExpired, sortSoftDeletedLast } from "../soft-delete.js";
 import type { StudioRouteContext } from "./context.js";
 
 interface ShortStoryContentArtifact {
   readonly chapters?: unknown;
+}
+
+interface SoftDeletedBookSummary {
+  readonly deletedAt?: string;
+  readonly updatedAt?: string;
 }
 
 export function getShortStoryWordCount(
@@ -28,9 +35,24 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
   const { app, root, state, loadBookListSummary } = context;
 
   app.get("/api/v1/books", async (c) => {
-    const bookIds = await state.listBooks();
-    const books = await Promise.all(bookIds.map((id) => loadBookListSummary(id)));
-    return c.json({ books });
+    const bookIds = await state.listBooks({ includeDeleted: true });
+    const books = await Promise.all(bookIds.map(async (id) => {
+      const book = await state.loadBookConfig(id);
+      if (isSoftDeleteExpired(book.deletedAt)) {
+        await rm(state.bookDir(id), { recursive: true, force: true });
+        return null;
+      }
+      return loadBookListSummary(id);
+    }));
+    const activeAndTrash = books.filter((book): book is SoftDeletedBookSummary => book !== null);
+    return c.json({
+      books: [...sortSoftDeletedLast(activeAndTrash)].sort((a, b) => {
+        const leftDeleted = Boolean(a.deletedAt);
+        const rightDeleted = Boolean(b.deletedAt);
+        if (leftDeleted !== rightDeleted) return leftDeleted ? 1 : -1;
+        return String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""));
+      }),
+    });
   });
 
   app.get("/api/v1/shorts", async (c) => {
@@ -42,6 +64,7 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
     const id = c.req.param("id");
     try {
       const book = await state.loadBookConfig(id);
+      if (book.deletedAt) return c.json({ error: `Book "${id}" is in the trash` }, 404);
       const chapters = await state.loadChapterIndex(id);
       const nextChapter = await state.getNextChapterNumber(id);
       return c.json({ book, chapters, nextChapter });
@@ -100,6 +123,11 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
     if (!isSafeBookId(id)) return c.json({ error: "Invalid short story id" }, 400);
 
     const shortDir = join(root, "shorts", id);
+    const deletedAt = await getShortStoryDeletedAt(root, id).catch(() => undefined);
+    if (deletedAt) {
+      if (isSoftDeleteExpired(deletedAt)) await rm(shortDir, { recursive: true, force: true });
+      return c.json({ error: `Short story "${id}" is in the trash` }, 404);
+    }
     const readOptional = async (file: string): Promise<string> =>
       readFile(join(shortDir, file), "utf-8").catch(() => "");
     const outlineV2 = await readOptional("outline/v002.md");

@@ -382,6 +382,29 @@ describe("StateManager", () => {
       expect(books).not.toContain("not-a-book");
       expect(books).toHaveLength(2);
     });
+
+    it("hides soft-deleted books by default but can include them for the Studio trash view", async () => {
+      const bookConfig: BookConfig = {
+        id: "deleted-book",
+        title: "Deleted book",
+        platform: "tomato",
+        genre: "urban",
+        status: "active",
+        targetChapters: 100,
+        chapterWordCount: 3000,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      };
+      await manager.saveBookConfig("deleted-book", bookConfig);
+      await writeFile(
+        join(manager.bookDir("deleted-book"), "book.json"),
+        JSON.stringify({ ...bookConfig, deletedAt: "2026-07-10T00:00:00.000Z" }),
+        "utf-8",
+      );
+
+      expect(await manager.listBooks()).not.toContain("deleted-book");
+      expect(await manager.listBooks({ includeDeleted: true })).toContain("deleted-book");
+    });
   });
 
   // -------------------------------------------------------------------------

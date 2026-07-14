@@ -6,6 +6,7 @@ import { useColors } from "../hooks/use-colors";
 import type { SSEMessage } from "../hooks/use-sse";
 import { useNewSSEMessages } from "../hooks/use-sse";
 import { usePageToolbar } from "../components/PageToolbar";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { normalizeBilibiliCraftName, normalizeCraftDisplayName } from "./craft-name.js";
 import {
   DEFAULT_CRAFT_TAB,
@@ -16,7 +17,7 @@ import {
 import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-breakdown";
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import {
-  Wand2, BookOpen, Trash2,
+  Wand2, BookOpen, Trash2, RotateCcw,
   Plus, FileUp, Loader2, FileText, RefreshCw, Download, Video, FileArchive,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ interface CraftMeta {
   readonly processingStatus?: "processing" | "ready" | "error";
   readonly processingStage?: string;
   readonly processingError?: string;
+  readonly deletedAt?: string;
 }
 
 export const CRAFT_LIST_GRID_CLASS = "grid gap-4 md:grid-cols-2 xl:grid-cols-4";
@@ -466,7 +468,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     if (userNavigatedRef.current || selectedCraftIdRef.current) return;
 
     const defaultCraftId = resolveDefaultCraftSelection(
-      crafts.map((craft) => craft.id),
+      crafts.filter((craft) => !craft.deletedAt).map((craft) => craft.id),
       craftsData?.recentCraftId ?? null,
     );
     if (!defaultCraftId) return;
@@ -534,7 +536,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       const deletion = resolveCraftDeleteSelection(
         selectedCraftIdRef.current,
         deletedCraftId,
-        latest.crafts.map((craft) => craft.id),
+        latest.crafts.filter((craft) => !craft.deletedAt).map((craft) => craft.id),
       );
       if (!deletion.shouldPersistRecentCraft) return;
 
@@ -546,6 +548,15 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
       await persistRecentCraft(deletion.selectedCraftId);
     } catch {
       // Keep the current view intact when deletion or refresh fails.
+    }
+  };
+
+  const handleRestore = async (restoredCraftId: string) => {
+    try {
+      await fetchJson(`/crafts/${encodeURIComponent(restoredCraftId)}/restore`, { method: "POST" });
+      mutate(await fetchJson<CraftListResponse>("/crafts"));
+    } catch {
+      // Keep the current list intact when restore fails.
     }
   };
 
@@ -607,6 +618,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
             t={t}
             onOpen={openDetail}
             onDelete={handleDelete}
+            onRestore={handleRestore}
           />
         )
       )}
@@ -639,14 +651,16 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
 // Tab 1: Craft list
 // ---------------------------------------------------------------------------
 
-function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
+function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete, onRestore }: {
   crafts: ReadonlyArray<CraftMeta>;
   selectedCraftId: string | null;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onOpen: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
+  onRestore: (id: string) => Promise<void>;
 }) {
+  const [deleteTarget, setDeleteTarget] = useState<CraftMeta | null>(null);
   if (crafts.length === 0) {
     return (
       <div className="min-h-40 rounded-2xl border border-dashed border-border/40 p-5 text-center">
@@ -661,12 +675,12 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
       {crafts.map((craft) => (
         <div
           key={craft.id}
-          className={craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)}
+          className={`${craftListRowClassName(craft.id === selectedCraftId, c.cardStatic)} ${craft.deletedAt ? "opacity-60 grayscale cursor-not-allowed" : ""}`}
         >
-          <button onClick={() => onOpen(craft.id)} className="flex min-w-0 flex-1 flex-col items-start gap-3 pr-6 text-left">
+          <button disabled={Boolean(craft.deletedAt)} onClick={() => onOpen(craft.id)} className={`flex min-w-0 flex-1 flex-col items-start gap-3 pr-6 text-left ${craft.deletedAt ? "cursor-not-allowed" : ""}`}>
             <span className="font-medium text-sm">{craftCardTitle(craft)}</span>
-            <span className="rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[11px] text-muted-foreground">
-              {craftCardMeta(craft)}
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] ${craft.deletedAt ? "border-border/60 bg-secondary/50 text-muted-foreground" : "border-border/60 bg-secondary/20 text-muted-foreground"}`}>
+              {craft.deletedAt ? "垃圾桶 · 72 小时后自动清理" : craftCardMeta(craft)}
             </span>
             {craftProcessingLabel(craft) && (
               <span className={`rounded-full border px-2 py-0.5 text-[11px] ${craft.processingStatus === "error"
@@ -677,15 +691,38 @@ function CraftList({ crafts, selectedCraftId, c, t, onOpen, onDelete }: {
             )}
             <span className="text-xs leading-5 text-muted-foreground">{craftCardDescription(craft)}</span>
           </button>
-          <button
-            aria-label="删除写作模式"
-            onClick={(e) => { e.stopPropagation(); void onDelete(craft.id); }}
-            className="absolute right-4 top-4 text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <Trash2 size={14} />
-          </button>
+          {craft.deletedAt ? (
+            <button
+              aria-label="恢复写作模式"
+              onClick={(e) => { e.stopPropagation(); void onRestore(craft.id); }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-primary transition-colors"
+            >
+              <RotateCcw size={14} />
+            </button>
+          ) : (
+            <button
+              aria-label="删除写作模式"
+              onClick={(e) => { e.stopPropagation(); setDeleteTarget(craft); }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       ))}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="移入垃圾桶"
+        message={`确认将“${deleteTarget?.sourceName ?? ""}”移入垃圾桶吗？72 小时后会自动删除。`}
+        confirmLabel="移入垃圾桶"
+        cancelLabel="取消"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) void onDelete(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

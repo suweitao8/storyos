@@ -236,6 +236,8 @@ export interface CraftMeta {
   readonly processingStage?: string;
   /** Retryable background error summary. */
   readonly processingError?: string;
+  /** ISO timestamp when the craft was moved to the trash. */
+  readonly deletedAt?: string;
 }
 
 export function normalizeCraftSourceRef(

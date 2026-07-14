@@ -564,6 +564,19 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       console.error("[studio] Story deletion failed", error);
     }
   };
+  const restoreStoryFromList = async (storyId: string) => {
+    try {
+      const resource = storyListKind === "short" ? "shorts" : "books";
+      await fetchJson(`/${resource}/${encodeURIComponent(storyId)}/restore`, { method: "POST" });
+      if (storyListKind === "short") {
+        await refetchShorts();
+      } else {
+        await refetchBooks();
+      }
+    } catch (error) {
+      console.error("[studio] Story restore failed", error);
+    }
+  };
 
   // Derived: is the assistant currently streaming/thinking/executing tools?
   const isStreaming = useMemo(() => {
@@ -1074,6 +1087,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           isZh={isZh}
           onSelect={selectStoryFromList}
           onDelete={(storyId) => { void deleteStoryFromList(storyId); }}
+          onRestore={(storyId) => { void restoreStoryFromList(storyId); }}
         />
       ) : storyWorkspace.view === "settings" ? (
         <StorySettingsPanel

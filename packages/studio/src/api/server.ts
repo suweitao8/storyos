@@ -150,6 +150,7 @@ import {
   resolveCraftSourceFile,
 } from "./craft-source-assets.js";
 import type { CraftSourceManifest } from "./craft-source-assets.js";
+import { restoreShortStory, softDeleteShortStory } from "./short-story-list.js";
 import { registerStudioRoutes } from "./routes/index.js";
 import { normalizeBilibiliCraftName } from "../pages/craft-name.js";
 
@@ -2722,7 +2723,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         processingError: undefined,
       });
       const prepared = await prepareBilibiliCraftSource(url, pipelineConfig, async (stage) => {
-        await pipeline.updateCraftProcessing(craftId, { processingStage: stage });
+        await pipeline!.updateCraftProcessing(craftId, { processingStage: stage });
       });
       sourceAssetId = prepared.sourceAssetId;
       await pipeline.updateCraftProcessing(craftId, { processingStage: "正在解析写作模式" });
@@ -2795,6 +2796,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = c.req.param("id");
     try {
       const book = await state.loadBookConfig(id);
+      if (book.deletedAt) return c.json({ error: `Book "${id}" is in the trash` }, 404);
       const bookDir = state.bookDir(id);
       const storyDir = join(bookDir, "story");
       const sectionFiles: ReadonlyArray<{ readonly file: string; readonly title: string }> = [
@@ -5292,11 +5294,30 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = c.req.param("id");
     const bookDir = state.bookDir(id);
     try {
-      const { rm } = await import("node:fs/promises");
-      await rm(bookDir, { recursive: true, force: true });
+      const book = await state.loadBookConfig(id);
+      if (!book.deletedAt) {
+        await state.saveBookConfig(id, { ...book, deletedAt: new Date().toISOString() });
+      }
       broadcast("book:deleted", { bookId: id });
+      return c.json({ ok: true, bookId: id, deletedAt: book.deletedAt ?? new Date().toISOString() });
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return c.json({ error: "Book not found" }, 404);
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  app.post("/api/v1/books/:id/restore", async (c) => {
+    const id = c.req.param("id");
+    try {
+      const book = await state.loadBookConfig(id);
+      if (book.deletedAt) {
+        const { deletedAt: _deletedAt, ...restored } = book;
+        await state.saveBookConfig(id, restored);
+      }
+      broadcast("book:restored", { bookId: id });
       return c.json({ ok: true, bookId: id });
     } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return c.json({ error: "Book not found" }, 404);
       return c.json({ error: String(e) }, 500);
     }
   });
@@ -5309,10 +5330,24 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       return c.json({ error: "Invalid short story id" }, 400);
     }
     try {
-      await rm(join(root, "shorts", id), { recursive: true, force: true });
+      await softDeleteShortStory(root, id);
       broadcast("short:deleted", { storyId: id });
       return c.json({ ok: true, storyId: id });
     } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return c.json({ error: "Short story not found" }, 404);
+      return c.json({ error: String(e) }, 500);
+    }
+  });
+
+  app.post("/api/v1/shorts/:id/restore", async (c) => {
+    const id = c.req.param("id");
+    if (!isSafeBookId(id)) return c.json({ error: "Invalid short story id" }, 400);
+    try {
+      await restoreShortStory(root, id);
+      broadcast("short:restored", { storyId: id });
+      return c.json({ ok: true, storyId: id });
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return c.json({ error: "Short story not found" }, 404);
       return c.json({ error: String(e) }, 500);
     }
   });
@@ -5766,7 +5801,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.get("/api/v1/crafts", async (c) => {
     const pipelineConfig = await buildPipelineConfig();
     const pipeline = new PipelineRunner(pipelineConfig);
-    const crafts = await pipeline.listCrafts();
+    const crafts = await pipeline.listCrafts({ includeDeleted: true });
     let recentCraftId: string | null = null;
     let recentCraftPreferenceAvailable = true;
     try {
@@ -5775,7 +5810,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       recentCraftPreferenceAvailable = false;
       pipelineConfig.logger?.warn(`Failed to read recent craft preference: ${String(error)}`);
     }
-    if (recentCraftId && !crafts.some((craft) => craft.id === recentCraftId)) {
+    if (recentCraftId && !crafts.some((craft) => craft.id === recentCraftId && !craft.deletedAt)) {
       try {
         await clearRecentCraftId(root);
         recentCraftId = null;
@@ -6101,6 +6136,17 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       pipelineConfig.logger?.warn(`Failed to clear recent craft preference: ${String(error)}`);
     }
     return c.json({ ok: true });
+  });
+
+  app.post("/api/v1/crafts/:id/restore", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const crafts = await pipeline.listCrafts({ includeDeleted: true });
+    if (!crafts.some((craft) => craft.id === id)) {
+      throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    }
+    await pipeline.restoreCraft(id);
+    return c.json({ ok: true, craftId: id });
   });
 
   // --- Import Chapters ---

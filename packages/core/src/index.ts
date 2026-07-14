@@ -1,5 +1,6 @@
 // Models
 export { type BookConfig, type Platform, type Genre, type BookStatus, type FanficMode, type ChapterReviewMode, type RevisionGate, BookConfigSchema, PlatformSchema, GenreSchema, BookStatusSchema, FanficModeSchema, normalizePlatformId, normalizePlatformOrOther, resolveChapterReviewMode, resolveRevisionGate } from "./models/book.js";
+export { SOFT_DELETE_RETENTION_MS, isSoftDeleteExpired, sortSoftDeletedLast, type SoftDeletable } from "./utils/soft-delete.js";
 export { type ChapterMeta, type ChapterStatus, ChapterMetaSchema, ChapterStatusSchema } from "./models/chapter.js";
 export { type StoryAssetKind, type StoryAssetImageStatus, type StoryAssetImage, type StoryAsset, type StoryAssetDraft, type StoryAssetManifest, createEmptyStoryAssetManifest, normalizeStoryAssetKind, normalizeStoryAssetName, normalizeStoryAssetImageStatus, mergeStoryAssets } from "./models/story-assets.js";
 export {
