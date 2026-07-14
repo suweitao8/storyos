@@ -104,7 +104,7 @@ export function SummarySection({ bookId }: SummarySectionProps) {
     return (
       <>
         {legacy.world && (
-          <SidebarCard title={tr("世界观", "World")}>
+          <SidebarCard title={tr("世界设定", "World")}>
             <Streamdown className={SIDEBAR_MD_CLASS} plugins={streamdownPlugins}>
               {legacy.world}
             </Streamdown>
@@ -130,27 +130,27 @@ export function SummarySection({ bookId }: SummarySectionProps) {
     );
   }
 
-  // Worldview etc. is a section inside story_frame.md ("故事基石"); these
+  // Worldview etc. is a section inside story_frame.md ("故事设定"); these
   // summary cards are a glance, so offer a button to open the full file.
   const openFull = (
     <button
       onClick={() => openArtifact("outline/story_frame.md")}
       className="mt-2 text-[15px] leading-6 text-primary hover:underline font-['SimSun','Songti_SC','STSong',serif]"
     >
-      {tr("查看完整设定 →", "View full foundation →")}
+      {tr("查看完整设定 →", "View full settings →")}
     </button>
   );
 
   return (
     <>
       {cards.length > 0 && (
-        <SidebarCard title={tr("故事基石", "Story Foundation")}>
+        <SidebarCard title={tr("故事设定", "Story Foundation")}>
           <FrontmatterCards cards={cards} />
           {!worldOverview && openFull}
         </SidebarCard>
       )}
       {worldOverview && (
-        <SidebarCard title={tr("世界观", "World")}>
+        <SidebarCard title={tr("世界设定", "World")}>
           <Streamdown className={SIDEBAR_MD_CLASS} plugins={streamdownPlugins}>
             {worldOverview}
           </Streamdown>

@@ -1534,7 +1534,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
         <section className="grid gap-3 md:grid-cols-2">
           {detail.worldview && (
             <div className={`border ${c.cardStatic} rounded-xl p-4 space-y-2`}>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">世界观</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">世界设定</h3>
               <p className="text-sm leading-6 whitespace-pre-wrap">{detail.worldview}</p>
             </div>
           )}

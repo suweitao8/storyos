@@ -127,29 +127,29 @@ export function roleFromPath(path: string): RoleRef | null {
 // shown in the foundation list. This zh map is the registry of which files
 // qualify; use foundationFileLabel() for the language-aware display label.
 export const FOUNDATION_FILE_LABELS: Record<string, string> = {
-  "outline/story_frame.md": "故事基石",
-  "outline/volume_map.md": "卷纲规划",
+  "outline/story_frame.md": "故事设定",
+  "outline/volume_map.md": "分卷规划",
   "current_state.md": "当前状态",
-  "pending_hooks.md": "伏笔池",
-  "emotional_arcs.md": "情感弧线",
+  "pending_hooks.md": "伏笔记录",
+  "emotional_arcs.md": "情感线索",
   "subplot_board.md": "支线进度",
   // Pre-Phase-5 flat layout — only reached for old books; new books tag these
   // (story_bible.md / book_rules.md) as legacy and they are filtered out.
-  "story_bible.md": "世界观设定",
-  "volume_outline.md": "卷纲规划",
-  "book_rules.md": "叙事规则",
+  "story_bible.md": "世界设定",
+  "volume_outline.md": "分卷规划",
+  "book_rules.md": "写作规则",
 };
 
 const FOUNDATION_FILE_LABELS_EN: Record<string, string> = {
   "outline/story_frame.md": "Story Foundation",
-  "outline/volume_map.md": "Volume Map",
+  "outline/volume_map.md": "Volume Plan",
   "current_state.md": "Current State",
-  "pending_hooks.md": "Hook Pool",
+  "pending_hooks.md": "Foreshadowing",
   "emotional_arcs.md": "Emotional Arcs",
-  "subplot_board.md": "Subplot Board",
-  "story_bible.md": "World Bible",
-  "volume_outline.md": "Volume Map",
-  "book_rules.md": "Narrative Rules",
+  "subplot_board.md": "Subplots",
+  "story_bible.md": "World Settings",
+  "volume_outline.md": "Volume Plan",
+  "book_rules.md": "Writing Rules",
 };
 
 // Language-aware display label for a foundation truth file. Returns undefined

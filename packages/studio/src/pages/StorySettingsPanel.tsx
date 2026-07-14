@@ -52,8 +52,8 @@ export function hasStorySettingsContent(value: { readonly sections?: ReadonlyArr
 }
 
 const GROUP_LABELS: Record<StorySectionGroup, { readonly zh: string; readonly en: string }> = {
-  settings: { zh: "故事设定", en: "Story setup" },
-  world: { zh: "世界观与规则", en: "World and rules" },
+  settings: { zh: "故事设定", en: "Story settings" },
+  world: { zh: "世界设定", en: "World settings" },
   outline: { zh: "故事大纲", en: "Outline" },
 };
 
