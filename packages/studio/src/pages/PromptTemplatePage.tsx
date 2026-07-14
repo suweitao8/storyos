@@ -104,15 +104,6 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {writingMode === "longform"
-                    ? (isZh
-                        ? "长篇故事的写作、修订、审计等环节的内置指导提示词。"
-                        : "Built-in guidance prompts for long-form writing, revising, and auditing.")
-                    : (isZh
-                        ? "短篇故事的大纲、写作、审稿、包装等环节的内置指导提示词。"
-                        : "Built-in guidance prompts for short-story outline, writing, review, and packaging.")}
-                </p>
                 {writingGroups.map((group) => (
                   <div key={group.id} className="space-y-3">
                     <div>
@@ -146,11 +137,6 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
 
             {tab === "imageTemplates" && (
               <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  {isZh
-                    ? "风格无关的内容提取模板，生成时会与画面风格描述拼接。"
-                    : "Style-agnostic content extraction templates, combined with art style descriptions at generation time."}
-                </p>
                 {imageKinds.map((kind) => {
                   const labels = IMAGE_LABELS[kind] ?? { zh: kind, en: kind };
                   const value = data.imageTemplates[kind] ?? "";
@@ -170,11 +156,6 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
 
             {tab === "imageStyles" && (
               <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  {isZh
-                    ? "画面风格描述，按角色/场景/道具分别配置，生成时追加到对应模板末尾。"
-                    : "Art style descriptions per character/scene/prop, appended to the corresponding template at generation time."}
-                </p>
                 {data.artStyles.map((style) => {
                   const styleKinds = data.imageStyles[style.key] ?? {};
                   return (
@@ -203,11 +184,6 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
 
             {tab === "voice" && (
               <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  {isZh
-                    ? "通用音色推导模板。根据角色档案（年龄、性别、体型、性格等）动态推导音色，不预设固定音色。"
-                    : "Generic voice derivation template. Derives voice characteristics from the character's profile (age, gender, body type, personality) — no fixed timbre."}
-                </p>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase tracking-wide">
                     {isZh ? "语音提示词模板" : "Voice Prompt Template"}

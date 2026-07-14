@@ -218,7 +218,6 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
       <div className="flex items-end justify-between border-b border-border/40 pb-8">
         <div>
           <h1 className="font-serif text-4xl mb-2">{t("dash.title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("dash.subtitle")}</p>
         </div>
         <button
           onClick={nav.toBookCreate}
@@ -360,7 +359,6 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
               </div>
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-widest text-primary"> Manuscript Foundry</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Real-time LLM generation tracking</p>
               </div>
             </div>
             {progressEvent && (

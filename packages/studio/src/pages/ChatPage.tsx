@@ -372,9 +372,6 @@ function SkillPickerPanel({
         <div>
           <div>
             <div className="text-sm font-bold">{isZh ? "选择 Skill" : "Select skills"}</div>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              {isZh ? "Skill 会随这条消息一起注入，让 Chat 主动使用专业能力。" : "Skills are injected into this turn so Chat can use focused expertise."}
-            </p>
           </div>
         </div>
       </div>

@@ -229,7 +229,6 @@ export function ImportManager({ nav, theme, t, initialTab }: { nav: Nav; theme: 
 
         {tab === "spinoff" && (
           <>
-            <p className="text-xs text-muted-foreground">{t("import.spinoffHint")}</p>
             <input type="text" value={spTitle} onChange={(e) => setSpTitle(e.target.value)}
               placeholder={t("import.spinoffTitle")}
               className="w-full px-3 py-2 rounded-lg bg-secondary/30 border border-border text-sm"

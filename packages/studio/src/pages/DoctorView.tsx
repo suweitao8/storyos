@@ -63,7 +63,6 @@ export function EnvironmentDiagnostics({ theme, t }: { theme: Theme; t: TFunctio
           <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary"><Stethoscope size={18} /></div>
           <div>
             <h2 className="text-base font-bold">{t("doctor.title")}</h2>
-            <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{t("doctor.settingsHint")}</p>
           </div>
         </div>
         <button onClick={() => void runCheck()} disabled={loading} className={`px-4 py-2 text-sm rounded-lg ${c.btnSecondary} disabled:opacity-50`}>

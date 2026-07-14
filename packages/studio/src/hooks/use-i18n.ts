@@ -216,7 +216,6 @@ const strings = {
   "import.importing": { zh: "导入中...", en: "Importing..." },
   "import.creating": { zh: "创建中...", en: "Creating..." },
   "import.spinoff": { zh: "番外创作", en: "Side-story" },
-  "import.spinoffHint": { zh: "选一本已有书做正传，系统生成一本独立番外书：继承其角色与世界设定，但讲一个不进主线的侧篇故事。", en: "Pick an existing book as the canon; a standalone side-story book is generated — it inherits the cast and world but tells a side plot outside the main line." },
   "import.spinoffTitle": { zh: "番外标题", en: "Side-story title" },
   "import.selectParent": { zh: "选择正传母书...", en: "Select parent book..." },
   "import.spinoffDirection": { zh: "番外方向（可选）：聚焦哪个角色 / 哪条支线 / 什么 what-if...", en: "Side-story direction (optional): which character / subplot / what-if..." },
@@ -232,7 +231,6 @@ const strings = {
 
   // Doctor
   "doctor.title": { zh: "环境诊断", en: "Environment Check" },
-  "doctor.settingsHint": { zh: "检查项目配置、环境文件、数据目录和 LLM 连接状态。", en: "Check project configuration, environment files, the data directory, and LLM connectivity." },
   "doctor.recheck": { zh: "重新检查", en: "Re-check" },
   "doctor.inkosJson": { zh: "inkos.json 配置", en: "inkos.json configuration" },
   "doctor.projectEnv": { zh: "项目环境文件", en: "Project environment file" },
@@ -329,7 +327,6 @@ const strings = {
   "settings.tab.genres": { zh: "题材", en: "Genres" },
   "settings.tab.diagnostics": { zh: "诊断", en: "Diagnostics" },
   "settings.general": { zh: "通用", en: "General" },
-  "settings.generalHint": { zh: "界面语言与主题皮肤。", en: "Interface language and theme." },
   "settings.language": { zh: "语言", en: "Language" },
   "settings.theme": { zh: "主题", en: "Theme" },
   "settings.themeLight": { zh: "浅色", en: "Light" },
@@ -348,9 +345,6 @@ const strings = {
   "truth.notFound": { zh: "文件未找到", en: "File not found" },
   "truth.selectFile": { zh: "选择文件查看内容", en: "Select a file to view" },
   "truth.selectHint": { zh: "选择文件查看内容", en: "Select a file to view" },
-
-  // Dashboard
-  "dash.subtitle": { zh: "管理你的文学宇宙和 AI 辅助草稿。", en: "Manage your literary universe and AI-assisted drafts." },
 
   // Chapter Reader extras
   "reader.openingManuscript": { zh: "打开书稿中...", en: "Opening manuscript..." },
@@ -401,7 +395,6 @@ const strings = {
   "common.exportFormat": { zh: "导出格式", en: "Export format" },
   "logs.title": { zh: "日志", en: "Logs" },
   "logs.empty": { zh: "暂无日志", en: "No log entries yet" },
-  "logs.showingRecent": { zh: "当前展示最近日志记录。", en: "Showing recent log entries." },
 } as const;
 
 export type StringKey = keyof typeof strings;

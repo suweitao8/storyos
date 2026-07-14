@@ -20,7 +20,7 @@ function SettingsCard({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -30,7 +30,7 @@ function SettingsCard({
         <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary">{icon}</div>
         <div>
           <h2 className="text-base font-bold">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{description}</p>
+          {description && <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{description}</p>}
         </div>
       </div>
       {children}
@@ -72,7 +72,7 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
     <div className="space-y-6">
       {activeTab === "common" && (
         <div className="space-y-6">
-        <SettingsCard title={t("settings.general")} description={t("settings.generalHint")} icon={<Globe size={18} />}>
+        <SettingsCard title={t("settings.general")} icon={<Globe size={18} />}>
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-sm text-muted-foreground min-w-fit">{t("settings.language")}:</span>
               <div className="flex gap-0.5 bg-muted/50 rounded-lg p-0.5">

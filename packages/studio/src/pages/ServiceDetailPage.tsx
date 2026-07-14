@@ -444,9 +444,6 @@ export function TextModelConfigPanel({
               <div className="flex items-center gap-2">
                 <h1 className="font-serif text-2xl">{resolvedLabel}</h1>
               </div>
-              <p className="text-xs text-muted-foreground/70">
-                {tr("选择当前模型，配置 API Key，然后测试连接或直接保存。", "Choose the current model, configure the API key, then test or save.")}
-              </p>
             </div>
 
             {isCustom && (

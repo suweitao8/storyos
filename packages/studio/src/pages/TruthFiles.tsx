@@ -111,8 +111,6 @@ export function TruthFiles({ bookId, nav, theme, t }: { bookId: string; nav: Nav
         <span className="text-foreground">{t("truth.title")}</span>
       </div>
 
-      <h1 className="font-serif text-3xl">{t("truth.title")}</h1>
-
       <div className="grid grid-cols-[240px_1fr] gap-6">
         {/* File list */}
         <div className={`border ${c.cardStatic} rounded-lg overflow-hidden`}>
@@ -159,9 +157,6 @@ export function TruthFiles({ bookId, nav, theme, t }: { bookId: string; nav: Nav
                   className="mb-3 px-3 py-2 rounded-md border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs leading-relaxed"
                 >
                   <div className="font-medium">运行时诊断文件 / Runtime diagnostic</div>
-                  <div className="mt-1">
-                    这里展示本章写作时的上下文选择、保护层、可压缩层和预算 trace。它只用于追溯系统看了什么，不作为可编辑设定。
-                  </div>
                 </div>
               )}
               <div className="flex items-center justify-end gap-2 mb-3">
