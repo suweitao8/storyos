@@ -102,9 +102,13 @@ function routeToHash(route: HashRoute): string {
   }
 }
 
-export { parseHash, routeToHash }; // for testing
+const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "craft", "play", "film", "flow", "film-author", "film-studio", "prompt-templates", "skills"]);
 
-const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "play", "film", "flow", "film-author", "film-studio", "prompt-templates", "skills"]);
+export function shouldWriteRouteHash(route: HashRoute): boolean {
+  return HASH_PAGES.has(route.page);
+}
+
+export { parseHash, routeToHash }; // for testing
 
 function normalizeRoute(route: HashRoute): HashRoute {
   return route.page === "doctor" ? { page: "project-settings" } : route;
@@ -127,7 +131,7 @@ export function useHashRoute() {
     // 不写 URL，URL 一直停在 #/services），再次赋值同一个 hash 不会触发 hashchange，
     // React state 就永远停留在 logs，表现为"点不动"。
     setRouteState(normalizedRoute);
-    if (HASH_PAGES.has(normalizedRoute.page)) {
+    if (shouldWriteRouteHash(normalizedRoute)) {
       const hash = routeToHash(normalizedRoute);
       if (hash && window.location.hash !== hash) {
         window.location.hash = hash;

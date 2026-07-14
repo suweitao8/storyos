@@ -598,7 +598,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     <div className={CRAFT_LAYOUT_CLASSES.content}>
       {/* Tab content */}
       {tab === "list" && (
-        craftsLoading ? (
+        craftsLoading && crafts.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
         ) : craftsError ? (
           <div className="space-y-3 py-12 text-center" role="alert">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseHash, routeToHash } from "./use-hash-route";
+import { parseHash, routeToHash, shouldWriteRouteHash } from "./use-hash-route";
 
 describe("hash route", () => {
   describe("parseHash", () => {
@@ -133,6 +133,10 @@ describe("hash route", () => {
     it("non-hash pages return empty string", () => {
       expect(routeToHash({ page: "daemon" })).toBe("");
       expect(routeToHash({ page: "logs" })).toBe("");
+    });
+
+    it("persists the writing mode route in the URL", () => {
+      expect(shouldWriteRouteHash({ page: "craft" })).toBe(true);
     });
   });
 });
