@@ -49,3 +49,5 @@ studio-dev*.log
 radar/
 .zcode/
 craft-source-uploads/
+.inkos/
+inkos.json
