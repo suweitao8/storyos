@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Clapperboard, RefreshCw, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ImageIcon, Mic, Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
-import type { UnifiedScriptDocument } from "../api/story-production";
+import type { UnifiedScriptDocument, UnifiedScriptShot } from "../api/story-production";
 
 interface ProductionResponse {
   readonly script: UnifiedScriptDocument & { readonly exists: boolean; readonly content: string; readonly generatedAt?: string | null };
@@ -19,6 +19,22 @@ export function buildStoryProductionPath(kind: "book" | "short", storyId: string
   return `/${kind === "short" ? "shorts" : "books"}/${encodeURIComponent(storyId)}/production`;
 }
 
+/** 按 scene 字段把镜头聚合成有序分组，保持镜头出场顺序。 */
+export function groupShotsByScene(shots: readonly UnifiedScriptShot[]): ReadonlyArray<readonly [string, ReadonlyArray<UnifiedScriptShot>]> {
+  const grouped = new Map<string, UnifiedScriptShot[]>();
+  for (const shot of shots) {
+    const current = grouped.get(shot.scene) ?? [];
+    current.push(shot);
+    grouped.set(shot.scene, current);
+  }
+  return [...grouped.entries()];
+}
+
+/** 镜头稳定标识，用于选中态与列表 key。 */
+function shotKey(shot: UnifiedScriptShot): string {
+  return `${shot.scene}#${shot.number}`;
+}
+
 interface StoryScriptPanelProps {
   readonly kind: "book" | "short";
   readonly storyId: string | null;
@@ -31,18 +47,23 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  if (!loading && (!storyId || data && !hasStoryProductionContent(data))) {
-    return (
-      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-script-panel">
-        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-          <EmptyState text={isZh ? "暂无内容" : "No content"} />
-        </div>
-      </section>
-    );
-  }
+  const shots = useMemo(() => data?.script.shots ?? [], [data?.script.shots]);
+  const scenes = useMemo(() => groupShotsByScene(shots), [shots]);
 
-  const generate = async () => {
+  const allKeys = useMemo(() => shots.map(shotKey), [shots]);
+  useEffect(() => {
+    if (allKeys.length === 0) {
+      if (selectedKey !== null) setSelectedKey(null);
+      return;
+    }
+    if (!selectedKey || !allKeys.includes(selectedKey)) setSelectedKey(allKeys[0] ?? null);
+  }, [allKeys, selectedKey]);
+
+  const selectedShot = useMemo(() => shots.find((shot) => shotKey(shot) === selectedKey) ?? null, [shots, selectedKey]);
+
+  async function generate(): Promise<void> {
     if (!storyId) return;
     setBusy(true);
     setActionError(null);
@@ -54,62 +75,193 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
     } finally {
       setBusy(false);
     }
-  };
+  }
+
+  const emptyBody = (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
+      <EmptyState text={isZh ? "暂无剧本" : "No script yet"} />
+      {storyId ? (
+        <button type="button" onClick={() => void generate()} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+          {busy ? <Sparkles size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          {busy ? (isZh ? "生成中..." : "Generating...") : isZh ? "生成剧本" : "Generate script"}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  // 空内容 / 加载 / 出错：只保留必要的生成入口，隐藏表格与编辑区。
+  if (!loading && (!storyId || (data && !hasStoryProductionContent(data)))) {
+    return (
+      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-script-panel">
+        {emptyBody}
+      </section>
+    );
+  }
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-script-panel">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border/40 px-6 py-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <Clapperboard size={21} className="shrink-0 text-primary" />
-          <div className="min-w-0" />
+    <section className="flex h-full min-h-0 w-full overflow-hidden bg-card/20" data-testid="story-script-panel">
+      {loading && !data ? (
+        <div className="flex h-full w-full items-center justify-center">
+          <EmptyState text={isZh ? "正在加载剧本..." : "Loading script..."} />
         </div>
-        <button type="button" onClick={() => void generate()} disabled={!storyId || busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
-          {busy ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {busy ? (isZh ? "生成中..." : "Generating...") : data?.script.exists ? (isZh ? "重新生成剧本" : "Regenerate script") : (isZh ? "生成剧本" : "Generate script")}
-        </button>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {loading && !data ? <EmptyState text={isZh ? "正在加载剧本..." : "Loading script..."} /> : error ? <ErrorState text={error} /> : !data?.script.exists ? <EmptyState text={isZh ? "暂无内容" : "No content"} /> : (
-          <div className="space-y-6">
-            {actionError || data.warning ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">{actionError ?? data.warning}</div> : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MetaCard label={isZh ? "镜头数" : "Shots"} value={String(data.script.shots.length)} />
-              <MetaCard label={isZh ? "视频状态" : "Video"} value={data.video.exists ? (isZh ? "已生成" : "Ready") : (isZh ? "待生成" : "Not generated")} />
+      ) : error ? (
+        <div className="flex h-full w-full items-center justify-center p-6">
+          <ErrorState text={error} />
+        </div>
+      ) : !data?.script.exists || shots.length === 0 ? (
+        emptyBody
+      ) : (
+        <div className="flex h-full min-h-0 w-full">
+          {/* 左半边：按场景分组的分镜表格 */}
+          <div className="flex h-full min-h-0 w-1/2 shrink-0 flex-col border-r border-border/40" data-testid="story-script-list">
+            <div className="shrink-0 border-b border-border/30 px-3 py-2 text-center">
+              <p className="text-xs font-semibold text-muted-foreground">{isZh ? "分镜" : "Shots"}<span className="ml-1 text-muted-foreground/50">{shots.length}</span></p>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {data.script.shots.map((shot) => (
-                <article key={`${shot.number}-${shot.scene}`} className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">{shot.scene}</p>
-                      <h2 className="mt-1 text-base font-semibold">{isZh ? `镜头 ${shot.number}` : `Shot ${shot.number}`}</h2>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : (isZh ? "自动时长" : "Auto")}</span>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {actionError || data.warning ? <div className="mx-3 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{actionError ?? data.warning}</div> : null}
+              {scenes.map(([scene, sceneShots]) => (
+                <div key={scene} className="border-b border-border/30 last:border-b-0">
+                  <div className="sticky top-0 z-[1] flex items-baseline gap-2 bg-background/95 px-3 py-1.5 backdrop-blur">
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{scene}</p>
+                    <span className="shrink-0 text-[11px] text-muted-foreground/50">{sceneShots.length}</span>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-foreground/80">{shot.visual}</p>
-                  {shot.action ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{isZh ? "动作：" : "Action: "}{shot.action}</p> : null}
-                  <div className="mt-4 rounded-xl bg-secondary/50 px-3 py-2 text-sm leading-6">{shot.subtitle || (isZh ? "无字幕/台词" : "No subtitle or dialogue")}</div>
-                  {shot.imagePrompt ? <p className="mt-3 text-xs leading-5 text-muted-foreground">{isZh ? "图像提示词：" : "Image prompt: "}{shot.imagePrompt}</p> : null}
-                </article>
+                  {sceneShots.map((shot) => (
+                    <ShotRow key={shotKey(shot)} shot={shot} isZh={isZh} selected={shotKey(shot) === selectedKey} onSelect={() => setSelectedKey(shotKey(shot))} />
+                  ))}
+                </div>
               ))}
             </div>
-            <details className="rounded-xl border border-border/50 bg-background/60 p-4">
-              <summary className="cursor-pointer text-sm font-medium">{isZh ? "查看完整剧本 Markdown" : "View full script Markdown"}</summary>
-              <pre className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/80">{data.script.content}</pre>
-            </details>
           </div>
-        )}
+
+          {/* 右半边：分镜编辑面板 */}
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+            {selectedShot ? <ShotDetails key={shotKey(selectedShot)} shot={selectedShot} isZh={isZh} /> : (
+              <div className="flex h-full items-center justify-center p-6">
+                <EmptyState text={isZh ? "选择左侧分镜查看详情" : "Select a shot to view details"} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 左侧：单行分镜（表格行样式：编号 / 景别 / 旁白摘要）
+// ---------------------------------------------------------------------------
+
+function ShotRow({ shot, isZh, selected, onSelect }: {
+  readonly shot: UnifiedScriptShot;
+  readonly isZh: boolean;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+}) {
+  const subtitle = shot.subtitle.trim();
+  const camera = shot.camera?.trim();
+  return (
+    <button
+      type="button"
+      data-testid={`story-script-shot-${shot.number}`}
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${selected ? "bg-primary/10" : "hover:bg-secondary/60"}`}
+    >
+      <span className={`mt-0.5 shrink-0 text-xs font-semibold tabular-nums ${selected ? "text-primary" : "text-muted-foreground/70"}`}>{shot.number}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          {camera ? <span className="shrink-0 rounded border border-border/50 bg-secondary/50 px-1.5 py-px text-[10px] text-muted-foreground">{camera}</span> : null}
+          <span className="truncate text-xs text-muted-foreground/50">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : isZh ? "自动" : "auto"}</span>
+        </div>
+        <p className={`mt-0.5 line-clamp-1 text-sm ${selected ? "font-medium text-primary" : "text-foreground/80"}`}>
+          {subtitle || shot.visual || (isZh ? "（无旁白）" : "(no narration)")}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 右侧：分镜详情编辑面板
+// ---------------------------------------------------------------------------
+
+function ShotDetails({ shot, isZh }: { readonly shot: UnifiedScriptShot; readonly isZh: boolean }) {
+  return (
+    <section className="min-h-0 flex-1 overflow-y-auto bg-card/20 p-4" data-testid="story-script-details">
+      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        {/* 标题行 */}
+        <div className="flex shrink-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{shot.scene}</p>
+            <h2 className="truncate text-lg font-semibold">{isZh ? `镜头 ${shot.number}` : `Shot ${shot.number}`}</h2>
+            {shot.camera ? <span className="shrink-0 rounded border border-border/50 bg-secondary/50 px-1.5 py-0.5 text-[11px] text-muted-foreground">{shot.camera}</span> : null}
+          </div>
+          <span className="shrink-0 text-xs text-muted-foreground">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : isZh ? "自动时长" : "Auto"}</span>
+        </div>
+
+        {/* 生成按钮（占位：单镜头生成能力待后端支持） */}
+        <div className="flex shrink-0 gap-2">
+          <PlaceholderButton icon={<Mic size={14} />} label={isZh ? "生成语音" : "Generate voice"} isZh={isZh} />
+          <PlaceholderButton icon={<ImageIcon size={14} />} label={isZh ? "生成图片" : "Generate image"} isZh={isZh} />
+        </div>
+
+        {/* 图片占位区 */}
+        <div className="flex aspect-[16/9] shrink-0 items-center justify-center rounded-xl border border-dashed border-border/60 bg-secondary/40">
+          <span className="text-sm text-muted-foreground/50">{isZh ? "分镜图片（待生成）" : "Shot image (pending)"}</span>
+        </div>
+
+        {/* 字段区 */}
+        <div className="min-h-0 flex-1 space-y-4">
+          <Field label={isZh ? "景别 / 机位" : "Camera"}>
+            <p className="rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm text-foreground/80">{shot.camera || (isZh ? "未设置" : "Not set")}</p>
+          </Field>
+          <Field label={isZh ? "分镜内容" : "Visual"}>
+            <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground/80">{shot.visual || (isZh ? "画面待补充" : "No visual description")}</p>
+          </Field>
+          {shot.action ? (
+            <Field label={isZh ? "动作" : "Action"}>
+              <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-muted-foreground">{shot.action}</p>
+            </Field>
+          ) : null}
+          <Field label={isZh ? "旁白 / 台词" : "Narration"}>
+            <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground/80">{shot.subtitle || (isZh ? "无旁白" : "No narration")}</p>
+          </Field>
+          {shot.imagePrompt ? (
+            <Field label={isZh ? "图像提示词" : "Image prompt"}>
+              <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-xs leading-5 text-muted-foreground">{shot.imagePrompt}</p>
+            </Field>
+          ) : null}
+        </div>
       </div>
     </section>
   );
 }
 
-function MetaCard({ label, value }: { readonly label: string; readonly value: string }) {
-  return <div className="rounded-xl border border-border/50 bg-background/60 px-4 py-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-semibold">{value}</div></div>;
+function PlaceholderButton({ icon, label, isZh }: { readonly icon: ReactNode; readonly label: string; readonly isZh: boolean }) {
+  return (
+    <button
+      type="button"
+      disabled
+      title={isZh ? "单镜头生成能力即将上线" : "Per-shot generation coming soon"}
+      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground opacity-60"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      {children}
+    </div>
+  );
 }
 
 function EmptyState({ text }: { readonly text: string }) {
-  return <div className="flex min-h-64 items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{text}</div>;
+  return <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{text}</div>;
 }
 
 function ErrorState({ text }: { readonly text: string }) {
