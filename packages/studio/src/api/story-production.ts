@@ -245,19 +245,28 @@ function estimateSubtitleDurationMs(text: string): number {
 
 export function buildSubtitleEntries(shots: readonly UnifiedScriptShot[], gapMs = 200): SubtitleEntry[] {
   let cursor = 0;
-  return shots
-    .filter((shot) => shot.subtitle.trim())
-    .map((shot, index) => {
-      const durationMs = shot.durationMs > 0 ? shot.durationMs : estimateSubtitleDurationMs(shot.subtitle);
-      const entry: SubtitleEntry = {
-        index: index + 1,
+  let index = 0;
+  const entries: SubtitleEntry[] = [];
+  for (const shot of shots) {
+    const trimmed = shot.subtitle.trim();
+    if (!trimmed) continue;
+    // 按换行拆成单行，逐行作为独立字幕条目
+    const lines = trimmed.split(/\n+/u).map((l) => l.trim()).filter(Boolean);
+    // shot 总时长按比例分配给每行
+    const totalDurationMs = shot.durationMs > 0 ? shot.durationMs : estimateSubtitleDurationMs(trimmed);
+    const perLineMs = lines.length > 0 ? Math.max(1000, Math.round(totalDurationMs / lines.length)) : totalDurationMs;
+    for (const line of lines) {
+      const durationMs = perLineMs;
+      entries.push({
+        index: ++index,
         startTimeMs: cursor,
         endTimeMs: cursor + durationMs,
-        text: shot.subtitle.trim(),
-      };
-      cursor = entry.endTimeMs + gapMs;
-      return entry;
-    });
+        text: line,
+      });
+      cursor += durationMs + gapMs;
+    }
+  }
+  return entries;
 }
 
 export function formatSrtTime(ms: number): string {
