@@ -31,8 +31,10 @@ import type { StorySeed } from "@actalk/inkos-core";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
-import { buildStoryProductionPath, StoryScriptPanel } from "./StoryScriptPanel";
+import { StoryScriptPanel } from "./StoryScriptPanel";
 import { StoryVideoPanel } from "./StoryVideoPanel";
+import { registerPendingCreation } from "../store/story-creation/registry";
+import { toast } from "../store/toast/store";
 import {
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
@@ -988,55 +990,63 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     }
   };
 
-  const requestStoryScriptCreation = async (kind: "book" | "short", storyId: string | null) => {
-    if (!storyId) return;
-    try {
-      await fetchJson(`${buildStoryProductionPath(kind, storyId)}/script`, { method: "POST" });
-    } catch (error) {
-      // Empty stories legitimately have no script source yet; the script stage
-      // will show its empty state instead of turning story creation into a failure.
-      console.warn("[studio] Story script creation skipped", error);
-    }
-  };
-
-  const extractCreatedStoryAssets = (kind: "book" | "short", storyId: string | null) => {
-    if (!storyId) return;
-    setStoryAssetExtractionFailure(null);
-    void requestStoryAssetExtraction(kind, storyId);
-  };
-
-  const handleCreateLong = async (input: LongStoryCreationInput) => {
+  const handleCreateLong = (input: LongStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildLongStoryCreationAction(input);
-    await sendMessage(activeSessionId, action.instruction, {
+    const title = input.title;
+
+    // 注册后台创建任务：SSE agent:complete 触发后自动执行 script/assets 提取 + toast
+    registerPendingCreation({
+      sessionId: activeSessionId,
+      kind: "book",
+      title,
+      createdAt: Date.now(),
+    });
+
+    // fire-and-forget：不等 agent 跑完，用户可以立即切走
+    void sendMessage(activeSessionId, action.instruction, {
       activeBookId,
       sessionKind: "book-create",
       actionSource: "button",
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(isZh ? "创建失败" : "Creation failed", message);
     });
-    const createdBookId = useChatStore.getState().sessions[activeSessionId]?.bookId ?? activeBookId ?? null;
-    await requestStoryScriptCreation("book", createdBookId);
-    extractCreatedStoryAssets("book", createdBookId);
-    setStoryWorkspaceStage("settings");
-    setStoryContentRefreshToken((value) => value + 1);
+
+    toast.info(
+      isZh ? "正在创建故事…" : "Creating story…",
+      title ? (isZh ? `《${title}》正在后台生成，你可以继续其他操作` : `"${title}" is generating in the background`) : undefined,
+    );
   };
 
-  const handleCreateShort = async (input: ShortStoryCreationInput) => {
+  const handleCreateShort = (input: ShortStoryCreationInput) => {
     if (!activeSessionId) return;
     const action = buildShortStoryCreationAction(input);
-    await sendMessage(activeSessionId, action.instruction, {
+
+    registerPendingCreation({
+      sessionId: activeSessionId,
+      kind: "short",
+      title: input.direction.slice(0, 30),
+      createdAt: Date.now(),
+    });
+
+    void sendMessage(activeSessionId, action.instruction, {
       activeBookId,
       sessionKind: "short",
       actionSource: "button",
       requestedIntent: action.requestedIntent,
       actionPayload: action.actionPayload,
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(isZh ? "创建失败" : "Creation failed", message);
     });
-    const createdShortId = latestShortStoryId(useChatStore.getState().sessions[activeSessionId]?.messages ?? []);
-    await requestStoryScriptCreation("short", createdShortId);
-    extractCreatedStoryAssets("short", createdShortId);
-    setStoryWorkspaceStage("settings");
-    setStoryContentRefreshToken((value) => value + 1);
+
+    toast.info(
+      isZh ? "正在创建短篇…" : "Creating short story…",
+      isZh ? "短篇正在后台生成，你可以继续其他操作" : "Short story is generating in the background",
+    );
   };
 
   const emptyGuidance = (() => {
