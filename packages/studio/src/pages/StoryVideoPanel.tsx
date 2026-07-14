@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Film, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Film, Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
@@ -32,7 +32,6 @@ type Selection = { readonly type: "collection" } | { readonly type: "scene"; rea
 export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVideoPanelProps) {
   const path = storyId ? buildStoryProductionPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
-  const [withVoice, setWithVoice] = useState(true);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>({ type: "collection" });
@@ -58,7 +57,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
       const endpoint = selection.type === "scene"
         ? `${path}/video/scene/${selection.index}`
         : `${path}/video`;
-      await postApi(endpoint, { voice: withVoice });
+      await postApi(endpoint, { voice: true });
       await refetch();
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
@@ -142,7 +141,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                   <h2 className="text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
-                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} scope="collection" />
+                  <GenerateButton busy={busy} onGenerate={generate} isZh={isZh} scope="collection" />
                 </div>
                 {data.video.exists ? (
                   <video
@@ -164,7 +163,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   <h2 className="truncate text-base font-semibold">
                     {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
                   </h2>
-                  <GenerateButton busy={busy} withVoice={withVoice} setWithVoice={setWithVoice} onGenerate={generate} isZh={isZh} scope="scene" />
+                  <GenerateButton busy={busy} onGenerate={generate} isZh={isZh} scope="scene" />
                 </div>
                 {selectedSceneVideoUrl && selectedScene?.videoExists ? (
                   <video
@@ -190,45 +189,29 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
 
 function GenerateButton({
   busy,
-  withVoice,
-  setWithVoice,
   onGenerate,
   isZh,
   scope,
 }: {
   readonly busy: boolean;
-  readonly withVoice: boolean;
-  readonly setWithVoice: (value: boolean) => void;
   readonly onGenerate: () => void;
   readonly isZh: boolean;
   readonly scope: "collection" | "scene";
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-2">
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={withVoice}
-          onChange={(e) => setWithVoice(e.target.checked)}
-          className="h-3.5 w-3.5"
-        />
-        {withVoice ? <Volume2 size={12} /> : <VolumeX size={12} />}
-        {isZh ? "语音" : "Voice"}
-      </label>
-      <button
-        type="button"
-        onClick={() => void onGenerate()}
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-      >
-        <Sparkles size={12} />
-        {busy
-          ? (isZh ? "生成中..." : "Generating...")
-          : scope === "scene"
-            ? (isZh ? "生成本场景" : "Generate scene")
-            : (isZh ? "生成合集" : "Generate all")}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => void onGenerate()}
+      disabled={busy}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+    >
+      <Sparkles size={12} />
+      {busy
+        ? (isZh ? "生成中..." : "Generating...")
+        : scope === "scene"
+          ? (isZh ? "生成本场景" : "Generate scene")
+          : (isZh ? "生成合集" : "Generate all")}
+    </button>
   );
 }
 
