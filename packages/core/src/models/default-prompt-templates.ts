@@ -148,9 +148,9 @@ export const DEFAULT_IMAGE_STYLE_REALISTIC: Record<ImagePromptKind, string> = {
 };
 
 export const DEFAULT_IMAGE_STYLE_CG3D: Record<ImagePromptKind, string> = {
-  character: `3D国漫风格，高质量CG人物渲染，建模精细。皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。整体色调高饱和，光影对比强烈，带有体积光和边缘光。`,
-  scene: `3D国漫风格，高质量CG场景渲染，建筑和物件建模精细。大气透视，体积雾效，丁达尔光线穿透云层或窗棂。整体色调偏冷暖对比或高饱和奇幻色调，光影戏剧性强，带有强烈的氛围光。`,
-  prop: `3D国漫风格，高质量CG道具渲染，材质层次丰富。金属反光、宝石折射、木质纹理清晰，魔法道具带发光符文和粒子特效。整体色调高饱和，光影对比强烈，带有边缘光和体积光。`,
+  character: `3D国漫风格，高质量CG人物渲染，建模精细。皮肤质感细腻有光泽，发丝根根分明有动态感。服装材质层次丰富，丝绸光泽、金属反光、皮革纹理清晰可辨。整体色调饱满，光影过渡自然，人物立体感强。`,
+  scene: `3D国漫风格，高质量CG场景渲染，建筑和物件建模精细，材质表现丰富真实。色彩层次分明，明暗对比自然有层次，整体氛围有影视感。光照效果依据场景本身的光源条件自然呈现。`,
+  prop: `3D国漫风格，高质量CG道具渲染，材质层次丰富。金属反光、宝石折射、木质纹理清晰。整体色调饱满，光影过渡自然，物件立体感强，细节刻画精致。`,
 };
 
 export const DEFAULT_IMAGE_STYLES: Record<ArtStyle, Record<ImagePromptKind, string>> = {
