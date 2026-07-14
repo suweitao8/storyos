@@ -321,7 +321,7 @@ export function StoryCreationPanel({
             aria-label={isZh ? "写作模式" : "Writing mode"}
             value={selectedCraftId}
             onChange={(event) => onCraftChange(event.target.value)}
-            disabled={busy || craftsLoading}
+            disabled={busy || (craftsLoading && crafts.length === 0)}
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50"
           >
             <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option>
@@ -331,7 +331,7 @@ export function StoryCreationPanel({
               </option>
             ))}
           </select>
-          {craftsLoading ? <p className="text-xs text-muted-foreground">{isZh ? "正在加载写作模式…" : "Loading writing modes…"}</p> : null}
+          {craftsLoading && crafts.length === 0 ? <p className="text-xs text-muted-foreground">{isZh ? "正在加载写作模式…" : "Loading writing modes…"}</p> : null}
           {craftsError ? <p className="text-xs text-destructive">{isZh ? `加载失败：${craftsError}` : `Failed to load: ${craftsError}`}</p> : null}
           {selectedCraft ? (
             <p className="text-xs leading-5 text-primary">
