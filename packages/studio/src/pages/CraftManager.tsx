@@ -20,9 +20,7 @@ import type { StorySeed } from "@actalk/inkos-core";
 import { StorySeedPreview } from "./StorySeedPreview";
 import {
   serializeStorySeed,
-  streamStorySeed,
   type StorySeedGenerationStatus,
-  type StorySeedStreamEvent,
 } from "./story-seed-stream";
 import {
   Wand2, BookOpen, Trash2, RotateCcw,
@@ -42,6 +40,7 @@ interface CraftMeta {
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
+  readonly storySeed?: StorySeed;
   readonly storySeedStatus?: "pending" | "ready" | "error";
   readonly storySeedError?: string;
   readonly genre?: string;
@@ -1200,7 +1199,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
     setMeta(initialMeta);
     setStorySeed(initialProfile?.storySeed ?? null);
     setStorySeedStreamedContent(initialProfile?.storySeed ? serializeStorySeed(initialProfile.storySeed, initialProfile.language) : "");
-    setStorySeedStatus(initialProfile?.storySeed ? "ready" : "idle");
+    setStorySeedStatus(initialProfile?.storySeed ? "ready" : initialMeta?.storySeedStatus === "pending" ? "generating" : initialMeta?.storySeedStatus === "error" ? "error" : "idle");
     setStorySeedError(initialMeta?.storySeedError ?? null);
     setError(null);
     if (!craftId || initialProfile || initialMeta?.processingStatus === "processing" || initialMeta?.processingStatus === "error") {
@@ -1216,13 +1215,13 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       const data = await fetchJson<CraftStatusResponse>(`/crafts/${craftId}/status`, { method: "GET" });
       setMeta(data.meta);
       if (data.meta.storySeedStatus === "pending") {
-        setStorySeedStatus((current) => current === "generating" ? current : "idle");
+        setStorySeedStatus("generating");
         setStorySeedError(null);
       } else if (data.meta.storySeedStatus === "error") {
         setStorySeedStatus("error");
         setStorySeedError(data.meta.storySeedError ?? "默认故事设定生成失败");
       }
-      if (data.status === "ready") {
+      if (data.status === "ready" && data.meta.storySeedStatus !== "pending") {
         await loadProfile();
       } else if (data.status === "error") {
         setError(data.error ?? data.meta.processingError ?? "后台处理失败");
@@ -1231,6 +1230,11 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       setError(statusError instanceof Error ? statusError.message : String(statusError));
     }
   }, [craftId, loadProfile]);
+
+  useEffect(() => {
+    if (!craftId || profile?.storySeed || meta?.storySeedStatus || meta?.processingStatus === "processing" || meta?.processingStatus === "error") return;
+    void loadStatus();
+  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, profile?.storySeed]);
 
   useEffect(() => {
     if (!craftId || meta?.storySeedStatus !== "pending" || meta.processingStatus === "processing") return;
@@ -1318,29 +1322,13 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
     setStorySeedError(null);
     setStorySeedStreamedContent("");
     try {
-      const nextSeed = await streamStorySeed({
+      const result = await postApi<{ craftId: string; status: "pending"; meta: CraftMeta }>(`/crafts/${encodeURIComponent(craftId)}/story-seed/generate`, {
         craftId,
         kind: "short",
         language,
         ...(storySeed ? { previousDirection: serializeStorySeed(storySeed, language) } : {}),
-      }, (event: StorySeedStreamEvent) => {
-        if (event.event === "delta" && typeof event.data.text === "string") {
-          setStorySeedStreamedContent((current) => current + event.data.text);
-        }
-        if (event.event === "complete" && typeof event.data.content === "string") {
-          setStorySeedStreamedContent(event.data.content);
-        }
       });
-      setStorySeed(nextSeed);
-      setProfile((current) => current ? { ...current, storySeed: nextSeed } : current);
-      setStorySeedStreamedContent(serializeStorySeed(nextSeed, language));
-      setStorySeedStatus("ready");
-      await putApi(`/crafts/${craftId}/story-seed`, { storySeed: nextSeed });
-      setMeta((current) => current ? {
-        ...current,
-        storySeedStatus: "ready",
-        storySeedError: undefined,
-      } : current);
+      setMeta(result.meta);
     } catch (generationError) {
       setStorySeedStatus("error");
       setStorySeedError(generationError instanceof Error ? generationError.message : String(generationError));
@@ -1499,7 +1487,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
             <div>
               <h3 className="text-sm font-semibold">默认故事设定</h3>
               <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                这份设定会保存到当前写作模式，并在短篇故事、长篇故事等创建流程中直接复用。只有点击按钮时才会重新调用模型。
+                系统会自动检查当前模式是否已有故事设定；没有时会在后台生成并保存。生成期间可以离开页面，回来后会继续显示进度或结果。
               </p>
             </div>
             <button
