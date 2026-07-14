@@ -6,6 +6,8 @@ interface StorySeedPreviewProps {
   readonly status: StorySeedGenerationStatus;
   readonly error?: string | null;
   readonly isZh: boolean;
+  readonly score?: number;
+  readonly scoreNote?: string;
 }
 
 export type { StorySeedPreviewProps };
@@ -15,6 +17,8 @@ export function StorySeedPreview({
   status,
   error,
   isZh,
+  score,
+  scoreNote,
 }: StorySeedPreviewProps) {
   const statusLabel = status === "generating"
     ? (isZh ? "正在生成完整故事设定" : "Generating the full story foundation")
@@ -23,6 +27,10 @@ export function StorySeedPreview({
       : status === "error"
         ? (isZh ? "生成失败，可重新生成" : "Generation failed — try again")
         : (isZh ? "等待后台任务启动" : "Waiting for background job");
+
+  const hasScore = typeof score === "number" && score > 0;
+  const scoreColor = !hasScore ? "" : score >= 75 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-destructive";
+  const lowScore = hasScore && score < 60;
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/70">
@@ -43,6 +51,31 @@ export function StorySeedPreview({
         </div>
       ) : null}
 
+      {/* AI score badge */}
+      {status === "ready" && (
+        <div className="mx-5 mt-4 flex flex-wrap items-center gap-3">
+          {hasScore ? (
+            <div className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 ${lowScore ? "border-destructive/30 bg-destructive/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
+              <span className={`text-lg font-bold ${scoreColor}`}>{score}</span>
+              <span className="text-xs text-muted-foreground">/ 100</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 size={12} className="animate-spin" />
+              {isZh ? "正在评分…" : "Scoring…"}
+            </div>
+          )}
+          {scoreNote && (
+            <span className={`text-xs ${lowScore ? "text-destructive" : "text-muted-foreground"}`}>{scoreNote}</span>
+          )}
+          {lowScore && (
+            <span className="text-xs font-medium text-destructive">
+              {isZh ? "分数偏低，建议重新生成" : "Low score — consider regenerating"}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <div className="flex min-h-[260px] flex-col gap-3">
           <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
@@ -53,7 +86,7 @@ export function StorySeedPreview({
               || (status === "generating"
                 ? (isZh ? "模型正在后台生成故事设定。你可以离开此页面，完成后回来查看结果。" : "The model is generating this foundation in the background. You can leave this page and return when it is ready.")
                 : status === "idle"
-                  ? (isZh ? "还没有默认故事设定。你可以点击‘重新随机生成’，也可以直接使用默认规则创作。" : "No default story foundation exists yet. Regenerate one, or create directly with the default rules.")
+                  ? (isZh ? "还没有默认故事设定。你可以点击'重新随机生成'，也可以直接使用默认规则创作。" : "No default story foundation exists yet. Regenerate one, or create directly with the default rules.")
                   : "")}
           </pre>
         </div>

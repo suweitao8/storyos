@@ -235,6 +235,10 @@ export interface CraftMeta {
   readonly storySeedGenerationId?: string;
   /** Retryable background error summary for story foundation generation. */
   readonly storySeedError?: string;
+  /** AI-generated quality score (0-100) for the cached story seed. */
+  readonly storySeedScore?: number;
+  /** Short AI comment explaining the score. */
+  readonly storySeedScoreNote?: string;
   /** Visual art style for image prompt generation (realistic or 3D国漫). User-editable. */
   readonly artStyle?: ArtStyle;
   /** Background processing state for asynchronously-created crafts. */
