@@ -385,29 +385,26 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
   if (language === "zh") {
     return {
       system: [
-        "表达面向B站普通观众，不要求读者懂写作学、影视制作或其他行业知识。",
-        "故事可以有悬疑、反转和复杂因果，但呈现方式必须让没有专业背景的观众也能快速看懂。",
+        "你是在给普通观众讲故事，不是在写剧本分析报告。用最直白的大白话，像跟朋友安利一部好片那样说。",
+        "可以有悬疑和反转，但每个设定一眼就能看懂，不用反复琢磨。",
       ],
       user: [
-        "用日常中文写，优先使用具体的人、动作、选择和结果；不要把专业分析术语直接当成故事设定内容。",
-        "不写论文式分析，不堆叠抽象概念。必须使用专业词时，第一次出现就用一句大白话解释，后面尽量继续用大白话。",
-        "每个板块控制在少量有重点的短句或要点内；大纲只写情节——'发生了什么—主角怎么应对—带来什么新麻烦'，不写写作手法、技巧说明或创作理论。",
-        "把‘冲突升级机制’写成‘每解决一个问题，新的麻烦变得更大’，把‘信息释放节奏’写成‘先告诉观众什么，哪些事情暂时藏住’。",
-        "原创化改编方案也要让普通观众看懂，写清新的空间、人物、关系、事件和结局，不要只列专业检查项。",
+        "说人话。写具体的人做了什么事、出了什么问题、最后怎样了。不要用'叙事张力''情感弧线''信息释放策略'这类术语。",
+        "每个板块三五句话就够了。大纲只写情节——'发生了什么→主角怎么应对→带来什么新麻烦'，不写写作手法。",
+        "原创化改编方案也用大白话写清新的空间、人物、关系和结局。",
       ],
     };
   }
 
   return {
     system: [
-      "Write for a general Bilibili audience without assuming writing, film, or industry expertise.",
-      "The story may contain suspense, reversals, and complex causality, but the presentation must remain easy to follow.",
+      "You are pitching a story to a friend, not writing a script analysis. Use the plainest language possible.",
+      "Suspense and twists are fine, but every setup should be instantly understandable.",
     ],
     user: [
-      "Use everyday language and prioritize concrete people, actions, choices, and consequences instead of exposing craft jargon as story content.",
-      "Do not write an academic analysis or stack abstract concepts. If a technical term is necessary, explain it in plain language the first time and keep using plain language afterward.",
-      "Keep each section focused and concise; the outline must contain only plot events — what happens, how the protagonist responds, and what bigger problem follows — not writing techniques or craft instructions.",
-      "Explain the transformation plan in audience-friendly language, naming the new setting, people, relationships, events, and ending rather than listing technical checks.",
+      "Write like you talk. Describe concrete people, actions, problems, and outcomes. No craft jargon like 'narrative tension', 'emotional arc', or 'information release strategy'.",
+      "Three to five sentences per section is enough. The outline tells only what happens — no writing techniques.",
+      "Explain the transformation plan in plain language: the new setting, people, relationships, and ending.",
     ],
   };
 }
@@ -425,7 +422,6 @@ export function buildStoryDirectionPrompt(
   const perspective = craftProfile.narrativePerspective;
   const referenceSections = [
     ["世界观与规则", craftProfile.worldview],
-    ["通用故事大纲", craftProfile.storyOutline],
     ["开篇与章节弧线", `${structure.openingPattern}; ${structure.chapterArc}; 结尾钩子: ${structure.endingHookType}`],
     ["场景节奏", `${rhythm.sceneTransitionTechnique}; 节奏: ${rhythm.pacingCurve}; 升级: ${rhythm.conflictEscalation}`],
     ["信息揭露", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
@@ -457,20 +453,20 @@ export function buildStoryDirectionPrompt(
 
   if (craftProfile.videoStory) {
     const video = craftProfile.videoStory;
+    // Only inject rhythm/mechanism fields, NOT the original story's
+    // logline/outline — those are the source story's actual content and
+    // must not leak into the new story.
     referenceSections.push(
       [
-        "视频节奏图谱",
+        "视频节奏参考",
         [
-          `一句话故事: ${video.logline}`,
-          `观众承诺: ${video.audiencePromise}`,
-          `大纲: ${video.outline}`,
           `节奏: ${video.pacingCurve}`,
-          `钩子: ${video.hookStrategy}`,
-          `高潮: ${video.climaxStrategy}`,
-          `结尾: ${video.endingAftertaste}`,
-          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}: ${beat.emotionalEffect}`),
-          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转: ${reversal.emotionalEffect}`),
-          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束: ${payoff.emotionalEffect}`),
+          `钩子策略: ${video.hookStrategy}`,
+          `高潮策略: ${video.climaxStrategy}`,
+          `结尾余味: ${video.endingAftertaste}`,
+          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}`),
+          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转`),
+          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束`),
         ].join("\n"),
       ].join("\n"),
     );
@@ -484,22 +480,22 @@ export function buildStoryDirectionPrompt(
 
   return {
     system: [
-      "你是一位故事开发编辑。",
+      "你是一位原创故事创作者。",
       languageRule,
       ...plainLanguageGuidance.system,
-      "仅将参考素材用于可复用的机制、世界逻辑、节奏功能和情感运动。",
-      "创造一个全新的故事方向，包含新的身份、设定细节、因果链、场景和结局。绝不复制 distinctive 的名字、对话、措辞或连续的事件序列；不得复用连续事件顺序。",
-      "Originality gate: use new identities, settings, relationships, causal chains, scenes, and endings; never reuse a contiguous event sequence.",
+      "参考素材只提供创作机制和节奏灵感——比如'前半段慢后半段快''中段有一个大反转'这类规律。",
+      "严禁照搬参考素材里的故事。你必须创造一个全新的故事：新的人物、新的空间、新的因果关系、新的核心事件。如果新故事和参考素材放在一起让人觉得'这不是同一个故事换了个皮吗'，那就是失败的。",
+      "不要复用参考素材中的角色名、地名、道具名、标志性对白或连续的事件顺序。只借鉴'它为什么好看'的底层逻辑，不借鉴'它讲了什么'的具体内容。",
       "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
     ].join("\n"),
     user: [
-      `根据以下创作参考素材来创建${target}。`,
+      `参考以下创作机制，创作一个全新的、独立的${target}。`,
       ...plainLanguageGuidance.user,
-      "创作参考素材：",
+      "创作参考（只借鉴规律，不照搬内容）：",
       referenceSections.join("\n\n"),
       previousDirection?.trim()
-        ? `待改进或替换的上一版方向：\n${compactStoryDirectionSource(previousDirection, 3_000)}\n在保留有用创作机制的同时，生成一个实质上不同的替代方案。`
-        : "没有上一版方向。请生成一个有力的初版。",
+        ? `待改进或替换的上一版方向：\n${compactStoryDirectionSource(previousDirection, 3_000)}\n生成一个实质上不同的新方案。`
+        : "没有上一版方向。请从零创作一个有力的原创故事。",
       "包含以下板块：标题钩子、题材与设定、主角与压力、核心冲突、推进与反转计划、高潮与情感回报、结局、原创性约束。",
       "让每个板块都足够具体，能够立即开始起草。保持方向自洽，不要提及参考作品。",
     ].join("\n\n"),
@@ -559,7 +555,7 @@ export function buildStorySeedPrompt(
       language === "zh"
         ? "原创化改编方案必须具体写出新的空间、身份、关系、因果链、关键事件和结局，并列出不得继承的专有名词、独特道具、对白和连续事件顺序。创作时不是给原故事换名词，而是重建关系和因果链。"
         : "The originality transformation plan must specify a new setting, identities, relationships, causal chain, key events, and ending, plus a do-not-carry list for proper nouns, signature objects, dialogue, and contiguous event order. Do not merely rename the source story; rebuild its relationships and causality.",
-      "仅保留来自任何参考素材的可复用创作机制；创造新的身份、设定细节、因果链、场景和结局。不要复制 distinctive 的名字、对话、措辞或事件序列。",
+      "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。如果读者看完觉得和参考作品太像，那就是失败的。",
     ].join("\n\n"),
   };
 }
