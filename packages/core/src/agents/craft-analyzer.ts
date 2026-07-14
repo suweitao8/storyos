@@ -614,7 +614,9 @@ function validateCraftModuleEvidence(
   return modules.map((module) => {
     if (!module.evidence) return module;
     const normalizedEvidence = module.evidence.replace(/\s+/g, "");
-    if (normalizedEvidence.length > 50 && normalizedSource.includes(normalizedEvidence)) return module;
+    if (normalizedEvidence.length > 50 && normalizedSource.includes(normalizedEvidence)) {
+      return { ...module, evidence: stripSubtitleTimestamps(module.evidence).trim() };
+    }
     const { evidence: _, ...withoutEvidence } = module;
     return withoutEvidence;
   });
@@ -667,6 +669,16 @@ function collectWeakCraftFields(
 
 const SOURCE_EXEMPLAR_MIN_LENGTH = 300;
 const SOURCE_EXEMPLAR_MAX_LENGTH = 500;
+
+/**
+ * Strip Bilibili subtitle timestamps like `[12.3s-15.6s]` from exemplar text.
+ * These markers are useful for beat-position analysis but add noise to the
+ * few-shot excerpts shown to the writer agent and displayed in the UI.
+ */
+const SUBTITLE_TIMESTAMP_RE = /\[\d+(?:\.\d+)?s-\d+(?:\.\d+)?s\]\s*/g;
+function stripSubtitleTimestamps(text: string): string {
+  return text.replace(SUBTITLE_TIMESTAMP_RE, "");
+}
 
 /** Build verbatim fallback excerpts when the model omits optional examples. */
 function buildSourceBackedExemplars(sourceText: string): CraftProfile["exemplars"] {
@@ -752,7 +764,8 @@ export function validateExemplars(
       const { exemplar: _, ...rest } = section;
       return rest as T;
     }
-    return section;
+    // Strip subtitle timestamps from the exemplar for clean display.
+    return { ...section, exemplar: stripSubtitleTimestamps(section.exemplar).trim() };
   };
 
   const validatedStructure = validateSection(profile.structure);
@@ -775,6 +788,13 @@ export function validateExemplars(
       ? sectionExemplars
       : buildSourceBackedExemplars(sourceText).slice(0, 6);
 
+  // Strip subtitle timestamps from all exemplar excerpts — they're useful for
+  // beat analysis but irrelevant (and distracting) in few-shot prose examples.
+  const cleanedExemplars = fallbackExemplars.map((ex) => ({
+    ...ex,
+    excerpt: stripSubtitleTimestamps(ex.excerpt).trim(),
+  })).filter((ex) => ex.excerpt.length > 50);
+
   return {
     ...profile,
     structure: validatedStructure,
@@ -782,7 +802,7 @@ export function validateExemplars(
     informationDisclosure: validatedInformationDisclosure,
     narrativePerspective: validatedNarrativePerspective,
     modules: validatedModules,
-    exemplars: fallbackExemplars,
+    exemplars: cleanedExemplars,
   };
 }
 
