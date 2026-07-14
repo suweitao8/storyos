@@ -122,6 +122,9 @@ interface BilibiliImportResponse {
   };
   readonly subtitleSource: "bili" | "bcut";
   readonly subtitleCount: number;
+  readonly correctionStatus: "corrected" | "fallback";
+  readonly correctionChangedCount: number;
+  readonly correctionMessage?: string;
   readonly subtitlePreview: ReadonlyArray<{
     readonly from: number;
     readonly to: number;
@@ -839,8 +842,15 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       const data = await response.json() as BilibiliImportResponse & { error?: string };
       if (!response.ok) throw new Error(data.error ?? `字幕获取失败（${response.status}）`);
       setBilibiliResult(data);
-      setCurrentStep(`字幕获取完成，共 ${data.subtitleCount} 条`);
-      setProgressLogs((prev) => [...prev, `字幕获取完成，共 ${data.subtitleCount} 条`]);
+      const correctionProgress = data.correctionStatus === "corrected"
+        ? `已完成字幕文字校正，修正 ${data.correctionChangedCount} 处`
+        : (data.correctionMessage ?? "字幕文字校正失败，已使用原始字幕");
+      setCurrentStep(correctionProgress);
+      setProgressLogs((prev) => [
+        ...prev,
+        `字幕获取完成，共 ${data.subtitleCount} 条`,
+        correctionProgress,
+      ]);
       await runExtraction({
         type: "bilibili",
         text: data.text,
@@ -924,6 +934,11 @@ function CraftCreate({ c, t, sse, onSuccess }: {
             <div className="text-xs text-muted-foreground">
               {bilibiliResult.videoInfo.upName || "未知 UP 主"} · {Math.round(bilibiliResult.videoInfo.duration / 60)} 分钟 ·
               {bilibiliResult.subtitleSource === "bili" ? " B 站 CC 字幕" : " Bcut 音频识别"} · 共 {bilibiliResult.subtitleCount} 条
+            </div>
+            <div className={bilibiliResult.correctionStatus === "corrected" ? "text-xs text-emerald-600" : "text-xs text-amber-600"}>
+              {bilibiliResult.correctionStatus === "corrected"
+                ? `已完成字幕文字校正，修正 ${bilibiliResult.correctionChangedCount} 处`
+                : (bilibiliResult.correctionMessage ?? "字幕文字校正失败，已使用原始字幕")}
             </div>
             <div className="max-h-40 overflow-auto rounded-lg border border-border/60 bg-secondary/20 p-2 text-xs leading-5 text-muted-foreground">
               {bilibiliResult.subtitlePreview.map((entry) => (

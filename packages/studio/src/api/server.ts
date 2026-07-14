@@ -139,7 +139,8 @@ import {
   getRecentCraftId,
   setRecentCraftId,
 } from "./studio-preferences-db.js";
-import { importBilibiliSource } from "./bilibili.js";
+import { importBilibiliSource, subtitleText } from "./bilibili.js";
+import { correctBilibiliSubtitles } from "./bilibili-subtitle-correction.js";
 import {
   cleanupCraftSourceUpload,
   addCraftSourceFile,
@@ -5413,6 +5414,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
     try {
       const result = await importBilibiliSource(url);
+      const pipelineConfig = await buildPipelineConfig();
+      const correction = await correctBilibiliSubtitles(result.subtitles, {
+        client: pipelineConfig.client,
+        model: pipelineConfig.model,
+      });
+      const analysisText = subtitleText(correction.entries);
+      if (correction.status === "fallback") {
+        pipelineConfig.logger?.warn(correction.message ?? "字幕文字校正失败，已使用原始字幕");
+      }
       let sourceAssetId: string | undefined;
       try {
         const detectedName = normalizeBilibiliCraftName(result.videoInfo.title);
@@ -5420,7 +5430,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           sourceType: "bilibili",
           sourceName: detectedName,
           originalName: `${result.videoInfo.bvid}.mp4`,
-          analysisText: result.text,
+          analysisText,
           sourceRef: result.videoInfo.bvid,
           sourceDurationSeconds: result.videoInfo.duration,
           subtitleSource: result.subtitleSource,
@@ -5451,12 +5461,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         });
         return c.json({
           sourceAssetId,
-          text: result.text,
+          text: analysisText,
           detectedName,
           videoInfo: result.videoInfo,
           subtitleSource: result.subtitleSource,
           subtitleCount: result.subtitles.length,
-          subtitlePreview: result.subtitles.slice(0, 8),
+          subtitlePreview: correction.entries.slice(0, 8),
+          correctionStatus: correction.status,
+          correctionChangedCount: correction.changedCount,
+          ...(correction.message ? { correctionMessage: correction.message } : {}),
         });
       } catch (error) {
         if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
