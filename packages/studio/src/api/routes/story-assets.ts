@@ -11,6 +11,8 @@ import {
   storyAssetImagePath,
   storyAssetManifestPath,
   buildImagePromptGuides,
+  PipelineRunner,
+  type ArtStyle,
   type StoryAsset,
   type StoryAssetFileWriter,
   type StoryAssetImageRuntime,
@@ -239,7 +241,30 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
       const config = await getProjectConfig({ requireApiKey: false });
       const pipeline = await buildPipelineConfig({ currentConfig: config, ...(kind === "book" ? { bookIdForSettings: storyId } : {}) });
       const textModel: StoryAssetTextModel = async (messages, options) => (await chatCompletion(pipeline.client, pipeline.model, messages, { ...options, retry: false })).content;
-      const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides();
+
+      // Resolve artStyle: prefer craft's artStyle (book → book.craftId → craft meta).
+      // Shorts can pass ?artStyle= query param; fall back to "realistic".
+      let artStyle: ArtStyle = "realistic";
+      try {
+        if (kind === "book") {
+          const runner = new PipelineRunner(pipeline);
+          // loadBookConfig is private; read book.json directly to get craftId.
+          const bookRaw = await readFile(join(root, "books", storyId, "book.json"), "utf-8").catch(() => "");
+          const bookJson = bookRaw.trim() ? JSON.parse(bookRaw) as { craftId?: string } : {};
+          if (bookJson.craftId) {
+            const crafts = await runner.listCrafts();
+            const craftMeta = crafts.find((craft) => craft.id === bookJson.craftId);
+            if (craftMeta?.artStyle) artStyle = craftMeta.artStyle;
+          }
+        } else {
+          const queryStyle = c.req.query("artStyle");
+          if (queryStyle === "realistic" || queryStyle === "cg3d") artStyle = queryStyle;
+        }
+      } catch {
+        // artStyle resolution is best-effort; fall back to realistic silently.
+      }
+
+      const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides(artStyle);
       const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore, imagePromptGuides });
       broadcast("story-assets:complete", { kind, storyId, operation: "extract", assetCount: result.manifest.assets.length });
       return c.json({ ...result.manifest, path: result.path, drafts: result.drafts });

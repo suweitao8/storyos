@@ -20,6 +20,7 @@ import type { RadarSource } from "../agents/radar-source.js";
 import { CraftAnalyzerAgent } from "../agents/craft-analyzer.js";
 import { buildCraftGuide } from "../agents/craft-prompts.js";
 import { buildCraftMetaSummary, normalizeCraftSourceRef, type CraftMode, type CraftProfile, type CraftMeta } from "../models/craft-profile.js";
+import type { ArtStyle } from "../models/genre-profile.js";
 import { isStorySeed, type StorySeed } from "../models/story-seed.js";
 import { readGenreProfile } from "../agents/rules-reader.js";
 import { analyzeAITells } from "../agents/ai-tells.js";
@@ -869,7 +870,7 @@ export class PipelineRunner {
   }
 
   /** Patch lightweight metadata fields (currently genre) without rewriting the full craft profile. */
-  async updateCraftMeta(craftId: string, patch: { readonly genre?: string }): Promise<CraftMeta> {
+  async updateCraftMeta(craftId: string, patch: { readonly artStyle?: ArtStyle }): Promise<CraftMeta> {
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);
     const metaPath = join(craftsDir, "meta.json");
     let meta: CraftMeta;
@@ -879,7 +880,7 @@ export class PipelineRunner {
     } catch {
       throw new Error("Craft meta not found");
     }
-    const updated: CraftMeta = { ...meta, genre: patch.genre?.trim() || meta.genre };
+    const updated: CraftMeta = { ...meta, ...(patch.artStyle ? { artStyle: patch.artStyle } : {}) };
     await writeFile(metaPath, JSON.stringify(updated, null, 2), "utf-8");
     return updated;
   }

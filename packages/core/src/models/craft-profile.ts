@@ -232,8 +232,8 @@ export interface CraftMeta {
   readonly storySeedStatus?: "pending" | "ready" | "error";
   /** Retryable background error summary for story foundation generation. */
   readonly storySeedError?: string;
-  /** Genre id this craft is associated with (e.g. xianxia, horror). User-editable. */
-  readonly genre?: string;
+  /** Visual art style for image prompt generation (realistic or 3D国漫). User-editable. */
+  readonly artStyle?: ArtStyle;
   /** Background processing state for asynchronously-created crafts. */
   readonly processingStatus?: "processing" | "ready" | "error";
   /** Human-readable background stage shown while a craft is being prepared. */
@@ -265,3 +265,4 @@ export function buildCraftMetaSummary(
   return raw.replace(/\s+/gu, " ").slice(0, 140);
 }
 import type { StorySeed } from "./story-seed.js";
+import type { ArtStyle } from "./genre-profile.js";

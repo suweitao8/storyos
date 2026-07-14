@@ -6202,13 +6202,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     } catch {
       throw new ApiError(400, "INVALID_CRAFT_REQUEST", "Request body must be valid JSON");
     }
-    const patch = (body ?? {}) as { genre?: string };
-    if (typeof patch.genre !== "string") {
-      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "genre must be a string");
+    const patch = (body ?? {}) as { artStyle?: string };
+    if (patch.artStyle !== "realistic" && patch.artStyle !== "cg3d") {
+      throw new ApiError(400, "INVALID_CRAFT_REQUEST", "artStyle must be 'realistic' or 'cg3d'");
     }
     const pipeline = new PipelineRunner(await buildPipelineConfig());
     if (!await pipeline.loadCraft(id)) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
-    const meta = await pipeline.updateCraftMeta(id, { genre: patch.genre });
+    const meta = await pipeline.updateCraftMeta(id, { artStyle: patch.artStyle });
     return c.json({ meta });
   });
 
