@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, Boxes, Globe, Moon, Sparkles, Stethoscope, Sun } from "lucide-react";
 import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
@@ -8,6 +8,7 @@ import { EnvironmentDiagnostics } from "./DoctorView";
 import { ServiceListPage } from "./ServiceListPage";
 import { GenreManager } from "./GenreManager";
 import { SkillManager } from "./SkillManager";
+import type { ProjectSettingsTabId } from "../hooks/use-hash-route";
 
 export const PROJECT_SETTINGS_TAB_IDS = ["common", "models", "skills", "genres", "diagnostics"] as const;
 type ProjectSettingsTab = typeof PROJECT_SETTINGS_TAB_IDS[number];
@@ -39,16 +40,21 @@ function SettingsCard({
 
 const fieldClass = "w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm outline-none focus:border-primary/50";
 
-export function ProjectSettings({ theme, setTheme, lang, onLangChange, t }: {
+export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initialTab }: {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   lang: "zh" | "en";
   onLangChange: (lang: "zh" | "en") => void;
   t: TFunction;
+  initialTab?: ProjectSettingsTabId;
 }) {
   const c = useColors(theme);
   const isZh = lang === "zh";
-  const [activeTab, setActiveTab] = useState<ProjectSettingsTab>("common");
+  const [activeTab, setActiveTab] = useState<ProjectSettingsTab>(initialTab ?? "common");
+
+  useEffect(() => {
+    setActiveTab(initialTab ?? "common");
+  }, [initialTab]);
 
   usePageToolbar("project-settings", {
     tabs: [
