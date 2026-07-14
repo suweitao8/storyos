@@ -42,6 +42,19 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain("一篇单章节短篇故事");
   });
 
+  it("keeps story directions readable for a general Bilibili audience", () => {
+    const directionPrompt = buildStoryDirectionPrompt(profile, "short", "zh");
+    const seedPrompt = buildStorySeedPrompt(profile, "short", "zh");
+
+    for (const prompt of [directionPrompt, seedPrompt]) {
+      expect(prompt.system).toContain("B站普通观众");
+      expect(prompt.user).toContain("日常中文");
+      expect(prompt.user).toContain("不写论文式分析");
+      expect(prompt.user).toContain("冲突升级机制");
+      expect(prompt.user).toContain("信息释放节奏");
+    }
+  });
+
   it("requests a complete editable short-story seed without thinking output", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 

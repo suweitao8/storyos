@@ -1487,7 +1487,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
             <div>
               <h3 className="text-sm font-semibold">默认故事设定</h3>
               <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                系统会自动检查当前模式是否已有故事设定；没有时会在后台生成并保存。生成期间可以离开页面，回来后会继续显示进度或结果。
+                系统会保留悬疑、反转和创作重点，但会用普通观众容易理解的表达，减少专业术语和过长说明。系统会自动检查当前模式是否已有故事设定；没有时会在后台生成并保存。生成期间可以离开页面，回来后会继续显示进度或结果。
               </p>
             </div>
             <button
