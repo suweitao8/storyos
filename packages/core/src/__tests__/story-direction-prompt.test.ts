@@ -32,13 +32,13 @@ const profile: CraftProfile = {
 };
 
 describe("story direction prompt", () => {
-  it("uses the craft worldview but NOT the source story outline", () => {
+  it("uses the craft worldview AND story outline as reference", () => {
     const prompt = buildStoryDirectionPrompt(profile, "short", "zh", "old direction");
 
-    expect(prompt.system).toContain("全新的故事");
+    expect(prompt.system).toContain("同框架");
     expect(prompt.user).toContain(profile.worldview);
-    // storyOutline is the source story's actual plot — must NOT be injected
-    expect(prompt.user).not.toContain(profile.storyOutline);
+    // storyOutline IS now injected — we want the LLM to see the original plot
+    expect(prompt.user).toContain(profile.storyOutline);
     expect(prompt.user).toContain("old direction");
     expect(prompt.user).toContain("一篇单章节短篇故事");
   });
@@ -77,10 +77,11 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain("未选择创作参考素材");
   });
 
-  it("emphasizes originality over copying the source story", () => {
+  it("keeps the framework but swaps specific elements", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
-    expect(prompt.system).toContain("严禁照搬");
-    expect(prompt.user).toContain("原创故事");
+    expect(prompt.system).toContain("同框架");
+    expect(prompt.user).toContain("保持");
+    expect(prompt.user).toContain("替换");
   });
 });

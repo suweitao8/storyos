@@ -510,7 +510,8 @@ export function buildStoryDirectionPrompt(
   const disclosure = craftProfile.informationDisclosure;
   const perspective = craftProfile.narrativePerspective;
   const referenceSections = [
-    ["世界观与规则", craftProfile.worldview],
+    ["原世界观与规则", craftProfile.worldview],
+    ["原故事大纲", craftProfile.storyOutline],
     ["开篇与章节弧线", `${structure.openingPattern}; ${structure.chapterArc}; 结尾钩子: ${structure.endingHookType}`],
     ["场景节奏", `${rhythm.sceneTransitionTechnique}; 节奏: ${rhythm.pacingCurve}; 升级: ${rhythm.conflictEscalation}`],
     ["信息揭露", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
@@ -542,20 +543,20 @@ export function buildStoryDirectionPrompt(
 
   if (craftProfile.videoStory) {
     const video = craftProfile.videoStory;
-    // Only inject rhythm/mechanism fields, NOT the original story's
-    // logline/outline — those are the source story's actual content and
-    // must not leak into the new story.
     referenceSections.push(
       [
-        "视频节奏参考",
+        "原视频故事",
         [
+          `一句话故事: ${video.logline}`,
+          `观众承诺: ${video.audiencePromise}`,
+          `大纲: ${video.outline}`,
           `节奏: ${video.pacingCurve}`,
-          `钩子策略: ${video.hookStrategy}`,
-          `高潮策略: ${video.climaxStrategy}`,
-          `结尾余味: ${video.endingAftertaste}`,
-          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}`),
-          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转`),
-          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束`),
+          `钩子: ${video.hookStrategy}`,
+          `高潮: ${video.climaxStrategy}`,
+          `结尾: ${video.endingAftertaste}`,
+          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}: ${beat.emotionalEffect}`),
+          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转: ${reversal.emotionalEffect}`),
+          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束: ${payoff.emotionalEffect}`),
         ].join("\n"),
       ].join("\n"),
     );
@@ -569,22 +570,22 @@ export function buildStoryDirectionPrompt(
 
   return {
     system: [
-      "你是一位原创故事创作者。",
+      "你是一位故事创作者。",
       languageRule,
       ...plainLanguageGuidance.system,
-      "参考素材只提供创作机制和节奏灵感——比如'前半段慢后半段快''中段有一个大反转'这类规律。",
-      "严禁照搬参考素材里的故事。你必须创造一个全新的故事：新的人物、新的空间、新的因果关系、新的核心事件。如果新故事和参考素材放在一起让人觉得'这不是同一个故事换了个皮吗'，那就是失败的。",
-      "不要复用参考素材中的角色名、地名、道具名、标志性对白或连续的事件顺序。只借鉴'它为什么好看'的底层逻辑，不借鉴'它讲了什么'的具体内容。",
+      "你的任务是基于参考素材的世界观和故事大纲，创作一个同框架但细节不同的故事。保持原故事的核心设定、因果走向和情绪节奏不变，但替换具体的空间、道具、角色身份和事件载体。",
+      "比如：原故事在公交车上发生，你可以改到末班地铁上；原角色手机没电，你可以改成信号消失；原场景在老旧小区，你可以换到深夜写字楼。保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。",
+      "不要照搬原作的名字、对白和标志性细节，但世界观规则、核心冲突类型、反转结构要和原故事保持一致。",
       "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
     ].join("\n"),
     user: [
-      `参考以下创作机制，创作一个全新的、独立的${target}。`,
+      `参考以下素材，创作一个同框架的${target}——保持世界观和大纲一致，替换具体载体。`,
       ...plainLanguageGuidance.user,
-      "创作参考（只借鉴规律，不照搬内容）：",
+      "参考素材（保持框架，替换细节）：",
       referenceSections.join("\n\n"),
       previousDirection?.trim()
         ? `待改进或替换的上一版方向：\n${compactStoryDirectionSource(previousDirection, 3_000)}\n生成一个实质上不同的新方案。`
-        : "没有上一版方向。请从零创作一个有力的原创故事。",
+        : "没有上一版方向。请基于参考素材创作。",
       "包含以下板块：标题钩子、题材与设定、主角与压力、核心冲突、推进与反转计划、高潮与情感回报、结局、原创性约束。",
       "让每个板块都足够具体，能够立即开始起草。保持方向自洽，不要提及参考作品。",
     ].join("\n\n"),
@@ -643,8 +644,8 @@ export function buildStorySeedPrompt(
         ? "大纲只写剧情：谁做了什么、出了什么事、结果怎样。按时间顺序从头到尾讲一遍，不要写写作手法或节奏术语。"
         : "The outline tells only what happens: who does what, what goes wrong, how it ends. Chronological from start to finish. No writing techniques.",
       language === "zh"
-        ? "记住：你是在创作一个全新的原创故事，不是在改编参考素材。参考素材只提供'为什么好看'的规律，绝不照搬它的人物、情节、对白或事件。"
-        : "Remember: you are creating an original story, not adapting the reference material. Only borrow why it works, never copy its characters, plot, dialogue, or events.",
+        ? "保持参考素材的世界观框架和大纲走向不变，只替换具体的空间、道具、角色身份和事件载体。比如公交车改地铁、手机没电改信号消失——保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。"
+        : "Keep the reference material's worldview framework and plot outline intact; only swap the specific setting, props, character identities, and event vehicles. Same logic for why it works, different implementation.",
     ].join("\n\n"),
   };
 }
