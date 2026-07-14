@@ -21,6 +21,7 @@ import {
   buildStoryAssetGenerateImagePath,
   buildStoryAssetGenerateMissingImagesPath,
   buildStoryAssetsPath,
+  chooseStoryAssetId,
   chooseStoryAssetAction,
   filterStoryAssets,
   getAssetEmptyState,
@@ -82,6 +83,12 @@ describe("story asset view helpers", () => {
     expect(filterStoryAssets(assets, "all")).toEqual(assets);
   });
 
+  it("keeps the selected asset when possible and falls back to the first visible asset", () => {
+    expect(chooseStoryAssetId(assets, "harbor")).toBe("harbor");
+    expect(chooseStoryAssetId(assets, "unknown")).toBe("mara");
+    expect(chooseStoryAssetId([], "mara")).toBeNull();
+  });
+
   it("uses canonical story asset and safe image endpoint paths", () => {
     expect(buildStoryAssetsPath("book", "demo/story")).toBe("/stories/book/demo%2Fstory/assets");
     expect(buildStoryAssetImagePath("short", "short 1", "broken/prop")).toBe(
@@ -136,5 +143,16 @@ describe("story asset view helpers", () => {
     expect(html).toContain("Regenerate image");
     expect(onGenerateAsset).not.toHaveBeenCalled();
     expect(onGenerateMissing).not.toHaveBeenCalled();
+  });
+
+  it("renders a compact name-only asset list beside selected asset details", () => {
+    const html = renderPanel();
+
+    expect(html).toContain('data-testid="story-assets-list"');
+    expect(html).toContain('data-testid="story-asset-details"');
+    expect(html).toContain('data-testid="story-asset-item-mara"');
+    expect(html).toContain("Mara");
+    expect(html).toContain("A careful archivist.");
+    expect(html).not.toContain('data-testid="story-asset-card-mara"');
   });
 });
