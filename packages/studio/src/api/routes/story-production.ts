@@ -15,7 +15,9 @@ import { isSafeBookId } from "../safety.js";
 import {
   buildAssContent,
   buildSubtitleEntries,
+  formatScriptIssues,
   parseUnifiedScript,
+  validateScriptQuality,
   type UnifiedScriptDocument,
   type UnifiedScriptShot,
 } from "../story-production.js";
@@ -483,7 +485,14 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
         requirements,
         language: "zh",
       });
-      if (!parseUnifiedScript(content).shots.length) throw new Error("模型没有输出可解析的镜头");
+      const parsed = parseUnifiedScript(content);
+      if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
+      // 质量校验：检查每个镜头是否有旁白、景别、详细图像提示词、引用的资产名是否合法。
+      // 把问题收集成 warning，让用户知道生成质量是否有缺陷。
+      const assetNames = assets.map((asset) => asset.name);
+      const issues = validateScriptQuality(parsed.shots, assetNames);
+      const issueWarning = formatScriptIssues(issues);
+      if (issueWarning) warning = issueWarning;
     } catch (error) {
       content = fallbackUnifiedScript(source);
       warning = error instanceof Error ? `模型剧本生成失败，已生成基础脚本：${error.message}` : "模型剧本生成失败，已生成基础脚本";

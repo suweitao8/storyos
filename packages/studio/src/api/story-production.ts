@@ -152,6 +152,81 @@ export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
   };
 }
 
+/** 单个镜头的质量问题。 */
+export type ScriptShotIssue = {
+  readonly shot: number;
+  readonly type: "missing_narration" | "missing_camera" | "thin_image_prompt" | "untracked_asset_name";
+  readonly message: string;
+};
+
+const IMAGE_PROMPT_MIN_LENGTH = 15;
+
+/** 检查剧本质量：每个镜头是否都有旁白、景别、足够的图像提示词。
+ *  assetNames 传入故事资产的名称集合，用于检测画面里出现的角色/场景是否在资产库里。 */
+export function validateScriptQuality(
+  shots: readonly UnifiedScriptShot[],
+  assetNames: readonly string[] = [],
+): ScriptShotIssue[] {
+  const issues: ScriptShotIssue[] = [];
+  const knownNames = new Set(assetNames.map((name) => name.trim()).filter(Boolean));
+
+  for (const shot of shots) {
+    // 1. 每个镜头必须有旁白
+    if (!shot.subtitle?.trim()) {
+      issues.push({ shot: shot.number, type: "missing_narration", message: `镜头 ${shot.number} 缺少旁白` });
+    }
+
+    // 2. 每个镜头必须有景别
+    if (!shot.camera?.trim()) {
+      issues.push({ shot: shot.number, type: "missing_camera", message: `镜头 ${shot.number} 缺少景别/机位` });
+    }
+
+    // 3. 图像提示词不能太短（少于阈值说明模型敷衍了）
+    if (!shot.imagePrompt?.trim()) {
+      issues.push({ shot: shot.number, type: "thin_image_prompt", message: `镜头 ${shot.number} 缺少图像提示词` });
+    } else if (shot.imagePrompt.trim().length < IMAGE_PROMPT_MIN_LENGTH) {
+      issues.push({ shot: shot.number, type: "thin_image_prompt", message: `镜头 ${shot.number} 图像提示词过短（${shot.imagePrompt.trim().length} 字）` });
+    }
+
+    // 4. 画面里的【资产名】标注必须在资产库里（检测幻觉角色名）
+    const referenced = shot.visual?.match(/【([^】]+)】/gu) ?? [];
+    for (const ref of referenced) {
+      const name = ref.slice(1, -1).trim();
+      // 多个资产名合在一个括号里，按顿号/逗号拆
+      const parts = name.split(/[、,，]/u).map((p) => p.trim()).filter(Boolean);
+      for (const part of parts) {
+        if (knownNames.size > 0 && !knownNames.has(part)) {
+          issues.push({ shot: shot.number, type: "untracked_asset_name", message: `镜头 ${shot.number} 引用了未知资产「${part}」` });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+/** 把质量问题列表格式化成给用户看的 warning 文本。 */
+export function formatScriptIssues(issues: readonly ScriptShotIssue[]): string | null {
+  if (issues.length === 0) return null;
+  const byType = new Map<string, string[]>();
+  for (const issue of issues) {
+    const list = byType.get(issue.type) ?? [];
+    list.push(issue.message);
+    byType.set(issue.type, list);
+  }
+  const labels: Record<string, string> = {
+    missing_narration: "缺少旁白",
+    missing_camera: "缺少景别",
+    thin_image_prompt: "图像提示词不完整",
+    untracked_asset_name: "引用了未知资产",
+  };
+  const parts: string[] = [];
+  for (const [type, messages] of byType) {
+    parts.push(`${labels[type] ?? type}（${messages.length} 处）：${messages.join("；")}`);
+  }
+  return `剧本质量校验发现问题——\n${parts.join("\n")}`;
+}
+
 function estimateSubtitleDurationMs(text: string): number {
   return Math.max(1000, Math.round(text.replace(/\s/gu, "").length * 180));
 }
