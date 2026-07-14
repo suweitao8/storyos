@@ -181,10 +181,10 @@ async function createStoryAssetImageRuntime(root: string, assetId: string): Prom
   const tmpRoot = join(root, "tmp");
   await mkdir(tmpRoot, { recursive: true });
   return {
-    async generateImage(prompt: string): Promise<{ readonly buffer: Uint8Array; readonly extension: string }> {
+    async generateImage(prompt: string, size?: string): Promise<{ readonly buffer: Uint8Array; readonly extension: string }> {
       const runDir = await mkdtemp(join(tmpRoot, "story-asset-image-"));
       try {
-        const result = await generatePlayImage({ root, runDir, key: assetId, prompt });
+        const result = await generatePlayImage({ root, runDir, key: assetId, prompt, size });
         if (result.status !== "ready" || typeof result.file !== "string") throw new Error(result.error || "Story asset image generation failed.");
         const fileName = result.file;
         const extension = fileName.split(".").pop()?.toLowerCase() ?? "";

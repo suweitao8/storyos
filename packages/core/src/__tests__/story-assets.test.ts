@@ -900,7 +900,7 @@ describe("story asset image lifecycle", () => {
       ...deps,
     });
 
-    expect(runtime.generateImage).toHaveBeenCalledWith("asset_1 prompt");
+    expect(runtime.generateImage).toHaveBeenCalledWith("asset_1 prompt", "1536x1024");
     expect(extractSpy).not.toHaveBeenCalled();
     extractSpy.mockRestore();
   });
