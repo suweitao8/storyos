@@ -298,7 +298,7 @@ async function composeSegmentVideo(args: {
   await mkdir(args.tempDir, { recursive: true });
   const assPath = join(args.tempDir, "sub.ass");
   const audioPath = join(args.tempDir, "audio.wav");
-  await writeFile(assPath, buildAssContent(entries, { blur: 3, shadow: 1, fontSize: 12 }), "utf-8");
+  await writeFile(assPath, buildAssContent(entries, { blur: 4, fontSize: 12 }), "utf-8");
 
   let voiceEnabled = false;
   let warning: string | undefined;

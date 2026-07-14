@@ -197,16 +197,20 @@ function formatAssTime(ms: number): string {
 }
 
 /**
- * 生成 ASS 字幕，支持 \blur（高斯模糊）和 \shad（阴影偏移）。
- * SRT 的 force_style 只能做硬偏移 Shadow，无法高斯模糊；
- * ASS 的 \blur 标签由 libass 原生支持，实现真正的柔和阴影。
+ * 生成 ASS 字幕，用两层叠加实现"只模糊阴影、文字清晰"：
+ *
+ * - Layer 0（底层 Shadow）：黑色文字 + \blur 高斯模糊 → 柔和的阴影背景板，
+ *   让白色文字在任何背景上都可读（白墙、亮色场景等）。
+ * - Layer 1（上层 Text）：纯白文字，无模糊、无描边 → 清晰锐利。
+ *
+ * ASS 的 \blur 是全局的（文字+阴影一起模糊），无法只模糊阴影。
+ * 所以用两层 Dialogue 叠加：底层故意模糊当阴影，上层清晰当正文。
  */
 export function buildAssContent(
   entries: readonly SubtitleEntry[],
-  options?: { readonly blur?: number; readonly shadow?: number; readonly fontSize?: number },
+  options?: { readonly blur?: number; readonly fontSize?: number },
 ): string {
-  const blur = options?.blur ?? 3;
-  const shadow = options?.shadow ?? 1;
+  const blur = options?.blur ?? 4;
   const fontSize = options?.fontSize ?? 12;
   const header = [
     "[Script Info]",
@@ -217,14 +221,24 @@ export function buildAssContent(
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Default,Microsoft YaHei,${fontSize},&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,0,0,0,0,100,100,0,0,1,0,${shadow},2,48,48,48,1`,
+    // Shadow style: black text, blurred → acts as soft shadow backdrop
+    `Style: Shadow,Microsoft YaHei,${fontSize},&H66000000,&H66000000,&H66000000,&H66000000,0,0,0,0,100,100,0,0,1,0,0,2,48,48,48,1`,
+    // Text style: white text, no outline, no shadow → crisp
+    `Style: Text,Microsoft YaHei,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,48,48,48,1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ].join("\n");
-  const dialogues = entries.map((entry) => {
+  const dialogues = entries.flatMap((entry) => {
     const text = entry.text.replace(/\n/gu, "\\N");
-    return `Dialogue: 0,${formatAssTime(entry.startTimeMs)},${formatAssTime(entry.endTimeMs)},Default,,0,0,0,,{\\blur${blur}}${text}`;
+    const start = formatAssTime(entry.startTimeMs);
+    const end = formatAssTime(entry.endTimeMs);
+    // Layer 0: blurred dark shadow backdrop
+    return [
+      `Dialogue: 0,${start},${end},Shadow,,0,0,0,,{\\blur${blur}}${text}`,
+      // Layer 1: crisp white text on top
+      `Dialogue: 1,${start},${end},Text,,0,0,0,,${text}`,
+    ];
   });
   return `${header}\n${dialogues.join("\n")}\n`;
 }
