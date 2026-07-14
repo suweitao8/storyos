@@ -2,13 +2,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { saveSecrets, loadSecrets } from "./secrets.js";
 import { guessServiceFromBaseUrl } from "./service-presets.js";
+import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 
 export interface MigrationResult {
   migrated: boolean;
 }
 
 export async function migrateConfig(projectRoot: string): Promise<MigrationResult> {
-  const configPath = join(projectRoot, "storyos.json");
+  const configPath = await resolveProjectConfigPath(projectRoot);
   let raw: string;
   try {
     raw = await readFile(configPath, "utf-8");

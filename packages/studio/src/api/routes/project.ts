@@ -4,9 +4,20 @@ import { join } from "node:path";
 import {
   DetectionConfigSchema,
   InputGovernanceModeSchema,
+  resolveProjectConfigPath,
 } from "@actalk/inkos-core";
 import { ApiError } from "../errors.js";
 import type { StudioRouteContext } from "./context.js";
+
+/** Read the project config, transparently falling back to legacy inkos.json. */
+async function readProjectConfigRaw(root: string): Promise<Record<string, unknown>> {
+  return JSON.parse(await readFile(await resolveProjectConfigPath(root), "utf-8")) as Record<string, unknown>;
+}
+
+/** Always write to the new storyos.json path. */
+function projectConfigPath(root: string): string {
+  return join(root, "storyos.json");
+}
 
 export function registerProjectSettingsRoutes(context: StudioRouteContext): void {
   const {
@@ -22,7 +33,7 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
     let raw: Record<string, unknown>;
     try {
       currentConfig = await getProjectConfig({ requireApiKey: false });
-      raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
+      raw = await readProjectConfigRaw(root);
     } catch (error) {
       throw new ApiError(500, "PROJECT_CONFIG_INVALID", `Failed to load storyos.json: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -40,9 +51,9 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
 
   app.put("/api/v1/project", async (c: Context) => {
     const updates = await c.req.json<Record<string, unknown>>();
-    const configPath = join(root, "storyos.json");
+    const configPath = projectConfigPath(root);
     try {
-      const existing = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, any>;
+      const existing = await readProjectConfigRaw(root) as Record<string, any>;
       existing.llm ??= {};
       if (updates.temperature !== undefined) existing.llm.temperature = updates.temperature;
       if (updates.stream !== undefined) existing.llm.stream = updates.stream;
@@ -55,7 +66,7 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
   });
 
   app.get("/api/v1/project/input-governance-mode", async (c: Context) => {
-    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = await readProjectConfigRaw(root);
     return c.json({ mode: raw.inputGovernanceMode === "legacy" ? "legacy" : "v2" });
   });
 
@@ -63,22 +74,22 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
     const { mode } = await c.req.json<{ mode?: unknown }>();
     const parsed = InputGovernanceModeSchema.safeParse(mode);
     if (!parsed.success) return c.json({ error: "mode must be legacy or v2" }, 400);
-    const configPath = join(root, "storyos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
+    const configPath = projectConfigPath(root);
+    const raw = await readProjectConfigRaw(root);
     raw.inputGovernanceMode = parsed.data;
     await writeFile(configPath, JSON.stringify(raw, null, 2), "utf-8");
     return c.json({ ok: true, mode: parsed.data });
   });
 
   app.get("/api/v1/project/detection", async (c: Context) => {
-    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = await readProjectConfigRaw(root);
     return c.json({ detection: raw.detection ?? null });
   });
 
   app.put("/api/v1/project/detection", async (c: Context) => {
     const { detection } = await c.req.json<{ detection?: unknown }>();
-    const configPath = join(root, "storyos.json");
-    const raw = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
+    const configPath = projectConfigPath(root);
+    const raw = await readProjectConfigRaw(root);
     if (detection === null) {
       delete raw.detection;
     } else {

@@ -33,6 +33,7 @@ import { coverSecretKey, resolveCoverProviderPreset, type CoverProviderPreset } 
 import { loadSecrets } from "../llm/secrets.js";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath as projectPath } from "../utils/posix-path.js";
+import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 
@@ -813,7 +814,7 @@ export async function resolveCoverGenerationRequest(input: {
 
 async function readProjectCoverConfig(root: string): Promise<{ readonly service: string; readonly model?: string } | undefined> {
   try {
-    const raw = await readFile(join(root, "storyos.json"), "utf-8");
+    const raw = await readFile(await resolveProjectConfigPath(root), "utf-8");
     const parsed = JSON.parse(raw) as { llm?: { cover?: { service?: unknown; model?: unknown } } };
     const service = typeof parsed.llm?.cover?.service === "string" ? parsed.llm.cover.service : "";
     if (!service) return undefined;

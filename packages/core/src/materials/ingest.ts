@@ -3,6 +3,7 @@ import { basename, extname, join, relative } from "node:path";
 import { extractText, getDocumentProxy } from "unpdf";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath } from "../utils/posix-path.js";
+import { resolveRuntimeDir, resolveWriteRuntimeDir } from "../utils/runtime-dirs.js";
 
 export type MaterialPurpose = "reference" | "worldbuilding" | "script" | "storyboard" | "research" | "general";
 export type MaterialSourceKind = "url" | "file";
@@ -50,7 +51,7 @@ export async function ingestMaterial(
   const source = await readMaterialSource(projectRoot, input, deps);
   const title = (input.title?.trim() || source.title || titleFromSource(input) || "material").slice(0, 120);
   const id = `${now.toISOString().replace(/[:.]/g, "-")}-${slug(title)}`;
-  const materialsDir = join(projectRoot, ".storyos", "materials");
+  const materialsDir = join(resolveWriteRuntimeDir(projectRoot), "materials");
   await mkdir(materialsDir, { recursive: true });
 
   const markdown = renderMaterialMarkdown({

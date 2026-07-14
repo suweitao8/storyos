@@ -1,11 +1,11 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { resolveRuntimeDir, resolveWriteRuntimeDir } from "../utils/runtime-dirs.js";
 
 export interface SecretsFile {
   services: Record<string, { apiKey: string }>;
 }
 
-const SECRETS_DIR = ".storyos";
 const SECRETS_FILE = "secrets.json";
 
 const LEGACY_SERVICE_ID_REMAP: Record<string, string> = {
@@ -29,7 +29,7 @@ function migrateLegacyServiceIds(secrets: SecretsFile): { data: SecretsFile; cha
 async function readSecretsRaw(projectRoot: string): Promise<SecretsFile> {
   try {
     const raw = await readFile(
-      join(projectRoot, SECRETS_DIR, SECRETS_FILE),
+      join(resolveRuntimeDir(projectRoot), SECRETS_FILE),
       "utf-8",
     );
     const parsed = JSON.parse(raw) as SecretsFile;
@@ -53,7 +53,7 @@ export async function saveSecrets(
   projectRoot: string,
   secrets: SecretsFile,
 ): Promise<void> {
-  const dir = join(projectRoot, SECRETS_DIR);
+  const dir = resolveWriteRuntimeDir(projectRoot);
   await mkdir(dir, { recursive: true });
   await writeFile(
     join(dir, SECRETS_FILE),

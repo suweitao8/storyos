@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 import { appendInteractionEvent } from "./session.js";
 import type { InteractionRequest } from "./intents.js";
 import type { InteractionRuntimeTools } from "./runtime.js";
@@ -84,7 +85,7 @@ function attachRequestLanguage(
 
 async function detectProjectInteractionLanguage(projectRoot: string): Promise<"zh" | "en" | undefined> {
   try {
-    const raw = await readFile(join(projectRoot, "storyos.json"), "utf-8");
+    const raw = await readFile(await resolveProjectConfigPath(projectRoot), "utf-8");
     const parsed = JSON.parse(raw) as { language?: string };
     return parsed.language === "en" ? "en" : parsed.language === "zh" ? "zh" : undefined;
   } catch {

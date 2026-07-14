@@ -82,6 +82,7 @@ interface SessionResponse {
 
 interface PlatformCopy {
   readonly idleTitle: string;
+  readonly idleBody?: string;
   readonly formHeading: string;
   readonly titleLabel: string;
   readonly titlePlaceholder: string;

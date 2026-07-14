@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -15,9 +16,22 @@ const CREATE_TABLE_SQL = `
 
 type Database = import("node:sqlite").DatabaseSync;
 
+/**
+ * Resolve the runtime directory that holds studio.db. Prefers `.storyos/`
+ * but transparently falls back to the legacy `.inkos/` directory so existing
+ * preferences keep working after the brand rename.
+ */
+function resolveStudioDbDir(projectRoot: string): string {
+  const newPath = join(projectRoot, ".storyos");
+  if (existsSync(join(newPath, "studio.db"))) return newPath;
+  const legacyPath = join(projectRoot, ".inkos");
+  if (existsSync(join(legacyPath, "studio.db"))) return legacyPath;
+  return newPath;
+}
+
 async function withDatabase<T>(projectRoot: string, operation: (database: Database) => T): Promise<T> {
-  const inkosDirectory = join(projectRoot, ".storyos");
-  await mkdir(inkosDirectory, { recursive: true });
+  const dbDir = resolveStudioDbDir(projectRoot);
+  await mkdir(dbDir, { recursive: true });
 
   let DatabaseSync: typeof import("node:sqlite").DatabaseSync;
   try {
@@ -26,7 +40,7 @@ async function withDatabase<T>(projectRoot: string, operation: (database: Databa
     throw new Error("Studio preferences require Node 22 or newer with node:sqlite support.", { cause: error });
   }
 
-  const database = new DatabaseSync(join(inkosDirectory, "studio.db"));
+  const database = new DatabaseSync(join(dbDir, "studio.db"));
   try {
     database.exec(CREATE_TABLE_SQL);
     return operation(database);

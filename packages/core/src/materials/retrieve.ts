@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath } from "../utils/posix-path.js";
+import { resolveRuntimeDir } from "../utils/runtime-dirs.js";
 import type { MaterialAsset, MaterialPurpose } from "./ingest.js";
 
 export interface RetrieveMaterialsInput {
@@ -66,7 +67,7 @@ export async function retrieveMaterials(
 }
 
 async function listMaterialAssets(projectRoot: string): Promise<MaterialAsset[]> {
-  const materialsDir = join(projectRoot, ".storyos", "materials");
+  const materialsDir = join(resolveRuntimeDir(projectRoot), "materials");
   let entries: string[] = [];
   try {
     entries = await readdir(materialsDir);
