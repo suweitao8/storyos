@@ -364,14 +364,11 @@ function AssetDetails({
   return (
     <section className="min-h-0 flex-1 overflow-y-auto bg-card/20 p-4" data-testid="story-asset-details">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        {/* 标题行：左侧分类+名称，右侧状态+生成按钮，紧凑一行 */}
+        {/* 标题行：左侧分类标签，右侧状态+生成按钮，紧凑一行 */}
         <div className="flex shrink-0 items-center justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              {KIND_LABELS[asset.kind][isZh ? "zh" : "en"]}
-            </p>
-            <h2 className="truncate text-lg font-semibold">{asset.name}</h2>
-          </div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            {KIND_LABELS[asset.kind][isZh ? "zh" : "en"]}
+          </p>
           <div className="flex shrink-0 items-center gap-2">
             <span className={`rounded-full border px-2 py-0.5 text-[11px] ${STATUS_CLASS[status]}`}>
               {getStoryAssetStatusLabel(status, isZh)}
