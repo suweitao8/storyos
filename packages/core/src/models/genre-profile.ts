@@ -30,50 +30,12 @@ export const ART_STYLES: ReadonlyArray<{
 ];
 
 // ---------------------------------------------------------------------------
-// Voice age × gender groups
+// Voice
 // ---------------------------------------------------------------------------
 
-/**
- * Eight age-group × gender buckets used for voice prompt templates.
- */
-export const VoiceAgeGroupSchema = z.enum([
-  "boy", // 男孩
-  "girl", // 女孩
-  "youngMale", // 男青年
-  "youngFemale", // 女青年
-  "middleMale", // 中年男性
-  "middleFemale", // 中年女性
-  "elderMale", // 老年男性
-  "elderFemale", // 老年女性
-]);
-export type VoiceAgeGroup = z.infer<typeof VoiceAgeGroupSchema>;
-
-export const VOICE_AGE_GROUP_KEYS: ReadonlyArray<VoiceAgeGroup> = [
-  "boy",
-  "girl",
-  "youngMale",
-  "youngFemale",
-  "middleMale",
-  "middleFemale",
-  "elderMale",
-  "elderFemale",
-];
-
-/** Display labels for the eight voice age groups (zh / en). */
-export const VOICE_AGE_GROUPS: ReadonlyArray<{
-  readonly key: VoiceAgeGroup;
-  readonly label: string;
-  readonly labelEn: string;
-}> = [
-  { key: "boy", label: "男孩", labelEn: "Boy" },
-  { key: "girl", label: "女孩", labelEn: "Girl" },
-  { key: "youngMale", label: "男青年", labelEn: "Young Male" },
-  { key: "youngFemale", label: "女青年", labelEn: "Young Female" },
-  { key: "middleMale", label: "中年男性", labelEn: "Middle-aged Male" },
-  { key: "middleFemale", label: "中年女性", labelEn: "Middle-aged Female" },
-  { key: "elderMale", label: "老年男性", labelEn: "Elderly Male" },
-  { key: "elderFemale", label: "老年女性", labelEn: "Elderly Female" },
-];
+// Voice prompts are now a single generic template (see DEFAULT_VOICE_PROMPT
+// in default-prompt-templates.ts) driven by character assets at generation
+// time, rather than fixed age-group × gender buckets.
 
 /** Image prompt template kind, mirroring {@link StoryAssetKind}. */
 export type ImagePromptKind = "character" | "scene" | "prop";

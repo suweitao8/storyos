@@ -41,15 +41,11 @@ export { type CurrentState, type ParticleLedger, type PendingHooks, type Pending
 export {
   type GenreProfile,
   type ParsedGenreProfile,
-  type VoiceAgeGroup,
   type ImagePromptKind,
   type ArtStyle,
   GenreProfileSchema,
-  VoiceAgeGroupSchema,
   ArtStyleSchema,
   ART_STYLES,
-  VOICE_AGE_GROUP_KEYS,
-  VOICE_AGE_GROUPS,
   IMAGE_PROMPT_KINDS,
   parseGenreProfile,
 } from "./models/genre-profile.js";
@@ -61,9 +57,8 @@ export {
   DEFAULT_IMAGE_STYLE_REALISTIC,
   DEFAULT_IMAGE_STYLE_CG3D,
   DEFAULT_IMAGE_STYLES,
-  DEFAULT_VOICE_PROMPTS,
+  DEFAULT_VOICE_PROMPT,
   resolveImagePromptTemplate,
-  resolveVoicePromptTemplate,
   resolveAllPromptTemplates,
   buildImagePromptGuides,
 } from "./models/default-prompt-templates.js";

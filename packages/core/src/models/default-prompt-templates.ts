@@ -21,8 +21,8 @@
  * At generation time {@link resolveImagePromptTemplate} combines them:
  * `template + "\n\n" + styleDescription`.
  */
-import type { ArtStyle, ImagePromptKind, VoiceAgeGroup } from "./genre-profile.js";
-import { IMAGE_PROMPT_KINDS, VOICE_AGE_GROUP_KEYS } from "./genre-profile.js";
+import type { ArtStyle, ImagePromptKind } from "./genre-profile.js";
+import { IMAGE_PROMPT_KINDS } from "./genre-profile.js";
 
 // ===========================================================================
 // Image prompt templates (style-agnostic content extraction guidance)
@@ -159,19 +159,42 @@ export const DEFAULT_IMAGE_STYLES: Record<ArtStyle, Record<ImagePromptKind, stri
 };
 
 // ===========================================================================
-// Voice prompt templates (by age-group × gender)
+// Voice prompt template (generic — character-driven)
 // ===========================================================================
 
-export const DEFAULT_VOICE_PROMPTS: Record<VoiceAgeGroup, string> = {
-  boy: `男孩声音，约8-12岁，清脆但带有男孩特有的硬朗感，不是女孩的尖细甜美。音调略高于成年男性但不过高，胸腔共鸣初显，声音干净透亮。语速偏快、跳跃感强，带有孩童的活泼与好奇。说话时中气十足，吐字清晰但不刻意，偶尔带着调皮上扬的尾音。禁止使用过度甜美、撒娇式或女性化甜美腔调。`,
-  girl: `女孩声音，约8-12岁，甜美清脆、柔和可人。音调较高，共鸣位置偏头部，声音明亮纯净。语速轻快自然，带着孩童的天真与活泼。说话时尾音自然上扬，有跳跃感，但不刻意做作。声音中带着笑意感，温暖亲切，适合表现纯真无邪的少女形象。`,
-  youngMale: `男青年声音，约18-30岁，声音清朗有活力，音域完整。音调适中偏低，胸腔共鸣明显，有磁性和穿透力。语速中等偏快，节奏明快，吐字清晰有力。说话时中气十足，带有年轻人特有的朝气和锐气。声音质感干净，情绪表达直接自然，适合表现热血、沉稳或智谋型青年男性角色。`,
-  youngFemale: `女青年声音，约18-30岁，声音清亮柔美，音调较高。共鸣位置偏头部，声音明亮圆润有弹性。语速中等，节奏自然流畅，吐字清晰。声音中有明显的情感表现力，可温柔可活泼，适合表现各种性格的年轻女性角色。尾音自然，不做作，整体听感清新舒适。`,
-  middleMale: `中年男性声音，约35-55岁，声音成熟稳重，音质饱满浑厚。音调偏低沉，胸腔共鸣强，有明显的厚重感和磁性。语速中等偏慢，节奏沉稳，停顿分明，吐字有力而从容。说话时带有阅历感和威严感，中气充沛，适合表现上位者、学者或经验丰富的男性角色。`,
-  middleFemale: `中年女性声音，约35-55岁，声音成熟温婉，音质饱满。音调适中，共鸣均衡，声音有厚度但不失柔和。语速中等，节奏从容，吐字清晰自然。说话时带有沉稳和包容感，可以温暖慈爱，也可以干练果决，适合表现母亲、职场女性或掌权者等中年女性角色。`,
-  elderMale: `老年男性声音，约60岁以上，声音苍老低沉，带有轻微的沙哑感和颗粒感。音调偏低，气息稍显不足，语速偏慢。说话时可能有轻微的颤抖或停顿，吐字沉稳但不再锐利。声音中沉淀着沧桑和阅历，适合表现长者、宗师或饱经风霜的老年男性角色。`,
-  elderFemale: `老年女性声音，约60岁以上，声音苍老柔和，带有岁月沉淀的温润感。音调偏高但不再清亮，声音中有轻微的沙哑和气息感。语速偏慢，节奏温和，吐字从容。说话时带有慈祥和包容感，尾音可能微微拖长，适合表现祖母、老妇人或智慧长者等老年女性角色。`,
-};
+/**
+ * Generic voice prompt template.
+ *
+ * This template does NOT prescribe a fixed timbre. Instead it tells the model
+ * how to *derive* the right voice characteristics (pitch, resonance, tempo,
+ * texture) from the character's profile — age, gender, body type, personality.
+ *
+ * Concrete voice parameters should be driven by character assets at generation
+ * time; this template only provides the reasoning framework so it stays
+ * universal across any character.
+ */
+export const DEFAULT_VOICE_PROMPT = `你的任务是根据角色的完整档案信息，为语音合成模型推导出一段准确、可用、贴合角色形象的音色描述。
+
+## 核心原则
+音色由角色本身决定——年龄、性别、体型、性格、身份与说话习惯共同塑造一个人的声音。不要套用刻板的"某年龄段=某音色"公式，而要根据角色的具体特征综合推导。
+
+## 推导维度
+
+根据角色档案中可用的信息，逐项推导（档案未提及的维度合理推断即可）：
+
+1. **年龄与性别**：决定基础音区和声音成熟度。儿童声音清脆、尚未定型；青年声音清朗、中气充足；中年声音沉稳、质感饱满；老年声音苍老、带有岁月痕迹。男性整体音区低于女性，胸腔共鸣更明显。
+2. **体型**：影响共鸣和声音厚度。体型壮硕/偏胖的人通常胸腔共鸣更强、声音更浑厚低沉；体型纤细/偏瘦的人声音偏清亮单薄、共鸣位置偏高。
+3. **性格**：决定语速、节奏和情绪底色。大大咧咧/外向的人语速偏快、尾音上扬、声音中有笑意和跳跃感；内向/沉稳的人语速偏慢、节奏平稳、尾音克制；冷酷或阴鸷的人声音压抑、气息重、缺乏起伏。
+4. **身份与说话习惯**：上位者、军人、学者、市井小民——身份影响说话的力度、吐字的讲究程度和停顿习惯。注意角色档案中提到的口癖、方言、特殊说话方式。
+
+## 输出要求
+输出一段流畅的中文音色描述段落，涵盖：基础音区 → 共鸣位置 → 语速节奏 → 音色质感 → 情绪底色 → 特殊说话习惯（如有）。描述要具体到可执行，不要笼统。
+
+## 强制规则
+- 必须基于角色档案推导，不要凭空编造与角色矛盾的声音特征
+- 不要使用"适合表现某类角色"之类的元描述，直接描述声音本身
+- 声音特征之间要自洽（体型壮硕的人不能声音尖细单薄，除非档案明确说明反差）
+- 直接输出音色描述段落，不写解释、前缀或标题`;
 
 // ===========================================================================
 // Resolution helpers
@@ -195,26 +218,16 @@ export function resolveImagePromptTemplate(
 }
 
 /**
- * Get the voice prompt for a given age-group.
- */
-export function resolveVoicePromptTemplate(group: VoiceAgeGroup): string {
-  return DEFAULT_VOICE_PROMPTS[group];
-}
-
-/**
  * Build a snapshot of all templates for a given style, useful for preview.
  */
 export function resolveAllPromptTemplates(style: ArtStyle = "realistic"): {
   image: Record<ImagePromptKind, string>;
-  voice: Record<VoiceAgeGroup, string>;
+  voice: string;
 } {
   const image = Object.fromEntries(
     IMAGE_PROMPT_KINDS.map((kind) => [kind, resolveImagePromptTemplate(kind, style)] as const),
   ) as Record<ImagePromptKind, string>;
-  const voice = Object.fromEntries(
-    VOICE_AGE_GROUP_KEYS.map((group) => [group, resolveVoicePromptTemplate(group)] as const),
-  ) as Record<VoiceAgeGroup, string>;
-  return { image, voice };
+  return { image, voice: DEFAULT_VOICE_PROMPT };
 }
 
 /**
