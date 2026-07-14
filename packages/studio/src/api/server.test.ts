@@ -385,6 +385,7 @@ describe("deriveCraftSourceName", () => {
 
     expect(normalizeCraftMode("bilibili-commentary", "bilibili")).toBe("bilibili-commentary");
     expect(normalizeCraftMode("bilibili-short-story", "bilibili")).toBe("bilibili-short-story");
+    expect(normalizeCraftMode("bilibili-review", "bilibili")).toBe("bilibili-review");
     expect(normalizeCraftMode(undefined, "bilibili")).toBe("bilibili-short-story");
     expect(normalizeCraftMode("ghost-story", "bilibili")).toBe("ghost-story");
     expect(normalizeCraftMode("bilibili-commentary", "novel")).toBe("general");

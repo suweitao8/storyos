@@ -24,7 +24,8 @@ export type CraftMode =
   | "general"
   | "ghost-story"
   | "bilibili-short-story"
-  | "bilibili-commentary";
+  | "bilibili-commentary"
+  | "bilibili-review";
 
 /** Horror-specific controls required to reproduce a ghost-story experience. */
 export interface GhostStoryCraft {

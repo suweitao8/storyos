@@ -77,24 +77,40 @@ export function buildCraftAnalysisSystemPrompt(
     ? mode === "bilibili-commentary"
       ? language === "en"
         ? [
-            "This is a Bilibili film or television commentary reference. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original short story.",
-            "The profile must support making a similar-feeling original short story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending.",
+            "This is a Bilibili film or television commentary reference. The creator narrated someone else's movie or show in their own style. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original story.",
+            "The profile must support making a similar-feeling original story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending. The goal is to create your own original commentary-style story, not to retell the same movie.",
           ]
         : [
-            "这是B站影视解说参考。把解说视为被压缩的影视剧情，重点提取因果链、人物压力、反转、信息揭示和情绪回报节奏，用于重新搭建一个原创短篇故事。",
-            "结果必须服务于「参考影视解说结构，制作类似但完全原创的短篇故事」：必须替换原影视作品的人物、场景、因果链、具体事件和结局。",
+            "这是B站影视解说参考。UP主用自己的风格解说了一部电影或电视剧。把解说当作被压缩的剧情来分析：重点提取因果链、人物压力、反转、信息揭示节奏和情绪回报。",
+            "目标是参考这个解说的叙事结构，创作一个剧情完全原创的解说故事。必须替换原影视作品的人物、场景、因果链、具体事件和结局——只迁移叙事节奏和结构手法。",
           ]
-      : mode === "bilibili-short-story"
+      : mode === "bilibili-review"
         ? language === "en"
           ? [
-              "This is a Bilibili short-story reference. Extract the compact hook, escalation, reversal, emotional payoff, and ending aftertaste that make the short story work.",
-              "The profile should help create a new short story with a similar rhythm, while replacing identities, setting, causal chain, scenes, wording, and ending.",
+              "This is a Bilibili commentary/review/roast reference. The creator shares opinions, roasts, or hot takes on a trending topic. Extract the angle of approach, core argument, reasoning structure, roast techniques, emotional rhythm, and memorable phrasing that can be reused for an original piece.",
+              "The profile must support creating an original commentary piece on a similar topic with a fresh perspective. Replace the specific topic, people, and events — only transfer the argumentation style, comedic timing, and rhetorical techniques.",
             ]
           : [
-              "这是B站短篇故事参考。重点提取短篇故事成立所需的开场钩子、冲突推进、反转、情绪回报和结尾余韵。",
-              "结果应帮助创作节奏相近但全新的短篇故事，必须替换人物、场景、因果链、措辞和结局。",
+              "这是B站评论/调侃/吐槽类视频参考。UP主对某个热门话题发表观点、吐槽或调侃。重点提取以下可复用的手法：",
+              "- 选题角度：UP主从什么切入点切入这个话题，怎么找到让人共鸣的吐槽点。",
+              "- 核心观点：UP主想表达什么立场，怎么用通俗的话说清楚。",
+              "- 论证结构：怎么一步步展开论述，先说什么后说什么。",
+              "- 调侃手法：用什么修辞制造笑点（夸张、反讽、类比、金句）。",
+              "- 情绪节奏：怎么控制观众情绪起伏，什么时候正经什么时候搞笑。",
+              "- 金句模式：UP主怎么造出传播力强的短句。",
+              "目标是参考这个视频的表达风格和论证结构，创作一个话题相近但观点和内容完全原创的评论/调侃作品。必须替换具体的话题、人物和事件——只迁移表达手法和节奏。",
             ]
-        : []
+        : mode === "bilibili-short-story"
+          ? language === "en"
+            ? [
+                "This is a Bilibili short-story reference. Extract the compact hook, escalation, reversal, emotional payoff, and ending aftertaste that make the short story work.",
+                "The profile should help create a new short story with a similar rhythm, while replacing identities, setting, causal chain, scenes, wording, and ending.",
+              ]
+            : [
+                "这是B站短篇故事参考。重点提取短篇故事成立所需的开场钩子、冲突推进、反转、情绪回报和结尾余韵。",
+                "结果应帮助创作节奏相近但全新的短篇故事，必须替换人物、场景、因果链、措辞和结局。",
+              ]
+          : []
     : [];
 
   if (language === "en") {

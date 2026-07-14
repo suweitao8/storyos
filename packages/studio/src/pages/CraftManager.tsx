@@ -43,7 +43,7 @@ interface CraftMeta {
   readonly sourceName: string;
   readonly createdAt: string;
   readonly language: "zh" | "en";
-  readonly mode?: "general" | "ghost-story" | "bilibili-commentary" | "bilibili-short-story";
+  readonly mode?: "general" | "ghost-story" | "bilibili-commentary" | "bilibili-short-story" | "bilibili-review";
   readonly sourceType?: CraftSourceType;
   readonly summary?: string;
   readonly recommendedWordCount?: number;
@@ -71,13 +71,22 @@ export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): s
   return "来源未记录";
 }
 
+export function craftModeLabel(mode: string | undefined): string | null {
+  if (mode === "bilibili-short-story") return "短篇故事";
+  if (mode === "bilibili-commentary") return "影视解说";
+  if (mode === "bilibili-review") return "评论调侃";
+  return null;
+}
+
 export function craftCardMeta(
-  craft: Pick<CraftMeta, "sourceType" | "recommendedWordCount">,
+  craft: Pick<CraftMeta, "sourceType" | "recommendedWordCount" | "mode">,
 ): string {
   const sourceType = craftSourceTypeLabel(craft.sourceType);
+  const modeLabel = craftModeLabel(craft.mode);
+  const base = modeLabel ? `${sourceType} · ${modeLabel}` : sourceType;
   return craft.recommendedWordCount && craft.recommendedWordCount > 0
-    ? `${sourceType} · 建议约 ${craft.recommendedWordCount.toLocaleString()} 字`
-    : sourceType;
+    ? `${base} · 建议约 ${craft.recommendedWordCount.toLocaleString()} 字`
+    : base;
 }
 
 export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
@@ -158,6 +167,14 @@ interface BilibiliCreateResponse {
   readonly craftId: string;
   readonly meta: CraftMeta;
 }
+
+type BilibiliVideoMode = "bilibili-short-story" | "bilibili-commentary" | "bilibili-review";
+
+const BILIBILI_VIDEO_MODES: ReadonlyArray<{ readonly value: BilibiliVideoMode; readonly label: string; readonly hint: string }> = [
+  { value: "bilibili-short-story", label: "短篇故事", hint: "原创短剧/短故事，参考其叙事节奏创作新故事" },
+  { value: "bilibili-commentary", label: "影视解说", hint: "UP主解说电影/电视剧，参考其剧情结构创作原创解说" },
+  { value: "bilibili-review", label: "评论调侃", hint: "时事评论/吐槽/调侃，参考其表达风格创作二次内容" },
+];
 
 export function craftProcessingLabel(craft: Pick<CraftMeta, "processingStatus" | "processingStage">): string | null {
   if (craft.processingStatus === "processing") return craft.processingStage?.trim() || "后台处理中";
@@ -773,6 +790,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
   const [bilibiliResult, setBilibiliResult] = useState<BilibiliImportResponse | null>(null);
   const [importingBilibili, setImportingBilibili] = useState(false);
   const [bilibiliError, setBilibiliError] = useState("");
+  const [bilibiliMode, setBilibiliMode] = useState<BilibiliVideoMode>("bilibili-short-story");
   const [sourceType, setSourceType] = useState<CraftSourceType>("novel");
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState("");
@@ -916,7 +934,7 @@ function CraftCreate({ c, t, sse, onSuccess }: {
     setCurrentStep("正在创建模式，后台将获取视频与字幕");
     setProgressLogs(["正在创建模式，后台将获取视频与字幕"]);
     try {
-      const data = await postApi<BilibiliCreateResponse>("/craft/bilibili/create", { url: bilibiliUrl.trim() });
+      const data = await postApi<BilibiliCreateResponse>("/craft/bilibili/create", { url: bilibiliUrl.trim(), mode: bilibiliMode });
       setCurrentStep(data.meta.processingStage ?? "后台处理中");
       setProgressLogs((prev) => [...prev, data.meta.processingStage ?? "后台处理中"]);
       onSuccess(null, data.craftId, data.meta);
@@ -954,8 +972,26 @@ function CraftCreate({ c, t, sse, onSuccess }: {
       </div>
 
       {sourceType === "bilibili" && (
-      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-3">
-        <div className="text-sm font-medium">B 站视频字幕</div>
+      <div className="rounded-2xl border border-border/60 bg-secondary/10 p-4 space-y-4">
+        <div className="text-sm font-medium">B 站视频链接</div>
+        <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="视频类型">
+          {BILIBILI_VIDEO_MODES.map((option) => {
+            const selected = bilibiliMode === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setBilibiliMode(option.value)}
+                disabled={busy}
+                className={`rounded-xl border p-3 text-left transition-colors ${selected ? "border-primary/60 bg-primary/5" : "border-border/50 hover:border-primary/30 hover:bg-secondary/20"} disabled:opacity-50`}
+              >
+                <div className="text-sm font-medium">{option.label}</div>
+                <div className="mt-1 text-xs leading-4 text-muted-foreground">{option.hint}</div>
+              </button>
+            );
+          })}
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="url"
