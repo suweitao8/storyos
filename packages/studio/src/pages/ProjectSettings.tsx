@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, Globe, Moon, Stethoscope, Sun } from "lucide-react";
+import { Boxes, Globe, Moon, Stethoscope, Sun } from "lucide-react";
 import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
@@ -9,7 +9,7 @@ import { ServiceListPage } from "./ServiceListPage";
 import { GenreManager } from "./GenreManager";
 import type { ProjectSettingsTabId } from "../hooks/use-hash-route";
 
-export const PROJECT_SETTINGS_TAB_IDS = ["common", "models", "genres", "diagnostics"] as const;
+export const PROJECT_SETTINGS_TAB_IDS = ["common", "genres", "diagnostics"] as const;
 type ProjectSettingsTab = typeof PROJECT_SETTINGS_TAB_IDS[number];
 
 function SettingsCard({
@@ -58,7 +58,6 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
   usePageToolbar("project-settings", {
     tabs: [
       { id: "common", label: t("settings.tab.common"), icon: <Globe size={14} /> },
-      { id: "models", label: t("settings.tab.models"), icon: <Bot size={14} /> },
       { id: "genres", label: t("settings.tab.genres"), icon: <Boxes size={14} /> },
       { id: "diagnostics", label: t("settings.tab.diagnostics"), icon: <Stethoscope size={14} /> },
     ],
@@ -112,11 +111,9 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
               </div>
             </div>
           </SettingsCard>
-        </div>
-      )}
 
-      {activeTab === "models" && (
-        <ServiceListPage />
+          <ServiceListPage />
+        </div>
       )}
 
       {activeTab === "genres" && (
