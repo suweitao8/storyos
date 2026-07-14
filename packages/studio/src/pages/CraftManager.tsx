@@ -83,7 +83,7 @@ export function craftCardMeta(
 export function craftCardDescription(craft: Pick<CraftMeta, "mode" | "summary">): string {
   const summary = craft.summary?.trim();
   if (summary) return summary;
-  return "提取开篇结构、场景节奏、信息释放与叙事视角";
+  return "拆解开头写法、节奏控制、悬念设计和叙事视角";
 }
 
 const CRAFT_TIME_TOKEN = /(?:\d{1,2}:){1,2}\d{1,2}(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:秒|s|sec(?:onds?)?)/gi;
@@ -252,25 +252,25 @@ interface CraftModule {
 
 const CRAFT_CATEGORY_LABELS: Record<"zh" | "en", Record<CraftModule["category"], string>> = {
   zh: {
-    opening: "开篇",
-    chapterFlow: "章节推进",
-    sceneRhythm: "场景与节奏",
-    disclosure: "信息释放",
-    suspense: "悬念管理",
-    perspective: "叙事视角",
-    emotion: "情绪推进",
-    turningPoint: "转折与回收",
+    opening: "开头",
+    chapterFlow: "推进",
+    sceneRhythm: "节奏",
+    disclosure: "信息",
+    suspense: "悬念",
+    perspective: "视角",
+    emotion: "情绪",
+    turningPoint: "转折",
     other: "其他",
   },
   en: {
     opening: "Opening",
-    chapterFlow: "Chapter Flow",
-    sceneRhythm: "Scene & Rhythm",
-    disclosure: "Information Release",
+    chapterFlow: "Flow",
+    sceneRhythm: "Pacing",
+    disclosure: "Info",
     suspense: "Suspense",
-    perspective: "Perspective",
+    perspective: "View",
     emotion: "Emotion",
-    turningPoint: "Turning Point",
+    turningPoint: "Twist",
     other: "Other",
   },
 };
@@ -378,38 +378,38 @@ export function buildCraftDetailModel(profile: CraftProfile): CraftDetailModel {
     videoStory: profile.videoStory,
     legacySections: [
       {
-        title: "结构手法",
+        title: "故事结构",
         fields: [
-          ["开篇模式", profile.structure.openingPattern],
-          ["单章弧线", profile.structure.chapterArc],
-          ["章末钩子", profile.structure.endingHookType],
+          ["怎么开头", profile.structure.openingPattern],
+          ["一章怎么推进", profile.structure.chapterArc],
+          ["章末怎么吊人", profile.structure.endingHookType],
         ],
         exemplar: profile.structure.exemplar,
       },
       {
-        title: "场景与节奏",
+        title: "节奏与场景",
         fields: [
-          ["场景切换", profile.sceneRhythm.sceneTransitionTechnique],
-          ["节奏曲线", profile.sceneRhythm.pacingCurve],
-          ["冲突升级", profile.sceneRhythm.conflictEscalation],
+          ["场景怎么切换", profile.sceneRhythm.sceneTransitionTechnique],
+          ["节奏快慢变化", profile.sceneRhythm.pacingCurve],
+          ["麻烦怎么升级", profile.sceneRhythm.conflictEscalation],
         ],
         exemplar: profile.sceneRhythm.exemplar,
       },
       {
-        title: "信息披露",
+        title: "信息与悬念",
         fields: [
-          ["伏笔密度", profile.informationDisclosure.foreshadowingDensity],
-          ["信息释放", profile.informationDisclosure.informationReleaseRhythm],
-          ["悬念管理", profile.informationDisclosure.suspenseManagement],
+          ["埋了多少伏笔", profile.informationDisclosure.foreshadowingDensity],
+          ["信息怎么透露", profile.informationDisclosure.informationReleaseRhythm],
+          ["悬念怎么吊", profile.informationDisclosure.suspenseManagement],
         ],
         exemplar: profile.informationDisclosure.exemplar,
       },
       {
-        title: "叙事视角",
+        title: "视角与叙述",
         fields: [
-          ["POV 策略", profile.narrativePerspective.povStrategy],
-          ["叙述/对话比例", profile.narrativePerspective.narrationDialogueRatio],
-          ["叙事距离", profile.narrativePerspective.narrativeDistance],
+          ["用谁的视角", profile.narrativePerspective.povStrategy],
+          ["对话和叙述比例", profile.narrativePerspective.narrationDialogueRatio],
+          ["离角色多近", profile.narrativePerspective.narrativeDistance],
         ],
         exemplar: profile.narrativePerspective.exemplar,
       },
