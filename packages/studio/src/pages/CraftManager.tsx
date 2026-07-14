@@ -1460,35 +1460,6 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-primary">
-            {craftSourceTypeLabel(profile.sourceType)}
-          </span>
-          <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
-            {t("craft.moduleCount").replace("{count}", String(detail.moduleCount))}
-          </span>
-          <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">
-            {t("craft.exemplarCount").replace("{count}", String(detail.exemplarCount))}
-          </span>
-          {source && <span className="rounded-full border border-border/60 bg-secondary/20 px-2.5 py-1">原始资料已保留</span>}
-        </div>
-        <button
-          type="button"
-          onClick={() => void handleReparse()}
-          disabled={reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")}
-          className={`inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors ${
-            reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")
-              ? "cursor-not-allowed opacity-50"
-              : "hover:bg-secondary/40"
-          }`}
-          title={!source ? "该模式没有保留原始资料，无法重新解析" : undefined}
-        >
-          <RefreshCw size={14} className={reparsing ? "animate-spin" : undefined} />
-          {reparsing ? "重新解析中…" : "重新解析"}
-        </button>
-      </div>
-
       <div className="overflow-x-auto border-b border-border">
         <div className="flex min-w-max gap-1">
           {CRAFT_DETAIL_TABS
@@ -1540,14 +1511,14 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
 
       {detailTab === "overview" && craftId && (
         <section className={`border ${c.cardStatic} rounded-xl p-4`}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">画面风格</h3>
-              <p className="mt-1 text-xs text-muted-foreground/70">
-                角色和场景图片生成时使用的视觉风格。
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-6">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">画面风格</h3>
+                <p className="mt-1 text-xs text-muted-foreground/70">
+                  角色和场景图片生成时使用的视觉风格。
+                </p>
+              </div>
               <select
                 value={artStyle}
                 onChange={(e) => void handleArtStyleChange(e.target.value as CraftArtStyle)}
@@ -1562,6 +1533,20 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
                 <span className="text-xs text-muted-foreground">保存中…</span>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => void handleReparse()}
+              disabled={reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")}
+              className={`inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition-colors ${
+                reparsing || sourceLoading || !source?.files.some((file) => file.key === "analysisInput")
+                  ? "cursor-not-allowed opacity-50"
+                  : "hover:bg-secondary/40"
+              }`}
+              title={!source ? "该模式没有保留原始资料，无法重新解析" : undefined}
+            >
+              <RefreshCw size={14} className={reparsing ? "animate-spin" : undefined} />
+              {reparsing ? "重新解析中…" : "重新解析"}
+            </button>
           </div>
         </section>
       )}
