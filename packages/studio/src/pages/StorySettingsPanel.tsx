@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowRight, BookOpen, FileText } from "lucide-react";
+import { BookOpen, FileText } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
 import { useApi } from "../hooks/use-api";
@@ -59,10 +59,9 @@ interface StorySettingsPanelProps {
   readonly storyId: string | null;
   readonly theme: Theme;
   readonly isZh: boolean;
-  readonly onOpenAdjustment: () => void;
 }
 
-export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, onOpenAdjustment }: StorySettingsPanelProps) {
+export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: StorySettingsPanelProps) {
   const path = storyId ? `/shorts/${encodeURIComponent(storyId)}/content` : bookId ? `/books/${encodeURIComponent(bookId)}/content` : "";
   const { data, loading, error, refetch } = useApi<StoryContentResponse>(path);
   const groups = useMemo(() => {
@@ -87,7 +86,6 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh, onOpe
             <p className="mt-1 text-sm text-muted-foreground">{isZh ? "按故事设定、角色和大纲分组查看生成内容。" : "Review generated content grouped by setup, characters, and outline."}</p>
           </div>
         </div>
-        <button type="button" onClick={onOpenAdjustment} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground"><ArrowRight size={15} />{isZh ? "打开对话调整" : "Open chat adjustment"}</button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7">
         {!bookId && !storyId ? <DocumentEmpty text={isZh ? "创建故事后，这里会显示故事设定。" : "Story settings will appear after creation."} /> : loading && !data ? <DocumentEmpty text={isZh ? "正在加载故事设定..." : "Loading story settings..."} /> : error ? <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div> : !data ? <DocumentEmpty text={isZh ? "暂时没有故事设定。" : "No story settings yet."} /> : (

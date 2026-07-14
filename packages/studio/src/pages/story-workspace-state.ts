@@ -15,7 +15,6 @@ export const STORY_WORKSPACE_STAGES = [
   "create",
   "settings",
   "assets",
-  "adjust",
   "script",
   "storyboard",
   "video",

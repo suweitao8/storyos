@@ -1186,7 +1186,6 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           storyId={storyWorkspace.kind === "short" ? storyWorkspace.storyId : null}
           theme={theme}
           isZh={isZh}
-          onOpenAdjustment={() => setStoryWorkspaceStage("adjust")}
         />
       ) : storyWorkspace.view === "assets" ? (
         <StoryAssetsPanel

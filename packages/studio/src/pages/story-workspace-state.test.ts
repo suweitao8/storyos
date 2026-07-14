@@ -18,7 +18,6 @@ describe("story workspace stages", () => {
       "create",
       "settings",
       "assets",
-      "adjust",
       "script",
       "storyboard",
       "video",
@@ -32,7 +31,7 @@ describe("story workspace stages", () => {
     expect(resolveStoryWorkspaceStage("create")).toBe("create");
     expect(resolveStoryWorkspaceStage("settings")).toBe("settings");
     expect(resolveStoryWorkspaceStage("assets")).toBe("assets");
-    expect(resolveStoryWorkspaceStage("adjust")).toBe("adjust");
+    expect(resolveStoryWorkspaceStage("adjust")).toBe("settings");
     expect(resolveStoryWorkspaceStage("script")).toBe("script");
     expect(resolveStoryWorkspaceStage("storyboard")).toBe("storyboard");
     expect(resolveStoryWorkspaceStage("video")).toBe("video");
@@ -49,7 +48,6 @@ describe("story workspace stages", () => {
       { id: "create", label: "创建故事" },
       { id: "settings", label: "故事设定" },
       { id: "assets", label: "故事资产" },
-      { id: "adjust", label: "对话调整" },
       { id: "script", label: "剧本", disabled: true },
       { id: "storyboard", label: "分镜", disabled: true },
       { id: "video", label: "视频", disabled: true },
@@ -62,7 +60,6 @@ describe("story workspace stages", () => {
       { id: "create", label: "Create story" },
       { id: "settings", label: "Story Settings" },
       { id: "assets", label: "Story Assets" },
-      { id: "adjust", label: "Chat Adjustment" },
       { id: "script", label: "Script", disabled: true },
       { id: "storyboard", label: "Storyboard", disabled: true },
       { id: "video", label: "Video", disabled: true },
