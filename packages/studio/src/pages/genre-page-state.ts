@@ -4,6 +4,10 @@ export interface GenreListItem {
   readonly source: "project" | "builtin";
 }
 
+export function getGenreListDisplayName(genre: { readonly name: string }): string {
+  return genre.name;
+}
+
 export function filterGenresForLanguage<T extends GenreListItem>(
   genres: ReadonlyArray<T>,
   lang: "zh" | "en",
