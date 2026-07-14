@@ -36,10 +36,9 @@ import { toPosixPath as projectPath } from "../utils/posix-path.js";
 import { buildCraftGuide, buildCraftExemplars } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 
-// A provider may stop a single response around 4K-8K Chinese characters even
-// when the requested chapter is much longer; allow enough continuation passes
-// to reach the 85% minimum without silently publishing a short synopsis.
-const SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS = 5;
+// Continuation is only for structurally truncated responses. A non-empty but
+// short draft must fail validation instead of being padded with extra scenes.
+const SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS = 3;
 
 export interface ShortFictionRunRuntimes {
   readonly planner: AgentContext;
@@ -252,19 +251,14 @@ async function produceShort(
       language,
     });
     let missingFromDraft = findEmptyShortFictionChapters(draftV1);
-    let shortChapters = findShortFictionLengthDeficits(draftV1, charsPerChapter, language);
-    if (missingFromDraft.length > 0 || shortChapters.length > 0) {
+    if (missingFromDraft.length > 0) {
       await writeDraftArtifacts(root, baseDir, "v001-partial", draftV1, language);
       for (
         let attempt = 1;
-        (missingFromDraft.length > 0 || shortChapters.length > 0) && attempt <= SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS;
+        missingFromDraft.length > 0 && attempt <= SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS;
         attempt += 1
       ) {
-        if (missingFromDraft.length > 0) {
-          options.onProgress?.(`Completing missing short fiction chapters: ${missingFromDraft.join(", ")}...`);
-        } else {
-          options.onProgress?.(`Expanding short fiction chapters below target length: ${shortChapters.map((chapter) => chapter.chapter).join(", ")}...`);
-        }
+        options.onProgress?.(`Completing missing short fiction chapters: ${missingFromDraft.join(", ")}...`);
         draftV1 = await writer.continueDraft({
           direction: options.direction,
           outlineMarkdown,
@@ -274,8 +268,7 @@ async function produceShort(
           draft: draftV1,
         });
         missingFromDraft = findEmptyShortFictionChapters(draftV1);
-        shortChapters = findShortFictionLengthDeficits(draftV1, charsPerChapter, language);
-        if (missingFromDraft.length > 0 || shortChapters.length > 0) {
+        if (missingFromDraft.length > 0) {
           await writeDraftArtifacts(root, baseDir, "v001-partial", draftV1, language);
         }
       }

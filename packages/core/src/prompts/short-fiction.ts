@@ -228,7 +228,7 @@ export function buildShortFictionWriterSystemPrompt(language: ShortFictionLangua
       "Every chapter needs drama happening on the page: character action, dialogue or reaction, a shift in the situation, and a reason to keep reading at the chapter break.",
       "Keep the drama dialed up, web-fiction style: real-world pressure may be amplified as far as readers will still believe, but never so absurd that immersion breaks.",
       "The story title and chapter titles must read like platform content, not literary summaries. Keep the prose paced for mobile reading — short paragraphs, but never telegram-style fragments.",
-      "The word count is a calibration, not an averaging exercise. Big scenes may run long and transitions short; a clearly short chapter usually means you wrote a synopsis and must add real scenes.",
+      "Before writing, allocate the target word budget across the story's scenes and beats. Write the complete prose in this pass; the target is a planning constraint, not a request to append padding later. Aim for roughly 85%-115% of the target, with real scenes carrying the length.",
       "Output must strictly use the specified blocks. No author notes, no word-count remarks, no review comments, no format explanations.",
     ].join("\n");
   }
@@ -237,7 +237,7 @@ export function buildShortFictionWriterSystemPrompt(language: ShortFictionLangua
     "每章都要有当场发生的戏：人物行动、对话或反应、局面变化、章尾继续读的理由。",
     "网文戏剧性要足：现实压力可以放大到读者愿意信的程度，但不能荒诞到失去代入。",
     "标题和章节标题要像平台内容，不要文艺化总结。正文保持移动端节奏，段落短但不要写成电报体。",
-    "字数是校准，不是平均数学题。大场面可略长，过渡章可略短；明显偏短通常说明写成了梗概，必须补有效场面。",
+    "写作前先按目标字数规划场景和节奏，正文一次完成；目标字数是写作规划约束，不是后续强行补字任务。整体尽量落在目标的 85% 到 115%，用有效场面承载篇幅。",
     "输出必须严格使用指定 block，不要写作者说明、字数说明、审稿意见或格式解释。",
   ].join("\n");
 }
@@ -249,7 +249,7 @@ export function buildShortFictionWriterUserPrompt(
   if (language === "en") {
     return [
       "## Task",
-      `Write the complete ${input.chapterCount}-chapter story in one pass, about ${input.charsPerChapter} words per chapter.`,
+      `Write the complete ${input.chapterCount}-chapter story in one pass, about ${input.charsPerChapter} words per chapter. Plan the scene budget before drafting and aim for roughly 85%-115% of that target.`,
       "Read the full story plan before writing. The prose must carry the plan's pressure chain, evidence chain, reversal chain, and emotional payoff — do not swerve into a different story midway.",
       "",
       buildShortFictionCraftPrompt("en"),
@@ -281,7 +281,7 @@ export function buildShortFictionWriterUserPrompt(
   }
   return [
     "## 任务",
-    `一次写完整 ${input.chapterCount} 章，每章约 ${input.charsPerChapter} 字。`,
+    `一次写完整 ${input.chapterCount} 章，每章约 ${input.charsPerChapter} 字。写作前先按目标字数规划场景和节奏，整体尽量落在目标的 85% 到 115%，不要把正文写成梗概。`,
     "先读完整故事方案，再写正文。正文要承接大纲的压力链、证据链、反转链和情绪回报，不要临时改成另一种故事。",
     "",
     buildShortFictionCraftPrompt(),

@@ -107,7 +107,7 @@ ${"正文".repeat(2_146)}
     })).toThrow(/too short/);
   });
 
-  it("appends a length continuation instead of replacing the existing chapter", async () => {
+  it("does not continue a non-empty chapter just because it is below target length", async () => {
     const draft = parseShortFictionBatchDraft(`
 === SHORT_FICTION_TITLE ===
 短篇
@@ -136,10 +136,8 @@ ${"正文".repeat(2_146)}
       draft,
     });
 
-    expect(continued.chapters[0]?.content).toBe("旧正文\n\n补写正文");
-    expect(chatSpy.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
-      expect.objectContaining({ role: "user", content: expect.stringContaining("低于目标字数") }),
-    ]));
+    expect(continued).toEqual(draft);
+    expect(chatSpy).not.toHaveBeenCalled();
     chatSpy.mockRestore();
   });
 

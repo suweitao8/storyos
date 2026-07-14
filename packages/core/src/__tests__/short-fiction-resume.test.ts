@@ -144,7 +144,7 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(final).toContain("第12章");
   });
 
-  it("continues a non-empty draft when its chapters are below the requested length", async () => {
+  it("rejects a non-empty short draft without forcing a continuation", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
     const initial = parseShortFictionBatchDraft(SHORT_DRAFT_MD, { expectedChapters: CH });
@@ -157,12 +157,12 @@ describe("short fiction resume + failure marker (C2)", () => {
       title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
     });
 
-    await runShortFictionProduction({
+    await expect(runShortFictionProduction({
       projectRoot: root, direction: "恐怖短篇", storyId: "elevator",
       chapterCount: CH, charsPerChapter: 1000, cover: false, runtimes: runtimes(root),
-    });
+    })).rejects.toThrow(/too short/);
 
-    expect(continueDraft).toHaveBeenCalledTimes(1);
+    expect(continueDraft).not.toHaveBeenCalled();
   });
 
   it("keeps completing a draft when the first continuation fills only some missing middle chapters", async () => {
