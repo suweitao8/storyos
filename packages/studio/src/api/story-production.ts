@@ -186,3 +186,45 @@ export function buildSrtContent(entries: readonly SubtitleEntry[]): string {
     .map((entry) => `${entry.index}\n${formatSrtTime(entry.startTimeMs)} --> ${formatSrtTime(entry.endTimeMs)}\n${entry.text}\n`)
     .join("\n");
 }
+
+function formatAssTime(ms: number): string {
+  const totalCs = Math.round(ms / 10);
+  const hours = Math.floor(totalCs / 360000);
+  const minutes = Math.floor((totalCs % 360000) / 6000);
+  const seconds = Math.floor((totalCs % 6000) / 100);
+  const centiseconds = totalCs % 100;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
+}
+
+/**
+ * 生成 ASS 字幕，支持 \blur（高斯模糊）和 \shad（阴影偏移）。
+ * SRT 的 force_style 只能做硬偏移 Shadow，无法高斯模糊；
+ * ASS 的 \blur 标签由 libass 原生支持，实现真正的柔和阴影。
+ */
+export function buildAssContent(
+  entries: readonly SubtitleEntry[],
+  options?: { readonly blur?: number; readonly shadow?: number; readonly fontSize?: number },
+): string {
+  const blur = options?.blur ?? 3;
+  const shadow = options?.shadow ?? 1;
+  const fontSize = options?.fontSize ?? 12;
+  const header = [
+    "[Script Info]",
+    "ScriptType: v4.00+",
+    "PlayResX: 1280",
+    "PlayResY: 720",
+    "ScaledBorderAndShadow: yes",
+    "",
+    "[V4+ Styles]",
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+    `Style: Default,Microsoft YaHei,${fontSize},&H00FFFFFF,&H00FFFFFF,&H80000000,&H80000000,0,0,0,0,100,100,0,0,1,0,${shadow},2,48,48,48,1`,
+    "",
+    "[Events]",
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+  ].join("\n");
+  const dialogues = entries.map((entry) => {
+    const text = entry.text.replace(/\n/gu, "\\N");
+    return `Dialogue: 0,${formatAssTime(entry.startTimeMs)},${formatAssTime(entry.endTimeMs)},Default,,0,0,0,,{\\blur${blur}}${text}`;
+  });
+  return `${header}\n${dialogues.join("\n")}\n`;
+}
