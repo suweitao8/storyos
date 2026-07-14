@@ -29,6 +29,7 @@ describe("craft mode presentation", () => {
   it("organizes craft detail into focused tabs", () => {
     expect(CRAFT_DETAIL_TABS.map((tab) => tab.value)).toEqual([
       "overview",
+      "story",
       "video",
       "modules",
       "exemplars",

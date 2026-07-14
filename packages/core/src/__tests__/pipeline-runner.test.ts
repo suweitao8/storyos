@@ -363,10 +363,23 @@ describe("PipelineRunner", () => {
       await runner.saveCraftStorySeed("craft-seed", storySeed);
       await expect(readFile(join(craftDir, "story_seed.json"), "utf-8"))
         .resolves.toContain("凌晨两点十七分");
+      const savedMeta = JSON.parse(await readFile(join(craftDir, "meta.json"), "utf-8")) as Record<string, unknown>;
+      expect(savedMeta.storySeedStatus).toBe("ready");
       await expect(runner.loadCraft("craft-seed")).resolves.toMatchObject({ storySeed });
       await expect(runner.listCrafts()).resolves.toEqual([
         expect.objectContaining({ id: "craft-seed", storySeed }),
       ]);
+
+      await runner.updateCraftStorySeedStatus("craft-seed", {
+        storySeedStatus: "error",
+        storySeedError: "模型暂时不可用",
+      });
+      await expect(runner.loadCraft("craft-seed")).resolves.toMatchObject({ storySeed });
+      const failedMeta = JSON.parse(await readFile(join(craftDir, "meta.json"), "utf-8")) as Record<string, unknown>;
+      expect(failedMeta).toMatchObject({
+        storySeedStatus: "error",
+        storySeedError: "模型暂时不可用",
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

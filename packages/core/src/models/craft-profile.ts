@@ -228,6 +228,10 @@ export interface CraftMeta {
   readonly recommendedWordCount?: number;
   /** Cached story foundation generated for this writing craft. */
   readonly storySeed?: StorySeed;
+  /** Background state for generating the cached story foundation. */
+  readonly storySeedStatus?: "pending" | "ready" | "error";
+  /** Retryable background error summary for story foundation generation. */
+  readonly storySeedError?: string;
   /** Genre id this craft is associated with (e.g. xianxia, horror). User-editable. */
   readonly genre?: string;
   /** Background processing state for asynchronously-created crafts. */

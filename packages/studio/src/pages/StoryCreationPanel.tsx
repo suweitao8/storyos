@@ -17,7 +17,6 @@ import {
   buildStoryWordCountOptions,
   formatStoryWordCount,
   resolveDefaultStoryWordCount,
-  shouldAutoGenerateShortStorySeed,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
   type StoryDirectionGenerationInput,
@@ -108,6 +107,7 @@ export function StoryCreationPanel({
         return;
       }
       if (selectedCraft) setShortDirection(buildDefaultStoryDirection(selectedCraft, kind, isZh));
+      else setShortDirection("");
       const cachedSeed = selectedCraft?.storySeed;
       if (cachedSeed) {
         // If we just finished streaming this seed (auto-save → refetch →
@@ -131,70 +131,22 @@ export function StoryCreationPanel({
       setShortSeed(null);
       setShortSeedStreamedContent("");
       setShortSeedError(null);
-      if (!shouldAutoGenerateShortStorySeed(cachedSeed) || !onGenerateSeed || !activeSessionId) {
-        setShortSeedStatus("idle");
-        return;
-      }
-
-      const requestId = ++directionRequestRef.current;
-      seedAlreadyReadyRef.current = false;
-      setShortSeedStatus("generating");
-      void onGenerateSeed({
-        ...(selectedCraft ? { craftId: selectedCraft.id } : {}),
-        kind,
-        language: isZh ? "zh" : "en",
-      }, (event) => {
-        if (requestId !== directionRequestRef.current) return;
-        if (event.event === "delta" && typeof event.data.text === "string") {
-          setShortSeedStreamedContent((current) => current + event.data.text);
-        }
-      })
-        .then((seed) => {
-          if (requestId !== directionRequestRef.current) return;
-          setShortSeed(seed);
-          setShortDirection(serializeStorySeed(seed, isZh ? "zh" : "en"));
-          setShortSeedStatus("ready");
-          seedAlreadyReadyRef.current = true;
-          if (selectedCraft && onSaveSeed) {
-            void onSaveSeed(selectedCraft.id, seed).catch((error) => {
-              if (requestId !== directionRequestRef.current) return;
-              setShortSeedError(isZh ? `已生成，但保存到写作模式失败：${error instanceof Error ? error.message : String(error)}` : `Generated, but saving to the writing mode failed: ${error instanceof Error ? error.message : String(error)}`);
-            });
-          }
-        })
-        .catch((error) => {
-          if (requestId !== directionRequestRef.current) return;
-          setShortSeedError(error instanceof Error ? error.message : String(error));
-          setShortSeedStatus("error");
-        });
+      setShortSeedStatus("idle");
       return;
     }
 
-    if (!selectedCraft) return;
+    if (!selectedCraft) {
+      ++directionRequestRef.current;
+      setLongDirection("");
+      setDirectionGenerating(false);
+      setDirectionGenerationError(null);
+      return;
+    }
     const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
     setLongDirection(defaultDirection);
     setDirectionGenerationError(null);
-    if (!onGenerateDirection) return;
-
-    const requestId = ++directionRequestRef.current;
-    setDirectionGenerating(true);
-    void onGenerateDirection({
-      craftId: selectedCraft.id,
-      kind,
-      language: isZh ? "zh" : "en",
-    })
-      .then((direction) => {
-        if (requestId !== directionRequestRef.current) return;
-        setLongDirection(direction);
-      })
-      .catch((error) => {
-        if (requestId !== directionRequestRef.current) return;
-        setDirectionGenerationError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (requestId === directionRequestRef.current) setDirectionGenerating(false);
-      });
-  }, [activeSessionId, craftsLoading, isZh, kind, onGenerateDirection, onGenerateSeed, onSaveSeed, selectedCraft?.id, selectedCraft?.storySeed]);
+    setDirectionGenerating(false);
+  }, [craftsLoading, isZh, kind, selectedCraft?.id, selectedCraft?.storySeed]);
 
   useEffect(() => {
     setChapterWordCount(String(resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)));
@@ -204,7 +156,7 @@ export function StoryCreationPanel({
 
   const regenerateDirection = () => {
     if (kind === "short") {
-      if (!onGenerateSeed || directionGenerating || shortSeedStatus === "generating" || !activeSessionId) return;
+      if (!onGenerateSeed || directionGenerating || shortSeedStatus === "generating") return;
       const requestId = ++directionRequestRef.current;
       setShortSeedStatus("generating");
       setShortSeedError(null);
@@ -410,7 +362,7 @@ export function StoryCreationPanel({
             <div>
               <div className="text-sm font-semibold">{isZh ? "短篇故事基础信息" : "Short-story basics"}</div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                {isZh ? "先生成完整故事设定，在右侧查看模型原始输出；确认后直接创建短片故事。" : "Generate the complete foundation, review the raw model output on the right, then create the short story."}
+                {isZh ? "模式已有设定时直接复用；没有设定时点击随机生成，在右侧查看输出后创建短片故事。" : "Reuse a mode's cached foundation, or generate one explicitly and review it before creating the short story."}
               </p>
             </div>
             <button

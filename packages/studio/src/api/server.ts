@@ -2641,6 +2641,63 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     };
   }
 
+  const craftStorySeedTasks = new Map<string, Promise<void>>();
+
+  const generateCraftStorySeed = async (craftId: string): Promise<void> => {
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    try {
+      const profile = await pipeline.loadCraft(craftId);
+      if (!profile || profile.storySeed) return;
+      await pipeline.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "pending",
+        storySeedError: undefined,
+      });
+      const language = profile.language ?? "zh";
+      const prompt = buildStorySeedPrompt(profile, "short", language);
+      const agent = pipeline.createAgentContext("short-outline");
+      const response = await chatCompletion(
+        agent.client,
+        agent.model,
+        [
+          { role: "system", content: prompt.system },
+          { role: "user", content: prompt.user },
+        ],
+        {
+          temperature: 0.85,
+          maxTokens: 3_000,
+          retry: false,
+        },
+      );
+      const storySeed = parseStorySeed(response.content);
+      await pipeline.saveCraftStorySeed(craftId, storySeed);
+      broadcast("craft:story-seed-complete", { craftId, status: "ready" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await pipeline.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "error",
+        storySeedError: message,
+      }).catch(() => undefined);
+      broadcast("craft:story-seed-error", { craftId, error: message });
+    }
+  };
+
+  const runCraftStorySeedGeneration = (craftId: string): Promise<void> => {
+    const existingTask = craftStorySeedTasks.get(craftId);
+    if (existingTask) return existingTask;
+    const task = generateCraftStorySeed(craftId);
+    craftStorySeedTasks.set(craftId, task);
+    void task.then(() => {
+      if (craftStorySeedTasks.get(craftId) === task) craftStorySeedTasks.delete(craftId);
+    }, () => {
+      if (craftStorySeedTasks.get(craftId) === task) craftStorySeedTasks.delete(craftId);
+    });
+    return task;
+  };
+
+  const startCraftStorySeedGeneration = (craftId: string): void => {
+    void runCraftStorySeedGeneration(craftId).catch(() => undefined);
+  };
+
   async function prepareBilibiliCraftSource(
     url: string,
     pipelineConfig: PipelineConfig,
@@ -2740,6 +2797,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       await finalizeCraftSourceUpload(root, sourceAssetId, analyzed.craftId, {
         sourceRef: prepared.videoInfo.bvid,
       });
+      await pipeline.updateCraftProcessing(craftId, { processingStage: "正在生成默认故事设定" });
+      await runCraftStorySeedGeneration(craftId);
       await pipeline.updateCraftProcessing(craftId, {
         processingStatus: "ready",
         processingStage: "处理完成",
@@ -5787,8 +5846,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       if (sourceAssetId) {
         await finalizeCraftSourceUpload(root, sourceAssetId, craftId, { sourceRef });
       }
+      const meta = await pipeline.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "pending",
+        storySeedError: undefined,
+      });
+      startCraftStorySeedGeneration(craftId);
       broadcast("craft:complete", { craftId, sourceName });
-      return c.json({ craftId, profile });
+      return c.json({ craftId, profile, meta });
     } catch (e) {
       if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
       broadcast("craft:error", { sourceName, error: String(e) });
@@ -5867,6 +5931,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (meta.processingStatus === "processing" && meta.sourceRef) {
       startBilibiliCraftTask(id, meta.sourceRef);
     }
+    if (meta.storySeedStatus === "pending") startCraftStorySeedGeneration(id);
     return c.json({
       craftId: id,
       status: meta.processingStatus ?? "ready",
@@ -6007,6 +6072,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           sections: STORY_SEED_SECTION_DEFINITIONS.map((definition) => language === "en" ? definition.en : definition.zh),
         }),
       });
+
+      if (kind === "short" && craftId && profile?.storySeed && !request.previousDirection?.trim()) {
+        const content = STORY_SEED_SECTION_DEFINITIONS
+          .map((definition) => `## ${language === "en" ? definition.en : definition.zh}\n${profile.storySeed![definition.key]}`)
+          .join("\n\n");
+        await stream.writeSSE({ event: "complete", data: JSON.stringify({ seed: profile.storySeed, content }) });
+        return;
+      }
 
       try {
         const response = await chatCompletion(

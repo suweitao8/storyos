@@ -839,6 +839,33 @@ export class PipelineRunner {
     const craftsDir = join(this.config.projectRoot, "crafts", craftId);
     await mkdir(craftsDir, { recursive: true });
     await writeFile(join(craftsDir, "story_seed.json"), JSON.stringify(storySeed, null, 2), "utf-8");
+    try {
+      await this.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "ready",
+        storySeedError: undefined,
+      });
+    } catch {
+      // Legacy profile-only crafts may not have metadata to update.
+    }
+  }
+
+  /** Update the background state for the cached story foundation. */
+  async updateCraftStorySeedStatus(
+    craftId: string,
+    patch: Pick<CraftMeta, "storySeedStatus" | "storySeedError">,
+  ): Promise<CraftMeta> {
+    const craftsDir = join(this.config.projectRoot, "crafts", craftId);
+    const metaPath = join(craftsDir, "meta.json");
+    let meta: CraftMeta;
+    try {
+      const raw = await readFile(metaPath, "utf-8");
+      meta = JSON.parse(raw) as CraftMeta;
+    } catch {
+      throw new Error("Craft meta not found");
+    }
+    const updated: CraftMeta = { ...meta, ...patch };
+    await writeFile(metaPath, JSON.stringify(updated, null, 2), "utf-8");
+    return updated;
   }
 
   /** Patch lightweight metadata fields (currently genre) without rewriting the full craft profile. */
