@@ -9,7 +9,6 @@ import { ChapterReader } from "./pages/ChapterReader";
 import { Analytics } from "./pages/Analytics";
 import { ServiceDetailPage } from "./pages/ServiceDetailPage";
 import { ProjectSettings } from "./pages/ProjectSettings";
-import { SkillManager } from "./pages/SkillManager";
 import { TruthFiles } from "./pages/TruthFiles";
 import { DaemonControl } from "./pages/DaemonControl";
 import { LogViewer } from "./pages/LogViewer";
@@ -554,11 +553,6 @@ export function App() {
           {route.page === "prompt-templates" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <PromptTemplatePage theme={theme} t={t} />
-            </div>
-          )}
-          {route.page === "skills" && (
-            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
-              <SkillManager theme={theme} lang={currentLang} t={t} />
             </div>
           )}
           {route.page === "craft" && (

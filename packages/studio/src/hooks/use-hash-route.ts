@@ -17,7 +17,6 @@ export type HashRoute =
   | { page: "logs" }
   | { page: "genres" }
   | { page: "prompt-templates" }
-  | { page: "skills" }
   | { page: "craft" }
   | { page: "import"; tab?: "chapters" | "canon" | "fanfic" | "spinoff" }
   | { page: "radar" }
@@ -28,7 +27,7 @@ export type HashRoute =
   | { page: "film-author"; projectId: string }
   | { page: "film-studio"; projectId: string };
 
-export type ProjectSettingsTabId = "common" | "models" | "skills" | "genres" | "diagnostics";
+export type ProjectSettingsTabId = "common" | "models" | "genres" | "diagnostics";
 
 function parseHash(hash: string): HashRoute {
   const path = hash.replace(/^#\/?/, "");
@@ -40,7 +39,7 @@ function parseHash(hash: string): HashRoute {
   if (path === "import") return { page: "import" };
   if (path === "craft") return { page: "craft" };
   if (path === "prompt-templates") return { page: "prompt-templates" };
-  if (path === "skills") return { page: "project-settings", tab: "skills" };
+  if (path === "skills") return { page: "project-settings" };
   if (path === "genres") return { page: "project-settings", tab: "genres" };
   const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
   if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
@@ -91,7 +90,6 @@ function routeToHash(route: HashRoute): string {
     case "import": return route.tab ? `#/import/${route.tab}` : "#/import";
     case "craft": return "#/craft";
     case "prompt-templates": return "#/prompt-templates";
-    case "skills": return "#/skills";
     case "service-detail": return `#/services/${encodeURIComponent(route.serviceId)}`;
     case "play": return `#/play/${encodeURIComponent(route.projectId)}`;
     case "film": return `#/film/${encodeURIComponent(route.projectId)}`;
@@ -102,7 +100,7 @@ function routeToHash(route: HashRoute): string {
   }
 }
 
-const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "craft", "play", "film", "flow", "film-author", "film-studio", "prompt-templates", "skills"]);
+const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "craft", "play", "film", "flow", "film-author", "film-studio", "prompt-templates"]);
 
 export function shouldWriteRouteHash(route: HashRoute): boolean {
   return HASH_PAGES.has(route.page);
