@@ -752,6 +752,74 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", storySeed);
   });
 
+  it("queues story foundation generation and returns before the model finishes", async () => {
+    const pendingMeta = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+      storySeedStatus: "pending",
+    };
+    let resolveModel!: (value: { content: string }) => void;
+    chatCompletionMock.mockReturnValueOnce(new Promise((resolve) => {
+      resolveModel = resolve;
+    }));
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockResolvedValue(pendingMeta);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({
+      craftId: "craft-1",
+      status: "pending",
+      meta: { storySeedStatus: "pending" },
+    });
+    expect(saveCraftStorySeedMock).not.toHaveBeenCalled();
+
+    resolveModel({ content: storySeedMarkdown });
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+  });
+
+  it("auto-starts story foundation generation when a saved craft has no foundation state", async () => {
+    listCraftsMock.mockResolvedValueOnce([{
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    }]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => ({
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+      ...patch,
+    }));
+    chatCompletionMock.mockResolvedValueOnce({ content: storySeedMarkdown });
+    saveCraftStorySeedMock.mockResolvedValueOnce(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/status");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      craftId: "craft-1",
+      meta: { storySeedStatus: "pending" },
+    });
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+  });
+
   it.each([
     ["not-json", "INVALID_CRAFT_REQUEST"],
     [JSON.stringify({ storySeed: { title: "只有标题" } }), "INVALID_CRAFT_REQUEST"],

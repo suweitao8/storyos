@@ -22,7 +22,7 @@ export function StorySeedPreview({
       ? (isZh ? "已生成，确认后创建" : "Generated — review before creating")
       : status === "error"
         ? (isZh ? "生成失败，可重新生成" : "Generation failed — try again")
-        : (isZh ? "等待生成" : "Ready to generate");
+        : (isZh ? "等待后台任务启动" : "Waiting for background job");
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/70">
@@ -50,8 +50,10 @@ export function StorySeedPreview({
           </div>
           <pre data-testid="story-seed-stream-output" className="min-h-[220px] whitespace-pre-wrap rounded-xl bg-secondary/20 p-4 font-mono text-xs leading-6 text-foreground/80">
             {streamedContent
-              || (status === "generating" || status === "idle"
-                ? (isZh ? "等待模型输出..." : "Waiting for model output...")
+              || (status === "generating"
+                ? (isZh ? "模型正在后台生成故事设定。你可以离开此页面，完成后回来查看结果。" : "The model is generating this foundation in the background. You can leave this page and return when it is ready.")
+                : status === "idle"
+                  ? (isZh ? "后台任务尚未启动。进入页面后会自动检查并开始生成。" : "The background job has not started yet. Entering this page will check and start it automatically.")
                 : "")}
           </pre>
         </div>

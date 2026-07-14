@@ -40,13 +40,14 @@ describe("StorySeedPreview", () => {
     expect(html).not.toContain("等待模型输出");
   });
 
-  it("shows the 'waiting for model output' placeholder only while generating", () => {
+  it("shows a durable background-generation message while generating", () => {
     const html = renderToStaticMarkup(createElement(StorySeedPreview, {
       streamedContent: "",
       status: "generating",
       isZh: true,
     }));
 
-    expect(html).toContain("等待模型输出");
+    expect(html).toContain("后台生成故事设定");
+    expect(html).not.toContain("等待模型输出");
   });
 });
