@@ -50,6 +50,8 @@ interface CraftMeta {
   readonly storySeed?: StorySeed;
   readonly storySeedStatus?: "pending" | "ready" | "error";
   readonly storySeedError?: string;
+  readonly storySeedScore?: number;
+  readonly storySeedScoreNote?: string;
   readonly artStyle?: CraftArtStyle;
   readonly processingStatus?: "processing" | "ready" | "error";
   readonly processingStage?: string;
@@ -1518,6 +1520,8 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
             status={storySeedStatus}
             error={storySeedError}
             isZh={profile.language === "zh"}
+            score={meta?.storySeedScore}
+            scoreNote={meta?.storySeedScoreNote}
           />
         </section>
       )}
