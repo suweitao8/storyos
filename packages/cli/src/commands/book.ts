@@ -79,7 +79,7 @@ bookCommand
           genre: book.genre,
           platform: book.platform,
           location: `books/${bookId}/`,
-          nextStep: `inkos write next ${bookId}`,
+          nextStep: `storyos write next ${bookId}`,
         }, null, 2));
       } else {
         log(formatBookCreateCreated(language, bookId));
@@ -171,7 +171,7 @@ bookCommand
         if (opts.json) {
           log(JSON.stringify({ books: [] }));
         } else {
-          log("No books found. Create one with: inkos book create --title '...'");
+          log("No books found. Create one with: storyos book create --title '...'");
         }
         return;
       }

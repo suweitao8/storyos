@@ -346,7 +346,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     getAllEndpoints: getAllEndpointsMock,
     probeModelsFromUpstream: probeModelsFromUpstreamMock,
     fetchWithProxy: vi.fn((input: Parameters<typeof fetch>[0], init?: RequestInit) => fetch(input, init)),
-    GLOBAL_ENV_PATH: join(tmpdir(), "inkos-global.env"),
+    GLOBAL_ENV_PATH: join(tmpdir(), "storyos-global.env"),
     SessionKindSchema: actual.SessionKindSchema,
     DetectionConfigSchema: actual.DetectionConfigSchema,
     InputGovernanceModeSchema: actual.InputGovernanceModeSchema,
@@ -485,8 +485,8 @@ describe("createStudioServer daemon lifecycle", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-studio-server-"));
-    await writeFile(join(root, "inkos.json"), JSON.stringify(projectConfig, null, 2), "utf-8");
+    root = await mkdtemp(join(tmpdir(), "storyos-studio-server-"));
+    await writeFile(join(root, "storyos.json"), JSON.stringify(projectConfig, null, 2), "utf-8");
     schedulerStartMock.mockReset();
     initBookMock.mockReset();
     runRadarMock.mockReset();
@@ -601,7 +601,7 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     resolveSessionActiveBookMock.mockResolvedValue(undefined);
     loadProjectConfigMock.mockImplementation(async () => {
-      const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
+      const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
       return {
         ...cloneProjectConfig(),
         ...raw,
@@ -708,7 +708,7 @@ describe("createStudioServer daemon lifecycle", () => {
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
-    await rm(join(tmpdir(), "inkos-global.env"), { force: true });
+    await rm(join(tmpdir(), "storyos-global.env"), { force: true });
   });
 
   it("returns a null recent craft id when no craft has been selected", async () => {
@@ -1103,7 +1103,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("marks the recent craft preference unavailable when its database cannot be read", async () => {
-    await writeFile(join(root, ".inkos"), "not a directory", "utf-8");
+    await writeFile(join(root, ".storyos"), "not a directory", "utf-8");
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
 
@@ -1525,8 +1525,8 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
-  it("returns a structured config error when inkos.json is corrupt", async () => {
-    await writeFile(join(root, "inkos.json"), "{ this is not valid json", "utf-8");
+  it("returns a structured config error when storyos.json is corrupt", async () => {
+    await writeFile(join(root, "storyos.json"), "{ this is not valid json", "utf-8");
 
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
@@ -1535,7 +1535,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(response.status).toBe(500);
     const body = await response.json() as { error: { code: string; message: string } };
     expect(body.error.code).toBe("PROJECT_CONFIG_INVALID");
-    expect(body.error.message).toContain("inkos.json");
+    expect(body.error.message).toContain("storyos.json");
   });
 
   it("reloads latest llm config for doctor checks without restarting the studio server", async () => {
@@ -1752,7 +1752,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns all bank services with group fields and custom services", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -1836,7 +1836,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns custom model groups through the slow probe path", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -1964,7 +1964,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("merges service config patches instead of overwriting existing services", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -1994,7 +1994,7 @@ describe("createStudioServer daemon lifecycle", () => {
 
     expect(save.status).toBe(200);
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.services).toEqual([
       { service: "moonshot", temperature: 0.5, apiFormat: "responses", stream: false },
       { service: "custom", name: "内网GPT", baseUrl: "https://llm.internal.corp/v1", temperature: 0.9, apiFormat: "responses", stream: false },
@@ -2002,7 +2002,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("refreshes top-level llm mirror when switching from custom baseUrl to a preset service", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         provider: "openai",
@@ -2036,7 +2036,7 @@ describe("createStudioServer daemon lifecycle", () => {
 
     expect(save.status).toBe(200);
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.service).toBe("kkaiapi");
     expect(raw.llm.defaultModel).toBe("deepseek-v4-flash");
     expect(raw.llm.model).toBe("deepseek-v4-flash");
@@ -2045,7 +2045,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("deletes a custom service config and stored secret", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         service: "custom:内网GPT",
@@ -2071,7 +2071,7 @@ describe("createStudioServer daemon lifecycle", () => {
     });
 
     expect(response.status).toBe(200);
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.services).toEqual([
       { service: "moonshot", temperature: 1, apiFormat: "chat", stream: true },
     ]);
@@ -2086,18 +2086,18 @@ describe("createStudioServer daemon lifecycle", () => {
 
   it("reports config source and detected env overrides for Studio switching", async () => {
     await writeFile(join(root, ".env"), [
-      "INKOS_LLM_PROVIDER=openai",
-      "INKOS_LLM_BASE_URL=https://project.example.com/v1",
-      "INKOS_LLM_MODEL=gpt-5.4",
-      "INKOS_LLM_API_KEY=sk-project",
+      "STORYOS_LLM_PROVIDER=openai",
+      "STORYOS_LLM_BASE_URL=https://project.example.com/v1",
+      "STORYOS_LLM_MODEL=gpt-5.4",
+      "STORYOS_LLM_API_KEY=sk-project",
     ].join("\n"), "utf-8");
-    await writeFile(join(tmpdir(), "inkos-global.env"), [
-      "INKOS_LLM_PROVIDER=openai",
-      "INKOS_LLM_BASE_URL=https://global.example.com/v1",
-      "INKOS_LLM_MODEL=gpt-4o",
-      "INKOS_LLM_API_KEY=sk-global",
+    await writeFile(join(tmpdir(), "storyos-global.env"), [
+      "STORYOS_LLM_PROVIDER=openai",
+      "STORYOS_LLM_BASE_URL=https://global.example.com/v1",
+      "STORYOS_LLM_MODEL=gpt-4o",
+      "STORYOS_LLM_API_KEY=sk-global",
     ].join("\n"), "utf-8");
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         ...projectConfig.llm,
@@ -2133,11 +2133,11 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("imports detected env config into Studio services without exposing the key", async () => {
-    await writeFile(join(tmpdir(), "inkos-global.env"), [
-      "INKOS_LLM_PROVIDER=openai",
-      "INKOS_LLM_BASE_URL=https://api.kkaiapi.com/v1",
-      "INKOS_LLM_MODEL=deepseek-v4-flash",
-      "INKOS_LLM_API_KEY=sk-global",
+    await writeFile(join(tmpdir(), "storyos-global.env"), [
+      "STORYOS_LLM_PROVIDER=openai",
+      "STORYOS_LLM_BASE_URL=https://api.kkaiapi.com/v1",
+      "STORYOS_LLM_MODEL=deepseek-v4-flash",
+      "STORYOS_LLM_API_KEY=sk-global",
     ].join("\n"), "utf-8");
     loadSecretsMock.mockResolvedValue({ services: {} });
 
@@ -2161,7 +2161,7 @@ describe("createStudioServer daemon lifecycle", () => {
       },
     });
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm).toMatchObject({
       service: "kkaiapi",
       defaultModel: "deepseek-v4-flash",
@@ -2175,7 +2175,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("allows switching config source without overwriting services", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2197,7 +2197,7 @@ describe("createStudioServer daemon lifecycle", () => {
 
     expect(save.status).toBe(200);
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.configSource).toBe("studio");
     expect(raw.llm.services).toEqual([
       { service: "moonshot", temperature: 1 },
@@ -2206,7 +2206,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns the saved default service and model for Studio chat selection", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2246,7 +2246,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("tests and lists models for custom services using baseUrl and stored config", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2295,7 +2295,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("does not probe stale global fallback models for custom services when /models is unavailable", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         configSource: "env",
@@ -2305,9 +2305,9 @@ describe("createStudioServer daemon lifecycle", () => {
       },
     }, null, 2), "utf-8");
     await writeFile(join(root, ".env"), [
-      "INKOS_LLM_MODEL=MiniMax-M2.7",
-      "INKOS_LLM_BASE_URL=https://api.minimax.com/v1",
-      "INKOS_LLM_API_KEY=sk-minimax",
+      "STORYOS_LLM_MODEL=MiniMax-M2.7",
+      "STORYOS_LLM_BASE_URL=https://api.minimax.com/v1",
+      "STORYOS_LLM_API_KEY=sk-minimax",
     ].join("\n"), "utf-8");
 
     createLLMClientMock.mockImplementation(((cfg: unknown) => cfg) as any);
@@ -2351,7 +2351,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns English probe errors when the project language is en", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       language: "en",
       llm: {
@@ -2391,7 +2391,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns an English empty-API-key error when the project language is en", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       language: "en",
     }, null, 2), "utf-8");
@@ -2413,7 +2413,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("falls back to the detected/default model when custom /models is unavailable", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         defaultModel: "MiniMax-M2.7",
@@ -2478,7 +2478,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("uses the MiniMax OpenAI-compatible preset during service probe", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2531,7 +2531,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("uses the bank endpoint check model before the global default during service probe", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2705,7 +2705,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("uses discovered Ollama models without requiring an API key or the built-in check model", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2745,7 +2745,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("does not fall back to the global default model when a bank endpoint probe fails", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2788,7 +2788,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("returns a Google-specific diagnostic when Gemini probe returns 400", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2832,7 +2832,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("does not return OpenAI-compatible Bailian models from the Anthropic channel connection test", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2906,7 +2906,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("keys cached model lists by baseUrl so custom endpoints do not leak stale results", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -2947,7 +2947,7 @@ describe("createStudioServer daemon lifecycle", () => {
       models: [{ id: "model-a", name: "model-a" }],
     });
 
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         services: [
@@ -3015,7 +3015,7 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     expect(saveConfig.status).toBe(200);
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.cover).toEqual({
       service: "grsai",
       model: "gpt-image-2",
@@ -3055,7 +3055,7 @@ describe("createStudioServer daemon lifecycle", () => {
     const unsupportedRoot = await app.request("http://localhost/api/v1/project/files/books/demo/cover.png");
     expect(unsupportedRoot.status).toBe(400);
 
-    const traversal = await app.request("http://localhost/api/v1/project/files/../inkos.json");
+    const traversal = await app.request("http://localhost/api/v1/project/files/../storyos.json");
     expect([400, 404]).toContain(traversal.status);
   });
 
@@ -3090,7 +3090,7 @@ describe("createStudioServer daemon lifecycle", () => {
     const unsupportedRoot = await app.request("http://localhost/api/v1/project/artifacts/books/demo/story_bible.md");
     expect(unsupportedRoot.status).toBe(400);
 
-    const traversal = await app.request("http://localhost/api/v1/project/artifacts/interactive-films/%2e%2e/inkos.json");
+    const traversal = await app.request("http://localhost/api/v1/project/artifacts/interactive-films/%2e%2e/storyos.json");
     expect([400, 404]).toContain(traversal.status);
   });
 
@@ -3122,7 +3122,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("reports async create failures through the create-status endpoint", async () => {
-    processProjectInteractionRequestMock.mockRejectedValueOnce(new Error("INKOS_LLM_API_KEY not set"));
+    processProjectInteractionRequestMock.mockRejectedValueOnce(new Error("STORYOS_LLM_API_KEY not set"));
 
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
@@ -3145,7 +3145,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(status.status).toBe(200);
     await expect(status.json()).resolves.toMatchObject({
       status: "error",
-      error: "INKOS_LLM_API_KEY not set",
+      error: "STORYOS_LLM_API_KEY not set",
     });
   });
 
@@ -3291,7 +3291,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("creates books with Studio Ollama config without requiring an API key", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         configSource: "studio",
@@ -3946,7 +3946,7 @@ describe("createStudioServer daemon lifecycle", () => {
 
   it("passes configured long-form writing review retries into Studio write-next", async () => {
     await writeFile(
-      join(root, "inkos.json"),
+      join(root, "storyos.json"),
       JSON.stringify({
         ...cloneProjectConfig(),
         writing: { reviewRetries: 3 },
@@ -3969,7 +3969,7 @@ describe("createStudioServer daemon lifecycle", () => {
     }));
   });
 
-  it("handles explicit chat chapter edits outside the InkOS writing agent", async () => {
+  it("handles explicit chat chapter edits outside the StoryOS writing agent", async () => {
     loadChapterIndexMock.mockResolvedValueOnce([{
       number: 3,
       title: "Demo",
@@ -4345,7 +4345,7 @@ describe("createStudioServer daemon lifecycle", () => {
   });
 
   it("allows /api/agent to use explicit service+model when Studio config has no defaultModel", async () => {
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         configSource: "studio",
@@ -4355,7 +4355,7 @@ describe("createStudioServer daemon lifecycle", () => {
       },
     }, null, 2), "utf-8");
     loadProjectConfigMock.mockImplementation(async () => {
-      const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
+      const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
       return {
         ...cloneProjectConfig(),
         ...raw,
@@ -4416,7 +4416,7 @@ describe("createStudioServer daemon lifecycle", () => {
       contextWindow: 0,
       maxTokens: 16384,
     };
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       ...projectConfig,
       llm: {
         configSource: "studio",
@@ -4600,7 +4600,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(chatCompletionMock).not.toHaveBeenCalled();
   });
 
-  it("classifies InkOS parser/tool errors as internal instead of blaming the selected provider", async () => {
+  it("classifies StoryOS parser/tool errors as internal instead of blaming the selected provider", async () => {
     const internalError = "sub_agent writer failed: missing YAML frontmatter delimiters";
     runAgentSessionMock.mockResolvedValueOnce({
       responseText: "",
@@ -4624,7 +4624,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(response.status).toBe(500);
     const json = await response.json() as { error: { code: string; message: string }; response: string };
     expect(json.error.code).toBe("AGENT_INTERNAL_ERROR");
-    expect(json.error.message).toContain("InkOS 内部流程错误");
+    expect(json.error.message).toContain("StoryOS 内部流程错误");
     expect(json.error.message).toContain("missing YAML frontmatter delimiters");
     expect(json.error.message).not.toMatch(/kkaiapi/i);
     expect(json.response).toBe(json.error.message);
@@ -5165,7 +5165,7 @@ describe("createStudioServer daemon lifecycle", () => {
       defaultModel: "deepseek-v4-flash",
     });
 
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     expect(raw.llm.service).toBe("kkaiapi");
     expect(raw.llm.defaultModel).toBe("deepseek-v4-flash");
     expect(raw.llm.model).toBe("deepseek-v4-flash");
@@ -5327,8 +5327,8 @@ describe("story asset API", () => {
   }
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-story-assets-api-"));
-    await writeFile(join(root, "inkos.json"), JSON.stringify(projectConfig), "utf-8");
+    root = await mkdtemp(join(tmpdir(), "storyos-story-assets-api-"));
+    await writeFile(join(root, "storyos.json"), JSON.stringify(projectConfig), "utf-8");
     createLLMClientMock.mockReset();
     createLLMClientMock.mockReturnValue({ client: true });
     chatCompletionMock.mockReset();

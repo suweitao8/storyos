@@ -27,7 +27,7 @@ test("runtime config is stable and worktree-local", () => {
   assert.equal(config.serverPort, config.clientPort + 2);
   assert.equal(config.logDir, join(projectRoot, ".studio-live", "story-settings-assets"));
   assert.equal(config.screenshotDir, join(projectRoot, ".screenshots", "story-settings-assets"));
-  assert.equal(config.projectRuntimeDir, join(projectRoot, ".inkos"));
+  assert.equal(config.projectRuntimeDir, join(projectRoot, ".storyos"));
 });
 
 test("explicit ports override stable defaults", () => {
@@ -35,8 +35,8 @@ test("explicit ports override stable defaults", () => {
     branch: "codex/custom-ports",
     projectRoot: "D:/work/storyos/.worktrees/custom-ports",
     env: {
-      INKOS_STUDIO_CLIENT_PORT: "4900",
-      INKOS_STUDIO_PORT: "4902",
+      STORYOS_STUDIO_CLIENT_PORT: "4900",
+      STORYOS_STUDIO_PORT: "4902",
     },
   });
 

@@ -24,7 +24,7 @@ export const statusCommand = new Command("status")
       const booksData = [];
 
       if (!opts.json) {
-        log(`InkOS Project: ${root}`);
+        log(`StoryOS Project: ${root}`);
         log(`Books: ${allBookIds.length}`);
         log("");
       }

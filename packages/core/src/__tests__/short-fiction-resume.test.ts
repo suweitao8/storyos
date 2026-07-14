@@ -64,7 +64,7 @@ function runtimes(projectRoot: string) {
 
 describe("short fiction resume + failure marker (C2)", () => {
   let root: string;
-  beforeEach(async () => { root = await mkdtemp(join(tmpdir(), "inkos-shortc2-")); });
+  beforeEach(async () => { root = await mkdtemp(join(tmpdir(), "storyos-shortc2-")); });
   afterEach(async () => { vi.restoreAllMocks(); await rm(root, { recursive: true, force: true }); });
 
   function stubDownstream() {

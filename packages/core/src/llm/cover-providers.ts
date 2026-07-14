@@ -49,7 +49,7 @@ export async function testCoverConnection(params: {
       Accept: "application/json, text/event-stream",
     },
     body: JSON.stringify({
-      model: "__inkos_auth_check__",
+      model: "__storyos_auth_check__",
     }),
   });
 

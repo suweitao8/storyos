@@ -186,7 +186,7 @@ async function getAudioStreamUrl(video: BilibiliVideoInfo): Promise<string> {
 }
 
 async function downloadAudioToTemp(video: BilibiliVideoInfo): Promise<{ tempDir: string; audioPath: string }> {
-  const tempDir = await mkdtemp(join(tmpdir(), "inkos-bilibili-"));
+  const tempDir = await mkdtemp(join(tmpdir(), "storyos-bilibili-"));
   try {
     const streamUrl = await getAudioStreamUrl(video);
     const response = await fetch(streamUrl, {
@@ -256,7 +256,7 @@ async function downloadVideoToTemp(video: BilibiliVideoInfo): Promise<{
   readonly audioPath: string;
   readonly videoPath: string;
 }> {
-  const tempDir = await mkdtemp(join(tmpdir(), "inkos-bilibili-video-"));
+  const tempDir = await mkdtemp(join(tmpdir(), "storyos-bilibili-video-"));
   try {
     const media = await getDashMediaUrls(video);
     const videoSourcePath = join(tempDir, "video.m4s");

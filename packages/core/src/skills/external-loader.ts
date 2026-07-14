@@ -80,13 +80,13 @@ interface ConfiguredSkillDir {
 
 function configuredSkillDirs(input: LoadConfiguredCapabilitySkillsInput): ConfiguredSkillDir[] {
   const env = input.env ?? process.env;
-  const envDirs = (env.INKOS_SKILL_DIRS ?? "")
+  const envDirs = (env.STORYOS_SKILL_DIRS ?? "")
     .split(delimiter)
     .map((value) => value.trim())
     .filter(Boolean);
-  const userRoot = input.userRoot ?? join(homedir(), ".inkos");
+  const userRoot = input.userRoot ?? join(homedir(), ".storyos");
   return [
-    { path: join(input.projectRoot, ".inkos", "skills"), explicit: false },
+    { path: join(input.projectRoot, ".storyos", "skills"), explicit: false },
     { path: join(userRoot, "skills"), explicit: false },
     ...envDirs.map((path) => ({ path, explicit: true })),
   ];

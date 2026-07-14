@@ -20,7 +20,7 @@ describe("storyboard creation runner", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-storyboard-assets-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-storyboard-assets-"));
     chatCompletionMock.mockReset();
     chatCompletionMock.mockResolvedValue({
       content: [

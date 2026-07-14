@@ -20,9 +20,9 @@ export interface ChatPageSessionSummary {
   readonly messageCount: number;
 }
 
-const BOOK_CREATE_SESSION_KEY = "inkos.book-create.session-id";
-const PROJECT_CHAT_SESSION_KEY = "inkos.project-chat.session-id";
-const LAST_SELECTED_SHORT_STORY_KEY = "inkos.short-story.last-selected-id";
+const BOOK_CREATE_SESSION_KEY = "storyos.book-create.session-id";
+const PROJECT_CHAT_SESSION_KEY = "storyos.project-chat.session-id";
+const LAST_SELECTED_SHORT_STORY_KEY = "storyos.short-story.last-selected-id";
 
 export function getBookCreateSessionId(): string | null {
   return globalThis.localStorage?.getItem(BOOK_CREATE_SESSION_KEY) ?? null;

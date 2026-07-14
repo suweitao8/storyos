@@ -2,7 +2,7 @@ import { useState } from "react";
 
 export type Theme = "light" | "dark";
 
-const THEME_STORAGE_KEY = "inkos:studio:theme";
+const THEME_STORAGE_KEY = "storyos:studio:theme";
 
 /**
  * Default theme is light. Previously the theme was time-based (light during

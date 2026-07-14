@@ -59,7 +59,7 @@ describe("tui agent session bridge", () => {
   let projectRoot: string;
 
   beforeEach(async () => {
-    projectRoot = await mkdtemp(join(tmpdir(), "inkos-tui-agent-"));
+    projectRoot = await mkdtemp(join(tmpdir(), "storyos-tui-agent-"));
     vi.clearAllMocks();
     loadConfigMock.mockResolvedValue({
       llm: {

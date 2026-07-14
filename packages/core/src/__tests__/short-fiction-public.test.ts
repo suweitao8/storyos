@@ -190,9 +190,9 @@ ${"正文".repeat(2_146)}
   });
 
   it("resolves cover generation from project cover config and stored cover secret", async () => {
-    const root = await mkdtemp(join(tmpdir(), "inkos-short-cover-"));
+    const root = await mkdtemp(join(tmpdir(), "storyos-short-cover-"));
     try {
-      await writeFile(join(root, "inkos.json"), JSON.stringify({
+      await writeFile(join(root, "storyos.json"), JSON.stringify({
         name: "cover-test",
         version: "0.1.0",
         language: "zh",
@@ -255,9 +255,9 @@ ${"正文".repeat(2_146)}
   });
 
   it("generates a standalone cover artifact without running the short fiction pipeline", async () => {
-    const root = await mkdtemp(join(tmpdir(), "inkos-cover-tool-"));
+    const root = await mkdtemp(join(tmpdir(), "storyos-cover-tool-"));
     const originalFetch = globalThis.fetch;
-    process.env.INKOS_TEST_COVER_KEY = "sk-cover";
+    process.env.STORYOS_TEST_COVER_KEY = "sk-cover";
     try {
       const fetchMock = vi.fn(async (_url: unknown, _init?: { readonly body?: unknown }) => new Response(JSON.stringify({
         data: [{ b64_json: "ZmFrZQ==" }],
@@ -273,7 +273,7 @@ ${"正文".repeat(2_146)}
         outputDir: "covers/demo",
         coverEndpoint: "https://images.example.test/v1/images/generations",
         coverModel: "gpt-image-2",
-        coverApiKeyEnv: "INKOS_TEST_COVER_KEY",
+        coverApiKeyEnv: "STORYOS_TEST_COVER_KEY",
       });
 
       expect(result.coverPromptPath).toBe("covers/demo/cover-prompt.md");
@@ -296,7 +296,7 @@ ${"正文".repeat(2_146)}
       expect(body).not.toContain("固定模板");
     } finally {
       globalThis.fetch = originalFetch;
-      delete process.env.INKOS_TEST_COVER_KEY;
+      delete process.env.STORYOS_TEST_COVER_KEY;
       await rm(root, { recursive: true, force: true });
     }
   });

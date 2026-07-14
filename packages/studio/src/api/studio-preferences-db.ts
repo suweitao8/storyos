@@ -16,7 +16,7 @@ const CREATE_TABLE_SQL = `
 type Database = import("node:sqlite").DatabaseSync;
 
 async function withDatabase<T>(projectRoot: string, operation: (database: Database) => T): Promise<T> {
-  const inkosDirectory = join(projectRoot, ".inkos");
+  const inkosDirectory = join(projectRoot, ".storyos");
   await mkdir(inkosDirectory, { recursive: true });
 
   let DatabaseSync: typeof import("node:sqlite").DatabaseSync;

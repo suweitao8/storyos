@@ -151,7 +151,7 @@ export function SkillManager({ theme, lang, t }: {
                 {isZh ? "编辑 Skill" : "Edit skill"}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {isZh ? "保存到 .inkos/skills/<id>/SKILL.md" : "Saved to .inkos/skills/<id>/SKILL.md"}
+                {isZh ? "保存到 .storyos/skills/<id>/SKILL.md" : "Saved to .storyos/skills/<id>/SKILL.md"}
               </p>
             </div>
             <button

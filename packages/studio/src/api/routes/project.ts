@@ -22,9 +22,9 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
     let raw: Record<string, unknown>;
     try {
       currentConfig = await getProjectConfig({ requireApiKey: false });
-      raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
+      raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
     } catch (error) {
-      throw new ApiError(500, "PROJECT_CONFIG_INVALID", `Failed to load inkos.json: ${error instanceof Error ? error.message : String(error)}`);
+      throw new ApiError(500, "PROJECT_CONFIG_INVALID", `Failed to load storyos.json: ${error instanceof Error ? error.message : String(error)}`);
     }
     return c.json({
       name: currentConfig.name,
@@ -40,7 +40,7 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
 
   app.put("/api/v1/project", async (c: Context) => {
     const updates = await c.req.json<Record<string, unknown>>();
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     try {
       const existing = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, any>;
       existing.llm ??= {};
@@ -55,7 +55,7 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
   });
 
   app.get("/api/v1/project/input-governance-mode", async (c: Context) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
     return c.json({ mode: raw.inputGovernanceMode === "legacy" ? "legacy" : "v2" });
   });
 
@@ -63,7 +63,7 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
     const { mode } = await c.req.json<{ mode?: unknown }>();
     const parsed = InputGovernanceModeSchema.safeParse(mode);
     if (!parsed.success) return c.json({ error: "mode must be legacy or v2" }, 400);
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     const raw = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
     raw.inputGovernanceMode = parsed.data;
     await writeFile(configPath, JSON.stringify(raw, null, 2), "utf-8");
@@ -71,13 +71,13 @@ export function registerProjectSettingsRoutes(context: StudioRouteContext): void
   });
 
   app.get("/api/v1/project/detection", async (c: Context) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8")) as Record<string, unknown>;
     return c.json({ detection: raw.detection ?? null });
   });
 
   app.put("/api/v1/project/detection", async (c: Context) => {
     const { detection } = await c.req.json<{ detection?: unknown }>();
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     const raw = JSON.parse(await readFile(configPath, "utf-8")) as Record<string, unknown>;
     if (detection === null) {
       delete raw.detection;

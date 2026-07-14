@@ -39,10 +39,10 @@ export function createRuntimeConfig({ branch = "", projectRoot, env = process.en
   const preferredClientPort =
     DEFAULT_CLIENT_PORT + (stableHash(taskSlug) % PORT_SLOT_COUNT) * 2;
   const explicitClientPort = parsePort(
-    env.INKOS_STUDIO_CLIENT_PORT,
-    "INKOS_STUDIO_CLIENT_PORT",
+    env.STORYOS_STUDIO_CLIENT_PORT,
+    "STORYOS_STUDIO_CLIENT_PORT",
   );
-  const explicitServerPort = parsePort(env.INKOS_STUDIO_PORT, "INKOS_STUDIO_PORT");
+  const explicitServerPort = parsePort(env.STORYOS_STUDIO_PORT, "STORYOS_STUDIO_PORT");
   const clientPort = explicitClientPort ?? (explicitServerPort ? explicitServerPort - 2 : preferredClientPort);
   const serverPort = explicitServerPort ?? clientPort + 2;
 
@@ -56,7 +56,7 @@ export function createRuntimeConfig({ branch = "", projectRoot, env = process.en
     serverPort,
     logDir: resolve(projectRoot, ".studio-live", taskSlug),
     screenshotDir: resolve(projectRoot, ".screenshots", taskSlug),
-    projectRuntimeDir: resolve(projectRoot, ".inkos"),
+    projectRuntimeDir: resolve(projectRoot, ".storyos"),
   };
 }
 
@@ -92,6 +92,6 @@ export async function findAvailablePortPair({
 if (process.argv[1] && process.argv[1].endsWith("worktree-runtime.mjs")) {
   const context = readWorktreeContext(process.cwd());
   const branch = process.env.GIT_BRANCH ?? context.branch;
-  const projectRoot = process.env.INKOS_PROJECT_ROOT ?? context.worktreePath;
+  const projectRoot = process.env.STORYOS_PROJECT_ROOT ?? context.worktreePath;
   console.log(JSON.stringify(createRuntimeConfig({ branch, projectRoot }), null, 2));
 }

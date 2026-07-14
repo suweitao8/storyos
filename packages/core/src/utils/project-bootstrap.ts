@@ -18,7 +18,7 @@ async function exists(path: string): Promise<boolean> {
 async function hasGlobalConfig(): Promise<boolean> {
   try {
     const content = await readFile(GLOBAL_ENV_PATH, "utf-8");
-    return content.includes("INKOS_LLM_API_KEY=") && !content.includes("your-api-key-here");
+    return content.includes("STORYOS_LLM_API_KEY=") && !content.includes("your-api-key-here");
   } catch {
     return false;
   }
@@ -62,13 +62,13 @@ function buildProjectEnvTemplate(globalConfigured: boolean): string {
   if (globalConfigured) {
     return [
       "# Project-level LLM overrides (optional)",
-      "# Global config at ~/.inkos/.env will be used by default.",
+      "# Global config at ~/.storyos/.env will be used by default.",
       "# Switch Studio to 'Use Studio config' if you want per-project service settings.",
       "# Uncomment below to override for this project only:",
-      "# INKOS_LLM_PROVIDER=anthropic",
-      "# INKOS_LLM_BASE_URL=",
-      "# INKOS_LLM_API_KEY=",
-      "# INKOS_LLM_MODEL=",
+      "# STORYOS_LLM_PROVIDER=anthropic",
+      "# STORYOS_LLM_BASE_URL=",
+      "# STORYOS_LLM_API_KEY=",
+      "# STORYOS_LLM_MODEL=",
       "",
       "# Web search (optional):",
       "# TAVILY_API_KEY=tvly-xxxxx",
@@ -80,12 +80,12 @@ function buildProjectEnvTemplate(globalConfigured: boolean): string {
     "# Optional project-level LLM overrides",
     "# Studio can manage provider / model / key without editing this file.",
     "# Uncomment only if you want this directory to force env-based config:",
-    "# INKOS_LLM_PROVIDER=openai",
-    "# INKOS_LLM_BASE_URL=",
-    "# INKOS_LLM_API_KEY=",
-    "# INKOS_LLM_MODEL=",
-    "# INKOS_LLM_API_FORMAT=chat",
-    "# INKOS_LLM_STREAM=true",
+    "# STORYOS_LLM_PROVIDER=openai",
+    "# STORYOS_LLM_BASE_URL=",
+    "# STORYOS_LLM_API_KEY=",
+    "# STORYOS_LLM_MODEL=",
+    "# STORYOS_LLM_API_FORMAT=chat",
+    "# STORYOS_LLM_STREAM=true",
     "",
     "# Web search (optional):",
     "# TAVILY_API_KEY=tvly-xxxxx",

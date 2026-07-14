@@ -299,7 +299,7 @@ describe("Phase 5 consolidation — parser accepts 5-section output (current_sta
   let bookDir: string;
 
   beforeEach(async () => {
-    bookDir = await mkdtemp(join(tmpdir(), "inkos-phase5-cons-"));
+    bookDir = await mkdtemp(join(tmpdir(), "storyos-phase5-cons-"));
   });
 
   afterEach(async () => {
@@ -453,7 +453,7 @@ describe("Phase 5 consolidation — readCurrentStateWithFallback derives initial
   let bookDir: string;
 
   beforeEach(async () => {
-    bookDir = await mkdtemp(join(tmpdir(), "inkos-phase5-fallback-"));
+    bookDir = await mkdtemp(join(tmpdir(), "storyos-phase5-fallback-"));
   });
 
   afterEach(async () => {

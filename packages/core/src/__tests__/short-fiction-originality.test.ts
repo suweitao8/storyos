@@ -62,7 +62,7 @@ describe("short-fiction originality wiring", () => {
   });
 
   it("passes a filtered originality guide and no source exemplars to outline and writer", async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-short-originality-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-short-originality-"));
     const outline = vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline").mockResolvedValue({
       storyTitle: "写字楼的空工位",
       rawContent: "## 故事方案\n全新的办公楼因果链。",

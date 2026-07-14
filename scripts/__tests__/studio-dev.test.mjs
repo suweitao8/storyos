@@ -11,7 +11,7 @@ test("Studio launch plan passes task ports and worktree project root", () => {
   const config = createRuntimeConfig({
     branch: "codex/story-settings",
     projectRoot,
-    env: { INKOS_STUDIO_CLIENT_PORT: "4700", INKOS_STUDIO_PORT: "4702" },
+    env: { STORYOS_STUDIO_CLIENT_PORT: "4700", STORYOS_STUDIO_PORT: "4702" },
   });
   const plan = buildStudioLaunchPlan({
     projectRoot,
@@ -20,16 +20,16 @@ test("Studio launch plan passes task ports and worktree project root", () => {
     command: "node",
     tsxCli: "tsx-cli.mjs",
     viteCli: "vite.js",
-    baseEnv: { INKOS_LLM_PROVIDER: "test" },
+    baseEnv: { STORYOS_LLM_PROVIDER: "test" },
   });
 
   assert.deepEqual(plan.api.args, ["tsx-cli.mjs", "watch", "--clear-screen=false", "src/api/index.ts"]);
   assert.deepEqual(plan.client.args, ["vite.js", "--host", "--port", "4700"]);
   assert.equal(plan.api.cwd, plan.client.cwd);
-  assert.equal(plan.api.env.INKOS_PROJECT_ROOT, projectRoot);
-  assert.equal(plan.api.env.INKOS_STUDIO_PORT, "4702");
-  assert.equal(plan.client.env.INKOS_STUDIO_PORT, "4702");
-  assert.equal(plan.api.env.INKOS_LLM_PROVIDER, "test");
+  assert.equal(plan.api.env.STORYOS_PROJECT_ROOT, projectRoot);
+  assert.equal(plan.api.env.STORYOS_STUDIO_PORT, "4702");
+  assert.equal(plan.client.env.STORYOS_STUDIO_PORT, "4702");
+  assert.equal(plan.api.env.STORYOS_LLM_PROVIDER, "test");
 });
 
 test("default Studio commands use Node entrypoints instead of Windows cmd shims", () => {
@@ -44,7 +44,7 @@ test("default Studio commands use Node entrypoints instead of Windows cmd shims"
 });
 
 test("runtime directory setup creates task-scoped logs and screenshots", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "inkos-studio-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "storyos-studio-"));
   const config = createRuntimeConfig({ branch: "codex/asset-review", projectRoot });
   const dirs = await ensureRuntimeDirectories(config);
 
@@ -56,7 +56,7 @@ test("runtime directory setup creates task-scoped logs and screenshots", async (
 });
 
 test("Studio source root stays separate from an overridden project data root", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "inkos-project-"));
+  const projectRoot = await mkdtemp(join(tmpdir(), "storyos-project-"));
   const calls = [];
   const fakeChild = () => ({
     killed: false,
@@ -69,8 +69,8 @@ test("Studio source root stays separate from an overridden project data root", a
     projectRoot,
     branch: "codex/project-root",
     env: {
-      INKOS_STUDIO_CLIENT_PORT: "4910",
-      INKOS_STUDIO_PORT: "4912",
+      STORYOS_STUDIO_CLIENT_PORT: "4910",
+      STORYOS_STUDIO_PORT: "4912",
     },
     spawnProcess: (command, args, options) => {
       calls.push({ command, args, options });
@@ -79,7 +79,7 @@ test("Studio source root stays separate from an overridden project data root", a
   });
 
   assert.equal(calls[0].options.cwd, join(process.cwd(), "packages", "studio"));
-  assert.equal(calls[0].options.env.INKOS_PROJECT_ROOT, projectRoot);
+  assert.equal(calls[0].options.env.STORYOS_PROJECT_ROOT, projectRoot);
   session.shutdown();
   session.dispose();
   await rm(projectRoot, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="assets/logo.svg" width="120" height="120" alt="InkOS Logo">
-  <img src="assets/inkos-text.svg" width="240" height="65" alt="InkOS">
+  <img src="assets/logo.svg" width="120" height="120" alt="StoryOS Logo">
+  <img src="assets/inkos-text.svg" width="240" height="65" alt="StoryOS">
 </p>
 
 <h1 align="center">Story Creation AI Agent<br><sub>Creation system for long-form and short fiction, scripts, interactive film/games, and IP content</sub></h1>
@@ -26,9 +26,9 @@
 
 ---
 
-InkOS is a local AI creation system for long-form novels, standalone short fiction, scripts, storyboards, fan fiction, spinoffs, style imitation, continuation, interactive film projects, and interactive worlds. Studio Chat, CLI, and TUI share the same action surface, so you can discuss ideas, confirm heavy actions, generate work, preview artifacts, research external facts, and edit persistent project files from one place.
+StoryOS is a local AI creation system for long-form novels, standalone short fiction, scripts, storyboards, fan fiction, spinoffs, style imitation, continuation, interactive film projects, and interactive worlds. Studio Chat, CLI, and TUI share the same action surface, so you can discuss ideas, confirm heavy actions, generate work, preview artifacts, research external facts, and edit persistent project files from one place.
 
-> 💡 **One key for global frontier models** — pair InkOS with [**keaiapi**](https://keaiapi.com/): an OpenAI-compatible gateway for Claude, GPT, Gemini, DeepSeek, Kimi, Qwen, GLM, and image models. Add it as a custom service with base URL `https://api.keaiapi.com/v1`, then switch models in Studio without juggling multiple provider accounts.
+> 💡 **One key for global frontier models** — pair StoryOS with [**keaiapi**](https://keaiapi.com/): an OpenAI-compatible gateway for Claude, GPT, Gemini, DeepSeek, Kimi, Qwen, GLM, and image models. Add it as a custom service with base URL `https://api.keaiapi.com/v1`, then switch models in Studio without juggling multiple provider accounts.
 
 ## v1.6.2 Chat Attachments, Material Library, and Editable Prompts
 
@@ -38,11 +38,11 @@ v1.6.2 makes Studio Chat a more practical collaboration surface: upload document
 - **Material archive and retrieval**: external references can be stored in the project material library and retrieved later with evidence traces instead of repeatedly pasting them into chat.
 - **Editable prompt packs**: open **Project Settings → Prompt packs** to inspect and override built-in prompt packs. Project overrides are saved under `prompt/.../*.md` without changing built-in defaults.
 - **Interrupt long tasks**: Studio Chat can abort an in-flight agent turn when a model or provider stalls.
-- **Safer chapter revision from Chat**: rewrite / revise requests now pass the current chat instruction as a one-off reviser brief; if a revision is kept out of disk, InkOS reports the revision gate metrics and remaining issues.
+- **Safer chapter revision from Chat**: rewrite / revise requests now pass the current chat instruction as a one-off reviser brief; if a revision is kept out of disk, StoryOS reports the revision gate metrics and remaining issues.
 
 ## v1.6.0 Major Update
 
-v1.6.0 expands InkOS from open-world play into interactive-film authoring, scripts, storyboards, runtime skills, and traceable research:
+v1.6.0 expands StoryOS from open-world play into interactive-film authoring, scripts, storyboards, runtime skills, and traceable research:
 
 - **Interactive film/games**: create branching story graphs, choices, variables/flags, relationship state, endings, node images, and exportable interactive project packages.
 - **Runtime skills**: built-in and project-local skills can inject professional rules, prompt packs, and context needs. Chat can auto-select skills, or the user can force one with `@skill-id`.
@@ -53,32 +53,32 @@ v1.6.0 expands InkOS from open-world play into interactive-film authoring, scrip
 This release continues the v1.5 direction: heavy actions are confirmable, completion is derived from tool results and files, and story context is governed instead of blindly stuffing every file into the model.
 
 <p align="center">
-  <img src="assets/interactive-film-e2e.png" width="900" alt="InkOS interactive-film story graph E2E screenshot">
+  <img src="assets/interactive-film-e2e.png" width="900" alt="StoryOS interactive-film story graph E2E screenshot">
 </p>
 
 <p align="center">
-  <img src="assets/inkos-short-demo-cover.png" width="210" alt="InkOS Short cover example">
-  <img src="assets/play-openworld-warcraft.png" width="210" alt="InkOS Play fantasy open-world example">
-  <img src="assets/play-openworld-romance.png" width="210" alt="InkOS Play romance example">
-  <img src="assets/play-openworld-detective.png" width="210" alt="InkOS Play detective example">
+  <img src="assets/inkos-short-demo-cover.png" width="210" alt="StoryOS Short cover example">
+  <img src="assets/play-openworld-warcraft.png" width="210" alt="StoryOS Play fantasy open-world example">
+  <img src="assets/play-openworld-romance.png" width="210" alt="StoryOS Play romance example">
+  <img src="assets/play-openworld-detective.png" width="210" alt="StoryOS Play detective example">
 </p>
 
 **Long-form novels** — create from a brief, generate foundations, chapter intent, context packages, prose, review, revision, and state settlement. Context is governed with protected / compressible layers so long books remain steerable.
 
-**InkOS Short** — Studio chat and CLI can create a complete standalone short-fiction package: full manuscript, outline records, review records, synopsis, selling points, cover prompt, and an optional cover image when a cover provider is configured.
+**StoryOS Short** — Studio chat and CLI can create a complete standalone short-fiction package: full manuscript, outline records, review records, synopsis, selling points, cover prompt, and an optional cover image when a cover provider is configured.
 
-**InkOS Play** — build open worlds or branching interactive fiction from natural-language world contracts: time flow, character agents, inventory, evidence, relationships, scene state, visual rules, guided choices, free actions, and optional image generation.
+**StoryOS Play** — build open worlds or branching interactive fiction from natural-language world contracts: time flow, character agents, inventory, evidence, relationships, scene state, visual rules, guided choices, free actions, and optional image generation.
 
 **Interactive film/games** — turn an idea, script, or prose reference into branching scenes, variables, endings, image prompts, node images, and an exportable project package.
 
 **Studio Chat** — a persistent chat surface for answering questions, proposing actions, creating books, launching Short / Play, generating covers, and editing text artifacts without pretending an action succeeded before the tool result exists.
 
-**Runtime skills and research** — add reusable professional skills under `.inkos/skills/`, force them with `@skill-id`, or ask for web research to generate a sourced Markdown report.
+**Runtime skills and research** — add reusable professional skills under `.storyos/skills/`, force them with `@skill-id`, or ask for web research to generate a sourced Markdown report.
 
 **Model setup** — Studio includes provider settings, model routing, cover-service settings, [keaiapi](https://keaiapi.com/) / OpenRouter aggregator entries, and custom OpenAI-compatible endpoints.
 
 <p align="center">
-  <img src="assets/play-item-warcraft.png" width="420" alt="InkOS Play item image example">
+  <img src="assets/play-item-warcraft.png" width="420" alt="StoryOS Play item image example">
 </p>
 
 **Native English novel writing now supported！** — 10 built-in English genre profiles with dedicated pacing rules, fatigue word lists, and audit dimensions. Set `--lang en` and go.
@@ -93,7 +93,7 @@ npm i -g @actalk/inkos
 
 ### Use via OpenClaw 🦞
 
-InkOS is published as an [OpenClaw](https://clawhub.ai/narcooo/inkos) Skill, callable by any compatible agent (Claude Code, OpenClaw, etc.):
+StoryOS is published as an [OpenClaw](https://clawhub.ai/narcooo/inkos) Skill, callable by any compatible agent (Claude Code, OpenClaw, etc.):
 
 ```bash
 clawhub install inkos          # Install from ClawHub
@@ -104,23 +104,23 @@ If you installed via npm or cloned the repo, `skills/SKILL.md` is already includ
 Once installed, Claw should prefer the shared interaction entry:
 
 ```bash
-inkos interact --json --message "continue the current book, but keep the pacing tighter"
+storyos interact --json --message "continue the current book, but keep the pacing tighter"
 ```
 
 This routes through the same conversation executor used by the project TUI, so OpenClaw, TUI, and Studio stay on the same control brain. The current JSON output includes assistant response text and the interaction session; real completion should still be derived from tool results and files, not from prose claims.
 
 Atomic commands (`plan chapter` / `compose chapter` / `draft` / `audit` / `revise` / `write next`) are still available, but they are now lower-level tools rather than the preferred OpenClaw entry. You can also browse it on [ClawHub](https://clawhub.ai) by searching `inkos`.
 
-### InkOS Runtime Skills
+### StoryOS Runtime Skills
 
-Runtime skills are professional capability packs used by InkOS Chat / Play / long-form writing. They are not the same thing as the ClawHub skill above. A runtime skill provides domain guidance, context needs, and prompt packs; it does not grant extra execution authority. Creating, writing, editing, and image generation still go through Studio tools and confirmation gates.
+Runtime skills are professional capability packs used by StoryOS Chat / Play / long-form writing. They are not the same thing as the ClawHub skill above. A runtime skill provides domain guidance, context needs, and prompt packs; it does not grant extra execution authority. Creating, writing, editing, and image generation still go through Studio tools and confirmation gates.
 
 How to use them:
 
-- Put `SKILL.md` files under `.inkos/skills/<skill-id>/` in a project. Studio Chat loads them at runtime.
-- Or set `INKOS_SKILL_DIRS=/abs/path/to/skills`; the path may point to one skill directory or a directory containing multiple skill subdirectories. Use the platform path delimiter for multiple paths.
+- Put `SKILL.md` files under `.storyos/skills/<skill-id>/` in a project. Studio Chat loads them at runtime.
+- Or set `STORYOS_SKILL_DIRS=/abs/path/to/skills`; the path may point to one skill directory or a directory containing multiple skill subdirectories. Use the platform path delimiter for multiple paths.
 - Force one for a turn with `@skill-id`, for example: `@detective-play create an evidence-chain open world`.
-- Without `@skill-id`, InkOS can auto-select built-in skills from the session kind and trigger phrases, such as long-form writing, open-world play, or interactive film authoring.
+- Without `@skill-id`, StoryOS can auto-select built-in skills from the session kind and trigger phrases, such as long-form writing, open-world play, or interactive film authoring.
 - Built-in prompt packs can be edited in **Project Settings → Prompt packs**. Project-level overrides are written to `prompt/<pack>/<prompt>.md`, for example `prompt/play/renderer.md` or `prompt/longform/writer.md`.
 
 Minimal `SKILL.md`:
@@ -146,14 +146,14 @@ Use evidence chains; do not turn clues into generic atmosphere.
 
 ### Configure
 
-InkOS now separates two configuration paths: **Studio uses visual service settings**, while **CLI / daemon / deployment can still use env overrides**. They do not silently overwrite each other.
+StoryOS now separates two configuration paths: **Studio uses visual service settings**, while **CLI / daemon / deployment can still use env overrides**. They do not silently overwrite each other.
 
 **Option 1: Studio service settings (recommended for local writing)**
 
 ```bash
-inkos init my-novel
+storyos init my-novel
 cd my-novel
-inkos
+storyos
 ```
 
 Open Studio, then go to **Model Settings**:
@@ -163,14 +163,14 @@ Open Studio, then go to **Model Settings**:
 3. Pick an available model and save.
 4. Return to Studio Chat or your book page.
 
-Studio uses project service settings and `.inkos/secrets.json`. It may show env-detection hints, but env files do not override the Studio-selected service/model/base URL/API key.
+Studio uses project service settings and `.storyos/secrets.json`. It may show env-detection hints, but env files do not override the Studio-selected service/model/base URL/API key.
 
-MiniMax uses the official OpenAI-compatible `/v1/chat/completions` endpoint. InkOS disables returned thinking by default for `MiniMax-M3*`; M2.x thinking cannot be disabled by the upstream service.
+MiniMax uses the official OpenAI-compatible `/v1/chat/completions` endpoint. StoryOS disables returned thinking by default for `MiniMax-M3*`; M2.x thinking cannot be disabled by the upstream service.
 
 **Option 2: CLI / daemon / deployment env config**
 
 ```bash
-inkos config set-global \
+storyos config set-global \
   --lang en \
   --provider <openai|anthropic|custom> \
   --base-url <API endpoint> \
@@ -183,23 +183,23 @@ inkos config set-global \
 # model: your model name
 ```
 
-`--lang en` sets English as the default writing language for CLI / daemon runs. Saved to `~/.inkos/.env`.
+`--lang en` sets English as the default writing language for CLI / daemon runs. Saved to `~/.storyos/.env`.
 
-You can also edit global `~/.inkos/.env` or project `.env` manually:
+You can also edit global `~/.storyos/.env` or project `.env` manually:
 
 ```bash
 # Required
-INKOS_LLM_PROVIDER=                               # openai / anthropic / custom (use custom for any OpenAI-compatible API)
-INKOS_LLM_BASE_URL=                               # API endpoint
-INKOS_LLM_API_KEY=                                 # API Key
-INKOS_LLM_MODEL=                                   # Model name
+STORYOS_LLM_PROVIDER=                               # openai / anthropic / custom (use custom for any OpenAI-compatible API)
+STORYOS_LLM_BASE_URL=                               # API endpoint
+STORYOS_LLM_API_KEY=                                 # API Key
+STORYOS_LLM_MODEL=                                   # Model name
 
 # Language (defaults to global setting or genre default)
-# INKOS_DEFAULT_LANGUAGE=en                        # en or zh
+# STORYOS_DEFAULT_LANGUAGE=en                        # en or zh
 
 # Optional
-# INKOS_LLM_TEMPERATURE=0.7                       # Temperature
-# INKOS_LLM_THINKING_BUDGET=0                      # Anthropic extended thinking budget
+# STORYOS_LLM_TEMPERATURE=0.7                       # Temperature
+# STORYOS_LLM_THINKING_BUDGET=0                      # Anthropic extended thinking budget
 ```
 
 CLI resolution starts from Studio/project service settings, then layers service secrets, global env, project env, process env, and CLI flags. That means CLI can reuse the service you configured in Studio, while env and command-line flags remain explicit overrides.
@@ -210,9 +210,9 @@ Assign different models to different agents — balance quality and cost:
 
 ```bash
 # Assign different models/providers to different agents
-inkos config set-model writer <model> --provider <provider> --base-url <url> --api-key-env <ENV_VAR>
-inkos config set-model auditor <model> --provider <provider>
-inkos config show-models        # View current routing
+storyos config set-model writer <model> --provider <provider> --base-url <url> --api-key-env <ENV_VAR>
+storyos config set-model auditor <model> --provider <provider>
+storyos config show-models        # View current routing
 ```
 
 Agents without explicit overrides fall back to the global model.
@@ -220,7 +220,7 @@ Agents without explicit overrides fall back to the global model.
 **Configuration troubleshooting**
 
 ```bash
-inkos doctor
+storyos doctor
 ```
 
 `doctor` prints the current effective config mode, where the service / model / API key come from, and runs an API connectivity check. Common modes:
@@ -231,16 +231,16 @@ inkos doctor
 | `cli-project` | CLI runtime: Studio settings as the base, with env and CLI flags layered on top |
 | `legacy-env` | Legacy env mode: compatibility with old `.env`-only projects |
 
-If a service test fails, first check that the service, model, and protocol match each other. Google Gemini AI Studio API keys work with the Gemini OpenAI-compatible endpoint; InkOS automatically disables the OpenAI `store` parameter that Google does not support. MiniMax defaults to the official OpenAI-compatible `/v1/chat/completions` endpoint and prefers a working non-streaming transport, avoiding streams that return usage but no text; `MiniMax-M3*` disables returned thinking by default, while M2.x thinking cannot be disabled upstream.
+If a service test fails, first check that the service, model, and protocol match each other. Google Gemini AI Studio API keys work with the Gemini OpenAI-compatible endpoint; StoryOS automatically disables the OpenAI `store` parameter that Google does not support. MiniMax defaults to the official OpenAI-compatible `/v1/chat/completions` endpoint and prefers a working non-streaming transport, avoiding streams that return usage but no text; `MiniMax-M3*` disables returned thinking by default, while M2.x thinking cannot be disabled upstream.
 
 ### LLM Configuration Notes
 
-- **Studio / CLI config isolation**: Studio always uses the service page settings and `.inkos/secrets.json`; the CLI, daemon, and deployment environments support env overrides and one-off command flags.
+- **Studio / CLI config isolation**: Studio always uses the service page settings and `.storyos/secrets.json`; the CLI, daemon, and deployment environments support env overrides and one-off command flags.
 - **Provider bank capability table**: built-in baseUrl, protocol, models, and compatibility policies for 15 services — Google Gemini, Moonshot, MiniMax, Zhipu (GLM), Bailian (Alibaba Cloud Model Studio), DeepSeek, SiliconFlow, Volcengine, Tencent Hunyuan, Baidu ERNIE (Wenxin), iFlytek Spark, OpenRouter, keaiapi, Ollama, and CodingPlan.
 - **Model ownership validation**: mismatches like `--service google --model kimi-k2.5` fail immediately, so requests are never sent to the wrong provider.
-- **Google Gemini compatibility fix**: AI Studio API keys work directly with the Gemini OpenAI-compatible endpoint; InkOS automatically disables the OpenAI `store` parameter Google does not support.
+- **Google Gemini compatibility fix**: AI Studio API keys work directly with the Gemini OpenAI-compatible endpoint; StoryOS automatically disables the OpenAI `store` parameter Google does not support.
 - **MiniMax transport probing**: MiniMax / MiniMax CodingPlan use the official OpenAI-compatible `/v1` entry and automatically pick a working non-streaming transport, working around streams that report usage but return an empty body.
-- **Legacy env compatibility**: the old `INKOS_LLM_BASE_URL + INKOS_LLM_MODEL + INKOS_LLM_API_KEY` combination still works for the CLI; without `INKOS_LLM_SERVICE`, InkOS tries to infer the service from the baseUrl.
+- **Legacy env compatibility**: the old `STORYOS_LLM_BASE_URL + STORYOS_LLM_MODEL + STORYOS_LLM_API_KEY` combination still works for the CLI; without `STORYOS_LLM_SERVICE`, StoryOS tries to infer the service from the baseUrl.
 
 ### Current Interaction Entry Points
 
@@ -248,8 +248,8 @@ If a service test fails, first check that the service, model, and protocol match
 
 - **Studio Chat**: discuss, create books, run Short, generate covers, launch Play, and edit persistent files from one chat surface; heavy actions show confirmation cards.
 - **Creation entries**: Long-form Novel, Short Fiction, Fan Fiction, Spinoff, Style Imitation, Continuation, Branching Interactive, and Open World are available as first-class Studio entries.
-- **TUI dashboard**: `inkos tui` opens the terminal full-screen interaction mode for keyboard-first users.
-- **External agent entry**: `inkos interact --json --message "..."` remains the structured entry for OpenClaw and other agents.
+- **TUI dashboard**: `storyos tui` opens the terminal full-screen interaction mode for keyboard-first users.
+- **External agent entry**: `storyos interact --json --message "..."` remains the structured entry for OpenClaw and other agents.
 - **Atomic commands remain**: `plan` / `compose` / `draft` / `audit` / `revise` / `write next` still work for scripting and advanced usage.
 
 ### Write Your First Book
@@ -257,15 +257,15 @@ If a service test fails, first check that the service, model, and protocol match
 English is the default for English genre profiles. Pick a genre and go:
 
 ```bash
-inkos book create --title "The Last Delver" --genre litrpg     # LitRPG novel (English by default)
-inkos write next my-book          # Write next chapter (full pipeline: draft → audit → revise)
-inkos status                      # Check status
-inkos review list my-book         # Review drafts
-inkos review approve-all my-book  # Batch approve
-inkos export my-book --format epub  # Export EPUB (read on phone/Kindle)
+storyos book create --title "The Last Delver" --genre litrpg     # LitRPG novel (English by default)
+storyos write next my-book          # Write next chapter (full pipeline: draft → audit → revise)
+storyos status                      # Check status
+storyos review list my-book         # Review drafts
+storyos review approve-all my-book  # Batch approve
+storyos export my-book --format epub  # Export EPUB (read on phone/Kindle)
 ```
 
-Language is set per-genre by default. Override explicitly with `--lang en` or `--lang zh`. Use `inkos genre list` to see all available genres and their default languages.
+Language is set per-genre by default. Override explicitly with `--lang en` or `--lang zh`. Use `storyos genre list` to see all available genres and their default languages.
 
 ### Write Complete Short Fiction
 
@@ -278,7 +278,7 @@ Write a 12-chapter short fiction piece about a modern marriage reversal where th
 Or run it from the CLI:
 
 ```bash
-inkos short run \
+storyos short run \
   --direction "modern short fiction marriage reversal evidence-driven heroine" \
   --chapters 12 \
   --chars 1000
@@ -296,12 +296,12 @@ Generate a short-fiction cover for "The Divorce Papers He Regretted", modern cit
 
 The cover tool writes `covers/<title>/cover-prompt.md` and `covers/<title>/cover.png`. If no cover provider is configured yet, set the cover provider and API key in Studio model settings first.
 
-After generation, you can keep editing the cover prompt through chat, for example: "move the character closer, make the title text bigger, and give her a colder smile." InkOS will pass the revised direction as `coverPrompt`, rewrite `cover-prompt.md`, and regenerate the cover without rewriting the story.
+After generation, you can keep editing the cover prompt through chat, for example: "move the character closer, make the title text bigger, and give her a colder smile." StoryOS will pass the revised direction as `coverPrompt`, rewrite `cover-prompt.md`, and regenerate the cover without rewriting the story.
 
 <p align="center">
-  <img src="assets/inkos-short-demo-cover.png" width="260" alt="InkOS Short cover example">
-  <img src="assets/play-openworld-warcraft.png" width="260" alt="InkOS Play open-world example">
-  <img src="assets/play-openworld-detective.png" width="260" alt="InkOS Play detective example">
+  <img src="assets/inkos-short-demo-cover.png" width="260" alt="StoryOS Short cover example">
+  <img src="assets/play-openworld-warcraft.png" width="260" alt="StoryOS Play open-world example">
+  <img src="assets/play-openworld-detective.png" width="260" alt="StoryOS Play detective example">
 </p>
 
 ### Launch an Open World or Branching Story
@@ -312,13 +312,13 @@ In Studio Chat, choose **Open World** or **Branching Interactive**, then describ
 Create a Warcraft-like border watchtower open world. Time is not fixed per turn: patrols take an hour, training can take several days. Equipment has rarity, but no stat sheet; show rarity through material, glow, and atmosphere.
 ```
 
-InkOS creates the world, characters, items, evidence, relationships, current scene, and suggested actions. Open World supports free-form actions; Branching Interactive provides clickable choices. When image generation is configured, characters, items, evidence, and scenes can render images directly inside the chat stream.
+StoryOS creates the world, characters, items, evidence, relationships, current scene, and suggested actions. Open World supports free-form actions; Branching Interactive provides clickable choices. When image generation is configured, characters, items, evidence, and scenes can render images directly inside the chat stream.
 
 ---
 
 ## English Genre Profiles
 
-InkOS ships with 10 English-native genre profiles. Each includes genre-specific rules, pacing, fatigue word detection, and audit dimensions:
+StoryOS ships with 10 English-native genre profiles. Each includes genre-specific rules, pacing, fatigue word detection, and audit dimensions:
 
 | Genre | Key Mechanics |
 |-------|--------------|
@@ -345,7 +345,7 @@ Every genre includes a **fatigue word list** (e.g., "delve", "tapestry", "testam
 
 Studio Chat is not just a Q&A box. It can create long-form books, run Short, generate covers, launch Play, edit persistent text artifacts, and ask for confirmation before heavy actions. Plain discussion remains plain text; explicit creation requests become tool actions.
 
-### InkOS Play: Open Worlds and Branching Interaction
+### StoryOS Play: Open Worlds and Branching Interaction
 
 Play maintains a durable interactive world state: characters, locations, items, evidence, relationships, time, current scene, HUD, and images. It is not a hard-coded RPG system. A cultivation world may use rarity and realms; a romance story may use emotional stages; a detective story may use evidence lifecycle and credibility. The rules come from the user's world contract and stay in the world state.
 
@@ -357,11 +357,11 @@ De-AI-ification rules are baked into the Writer agent's prompts: fatigue word li
 
 ### Style Cloning
 
-`inkos style analyze` examines reference text and extracts a statistical fingerprint (sentence length distribution, word frequency patterns, rhythm profiles) plus an LLM-readable style guide. `inkos style import` injects this fingerprint into a book — all future chapters adopt the style, and the Reviser audits against it.
+`storyos style analyze` examines reference text and extracts a statistical fingerprint (sentence length distribution, word frequency patterns, rhythm profiles) plus an LLM-readable style guide. `storyos style import` injects this fingerprint into a book — all future chapters adopt the style, and the Reviser audits against it.
 
 ### Creative Brief
 
-`inkos book create --brief my-ideas.md` — pass your brainstorming notes, worldbuilding doc, or character sheets. The Architect agent builds from your brief (generating `story_bible.md` and `book_rules.md`) instead of inventing from scratch, and persists the brief into `story/author_intent.md` so the book's long-horizon intent does not disappear after initialization.
+`storyos book create --brief my-ideas.md` — pass your brainstorming notes, worldbuilding doc, or character sheets. The Architect agent builds from your brief (generating `story_bible.md` and `book_rules.md`) instead of inventing from scratch, and persists the brief into `story/author_intent.md` so the book's long-horizon intent does not disappear after initialization.
 
 ### Input Governance Control Surface
 
@@ -373,8 +373,8 @@ Every book now has two long-lived Markdown control docs:
 Before writing, you can run:
 
 ```bash
-inkos plan chapter my-book --context "Pull attention back to the mentor conflict first"
-inkos compose chapter my-book
+storyos plan chapter my-book --context "Pull attention back to the mentor conflict first"
+storyos compose chapter my-book
 ```
 
 This generates `story/runtime/chapter-XXXX.intent.md`, `context.json`, `rule-stack.yaml`, and `trace.json`. `intent.md` is the human-readable contract; the others are execution/debug artifacts. `plan` calls the LLM to produce the chapter intent; `compose` only compiles local documents and state, so it can run before you finish API key setup.
@@ -385,32 +385,32 @@ This generates `story/runtime/chapter-XXXX.intent.md`, `context.json`, `rule-sta
 
 - `--words` sets a target band, not an exact hard promise
 - Chinese chapters default to `zh_chars`; English chapters default to `en_words`
-- If the chapter drifts outside the soft band, InkOS may run one corrective normalization pass (compress or expand) instead of hard-cutting prose
-- If the chapter still misses the hard range after that one pass, InkOS still saves it, but surfaces a visible length warning and telemetry in the result and chapter index
+- If the chapter drifts outside the soft band, StoryOS may run one corrective normalization pass (compress or expand) instead of hard-cutting prose
+- If the chapter still misses the hard range after that one pass, StoryOS still saves it, but surfaces a visible length warning and telemetry in the result and chapter index
 
 ### Continuation Writing
 
-`inkos import chapters` imports existing novel text and rebuilds structured state, chapter summaries, hooks, character relationships, and readable Markdown projections. It supports `Chapter N`, custom split patterns, and resumable import. After import, `inkos write next` can continue the story.
+`storyos import chapters` imports existing novel text and rebuilds structured state, chapter summaries, hooks, character relationships, and readable Markdown projections. It supports `Chapter N`, custom split patterns, and resumable import. After import, `storyos write next` can continue the story.
 
 ### Fan Fiction
 
-`inkos fanfic init --from source.txt --mode canon` creates a fanfic book from source material. Four modes: canon (faithful continuation), au (alternate universe), ooc (out of character), cp (ship-focused). Includes a canon importer, fanfic-specific audit dimensions, and information boundary controls to keep lore consistent.
+`storyos fanfic init --from source.txt --mode canon` creates a fanfic book from source material. Four modes: canon (faithful continuation), au (alternate universe), ooc (out of character), cp (ship-focused). Includes a canon importer, fanfic-specific audit dimensions, and information boundary controls to keep lore consistent.
 
 ### Multi-Model Routing
 
-Different agents can use different models and providers. Writer on Claude (stronger creative), Auditor on GPT-4o (cheaper and fast), Radar on a local model (zero cost). `inkos config set-model` configures per-agent; unconfigured agents fall back to the global model.
+Different agents can use different models and providers. Writer on Claude (stronger creative), Auditor on GPT-4o (cheaper and fast), Radar on a local model (zero cost). `storyos config set-model` configures per-agent; unconfigured agents fall back to the global model.
 
 ### Daemon Mode + Notifications
 
-`inkos up` starts an autonomous background loop that writes chapters on a schedule. The pipeline continues through handleable non-critical issues, pausing with reviewable results when human judgment is needed. Notifications via Telegram, Feishu (Lark), WeCom (Enterprise WeChat), and Webhook (HMAC-SHA256 signing + event filtering). Logs to `inkos.log` (JSON Lines), `-q` for quiet mode.
+`storyos up` starts an autonomous background loop that writes chapters on a schedule. The pipeline continues through handleable non-critical issues, pausing with reviewable results when human judgment is needed. Notifications via Telegram, Feishu (Lark), WeCom (Enterprise WeChat), and Webhook (HMAC-SHA256 signing + event filtering). Logs to `storyos.log` (JSON Lines), `-q` for quiet mode.
 
 ### Local Model Compatibility
 
-Supports any OpenAI-compatible endpoint (`--provider custom`). Stream auto-fallback — when SSE isn't supported, InkOS retries with sync mode automatically. Fallback parser handles non-standard output from smaller models, and partial content recovery kicks in on stream interruption.
+Supports any OpenAI-compatible endpoint (`--provider custom`). Stream auto-fallback — when SSE isn't supported, StoryOS retries with sync mode automatically. Fallback parser handles non-standard output from smaller models, and partial content recovery kicks in on stream interruption.
 
 ### Reliability
 
-Every chapter creates an automatic state snapshot — `inkos write rewrite` rolls back any chapter to its pre-write state. The Writer outputs a pre-write checklist (context scope, resources, pending hooks, risks) and a post-write settlement table; the Auditor cross-validates both. File locking prevents concurrent writes. Post-write validator includes cross-chapter repetition detection and a dozen hard rules with auto spot-fix.
+Every chapter creates an automatic state snapshot — `storyos write rewrite` rolls back any chapter to its pre-write state. The Writer outputs a pre-write checklist (context scope, resources, pending hooks, risks) and a post-write settlement table; the Auditor cross-validates both. File locking prevents concurrent writes. Post-write validator includes cross-chapter repetition detection and a dozen hard rules with auto spot-fix.
 
 The hook system uses Zod schema validation — `lastAdvancedChapter` must be an integer, `status` can only be open/progressing/deferred/resolved. JSON deltas from the LLM are processed through `applyRuntimeStateDelta` (immutable update) and `validateRuntimeState` (structural check) before persistence. Corrupted data is rejected, not propagated.
 
@@ -420,7 +420,7 @@ Model output limits are managed by provider model cards in the provider bank. Re
 
 ## How It Works
 
-InkOS now has two main runtime tracks: long-form / short-form production for deliverable text, and Play for persistent interactive worlds. They share Studio Chat, model configuration, action confirmation, artifact preview, and provider handling, but their state models are different.
+StoryOS now has two main runtime tracks: long-form / short-form production for deliverable text, and Play for persistent interactive worlds. They share Studio Chat, model configuration, action confirmation, artifact preview, and provider handling, but their state models are different.
 
 <p align="center">
   <img src="assets/arch-system.svg" width="900" alt="System architecture">
@@ -469,7 +469,7 @@ On Node 22+, a SQLite temporal memory database (`story/memory.db`) is automatica
 
 ### Control Surface and Runtime Artifacts
 
-Alongside runtime state, InkOS splits guardrails from customization into reviewable control docs:
+Alongside runtime state, StoryOS splits guardrails from customization into reviewable control docs:
 
 - `story/author_intent.md`: long-horizon author intent
 - `story/current_focus.md`: near-term steering
@@ -478,7 +478,7 @@ Alongside runtime state, InkOS splits guardrails from customization into reviewa
 - `story/runtime/chapter-XXXX.rule-stack.yaml`: priority layers and override relationships
 - `story/runtime/chapter-XXXX.trace.json`: compilation trace for this chapter
 
-That means briefs, outline nodes, book rules, and current requests are no longer mashed into one prompt blob; InkOS compiles them first, then writes.
+That means briefs, outline nodes, book rules, and current requests are no longer mashed into one prompt blob; StoryOS compiles them first, then writes.
 
 ### Writing Rule System
 
@@ -488,16 +488,16 @@ On top of that, each genre has dedicated rules (prohibitions, language constrain
 
 ## Usage Modes
 
-InkOS provides four interaction modes, all sharing the same atomic operations:
+StoryOS provides four interaction modes, all sharing the same atomic operations:
 
 ### 1. Full Pipeline (One Command)
 
 ```bash
-inkos write next my-book              # Draft → audit → auto-revise, all in one
-inkos write next my-book --count 5    # Write 5 chapters in sequence
+storyos write next my-book              # Draft → audit → auto-revise, all in one
+storyos write next my-book --count 5    # Write 5 chapters in sequence
 ```
 
-`write next` now uses the `plan -> compose -> write` governance chain by default. If you need the older prompt-assembly path, set this explicitly in `inkos.json`:
+`write next` now uses the `plan -> compose -> write` governance chain by default. If you need the older prompt-assembly path, set this explicitly in `storyos.json`:
 
 ```json
 {
@@ -510,11 +510,11 @@ The default is now `v2`. `legacy` remains available as an explicit fallback.
 ### 2. Atomic Commands (Composable, External Agent Friendly)
 
 ```bash
-inkos plan chapter my-book --context "Focus on the mentor conflict first" --json
-inkos compose chapter my-book --json
-inkos draft my-book --context "Focus on the dungeon boss encounter and party dynamics" --json
-inkos audit my-book 31 --json
-inkos revise my-book 31 --json
+storyos plan chapter my-book --context "Focus on the mentor conflict first" --json
+storyos compose chapter my-book --json
+storyos draft my-book --context "Focus on the dungeon boss encounter and party dynamics" --json
+storyos audit my-book 31 --json
+storyos revise my-book 31 --json
 ```
 
 Each command performs a single operation independently. `--json` outputs structured data. `plan` / `compose` govern inputs; `draft` / `audit` / `revise` handle prose and quality checks. They can be called by external AI agents via `exec`, or used in scripts.
@@ -522,21 +522,21 @@ Each command performs a single operation independently. `--json` outputs structu
 ### 3. Natural Language Agent Mode
 
 ```bash
-inkos agent "Write a LitRPG novel where the MC is a healer class in a dungeon world"
-inkos agent "Write the next chapter, focus on the boss fight and loot distribution"
-inkos agent "Create a progression fantasy about a mage who can only use one spell"
+storyos agent "Write a LitRPG novel where the MC is a healer class in a dungeon world"
+storyos agent "Write the next chapter, focus on the boss fight and loot distribution"
+storyos agent "Create a progression fantasy about a mage who can only use one spell"
 ```
 
 Agent mode exposes tools according to the current session kind: book creation, control-surface edits, planning, composition, writing, audit, revision, Short, cover, and Play tools are only made available where they make sense. The recommended agent flow is: adjust the control surface first, then `plan` / `compose`, then choose draft-only or full-pipeline writing.
 
 ### 4. Studio Play Mode
 
-Studio's **Open World** and **Branching Interactive** entries launch interactive creation without first creating a book. Describe how the world runs, how time advances, whether characters act as agents, and how items/evidence matter. InkOS writes the result back to a local world state so the session can continue.
+Studio's **Open World** and **Branching Interactive** entries launch interactive creation without first creating a book. Describe how the world runs, how time advances, whether characters act as agents, and how items/evidence matter. StoryOS writes the result back to a local world state so the session can continue.
 
 ## Studio Screenshots and Run Outputs
 
 <p align="center">
-  <img src="assets/studio-dashboard.png" width="760" alt="InkOS Studio creation entry screenshot">
+  <img src="assets/studio-dashboard.png" width="760" alt="StoryOS Studio creation entry screenshot">
 </p>
 
 <p align="center">
@@ -546,66 +546,66 @@ Studio's **Open World** and **Branching Interactive** entries launch interactive
   <img src="assets/play-item-warcraft.png" width="230" alt="Interactive-world item image output">
 </p>
 
-The first image is a local Studio screenshot. The other images are real local outputs from InkOS Short and InkOS Play: mobile-first short-fiction covers, open-world scenes, detective evidence visuals, and item imagery.
+The first image is a local Studio screenshot. The other images are real local outputs from StoryOS Short and StoryOS Play: mobile-first short-fiction covers, open-world scenes, detective evidence visuals, and item imagery.
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `inkos init [name]` | Initialize project (omit name to init current directory) |
-| `inkos book create` | Create a new book (`--genre`, `--chapter-words`, `--target-chapters`, `--brief <file>`, `--lang en/zh`) |
-| `inkos book update [id]` | Update book settings (`--chapter-words`, `--target-chapters`, `--status`, `--lang`) |
-| `inkos book list` | List all books |
-| `inkos book delete <id>` | Delete a book and all its data (`--force` to skip confirmation) |
-| `inkos genre list/show/copy/create` | View, copy, or create genres |
-| `inkos plan chapter [id]` | Generate the next chapter's `intent.md` (`--context` / `--context-file` for current steering) |
-| `inkos compose chapter [id]` | Generate the next chapter's `context.json`, `rule-stack.yaml`, and `trace.json` |
-| `inkos write next [id]` | Full pipeline: write next chapter (`--words` to override, `--count` for batch, `-q` quiet mode) |
-| `inkos write rewrite [id] <n>` | Rewrite chapter N (restores state snapshot, `--force` to skip confirmation) |
-| `inkos draft [id]` | Write draft only (`--words` to override word count, `-q` quiet mode) |
-| `inkos audit [id] [n]` | Audit a specific chapter |
-| `inkos revise [id] [n]` | Revise a specific chapter |
-| `inkos agent <instruction>` | Natural language agent mode |
-| `inkos review list [id]` | Review drafts |
-| `inkos review approve-all [id]` | Batch approve |
-| `inkos status [id]` | Project status |
-| `inkos export [id]` | Export book (`--format txt/md/epub`, `--output <path>`, `--approved-only`) |
-| `inkos radar scan` | Scan market / trend inputs for new-book direction |
-| `inkos fanfic init` | Create a fanfic book from source material (`--from`, `--mode canon/au/ooc/cp`) |
-| `inkos short run` | Generate a standalone short-fiction package |
-| `inkos eval [id]` | Generate a quality evaluation report (`--json`, chapter ranges) |
-| `inkos consolidate [id]` | Consolidate chapter summaries for long-book context control |
-| `inkos interact` | External-agent / CLI natural-language entry (`--json`, `--message`, `--book`) |
-| `inkos config set-global` | Set the global CLI / daemon / deployment LLM env config (`~/.inkos/.env`) |
-| `inkos config show-global` | Show the global config |
-| `inkos config set/show` | View or update project configuration |
-| `inkos config set-model <agent> <model>` | Per-agent model override (`--base-url`, `--provider`, `--api-key-env`) |
-| `inkos config remove-model <agent>` | Remove a per-agent model override (fall back to the default) |
-| `inkos config show-models` | Show current model routing |
-| `inkos doctor` | Diagnose setup issues (API connectivity test + provider compatibility hints) |
-| `inkos detect [id] [n]` | AIGC detection (`--all` for all chapters, `--stats` for statistics) |
-| `inkos style analyze <file>` | Analyze reference text to extract style fingerprint |
-| `inkos style import <file> [id]` | Import style fingerprint into a book |
-| `inkos import canon [id] --from <parent>` | Import parent canon into a spinoff book |
-| `inkos import chapters [id] --from <path>` | Import existing chapters for continuation (`--split`, `--resume-from`) |
-| `inkos analytics [id]` / `inkos stats [id]` | Book analytics (audit pass rate, top issues, chapter ranking, token usage) |
-| `inkos update` | Update to the latest version |
-| `inkos` / `inkos studio` | Start web workbench (`-p` for port, default 4567) |
-| `inkos tui` | Start terminal full-screen TUI |
-| `inkos up / down` | Start/stop daemon (`-q` quiet mode, auto-writes `inkos.log`) |
+| `storyos init [name]` | Initialize project (omit name to init current directory) |
+| `storyos book create` | Create a new book (`--genre`, `--chapter-words`, `--target-chapters`, `--brief <file>`, `--lang en/zh`) |
+| `storyos book update [id]` | Update book settings (`--chapter-words`, `--target-chapters`, `--status`, `--lang`) |
+| `storyos book list` | List all books |
+| `storyos book delete <id>` | Delete a book and all its data (`--force` to skip confirmation) |
+| `storyos genre list/show/copy/create` | View, copy, or create genres |
+| `storyos plan chapter [id]` | Generate the next chapter's `intent.md` (`--context` / `--context-file` for current steering) |
+| `storyos compose chapter [id]` | Generate the next chapter's `context.json`, `rule-stack.yaml`, and `trace.json` |
+| `storyos write next [id]` | Full pipeline: write next chapter (`--words` to override, `--count` for batch, `-q` quiet mode) |
+| `storyos write rewrite [id] <n>` | Rewrite chapter N (restores state snapshot, `--force` to skip confirmation) |
+| `storyos draft [id]` | Write draft only (`--words` to override word count, `-q` quiet mode) |
+| `storyos audit [id] [n]` | Audit a specific chapter |
+| `storyos revise [id] [n]` | Revise a specific chapter |
+| `storyos agent <instruction>` | Natural language agent mode |
+| `storyos review list [id]` | Review drafts |
+| `storyos review approve-all [id]` | Batch approve |
+| `storyos status [id]` | Project status |
+| `storyos export [id]` | Export book (`--format txt/md/epub`, `--output <path>`, `--approved-only`) |
+| `storyos radar scan` | Scan market / trend inputs for new-book direction |
+| `storyos fanfic init` | Create a fanfic book from source material (`--from`, `--mode canon/au/ooc/cp`) |
+| `storyos short run` | Generate a standalone short-fiction package |
+| `storyos eval [id]` | Generate a quality evaluation report (`--json`, chapter ranges) |
+| `storyos consolidate [id]` | Consolidate chapter summaries for long-book context control |
+| `storyos interact` | External-agent / CLI natural-language entry (`--json`, `--message`, `--book`) |
+| `storyos config set-global` | Set the global CLI / daemon / deployment LLM env config (`~/.storyos/.env`) |
+| `storyos config show-global` | Show the global config |
+| `storyos config set/show` | View or update project configuration |
+| `storyos config set-model <agent> <model>` | Per-agent model override (`--base-url`, `--provider`, `--api-key-env`) |
+| `storyos config remove-model <agent>` | Remove a per-agent model override (fall back to the default) |
+| `storyos config show-models` | Show current model routing |
+| `storyos doctor` | Diagnose setup issues (API connectivity test + provider compatibility hints) |
+| `storyos detect [id] [n]` | AIGC detection (`--all` for all chapters, `--stats` for statistics) |
+| `storyos style analyze <file>` | Analyze reference text to extract style fingerprint |
+| `storyos style import <file> [id]` | Import style fingerprint into a book |
+| `storyos import canon [id] --from <parent>` | Import parent canon into a spinoff book |
+| `storyos import chapters [id] --from <path>` | Import existing chapters for continuation (`--split`, `--resume-from`) |
+| `storyos analytics [id]` / `storyos stats [id]` | Book analytics (audit pass rate, top issues, chapter ranking, token usage) |
+| `storyos update` | Update to the latest version |
+| `storyos` / `storyos studio` | Start web workbench (`-p` for port, default 4567) |
+| `storyos tui` | Start terminal full-screen TUI |
+| `storyos up / down` | Start/stop daemon (`-q` quiet mode, auto-writes `storyos.log`) |
 
 `[id]` is auto-detected when the project has only one book. All commands support `--json` for structured output. `draft` / `write next` / `plan chapter` / `compose chapter` accept `--context` for steering, and `--words` overrides the target chapter size. `book create` supports `--brief <file>` to pass a creative brief — the Architect builds from your ideas instead of generating from scratch. `plan chapter` calls the LLM to create chapter intent; `compose chapter` does not require a live LLM, so you can inspect governed inputs before finishing API setup.
 
 The CLI also accepts one-off LLM override flags at runtime: `--service`, `--model`, `--api-key-env`, `--base-url`, `--api-format <chat|responses>`, `--stream`, `--no-stream`. For example:
 
 ```bash
-inkos write next --service google --model gemini-2.5-flash
-inkos up --service moonshot --model kimi-k2.5 --api-key-env MOONSHOT_API_KEY
+storyos write next --service google --model gemini-2.5-flash
+storyos up --service moonshot --model kimi-k2.5 --api-key-env MOONSHOT_API_KEY
 ```
 
 ## Roadmap
 
-- [x] ~~`packages/studio` Web UI workbench (Vite + React + Hono)~~ — shipped, run `inkos` or `inkos studio`
+- [x] ~~`packages/studio` Web UI workbench (Vite + React + Hono)~~ — shipped, run `storyos` or `storyos studio`
 - [x] ~~Interactive fiction / open worlds (branching choices + free actions + generated images)~~ — shipped in Studio Play
 - [ ] Partial chapter intervention (rewrite half a chapter + cascade truth file updates)
 - [ ] Custom agent plugin system
@@ -656,7 +656,7 @@ pnpm typecheck    # Type-check without emitting
 
 ## Acknowledgments
 
-InkOS's agent runtime is built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-ai` and `@mariozechner/pi-agent-core`) by Mario Zechner. Thanks to pi for the solid foundation.
+StoryOS's agent runtime is built on [pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-ai` and `@mariozechner/pi-agent-core`) by Mario Zechner. Thanks to pi for the solid foundation.
 
 ## License
 

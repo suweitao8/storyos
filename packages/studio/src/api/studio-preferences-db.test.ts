@@ -37,7 +37,7 @@ describe.skipIf(sqlite === null)("studio preferences database", () => {
 
     expect(await getRecentCraftId(projectRoot)).toBeNull();
 
-    const databasePath = join(projectRoot, ".inkos", "studio.db");
+    const databasePath = join(projectRoot, ".storyos", "studio.db");
     expect(await readFile(databasePath)).toBeInstanceOf(Buffer);
 
     const database = new sqlite.DatabaseSync(databasePath);

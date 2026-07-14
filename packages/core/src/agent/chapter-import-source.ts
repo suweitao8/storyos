@@ -11,7 +11,7 @@ import { splitChapters, type SplitChapter } from "../utils/chapter-splitter.js";
  * - Single-file mode: the file is split into chapters with `splitChapters`,
  *   using `splitPattern` as a custom heading regex when provided.
  *
- * This mirrors the pure loading logic of `inkos import chapters` in the CLI
+ * This mirrors the pure loading logic of `storyos import chapters` in the CLI
  * so the agent tool does not depend on the CLI package.
  */
 export async function loadChaptersFromPath(

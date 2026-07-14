@@ -374,7 +374,7 @@ async function testCoverProviderConnection(params: {
       Accept: "application/json, text/event-stream",
     },
     body: JSON.stringify({
-      model: "__inkos_auth_check__",
+      model: "__storyos_auth_check__",
     }),
   });
 
@@ -709,7 +709,7 @@ async function normalizeAgentAttachments(
     throw new ApiError(413, "TOO_MANY_ATTACHMENTS", `At most ${MAX_AGENT_ATTACHMENTS} files can be attached to one message`);
   }
 
-  const uploadDir = join(root, ".inkos", "uploads", safeUploadFileName(sessionId));
+  const uploadDir = join(root, ".storyos", "uploads", safeUploadFileName(sessionId));
   const out: AgentSessionAttachment[] = [];
   for (const [index, raw] of value.entries()) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -774,7 +774,7 @@ async function normalizeAgentAttachments(
 }
 
 function projectSkillsDir(root: string): string {
-  return join(root, ".inkos", "skills");
+  return join(root, ".storyos", "skills");
 }
 
 function projectSkillDir(root: string, id: string): string {
@@ -1013,7 +1013,7 @@ function resolveExternalChatEditPath(root: string, requestedPath: string): { pat
   if (!CHAT_EDIT_ALLOWED_ROOTS.has(first)) {
     throw new ApiError(400, "UNSUPPORTED_CHAT_EDIT_TARGET", "Chat external edits cannot modify source code, config, or arbitrary project files.");
   }
-  if (rel.includes("/.inkos/") || rel.endsWith("/.inkos") || rel.includes("/secrets") || rel.endsWith(".env")) {
+  if (rel.includes("/.storyos/") || rel.endsWith("/.storyos") || rel.includes("/secrets") || rel.endsWith(".env")) {
     throw new ApiError(400, "UNSUPPORTED_CHAT_EDIT_TARGET", "Chat external edits cannot modify secrets or runtime internals.");
   }
   if (!CHAT_EDIT_TEXT_EXTENSIONS.test(rel)) {
@@ -1250,7 +1250,7 @@ function formatAgentFailure(
   if (kind === "internal") {
     return {
       code: "AGENT_INTERNAL_ERROR",
-      message: pick(lang, `InkOS 内部流程错误：${message}`, `InkOS internal pipeline error: ${message}`),
+      message: pick(lang, `StoryOS 内部流程错误：${message}`, `StoryOS internal pipeline error: ${message}`),
       status: 500,
     };
   }
@@ -1837,13 +1837,13 @@ function syncTopLevelLlmMirror(llm: Record<string, unknown>): void {
 }
 
 async function loadRawConfig(root: string): Promise<Record<string, unknown>> {
-  const configPath = join(root, "inkos.json");
+  const configPath = join(root, "storyos.json");
   const raw = await readFile(configPath, "utf-8");
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
 async function saveRawConfig(root: string, config: Record<string, unknown>): Promise<void> {
-  await writeFile(join(root, "inkos.json"), JSON.stringify(config, null, 2), "utf-8");
+  await writeFile(join(root, "storyos.json"), JSON.stringify(config, null, 2), "utf-8");
 }
 
 type ChapterReviewMode = "auto" | "manual";
@@ -1946,11 +1946,11 @@ async function readEnvConfigValues(path: string): Promise<EnvConfigValues> {
       values.set(key, unquoteEnvValue(value));
     }
 
-    const provider = values.get("INKOS_LLM_PROVIDER") ?? null;
-    const service = values.get("INKOS_LLM_SERVICE") ?? null;
-    const baseUrl = values.get("INKOS_LLM_BASE_URL") ?? null;
-    const model = values.get("INKOS_LLM_MODEL") ?? null;
-    const apiKey = values.get("INKOS_LLM_API_KEY") ?? "";
+    const provider = values.get("STORYOS_LLM_PROVIDER") ?? null;
+    const service = values.get("STORYOS_LLM_SERVICE") ?? null;
+    const baseUrl = values.get("STORYOS_LLM_BASE_URL") ?? null;
+    const model = values.get("STORYOS_LLM_MODEL") ?? null;
+    const apiKey = values.get("STORYOS_LLM_API_KEY") ?? "";
     const detected = Boolean(provider || service || baseUrl || model || apiKey);
 
     return {
@@ -2530,7 +2530,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.onError((error, c) => {
     if (!(error instanceof ApiError)) {
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("LLM API key not set") && !message.includes("INKOS_LLM_API_KEY not set")) {
+      if (!message.includes("LLM API key not set") && !message.includes("STORYOS_LLM_API_KEY not set")) {
         console.error("[studio] Unexpected server error", error);
       }
     }
@@ -2578,9 +2578,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return freshConfig;
   }
 
-  // Read the project language fresh from inkos.json on every call, so a language
+  // Read the project language fresh from storyos.json on every call, so a language
   // switch takes effect on the next request instead of being frozen at startup.
-  // A missing/corrupt inkos.json means "no project language configured" -> zh.
+  // A missing/corrupt storyos.json means "no project language configured" -> zh.
   async function currentProjectLanguage(): Promise<StudioLanguage> {
     const raw = await loadRawConfig(root).catch(() => ({} as Record<string, unknown>));
     return normalizeLanguage(raw.language);
@@ -3383,7 +3383,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       connected: Boolean(secrets.services[ep.id]?.apiKey),
     })).sort(compareServiceListItems);
 
-    // Add custom services from inkos.json
+    // Add custom services from storyos.json
     try {
       const config = await loadRawConfig(root);
       for (const svc of normalizeServiceConfig((config.llm as Record<string, unknown> | undefined)?.services)) {
@@ -3423,8 +3423,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       return c.json({
         error: pick(
           await routeContext.getLanguage(),
-          "未检测到可导入的 LLM 环境变量配置，或缺少 INKOS_LLM_API_KEY。",
-          "No importable LLM environment variable configuration was detected, or INKOS_LLM_API_KEY is missing.",
+          "未检测到可导入的 LLM 环境变量配置，或缺少 STORYOS_LLM_API_KEY。",
+          "No importable LLM environment variable configuration was detected, or STORYOS_LLM_API_KEY is missing.",
         ),
       }, 400);
     }
@@ -3931,7 +3931,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Logs ---
 
   app.get("/api/v1/logs", async (c) => {
-    const logPath = join(root, "inkos.log");
+    const logPath = join(root, "storyos.log");
     try {
       const content = await readFile(logPath, "utf-8");
       const lines = content.trim().split("\n").slice(-100);
@@ -4975,7 +4975,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.post("/api/v1/project/language", async (c) => {
     const { language } = await c.req.json<{ language: "zh" | "en" }>();
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     try {
       const raw = await readFile(configPath, "utf-8");
       const existing = JSON.parse(raw);
@@ -5154,13 +5154,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Model overrides ---
 
   app.get("/api/v1/project/model-overrides", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     return c.json({ overrides: raw.modelOverrides ?? {} });
   });
 
   app.put("/api/v1/project/model-overrides", async (c) => {
     const { overrides } = await c.req.json<{ overrides: Record<string, unknown> }>();
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     const raw = JSON.parse(await readFile(configPath, "utf-8"));
     raw.modelOverrides = overrides;
     const { writeFile: writeFileFs } = await import("node:fs/promises");
@@ -5307,13 +5307,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Notify channels ---
 
   app.get("/api/v1/project/notify", async (c) => {
-    const raw = JSON.parse(await readFile(join(root, "inkos.json"), "utf-8"));
+    const raw = JSON.parse(await readFile(join(root, "storyos.json"), "utf-8"));
     return c.json({ channels: raw.notify ?? [] });
   });
 
   app.put("/api/v1/project/notify", async (c) => {
     const { channels } = await c.req.json<{ channels: unknown[] }>();
-    const configPath = join(root, "inkos.json");
+    const configPath = join(root, "storyos.json");
     const raw = JSON.parse(await readFile(configPath, "utf-8"));
     raw.notify = channels;
     const { writeFile: writeFileFs } = await import("node:fs/promises");
@@ -6477,7 +6477,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const { GLOBAL_ENV_PATH } = await import("@actalk/inkos-core");
 
     const checks = {
-      inkosJson: existsSync(join(root, "inkos.json")),
+      inkosJson: existsSync(join(root, "storyos.json")),
       projectEnv: existsSync(join(root, ".env")),
       globalEnv: existsSync(GLOBAL_ENV_PATH),
       booksDir: existsSync(join(root, "books")),
@@ -6729,6 +6729,6 @@ export async function startStudioServer(
     }
   }
 
-  console.log(`InkOS Studio running on http://localhost:${port}`);
+  console.log(`StoryOS Studio running on http://localhost:${port}`);
   serve({ fetch: app.fetch, port });
 }

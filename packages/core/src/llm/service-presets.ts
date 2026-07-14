@@ -150,8 +150,8 @@ function toModelInfo(inkosModel: { id: string; maxOutput: number; contextWindowT
 /**
  * listModelsForService（R4 精修）：
  * - 先试 live /models probe（如果 baseUrl + apiKey 具备）
- * - probe 失败或无 apiKey：fallback 到 provider.models（inkos bank）
- * - 不再做 INKOS_LLM_MODEL env 补丁（会污染跨 service 菜单；bank 已足够全）
+ * - probe 失败或无 apiKey：fallback 到 provider.models（storyos bank）
+ * - 不再做 STORYOS_LLM_MODEL env 补丁（会污染跨 service 菜单；bank 已足够全）
  *
  * custom / newapi / higress 等 baseUrl 空的 gateway provider：
  *   必须传 liveBaseUrl 才能做 probe；否则只依赖 bank。

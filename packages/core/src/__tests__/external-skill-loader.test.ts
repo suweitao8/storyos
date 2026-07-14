@@ -12,7 +12,7 @@ describe("external skill loader", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-external-skills-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-external-skills-"));
   });
 
   afterEach(async () => {
@@ -110,8 +110,8 @@ describe("external skill loader", () => {
       .rejects.toThrow(/absolute/);
   });
 
-  it("loads project-local skills from .inkos/skills without explicit configuration", async () => {
-    const skillDir = join(root, ".inkos", "skills", "detective-play");
+  it("loads project-local skills from .storyos/skills without explicit configuration", async () => {
+    const skillDir = join(root, ".storyos", "skills", "detective-play");
     await mkdir(skillDir, { recursive: true });
     await writeFile(
       join(skillDir, "SKILL.md"),
@@ -139,7 +139,7 @@ describe("external skill loader", () => {
     expect(loaded.skills.map((skill) => skill.id)).toContain("detective-play");
   });
 
-  it("loads external skills from INKOS_SKILL_DIRS and reports bad paths without throwing", async () => {
+  it("loads external skills from STORYOS_SKILL_DIRS and reports bad paths without throwing", async () => {
     const externalRoot = join(root, "external-skills");
     const skillDir = join(externalRoot, "romance-play");
     await mkdir(skillDir, { recursive: true });
@@ -163,7 +163,7 @@ describe("external skill loader", () => {
       projectRoot: join(root, "project"),
       userRoot: join(root, "user"),
       env: {
-        INKOS_SKILL_DIRS: [externalRoot, join(root, "does-not-exist")].join(delimiter),
+        STORYOS_SKILL_DIRS: [externalRoot, join(root, "does-not-exist")].join(delimiter),
       },
     });
     const registry = createSkillRegistry({ skills: loaded.skills });

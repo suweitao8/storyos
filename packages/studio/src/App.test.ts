@@ -265,7 +265,7 @@ describe("resolveActiveShortStoryId", () => {
 describe("deriveStartupGate", () => {
   it("shows startup errors instead of spinning forever before the project is ready", () => {
     expect(deriveStartupGate({ ready: false, projectError: null })).toBe("loading");
-    expect(deriveStartupGate({ ready: false, projectError: "bad inkos.json" })).toBe("error");
+    expect(deriveStartupGate({ ready: false, projectError: "bad storyos.json" })).toBe("error");
     expect(deriveStartupGate({ ready: true, projectError: "later refetch failed" })).toBe("ready");
   });
 });

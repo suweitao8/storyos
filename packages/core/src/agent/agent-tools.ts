@@ -92,7 +92,7 @@ const SuggestedActionParam = Type.Union([
     text: Type.Optional(Type.String({ description: "Concrete action text." })),
     title: Type.Optional(Type.String({ description: "Short action title." })),
     description: Type.Optional(Type.String({ description: "Optional action description." })),
-  }, { description: "A model may describe an action as an object; InkOS will normalize it to one short action string." }),
+  }, { description: "A model may describe an action as an object; StoryOS will normalize it to one short action string." }),
 ], { description: "Suggested action as a string or small action object." });
 
 type SuggestedActionParamType = Static<typeof SuggestedActionParam>;
@@ -298,9 +298,9 @@ function proposedActionFallbackTitle(action: ProposeActionParamsType["action"], 
     case "create_book":
       return isZh ? "创建长篇书籍" : "Create a long-form book";
     case "short_run":
-      return isZh ? "生成 InkOS Short" : "Generate InkOS Short";
+      return isZh ? "生成 StoryOS Short" : "Generate StoryOS Short";
     case "play_start":
-      return isZh ? "启动 InkOS Play" : "Start InkOS Play";
+      return isZh ? "启动 StoryOS Play" : "Start StoryOS Play";
     case "generate_cover":
       return isZh ? "生成封面" : "Generate cover";
     case "fanfic_init":
@@ -328,11 +328,11 @@ function proposedActionFallbackSummary(action: ProposeActionParamsType["action"]
   if (proposedActionTargetRoute(action)) {
     return isZh
       ? "确认后只会打开现有 Studio 工具，不会直接生成成品。"
-      : "After confirmation, InkOS will only open the existing Studio tool; it will not generate finished content directly.";
+      : "After confirmation, StoryOS will only open the existing Studio tool; it will not generate finished content directly.";
   }
   return isZh
     ? "确认后会切换到对应入口并执行这条需求。"
-    : "After confirmation, InkOS will switch to the matching surface and run this request.";
+    : "After confirmation, StoryOS will switch to the matching surface and run this request.";
 }
 
 function compactObject<T extends Record<string, unknown>>(value: T | undefined): T | undefined {
@@ -563,7 +563,7 @@ const ArchitectCreateSubAgentParams = Type.Object({
   agent: Type.Literal("architect"),
   instruction: Type.String({ description: "Confirmed self-contained book-creation instruction for the architect." }),
   bookId: Type.Optional(Type.String({
-    description: "Optional new book ID. Usually omit it and let InkOS derive the ID from title.",
+    description: "Optional new book ID. Usually omit it and let StoryOS derive the ID from title.",
   })),
   title: Type.Optional(Type.String({ description: "Confirmed book title. Required when creating a book." })),
   genre: Type.Optional(Type.String({ description: "Confirmed book genre." })),
@@ -612,7 +612,7 @@ export function createSubAgentTool(
   return {
     name: "sub_agent",
     description: options.architectCreateOnly
-      ? "Create a new long-form InkOS book foundation. This confirmation turn can only call agent='architect'; writing chapters happens after the session is bound to the created book."
+      ? "Create a new long-form StoryOS book foundation. This confirmation turn can only call agent='architect'; writing chapters happens after the session is bound to the created book."
       : "Delegate a heavy operation to a specialised sub-agent. " +
         "Use agent='architect' to initialise a new book, 'writer' to write the next chapter, " +
         "'auditor' to audit quality, 'reviser' to revise a chapter, 'exporter' to export.",
@@ -871,7 +871,7 @@ export function createResearchWebTool(projectRoot: string): AgentTool<typeof Res
     name: "research_web",
     description:
       "Collect traceable web research for worldbuilding, era, profession, market, or fact-check questions. " +
-      "Saves a Markdown report under .inkos/research/. It is reference material only; it must not modify books, chapters, or truth files.",
+      "Saves a Markdown report under .storyos/research/. It is reference material only; it must not modify books, chapters, or truth files.",
     label: "Research Web",
     parameters: ResearchWebParams,
     async execute(
@@ -896,7 +896,7 @@ export function createResearchWebTool(projectRoot: string): AgentTool<typeof Res
       }, {
         search: (query, maxResults) => searchWeb(query, maxResults, searchOptions),
       });
-      const reportDir = join(projectRoot, ".inkos", "research");
+      const reportDir = join(projectRoot, ".storyos", "research");
       await mkdir(reportDir, { recursive: true });
       const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugResearchTopic(params.topic)}.md`;
       const reportPath = join(reportDir, fileName);
@@ -938,7 +938,7 @@ const IngestMaterialParams = Type.Object({
     description: "HTTP/HTTPS URL to fetch and extract. Supports HTML/text/JSON/PDF.",
   })),
   filePath: Type.Optional(Type.String({
-    description: "Project-relative stored_path from the Uploaded Files block, e.g. .inkos/uploads/session/file.pdf.",
+    description: "Project-relative stored_path from the Uploaded Files block, e.g. .storyos/uploads/session/file.pdf.",
   })),
   filename: Type.Optional(Type.String({
     description: "Original filename when known.",
@@ -967,7 +967,7 @@ export function createIngestMaterialTool(projectRoot: string): AgentTool<typeof 
   return {
     name: "ingest_material",
     description:
-      "Extract and archive a user-provided URL or uploaded file into .inkos/materials as traceable Markdown. " +
+      "Extract and archive a user-provided URL or uploaded file into .storyos/materials as traceable Markdown. " +
       "Supports HTML/text/JSON/Markdown/PDF. This creates reference material only; it must not mutate canon, chapters, scripts, or play state.",
     label: "Ingest Material",
     parameters: IngestMaterialParams,
@@ -1036,8 +1036,8 @@ export function createRetrieveMaterialTool(projectRoot: string): AgentTool<typeo
   return {
     name: "retrieve_material",
     description:
-      "Retrieve traceable snippets from previously ingested .inkos/materials reference cards. " +
-      "The agent supplies the semantic query; InkOS returns evidence pointers. This must not mutate canon, chapters, scripts, or play state.",
+      "Retrieve traceable snippets from previously ingested .storyos/materials reference cards. " +
+      "The agent supplies the semantic query; StoryOS returns evidence pointers. This must not mutate canon, chapters, scripts, or play state.",
     label: "Retrieve Material",
     parameters: RetrieveMaterialParams,
     async execute(
@@ -1098,7 +1098,7 @@ const ImportChaptersParams = Type.Object({
     description: "Target book ID to import into. In active-book sessions, omit it to use the current active book; if provided, it must match the active book. In general chat there is no active book, so it is required and must be an existing book.",
   })),
   sourcePath: Type.String({
-    description: "Local path of the chapter source: either the stored_path from the Uploaded Files block (project-relative, e.g. .inkos/uploads/<session>/novel.txt) or an absolute path on this machine that the user provided. A directory imports each .md/.txt file as one chapter in filename order; a single file is split into chapters automatically by heading lines.",
+    description: "Local path of the chapter source: either the stored_path from the Uploaded Files block (project-relative, e.g. .storyos/uploads/<session>/novel.txt) or an absolute path on this machine that the user provided. A directory imports each .md/.txt file as one chapter in filename order; a single file is split into chapters automatically by heading lines.",
   }),
   splitPattern: Type.Optional(Type.String({
     description: "Single-file mode only: custom JavaScript regex source matching chapter heading lines. Omit to use the default pattern, which matches \"第X章/第X回\" and \"Chapter N\" headings.",
@@ -1124,8 +1124,8 @@ export function createImportChaptersTool(
   return {
     name: "import_chapters",
     description:
-      "Import an existing novel's chapters from a local file or directory into an InkOS book as real chapters (not reference material). " +
-      "InkOS reverse-engineers foundation/truth files from the imported text and replays every chapter to rebuild story state, so the book can be continued afterwards. " +
+      "Import an existing novel's chapters from a local file or directory into an StoryOS book as real chapters (not reference material). " +
+      "StoryOS reverse-engineers foundation/truth files from the imported text and replays every chapter to rebuild story state, so the book can be continued afterwards. " +
       "Use ingest_material instead when the user only wants to archive reference material without touching book chapters.",
     label: "Import Chapters",
     parameters: ImportChaptersParams,
@@ -1195,7 +1195,7 @@ function slugResearchTopic(topic: string): string {
 
 async function readResearchSearchConfig(projectRoot: string) {
   try {
-    const raw = JSON.parse(await readFile(join(projectRoot, "inkos.json"), "utf-8")) as Record<string, unknown>;
+    const raw = JSON.parse(await readFile(join(projectRoot, "storyos.json"), "utf-8")) as Record<string, unknown>;
     return ResearchSearchConfigSchema.parse(raw.researchSearch ?? {});
   } catch {
     return ResearchSearchConfigSchema.parse({});
@@ -1244,7 +1244,7 @@ const ShortFictionRunParams = Type.Object({
     description: "Optional image size, default 1024x1360.",
   })),
   coverApiKeyEnv: Type.Optional(Type.String({
-    description: "Optional env var containing the cover API key. Default INKOS_COVER_API_KEY.",
+    description: "Optional env var containing the cover API key. Default STORYOS_COVER_API_KEY.",
   })),
 });
 
@@ -1761,7 +1761,7 @@ export function createPlayStartTool(
   return {
     name: "play_start",
     description:
-      "Start an interactive InkOS Play world directly from chat. " +
+      "Start an interactive StoryOS Play world directly from chat. " +
       "Use when the user asks to play, roleplay, run an open-world interactive story, or start a Tavern-like scene.",
     label: "Start Play",
     parameters: PlayStartParams,
@@ -2006,7 +2006,7 @@ export function createPlayEditTool(
   return {
     name: "play_edit",
     description:
-      "Persistently edit the active InkOS Play world card, visual contract, player persona, or entity/role cards without advancing time or narrating a turn. " +
+      "Persistently edit the active StoryOS Play world card, visual contract, player persona, or entity/role cards without advancing time or narrating a turn. " +
       "Use when the user says to change world rules, visual rules, character goals/persona/status, or long-lived play contracts.",
     label: "Edit Play World",
     parameters: PlayEditParams,
@@ -2106,7 +2106,7 @@ export function createPlayStepTool(
   return {
     name: "play_step",
     description:
-      "Advance the current InkOS Play world by one player action. " +
+      "Advance the current StoryOS Play world by one player action. " +
       "Use after play_start when the user keeps acting in the interactive scene.",
     label: "Play Step",
     parameters: PlayStepParams,
@@ -2204,7 +2204,7 @@ export function createPlayReviseTool(
   return {
     name: "play_revise",
     description:
-      "Regenerate, edit, or restore the latest InkOS Play turn using saved turn checkpoints. " +
+      "Regenerate, edit, or restore the latest StoryOS Play turn using saved turn checkpoints. " +
       "Use when the user says to redo the previous turn, try another version, swipe, or replace their last player input.",
     label: "Revise Play Turn",
     parameters: PlayReviseParams,

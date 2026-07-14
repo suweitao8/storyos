@@ -1,22 +1,22 @@
-// InkOS 品牌 logo（与 README 顶部 assets/logo.svg 同款）：深色圆底 + 橙色墨滴 + 羽毛笔尖。
+// StoryOS 品牌 logo（与 README 顶部 assets/logo.svg 同款）：深色圆底 + 橙色墨滴 + 羽毛笔尖。
 // 内联为组件，避免 Vite 静态资源/类型声明依赖。渐变 id 加 inkos- 前缀防全局冲突。
 export function InkosLogo({ className }: { readonly className?: string }) {
   return (
-    <svg viewBox="0 0 512 512" fill="none" className={className} role="img" aria-label="InkOS">
+    <svg viewBox="0 0 512 512" fill="none" className={className} role="img" aria-label="StoryOS">
       <defs>
-        <linearGradient id="inkos-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="storyos-bg" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#2d1b0e" />
           <stop offset="100%" stopColor="#1a1008" />
         </linearGradient>
-        <linearGradient id="inkos-drop" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id="storyos-drop" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#f4a261" />
           <stop offset="100%" stopColor="#e76f51" />
         </linearGradient>
-        <linearGradient id="inkos-nib" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="storyos-nib" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fefae0" />
           <stop offset="100%" stopColor="#dda15e" />
         </linearGradient>
-        <filter id="inkos-glow">
+        <filter id="storyos-glow">
           <feGaussianBlur stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />

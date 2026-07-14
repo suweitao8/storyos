@@ -13,8 +13,8 @@ describe("resolveEffectiveLLMConfig", () => {
   });
 
   async function writeProject(llm: Record<string, unknown>) {
-    root = await mkdtemp(join(tmpdir(), "inkos-effective-llm-"));
-    await writeFile(join(root, "inkos.json"), JSON.stringify({
+    root = await mkdtemp(join(tmpdir(), "storyos-effective-llm-"));
+    await writeFile(join(root, "storyos.json"), JSON.stringify({
       name: "effective-project",
       version: "0.1.0",
       language: "zh",
@@ -24,8 +24,8 @@ describe("resolveEffectiveLLMConfig", () => {
   }
 
   async function writeSecrets(services: Record<string, { apiKey: string }>) {
-    await mkdir(join(root, ".inkos"), { recursive: true });
-    await writeFile(join(root, ".inkos", "secrets.json"), JSON.stringify({ services }, null, 2), "utf-8");
+    await mkdir(join(root, ".storyos"), { recursive: true });
+    await writeFile(join(root, ".storyos", "secrets.json"), JSON.stringify({ services }, null, 2), "utf-8");
   }
 
   it("Studio consumer 使用 Studio/project 配置，并忽略旧顶层 model/baseUrl", async () => {
@@ -57,7 +57,7 @@ describe("resolveEffectiveLLMConfig", () => {
     expect(result.diagnostics.warnings.join("\n")).toContain("旧顶层");
   });
 
-  it("CLI consumer 允许 INKOS_LLM_SERVICE 切换服务，并从 provider bank 推导 baseUrl", async () => {
+  it("CLI consumer 允许 STORYOS_LLM_SERVICE 切换服务，并从 provider bank 推导 baseUrl", async () => {
     await writeProject({
       configSource: "studio",
       service: "google",
@@ -75,8 +75,8 @@ describe("resolveEffectiveLLMConfig", () => {
       envLayers: {
         global: {},
         project: {
-          INKOS_LLM_SERVICE: "moonshot",
-          INKOS_LLM_MODEL: "kimi-k2.5",
+          STORYOS_LLM_SERVICE: "moonshot",
+          STORYOS_LLM_MODEL: "kimi-k2.5",
         },
         process: {},
       },
@@ -90,7 +90,7 @@ describe("resolveEffectiveLLMConfig", () => {
     expect(result.diagnostics.modelSource).toBe("env");
   });
 
-  it("CLI consumer 兼容旧 env：没有 INKOS_LLM_SERVICE 时从 baseUrl 反推 service", async () => {
+  it("CLI consumer 兼容旧 env：没有 STORYOS_LLM_SERVICE 时从 baseUrl 反推 service", async () => {
     await writeProject({
       configSource: "studio",
       service: "google",
@@ -104,10 +104,10 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_PROVIDER: "custom",
-          INKOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
-          INKOS_LLM_MODEL: "kimi-k2.5",
-          INKOS_LLM_API_KEY: "sk-env-moon",
+          STORYOS_LLM_PROVIDER: "custom",
+          STORYOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
+          STORYOS_LLM_MODEL: "kimi-k2.5",
+          STORYOS_LLM_API_KEY: "sk-env-moon",
         },
         project: {},
         process: {},
@@ -135,19 +135,19 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_SERVICE: "moonshot",
-          INKOS_LLM_MODEL: "kimi-k2.5",
-          INKOS_LLM_API_KEY: "sk-global-moon",
+          STORYOS_LLM_SERVICE: "moonshot",
+          STORYOS_LLM_MODEL: "kimi-k2.5",
+          STORYOS_LLM_API_KEY: "sk-global-moon",
         },
         project: {
-          INKOS_LLM_SERVICE: "deepseek",
-          INKOS_LLM_MODEL: "deepseek-chat",
-          INKOS_LLM_API_KEY: "sk-project-deepseek",
+          STORYOS_LLM_SERVICE: "deepseek",
+          STORYOS_LLM_MODEL: "deepseek-chat",
+          STORYOS_LLM_API_KEY: "sk-project-deepseek",
         },
         process: {
-          INKOS_LLM_SERVICE: "zhipu",
-          INKOS_LLM_MODEL: "glm-4-flash",
-          INKOS_LLM_API_KEY: "sk-process-zhipu",
+          STORYOS_LLM_SERVICE: "zhipu",
+          STORYOS_LLM_MODEL: "glm-4-flash",
+          STORYOS_LLM_API_KEY: "sk-process-zhipu",
         },
       },
       requireApiKey: true,
@@ -175,10 +175,10 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_PROVIDER: "custom",
-          INKOS_LLM_BASE_URL: "https://api.example.com/v1",
-          INKOS_LLM_MODEL: "legacy-model",
-          INKOS_LLM_API_KEY: "sk-env",
+          STORYOS_LLM_PROVIDER: "custom",
+          STORYOS_LLM_BASE_URL: "https://api.example.com/v1",
+          STORYOS_LLM_MODEL: "legacy-model",
+          STORYOS_LLM_API_KEY: "sk-env",
         },
         project: {},
         process: {},
@@ -206,10 +206,10 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_PROVIDER: "custom",
-          INKOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
-          INKOS_LLM_MODEL: "kimi-k2.5",
-          INKOS_LLM_API_KEY: "sk-moon",
+          STORYOS_LLM_PROVIDER: "custom",
+          STORYOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
+          STORYOS_LLM_MODEL: "kimi-k2.5",
+          STORYOS_LLM_API_KEY: "sk-moon",
         },
         project: {},
         process: {
@@ -245,12 +245,12 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_PROVIDER: "openai",
-          INKOS_LLM_BASE_URL: "https://api.example.com/v1",
-          INKOS_LLM_MODEL: "legacy-model",
-          INKOS_LLM_API_KEY: "sk-env",
-          INKOS_LLM_API_FORMAT: "chat",
-          INKOS_LLM_STREAM: "true",
+          STORYOS_LLM_PROVIDER: "openai",
+          STORYOS_LLM_BASE_URL: "https://api.example.com/v1",
+          STORYOS_LLM_MODEL: "legacy-model",
+          STORYOS_LLM_API_KEY: "sk-env",
+          STORYOS_LLM_API_FORMAT: "chat",
+          STORYOS_LLM_STREAM: "true",
         },
         project: {},
         process: {},
@@ -266,7 +266,7 @@ describe("resolveEffectiveLLMConfig", () => {
     expect(result.llm.stream).toBe(false);
   });
 
-  it("保留旧 INKOS_LLM_EXTRA_* 和 INKOS_DEFAULT_LANGUAGE 行为", async () => {
+  it("保留旧 STORYOS_LLM_EXTRA_* 和 STORYOS_DEFAULT_LANGUAGE 行为", async () => {
     await writeProject({
       configSource: "env",
       provider: "openai",
@@ -280,9 +280,9 @@ describe("resolveEffectiveLLMConfig", () => {
       envLayers: {
         global: {},
         project: {
-          INKOS_LLM_API_KEY: "sk-env",
-          INKOS_LLM_EXTRA_top_p: "0.9",
-          INKOS_DEFAULT_LANGUAGE: "en",
+          STORYOS_LLM_API_KEY: "sk-env",
+          STORYOS_LLM_EXTRA_top_p: "0.9",
+          STORYOS_DEFAULT_LANGUAGE: "en",
         },
         process: {},
       },
@@ -306,7 +306,7 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {},
-        project: { INKOS_LLM_SERVICE: "google", INKOS_LLM_MODEL: "gemini-2.5-pro" },
+        project: { STORYOS_LLM_SERVICE: "google", STORYOS_LLM_MODEL: "gemini-2.5-pro" },
         process: {},
       },
       cli: { service: "zhipu", model: "glm-4-flash" },
@@ -333,10 +333,10 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_PROVIDER: "custom",
-          INKOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
-          INKOS_LLM_MODEL: "kimi-k2.5",
-          INKOS_LLM_API_KEY: "sk-env-moon",
+          STORYOS_LLM_PROVIDER: "custom",
+          STORYOS_LLM_BASE_URL: "https://api.moonshot.cn/v1",
+          STORYOS_LLM_MODEL: "kimi-k2.5",
+          STORYOS_LLM_API_KEY: "sk-env-moon",
         },
         project: {},
         process: {},
@@ -368,7 +368,7 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {},
-        project: { INKOS_LLM_MODEL: "kimi-k2.5" },
+        project: { STORYOS_LLM_MODEL: "kimi-k2.5" },
         process: {},
       },
     })).rejects.toThrow(/模型.*kimi-k2\.5.*不属于.*google/);
@@ -409,7 +409,7 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {},
-        project: { INKOS_LLM_MODEL: "z-ai/glm-4.7" },
+        project: { STORYOS_LLM_MODEL: "z-ai/glm-4.7" },
         process: {},
       },
     });
@@ -451,10 +451,10 @@ describe("resolveEffectiveLLMConfig", () => {
       projectRoot: root,
       envLayers: {
         global: {
-          INKOS_LLM_SERVICE: "ollama",
-          INKOS_LLM_PROVIDER: "openai",
-          INKOS_LLM_BASE_URL: "http://127.0.0.1:11434/v1",
-          INKOS_LLM_MODEL: "qwen3.6:35b-a3b",
+          STORYOS_LLM_SERVICE: "ollama",
+          STORYOS_LLM_PROVIDER: "openai",
+          STORYOS_LLM_BASE_URL: "http://127.0.0.1:11434/v1",
+          STORYOS_LLM_MODEL: "qwen3.6:35b-a3b",
         },
         project: {},
         process: {},

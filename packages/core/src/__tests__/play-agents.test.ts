@@ -8,12 +8,12 @@ import { join } from "node:path";
 // full system-prompt assembly without depending on the deleted builtin entries.
 const PLAY_PROMPT_CONTENT: Record<string, string> = {
   "play.mutator": [
-    "你是 InkOS 互动世界的世界变异引擎。",
+    "你是 StoryOS 互动世界的世界变异引擎。",
     "将玩家行动转化为状态变更：场景、实体、关系、证据、物品栏、时间和后果。",
     "遵守世界契约，并将 actor_player 保留为玩家实体 ID。",
   ].join("\n"),
   "play.renderer": [
-    "你是 InkOS 互动世界的场景渲染器。",
+    "你是 StoryOS 互动世界的场景渲染器。",
     "将已应用的世界变异常渲染为生动的互动散文。",
     "不要凭空发明应用状态中不存在的具体物品、证据或角色，除非对账器能记录它们。",
   ].join("\n"),
@@ -64,7 +64,7 @@ import { PlayMutationSchema } from "../models/play.js";
 const ctx = {
   client: { provider: "openai" } as never,
   model: "test-model",
-  projectRoot: "/tmp/inkos-play-test",
+  projectRoot: "/tmp/storyos-play-test",
 };
 
 describe("play agents", () => {
@@ -201,7 +201,7 @@ describe("play agents", () => {
   });
 
   it("loads project Play prompt-pack overrides into the mutator system prompt", async () => {
-    const root = await mkdtemp(join(tmpdir(), "inkos-play-prompt-"));
+    const root = await mkdtemp(join(tmpdir(), "storyos-play-prompt-"));
     try {
       await mkdir(join(root, "prompt", "play"), { recursive: true });
       await writeFile(join(root, "prompt", "play", "mutator.md"), "PROJECT MUTATOR OVERRIDE: honor lantern rarity by atmosphere.");
@@ -283,7 +283,7 @@ describe("play agents", () => {
   });
 
   it("loads project Play prompt-pack overrides into the renderer system prompt", async () => {
-    const root = await mkdtemp(join(tmpdir(), "inkos-play-renderer-prompt-"));
+    const root = await mkdtemp(join(tmpdir(), "storyos-play-renderer-prompt-"));
     try {
       await mkdir(join(root, "prompt", "play"), { recursive: true });
       await writeFile(join(root, "prompt", "play", "renderer.md"), "PROJECT RENDERER OVERRIDE: render romance props through distance and touch.");

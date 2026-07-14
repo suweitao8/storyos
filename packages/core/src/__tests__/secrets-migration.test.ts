@@ -8,8 +8,8 @@ describe("loadSecrets legacy service id migration", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-secrets-mig-"));
-    await mkdir(join(root, ".inkos"), { recursive: true });
+    root = await mkdtemp(join(tmpdir(), "storyos-secrets-mig-"));
+    await mkdir(join(root, ".storyos"), { recursive: true });
   });
 
   afterEach(async () => {
@@ -17,11 +17,11 @@ describe("loadSecrets legacy service id migration", () => {
   });
 
   async function seedSecrets(data: unknown): Promise<void> {
-    await writeFile(join(root, ".inkos", "secrets.json"), JSON.stringify(data, null, 2), "utf-8");
+    await writeFile(join(root, ".storyos", "secrets.json"), JSON.stringify(data, null, 2), "utf-8");
   }
 
   async function readSecretsRaw(): Promise<any> {
-    return JSON.parse(await readFile(join(root, ".inkos", "secrets.json"), "utf-8"));
+    return JSON.parse(await readFile(join(root, ".storyos", "secrets.json"), "utf-8"));
   }
 
   it("migrates siliconflow to siliconcloud when the target id is missing", async () => {
@@ -79,14 +79,14 @@ describe("loadSecrets legacy service id migration", () => {
 
   it("does not rewrite secrets when there is no migration", async () => {
     await seedSecrets({ services: { openai: { apiKey: "sk-openai" } } });
-    const before = await readFile(join(root, ".inkos", "secrets.json"), "utf-8");
+    const before = await readFile(join(root, ".storyos", "secrets.json"), "utf-8");
     await loadSecrets(root);
-    const after = await readFile(join(root, ".inkos", "secrets.json"), "utf-8");
+    const after = await readFile(join(root, ".storyos", "secrets.json"), "utf-8");
     expect(after).toBe(before);
   });
 
   it("returns empty services when the secrets file does not exist", async () => {
-    await rm(join(root, ".inkos", "secrets.json"), { force: true });
+    await rm(join(root, ".storyos", "secrets.json"), { force: true });
     const result = await loadSecrets(root);
     expect(result).toEqual({ services: {} });
   });

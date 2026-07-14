@@ -50,7 +50,7 @@ export async function ingestMaterial(
   const source = await readMaterialSource(projectRoot, input, deps);
   const title = (input.title?.trim() || source.title || titleFromSource(input) || "material").slice(0, 120);
   const id = `${now.toISOString().replace(/[:.]/g, "-")}-${slug(title)}`;
-  const materialsDir = join(projectRoot, ".inkos", "materials");
+  const materialsDir = join(projectRoot, ".storyos", "materials");
   await mkdir(materialsDir, { recursive: true });
 
   const markdown = renderMaterialMarkdown({
@@ -122,7 +122,7 @@ async function readUrlMaterial(url: string, fetchImpl: typeof fetch): Promise<Ma
   }
   const response = await fetchImpl(url, {
     headers: {
-      "User-Agent": "InkOS/1.6 material-ingestion",
+      "User-Agent": "StoryOS/1.6 material-ingestion",
       "Accept": "text/html, text/plain, application/json, application/pdf, */*",
     },
     signal: AbortSignal.timeout(20_000),

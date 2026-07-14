@@ -107,7 +107,7 @@ export const doctorCommand = new Command("doctor")
     const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
     const root = findProjectRoot();
     // doctor is not scoped to a book, so the language comes from the environment
-    // (INKOS_LOCALE -> LC_ALL/LC_MESSAGES/LANG, default zh).
+    // (STORYOS_LOCALE -> LC_ALL/LC_MESSAGES/LANG, default zh).
     const language = resolveCliLanguage();
 
     if (opts.repairNodeRuntime) {
@@ -138,12 +138,12 @@ export const doctorCommand = new Command("doctor")
       ...await inspectNodeRuntimePinFiles(root),
     });
 
-    // 2. Check inkos.json exists
+    // 2. Check storyos.json exists
     try {
-      await readFile(join(root, "inkos.json"), "utf-8");
-      checks.push({ name: "inkos.json", ok: true, detail: "Found" });
+      await readFile(join(root, "storyos.json"), "utf-8");
+      checks.push({ name: "storyos.json", ok: true, detail: "Found" });
     } catch {
-      checks.push({ name: "inkos.json", ok: false, detail: "Not found. Run 'inkos init'" });
+      checks.push({ name: "storyos.json", ok: false, detail: "Not found. Run 'storyos init'" });
     }
 
     // 3. Check .env exists
@@ -159,12 +159,12 @@ export const doctorCommand = new Command("doctor")
       let hasGlobal = false;
       try {
         const globalContent = await readFile(GLOBAL_ENV_PATH, "utf-8");
-        hasGlobal = globalContent.includes("INKOS_LLM_API_KEY=") && !globalContent.includes("your-api-key-here");
+        hasGlobal = globalContent.includes("STORYOS_LLM_API_KEY=") && !globalContent.includes("your-api-key-here");
       } catch { /* no global config */ }
       checks.push({
         name: "Global Config",
         ok: hasGlobal,
-        detail: hasGlobal ? `Found (${GLOBAL_ENV_PATH})` : "Not set. Run 'inkos config set-global'",
+        detail: hasGlobal ? `Found (${GLOBAL_ENV_PATH})` : "Not set. Run 'storyos config set-global'",
       });
     }
 
@@ -234,7 +234,7 @@ export const doctorCommand = new Command("doctor")
           checks.push({
             name: "Version Migration",
             ok: false,
-            detail: `${legacyCount} book(s) using legacy format (pre-v0.6). Run 'inkos write next' on each to auto-migrate, or re-init with 'inkos init'.`,
+            detail: `${legacyCount} book(s) using legacy format (pre-v0.6). Run 'storyos write next' on each to auto-migrate, or re-init with 'storyos init'.`,
           });
         } else if (bookIds.length > 0) {
           checks.push({
@@ -261,15 +261,15 @@ export const doctorCommand = new Command("doctor")
         loadDotenv({ path: GLOBAL_ENV_PATH });
         const env = process.env;
         const apiKeyOptional = isApiKeyOptionalForEndpoint({
-          provider: env.INKOS_LLM_PROVIDER,
-          baseUrl: env.INKOS_LLM_BASE_URL,
+          provider: env.STORYOS_LLM_PROVIDER,
+          baseUrl: env.STORYOS_LLM_BASE_URL,
         });
-        if ((env.INKOS_LLM_API_KEY || apiKeyOptional) && env.INKOS_LLM_BASE_URL && env.INKOS_LLM_MODEL) {
+        if ((env.STORYOS_LLM_API_KEY || apiKeyOptional) && env.STORYOS_LLM_BASE_URL && env.STORYOS_LLM_MODEL) {
           llmConfig = LLMConfigSchema.parse({
-            provider: env.INKOS_LLM_PROVIDER ?? "custom",
-            baseUrl: env.INKOS_LLM_BASE_URL,
-            apiKey: env.INKOS_LLM_API_KEY ?? "",
-            model: env.INKOS_LLM_MODEL,
+            provider: env.STORYOS_LLM_PROVIDER ?? "custom",
+            baseUrl: env.STORYOS_LLM_BASE_URL,
+            apiKey: env.STORYOS_LLM_API_KEY ?? "",
+            model: env.STORYOS_LLM_MODEL,
           });
         }
       }
@@ -283,7 +283,7 @@ export const doctorCommand = new Command("doctor")
         checks.push({
           name: "  Hint",
           ok: false,
-          detail: "Run `inkos setup`, `inkos config set-global`, or add LLM settings to the project .env file.",
+          detail: "Run `storyos setup`, `storyos config set-global`, or add LLM settings to the project .env file.",
         });
       } else {
         checks.push({
@@ -388,7 +388,7 @@ export const doctorCommand = new Command("doctor")
     }
 
     // Output
-    log("\nInkOS Doctor\n");
+    log("\nStoryOS Doctor\n");
     for (const check of checks) {
       const icon = check.ok ? "[OK]" : "[!!]";
       log(`  ${icon} ${check.name}: ${check.detail}`);

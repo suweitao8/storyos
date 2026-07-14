@@ -32,9 +32,9 @@ export function buildStudioLaunchPlan({
 }) {
   const commonEnv = {
     ...baseEnv,
-    INKOS_PROJECT_ROOT: projectRoot,
-    INKOS_STUDIO_PORT: String(config.serverPort),
-    INKOS_STUDIO_CLIENT_PORT: String(config.clientPort),
+    STORYOS_PROJECT_ROOT: projectRoot,
+    STORYOS_STUDIO_PORT: String(config.serverPort),
+    STORYOS_STUDIO_CLIENT_PORT: String(config.clientPort),
   };
 
   return {
@@ -80,7 +80,7 @@ export async function startStudio({
   spawnProcess = spawn,
 }) {
   let config = createRuntimeConfig({ branch, projectRoot, env });
-  const hasExplicitPorts = env.INKOS_STUDIO_CLIENT_PORT || env.INKOS_STUDIO_PORT;
+  const hasExplicitPorts = env.STORYOS_STUDIO_CLIENT_PORT || env.STORYOS_STUDIO_PORT;
   if (!hasExplicitPorts) {
     const ports = await findAvailablePortPair({ preferredClientPort: config.clientPort });
     config = { ...config, ...ports };
@@ -141,7 +141,7 @@ async function waitForStudioExit(children) {
 if (process.argv[1] && process.argv[1].endsWith("studio-dev.mjs")) {
   const context = readWorktreeContext(process.cwd());
   const session = await startStudio({
-    projectRoot: process.env.INKOS_PROJECT_ROOT ?? context.worktreePath,
+    projectRoot: process.env.STORYOS_PROJECT_ROOT ?? context.worktreePath,
     branch: context.branch,
     studioRoot: resolve(context.worktreePath, "packages", "studio"),
   });

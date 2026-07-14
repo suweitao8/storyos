@@ -17,7 +17,7 @@ let projectDir: string;
 function buildTestEnv(overrides?: Record<string, string>) {
   const baseEnv = Object.fromEntries(
     Object.entries(process.env).filter(([key]) =>
-      !key.startsWith("INKOS_")
+      !key.startsWith("STORYOS_")
       && !key.startsWith("OPENAI_")
       && !key.startsWith("ANTHROPIC_")
       && key !== "TAVILY_API_KEY",
@@ -58,46 +58,46 @@ function runStderr(args: string[], options?: { env?: Record<string, string> }): 
 }
 
 const failingLlmEnv = {
-  INKOS_LLM_PROVIDER: "openai",
-  INKOS_LLM_BASE_URL: "http://127.0.0.1:9/v1",
-  INKOS_LLM_MODEL: "test-model",
-  INKOS_LLM_API_KEY: "test-key",
+  STORYOS_LLM_PROVIDER: "openai",
+  STORYOS_LLM_BASE_URL: "http://127.0.0.1:9/v1",
+  STORYOS_LLM_MODEL: "test-model",
+  STORYOS_LLM_API_KEY: "test-key",
 };
 
 describe("CLI integration", () => {
   beforeAll(async () => {
-    projectDir = await mkdtemp(join(tmpdir(), "inkos-cli-test-"));
+    projectDir = await mkdtemp(join(tmpdir(), "storyos-cli-test-"));
   });
 
   afterAll(async () => {
     await rm(projectDir, { recursive: true, force: true });
   });
 
-  describe("inkos --version", () => {
+  describe("storyos --version", () => {
     it("prints version number", () => {
       const output = run(["--version"]);
       expect(output.trim()).toMatch(/^\d+\.\d+\.\d+$/);
     }, CLI_PROCESS_TIMEOUT_MS);
   });
 
-  describe("inkos --help", () => {
+  describe("storyos --help", () => {
     it("prints help with command list", () => {
       const output = run(["--help"]);
-      expect(output).toContain("inkos");
+      expect(output).toContain("storyos");
       expect(output).toContain("init");
       expect(output).toContain("book");
       expect(output).toContain("write");
     });
   });
 
-  describe("inkos init", () => {
+  describe("storyos init", () => {
     it("initializes project in current directory", () => {
       const output = run(["init"]);
       expect(output).toContain("Project initialized");
     });
 
-    it("creates inkos.json with correct structure", async () => {
-      const raw = await readFile(join(projectDir, "inkos.json"), "utf-8");
+    it("creates storyos.json with correct structure", async () => {
+      const raw = await readFile(join(projectDir, "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.llm).toBeDefined();
       expect(config.llm.provider).toBeDefined();
@@ -108,7 +108,7 @@ describe("CLI integration", () => {
 
     it("creates .env file", async () => {
       const envContent = await readFile(join(projectDir, ".env"), "utf-8");
-      expect(envContent).toContain("INKOS_LLM_API_KEY");
+      expect(envContent).toContain("STORYOS_LLM_API_KEY");
     });
 
     it("creates .gitignore", async () => {
@@ -129,26 +129,26 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos init <name>", () => {
+  describe("storyos init <name>", () => {
     it("creates project in subdirectory", () => {
       const output = run(["init", "subproject"]);
       expect(output).toContain("Project initialized");
     });
 
-    it("creates inkos.json in subdirectory", async () => {
-      const raw = await readFile(join(projectDir, "subproject", "inkos.json"), "utf-8");
+    it("creates storyos.json in subdirectory", async () => {
+      const raw = await readFile(join(projectDir, "subproject", "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.name).toBe("subproject");
     });
 
     it("supports absolute project paths instead of nesting them under cwd", async () => {
-      const absoluteDir = await mkdtemp(join(tmpdir(), "inkos-cli-abs-init-"));
+      const absoluteDir = await mkdtemp(join(tmpdir(), "storyos-cli-abs-init-"));
 
       try {
         const output = run(["init", absoluteDir]);
         expect(output).toContain(`Project initialized at ${absoluteDir}`);
 
-        const raw = await readFile(join(absoluteDir, "inkos.json"), "utf-8");
+        const raw = await readFile(join(absoluteDir, "storyos.json"), "utf-8");
         const config = JSON.parse(raw);
         expect(config.name).toBe(basename(absoluteDir));
       } finally {
@@ -157,12 +157,12 @@ describe("CLI integration", () => {
     });
 
     it("prints English next steps when initialized with --lang en", async () => {
-      const englishDir = await mkdtemp(join(tmpdir(), "inkos-cli-en-init-"));
+      const englishDir = await mkdtemp(join(tmpdir(), "storyos-cli-en-init-"));
 
       try {
         const output = run(["init", englishDir, "--lang", "en"]);
         expect(output).toContain("Project initialized");
-        expect(output).toContain("inkos book create --title 'My Novel'");
+        expect(output).toContain("storyos book create --title 'My Novel'");
         expect(output).not.toContain("我的小说");
       } finally {
         await rm(englishDir, { recursive: true, force: true });
@@ -170,7 +170,7 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos config set", () => {
+  describe("storyos config set", () => {
     it("sets a known config value", () => {
       const output = run(["config", "set", "llm.provider", "anthropic"]);
       expect(output).toContain("Set llm.provider = anthropic");
@@ -178,7 +178,7 @@ describe("CLI integration", () => {
 
     it("sets a nested config value", async () => {
       run(["config", "set", "llm.model", "gpt-5"]);
-      const raw = await readFile(join(projectDir, "inkos.json"), "utf-8");
+      const raw = await readFile(join(projectDir, "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.llm.model).toBe("gpt-5");
     });
@@ -193,7 +193,7 @@ describe("CLI integration", () => {
       const output = run(["config", "set", "inputGovernanceMode", "v2"]);
       expect(output).toContain("Set inputGovernanceMode = v2");
 
-      const raw = await readFile(join(projectDir, "inkos.json"), "utf-8");
+      const raw = await readFile(join(projectDir, "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.inputGovernanceMode).toBe("v2");
     });
@@ -202,13 +202,13 @@ describe("CLI integration", () => {
       const output = run(["config", "set", "writing.reviewRetries", "3"]);
       expect(output).toContain("Set writing.reviewRetries = 3");
 
-      const raw = await readFile(join(projectDir, "inkos.json"), "utf-8");
+      const raw = await readFile(join(projectDir, "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.writing.reviewRetries).toBe(3);
     });
   });
 
-  describe("inkos config show", () => {
+  describe("storyos config show", () => {
     it("shows current config as JSON", () => {
       const output = run(["config", "show"]);
       const config = JSON.parse(output);
@@ -216,9 +216,9 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos interact", () => {
+  describe("storyos interact", () => {
     it("returns the agent-session JSON contract for natural-language interactions", async () => {
-      const initialized = await stat(join(projectDir, "inkos.json")).then(() => true).catch(() => false);
+      const initialized = await stat(join(projectDir, "storyos.json")).then(() => true).catch(() => false);
       if (!initialized) run(["init"]);
       const envPath = join(projectDir, ".env");
       const originalEnv = await readFile(envPath, "utf-8");
@@ -242,7 +242,7 @@ describe("CLI integration", () => {
     }, CLI_PROCESS_TIMEOUT_MS);
 
     it("binds the requested book when interact is called with --book", async () => {
-      const initialized = await stat(join(projectDir, "inkos.json")).then(() => true).catch(() => false);
+      const initialized = await stat(join(projectDir, "storyos.json")).then(() => true).catch(() => false);
       if (!initialized) run(["init"]);
       const envPath = join(projectDir, ".env");
       const originalEnv = await readFile(envPath, "utf-8");
@@ -272,12 +272,12 @@ describe("CLI integration", () => {
       } finally {
         await writeFile(envPath, originalEnv, "utf-8");
         await rm(join(projectDir, "books", "harbor"), { recursive: true, force: true });
-        await rm(join(projectDir, ".inkos-session.json"), { force: true }).catch(() => {});
+        await rm(join(projectDir, ".storyos-session.json"), { force: true }).catch(() => {});
       }
     }, CLI_PROCESS_TIMEOUT_MS);
   });
 
-  describe("inkos config set-model", () => {
+  describe("storyos config set-model", () => {
     it("rejects raw API keys passed to --api-key-env", async () => {
       const { exitCode, stderr } = runStderr([
         "config",
@@ -295,13 +295,13 @@ describe("CLI integration", () => {
       expect(exitCode).not.toBe(0);
       expect(stderr).toContain("--api-key-env expects an environment variable name");
 
-      const raw = await readFile(join(projectDir, "inkos.json"), "utf-8");
+      const raw = await readFile(join(projectDir, "storyos.json"), "utf-8");
       const config = JSON.parse(raw);
       expect(config.modelOverrides).toBeUndefined();
     });
   });
 
-  describe("inkos book list", () => {
+  describe("storyos book list", () => {
     it("shows no books in empty project", () => {
       const output = run(["book", "list"]);
       expect(output).toContain("No books found");
@@ -314,10 +314,10 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos book create", () => {
+  describe("storyos book create", () => {
     it("removes stale incomplete book directories before retrying create", async () => {
       try {
-        await stat(join(projectDir, "inkos.json"));
+        await stat(join(projectDir, "storyos.json"));
       } catch {
         run(["init"]);
       }
@@ -345,7 +345,7 @@ describe("CLI integration", () => {
     }, CLI_PROCESS_TIMEOUT_MS);
   });
 
-  describe("inkos status", () => {
+  describe("storyos status", () => {
     it("shows project status with zero books", () => {
       const output = run(["status"]);
       expect(output).toContain("Books: 0");
@@ -549,17 +549,17 @@ describe("CLI integration", () => {
     }, DOUBLE_CLI_INVOCATION_TEST_TIMEOUT_MS);
   });
 
-  describe("inkos doctor", () => {
+  describe("storyos doctor", () => {
     it("checks environment health", () => {
       const { stdout } = runStderr(["doctor"]);
-      expect(stdout).toContain("InkOS Doctor");
+      expect(stdout).toContain("StoryOS Doctor");
       expect(stdout).toContain("Node.js >= 20");
       expect(stdout).toContain("SQLite memory index");
-      expect(stdout).toContain("inkos.json");
+      expect(stdout).toContain("storyos.json");
     });
 
     it("repairs missing node runtime pin files for old projects", async () => {
-      await stat(join(projectDir, "inkos.json")).catch(() => {
+      await stat(join(projectDir, "storyos.json")).catch(() => {
         run(["init"]);
       });
 
@@ -581,10 +581,10 @@ describe("CLI integration", () => {
     }, CLI_PROCESS_TIMEOUT_MS);
 
     it("treats localhost OpenAI-compatible endpoints as API-key optional", async () => {
-      await stat(join(projectDir, "inkos.json")).catch(() => {
+      await stat(join(projectDir, "storyos.json")).catch(() => {
         run(["init"]);
       });
-      const configPath = join(projectDir, "inkos.json");
+      const configPath = join(projectDir, "storyos.json");
       const envPath = join(projectDir, ".env");
       const originalConfig = await readFile(configPath, "utf-8");
       const originalEnv = await readFile(envPath, "utf-8");
@@ -596,14 +596,14 @@ describe("CLI integration", () => {
         config.llm.model = "gpt-oss:20b";
         await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
         await writeFile(envPath, [
-          "INKOS_LLM_PROVIDER=openai",
-          "INKOS_LLM_BASE_URL=http://127.0.0.1:11434/v1",
-          "INKOS_LLM_MODEL=gpt-oss:20b",
+          "STORYOS_LLM_PROVIDER=openai",
+          "STORYOS_LLM_BASE_URL=http://127.0.0.1:11434/v1",
+          "STORYOS_LLM_MODEL=gpt-oss:20b",
           "",
         ].join("\n"), "utf-8");
 
         const { stdout } = runStderr(["doctor"], {
-          env: { INKOS_LLM_API_KEY: "" },
+          env: { STORYOS_LLM_API_KEY: "" },
         });
         expect(stdout).toContain("LLM API Key");
         expect(stdout).toContain("Optional for local/self-hosted endpoint");
@@ -645,7 +645,7 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos write", () => {
+  describe("storyos write", () => {
     it("warns before writing when the target book still uses legacy format", async () => {
       const bookDir = join(projectDir, "books", "legacy-write-hint");
       const storyDir = join(bookDir, "story");
@@ -784,16 +784,16 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos analytics", () => {
+  describe("storyos analytics", () => {
     it("errors when no book exists", () => {
       const { exitCode } = runStderr(["analytics"]);
       expect(exitCode).not.toBe(0);
     });
   });
 
-  describe("inkos review", () => {
+  describe("storyos review", () => {
     it("preserves the original chapter snapshot when approving review", async () => {
-      const configPath = join(projectDir, "inkos.json");
+      const configPath = join(projectDir, "storyos.json");
       const initialized = await stat(configPath).then(() => true).catch(() => false);
       if (!initialized) run(["init"]);
 
@@ -860,9 +860,9 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos plan/compose", () => {
+  describe("storyos plan/compose", () => {
     beforeAll(async () => {
-      const configPath = join(projectDir, "inkos.json");
+      const configPath = join(projectDir, "storyos.json");
       const initialized = await stat(configPath).then(() => true).catch(() => false);
       if (!initialized) run(["init"]);
 
@@ -975,9 +975,9 @@ describe("CLI integration", () => {
     });
   });
 
-  describe("inkos export", () => {
+  describe("storyos export", () => {
     beforeAll(async () => {
-      const configPath = join(projectDir, "inkos.json");
+      const configPath = join(projectDir, "storyos.json");
       const initialized = await stat(configPath).then(() => true).catch(() => false);
       if (!initialized) run(["init"]);
 
