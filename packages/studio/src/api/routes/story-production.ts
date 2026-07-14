@@ -339,7 +339,7 @@ async function composeVideo(args: {
     await writeFile(videoPath, file);
   } else {
     const listPath = join(tempDir, "concat-list.txt");
-    await writeFile(listPath, segmentPaths.map((path) => `file '${escapeFfmpegFilterPath(path)}'`).join("\n"), "utf-8");
+    await writeFile(listPath, segmentPaths.map((path) => `file '${path.replace(/\\/gu, "/").replace(/'/gu, "'\\''")}'`).join("\n"), "utf-8");
     await execFileAsync(FFMPEG_PATH, [
       "-y", "-f", "concat", "-safe", "0", "-i", listPath,
       "-c", "copy", "-movflags", "+faststart", videoPath,
