@@ -207,7 +207,7 @@ describe("runAgentSession cache — bookId switch", () => {
   let otherProjectRoot: string | null;
 
   beforeEach(async () => {
-    projectRoot = await mkdtemp(join(tmpdir(), "inkos-agent-cache-"));
+    projectRoot = await mkdtemp(join(tmpdir(), "storyos-agent-cache-"));
     otherProjectRoot = null;
     await mkdir(join(projectRoot, "books", "book-a", "story"), { recursive: true });
     await writeFile(
@@ -338,14 +338,14 @@ describe("runAgentSession cache — bookId switch", () => {
     );
 
     expect(result.responseText).toBe("");
-    expect(result.errorMessage).toContain("InkOS context window guard");
+    expect(result.errorMessage).toContain("StoryOS context window guard");
     expect(streamCalls).toHaveLength(0);
     const events = await readTranscriptEvents(projectRoot, "s-context-window");
     expect(events.some(
       (event: any) =>
         event.type === "request_failed" &&
         typeof event.error === "string" &&
-        event.error.includes("InkOS context window guard"),
+        event.error.includes("StoryOS context window guard"),
     )).toBe(true);
   });
 
@@ -368,7 +368,7 @@ describe("runAgentSession cache — bookId switch", () => {
   it("keeps cached Agents isolated by projectRoot for the same sessionId", async () => {
     const model = { provider: "x", id: "y", api: "anthropic-messages" } as any;
     const pipeline = {} as any;
-    otherProjectRoot = await mkdtemp(join(tmpdir(), "inkos-agent-cache-other-"));
+    otherProjectRoot = await mkdtemp(join(tmpdir(), "storyos-agent-cache-other-"));
     await mkdir(join(otherProjectRoot, "books", "book-a", "story"), { recursive: true });
     await writeFile(
       join(otherProjectRoot, "books", "book-a", "story", "story_bible.md"),

@@ -54,7 +54,7 @@ export function resolveCliLanguage(
     return explicit;
   }
 
-  const requested = normalizeCliLanguageTag(env.INKOS_LOCALE);
+  const requested = normalizeCliLanguageTag(env.STORYOS_LOCALE);
   if (requested) {
     return requested;
   }
@@ -98,8 +98,8 @@ export function formatBookCreateFoundationReady(language: CliLanguage): string {
 
 export function formatBookCreateNextStep(language: CliLanguage, bookId: string): string {
   return localize(language, {
-    zh: `下一步：inkos write next ${bookId}`,
-    en: `Next: inkos write next ${bookId}`,
+    zh: `下一步：storyos write next ${bookId}`,
+    en: `Next: storyos write next ${bookId}`,
   });
 }
 
@@ -336,8 +336,8 @@ export function formatImportChaptersComplete(
     }),
     "",
     localize(language, {
-      zh: `运行 "inkos write next ${result.continueBookId}" 继续写作。`,
-      en: `Run "inkos write next ${result.continueBookId}" to continue writing.`,
+      zh: `运行 "storyos write next ${result.continueBookId}" 继续写作。`,
+      en: `Run "storyos write next ${result.continueBookId}" to continue writing.`,
     }),
   ];
 }
@@ -400,8 +400,8 @@ export function formatDoctorHintOpenAiProbeExhausted(language: CliLanguage): str
 
 export function formatDoctorHintBaseUrl(language: CliLanguage): string {
   return localize(language, {
-    zh: "baseUrl 可能不正确，检查 INKOS_LLM_BASE_URL 是否包含完整路径（如 /v1）",
-    en: "The baseUrl may be wrong. Check that INKOS_LLM_BASE_URL includes the full path (e.g. /v1).",
+    zh: "baseUrl 可能不正确，检查 STORYOS_LLM_BASE_URL 是否包含完整路径（如 /v1）",
+    en: "The baseUrl may be wrong. Check that STORYOS_LLM_BASE_URL includes the full path (e.g. /v1).",
   });
 }
 
@@ -414,15 +414,15 @@ export function formatDoctorHintStreamRequirement(language: CliLanguage): string
 
 export function formatDoctorHintModelName(language: CliLanguage): string {
   return localize(language, {
-    zh: "检查模型名称是否正确（INKOS_LLM_MODEL）",
-    en: "Check that the model name is correct (INKOS_LLM_MODEL).",
+    zh: "检查模型名称是否正确（STORYOS_LLM_MODEL）",
+    en: "Check that the model name is correct (STORYOS_LLM_MODEL).",
   });
 }
 
 export function formatDoctorHintInvalidApiKey(language: CliLanguage): string {
   return localize(language, {
-    zh: "API Key 无效，检查 INKOS_LLM_API_KEY",
-    en: "The API key is invalid. Check INKOS_LLM_API_KEY.",
+    zh: "API Key 无效，检查 STORYOS_LLM_API_KEY",
+    en: "The API key is invalid. Check STORYOS_LLM_API_KEY.",
   });
 }
 
@@ -437,7 +437,7 @@ export function formatFanficSourceTooShortError(length: number): string {
 }
 
 export function formatFanficCanonMissingError(): string {
-  return "No fanfic canon found for this book. Create one with `inkos fanfic init`（该书没有同人正典文件，用 inkos fanfic init 创建同人书）";
+  return "No fanfic canon found for this book. Create one with `storyos fanfic init`（该书没有同人正典文件，用 storyos fanfic init 创建同人书）";
 }
 
 export function formatFanficSourceDirEmptyError(sourcePath: string): string {

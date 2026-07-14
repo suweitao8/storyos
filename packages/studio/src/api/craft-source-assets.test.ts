@@ -11,7 +11,7 @@ import {
 } from "./craft-source-assets.js";
 
 async function makeRoot(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "inkos-craft-source-test-"));
+  return mkdtemp(join(tmpdir(), "storyos-craft-source-test-"));
 }
 
 describe("craft source assets", () => {

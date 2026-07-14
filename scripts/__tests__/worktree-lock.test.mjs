@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { acquireWorktreeLock } from "../worktree-lock.mjs";
 
 test("a released lock can be acquired again", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inkos-lock-"));
+  const root = await mkdtemp(join(tmpdir(), "storyos-lock-"));
   const lockPath = join(root, "codex-finish.lock");
 
   const first = await acquireWorktreeLock(lockPath, { branch: "codex/a" });
@@ -22,7 +22,7 @@ test("a released lock can be acquired again", async () => {
 });
 
 test("lock metadata contains diagnostic ownership fields", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inkos-lock-"));
+  const root = await mkdtemp(join(tmpdir(), "storyos-lock-"));
   const lockPath = join(root, "codex-finish.lock");
   const lock = await acquireWorktreeLock(lockPath, {
     branch: "codex/diagnostic",

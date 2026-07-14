@@ -124,19 +124,19 @@ export async function launchStudioWorkbench(root: string, port: string): Promise
 
   if (!launch) {
     logError(
-      "InkOS Studio not found. If you cloned the repo, run:\n" +
+      "StoryOS Studio not found. If you cloned the repo, run:\n" +
       "  cd packages/studio && pnpm install && pnpm build\n" +
-      "Then run 'inkos studio' from the project root.",
+      "Then run 'storyos studio' from the project root.",
     );
     process.exit(1);
   }
 
-  log(`Starting InkOS Studio on ${url}`);
+  log(`Starting StoryOS Studio on ${url}`);
 
   const child = spawn(launch.command, launch.args, {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, INKOS_STUDIO_PORT: port },
+    env: { ...process.env, STORYOS_STUDIO_PORT: port },
   });
 
   child.on("error", (e) => {
@@ -169,7 +169,7 @@ export async function launchStudioEntry(
 ): Promise<void> {
   const prepared = await prepareStudioRoot(root);
   if (prepared.initialized) {
-    log(`No inkos.json found in ${root}. Initialized a minimal InkOS project for Studio.`);
+    log(`No storyos.json found in ${root}. Initialized a minimal StoryOS project for Studio.`);
   }
 
   if (hooks.launchStudio) {
@@ -182,7 +182,7 @@ export async function launchStudioEntry(
 
 export function createStudioCommand(hooks: StudioCommandHooks = {}): Command {
   return new Command("studio")
-  .description("Start InkOS Studio web workbench")
+  .description("Start StoryOS Studio web workbench")
   .option("-p, --port <port>", "Server port", "4567")
   .action(async (opts) => {
     const root = findProjectRoot();

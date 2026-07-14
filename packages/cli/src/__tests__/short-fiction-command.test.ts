@@ -36,31 +36,31 @@ describe("short command", () => {
   });
 
   it("requires an explicit cover API key", () => {
-    const oldValue = process.env.INKOS_TEST_MISSING_COVER_KEY;
-    delete process.env.INKOS_TEST_MISSING_COVER_KEY;
+    const oldValue = process.env.STORYOS_TEST_MISSING_COVER_KEY;
+    delete process.env.STORYOS_TEST_MISSING_COVER_KEY;
     try {
-      expect(() => resolveCoverApiKey("INKOS_TEST_MISSING_COVER_KEY")).toThrow(/API key/i);
+      expect(() => resolveCoverApiKey("STORYOS_TEST_MISSING_COVER_KEY")).toThrow(/API key/i);
     } finally {
-      if (oldValue === undefined) delete process.env.INKOS_TEST_MISSING_COVER_KEY;
-      else process.env.INKOS_TEST_MISSING_COVER_KEY = oldValue;
+      if (oldValue === undefined) delete process.env.STORYOS_TEST_MISSING_COVER_KEY;
+      else process.env.STORYOS_TEST_MISSING_COVER_KEY = oldValue;
     }
   });
 
   it("normalizes an unsupported environment provider to the default provider", () => {
-    const oldProvider = process.env.INKOS_LLM_PROVIDER;
-    process.env.INKOS_LLM_PROVIDER = "unsupported-provider";
+    const oldProvider = process.env.STORYOS_LLM_PROVIDER;
+    process.env.STORYOS_LLM_PROVIDER = "unsupported-provider";
     try {
       expect(buildEnvLLMConfig({ llmBaseUrl: "https://api.example.com/v1", model: "test-model" }).provider)
         .toBe("anthropic");
     } finally {
-      if (oldProvider === undefined) delete process.env.INKOS_LLM_PROVIDER;
-      else process.env.INKOS_LLM_PROVIDER = oldProvider;
+      if (oldProvider === undefined) delete process.env.STORYOS_LLM_PROVIDER;
+      else process.env.STORYOS_LLM_PROVIDER = oldProvider;
     }
   });
 
   it("uses the OpenAI-compatible transport for kkaiapi", () => {
-    process.env.INKOS_LLM_PROVIDER = "kkaiapi";
-    process.env.INKOS_LLM_API_KEY = "test-key";
+    process.env.STORYOS_LLM_PROVIDER = "kkaiapi";
+    process.env.STORYOS_LLM_API_KEY = "test-key";
 
     expect(buildEnvLLMConfig({ llmBaseUrl: "https://api.kkaiapi.com/v1", model: "kimi-k2.6" }).provider)
       .toBe("openai");

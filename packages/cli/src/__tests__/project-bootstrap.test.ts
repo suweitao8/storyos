@@ -8,7 +8,7 @@ describe("project bootstrap", () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "inkos-bootstrap-"));
+    tempDir = await mkdtemp(join(tmpdir(), "storyos-bootstrap-"));
     process.env.HOME = tempDir;
   });
 
@@ -23,8 +23,8 @@ describe("project bootstrap", () => {
     const initialized = await ensureProjectDirectoryInitialized(tempDir, { language: "zh" });
 
     expect(initialized).toBe(true);
-    const config = JSON.parse(await readFile(join(tempDir, "inkos.json"), "utf-8"));
-    expect(config.name).toMatch(/^inkos-bootstrap-/);
+    const config = JSON.parse(await readFile(join(tempDir, "storyos.json"), "utf-8"));
+    expect(config.name).toMatch(/^storyos-bootstrap-/);
     expect(config.version).toBe("0.1.0");
     expect(config.llm.configSource).toBe("studio");
     expect(config.llm.service).toBe("custom");
@@ -32,7 +32,7 @@ describe("project bootstrap", () => {
     expect(config.llm.baseUrl).toBe("");
     await expect(access(join(tempDir, "books"))).resolves.toBeUndefined();
     await expect(access(join(tempDir, "radar"))).resolves.toBeUndefined();
-    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("INKOS_LLM_PROVIDER");
+    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("STORYOS_LLM_PROVIDER");
     await expect(readFile(join(tempDir, ".nvmrc"), "utf-8")).resolves.toBe("22\n");
     await expect(readFile(join(tempDir, ".node-version"), "utf-8")).resolves.toBe("22\n");
   }, 20_000);
@@ -65,13 +65,13 @@ describe("project bootstrap", () => {
     expect(gitignore).toContain(".DS_Store\n");
   });
 
-  it("returns false when the directory is already an InkOS project", async () => {
-    await writeFile(join(tempDir, "inkos.json"), "{}\n", "utf-8");
+  it("returns false when the directory is already an StoryOS project", async () => {
+    await writeFile(join(tempDir, "storyos.json"), "{}\n", "utf-8");
     const { ensureProjectDirectoryInitialized } = await import("../project-bootstrap.js");
 
     await expect(ensureProjectDirectoryInitialized(tempDir, { language: "zh" })).resolves.toBe(false);
     await expect(access(join(tempDir, "books"))).resolves.toBeUndefined();
     await expect(access(join(tempDir, "radar"))).resolves.toBeUndefined();
-    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("INKOS_LLM_PROVIDER");
+    await expect(readFile(join(tempDir, ".env"), "utf-8")).resolves.toContain("STORYOS_LLM_PROVIDER");
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "@actalk/inkos-studio",
   "version": "1.6.3",
-  "description": "InkOS Studio — web workbench for story creation, InkOS Short, covers, and open-world interactive play",
+  "description": "StoryOS Studio — web workbench for story creation, StoryOS Short, covers, and open-world interactive play",
   "type": "module",
   "main": "dist/api/index.js",
   "types": "dist/api/index.d.ts",
@@ -21,7 +21,7 @@
     "prepublishOnly": "node ../../scripts/verify-no-workspace-protocol.mjs .",
     "dev": "node ../../scripts/studio-dev.mjs",
     "dev:client": "vite --host --port 4567",
-    "dev:server": "INKOS_STUDIO_PORT=4569 INKOS_PROJECT_ROOT=../../../../.. tsx watch src/api/index.ts",
+    "dev:server": "STORYOS_STUDIO_PORT=4569 STORYOS_PROJECT_ROOT=../../../../.. tsx watch src/api/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",

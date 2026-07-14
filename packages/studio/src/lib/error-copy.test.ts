@@ -26,9 +26,9 @@ describe("localizeKnownRuntimeMessage", () => {
     expect(studioMessage).not.toMatch(/kkaiapi/i);
 
     const cliMessage = localizeKnownRuntimeMessage(
-      "INKOS_LLM_API_KEY not set. Run 'inkos config set-global' or add it to project .env file.",
+      "STORYOS_LLM_API_KEY not set. Run 'storyos config set-global' or add it to project .env file.",
     );
-    expect(cliMessage).toContain("INKOS_LLM_API_KEY 未设置");
+    expect(cliMessage).toContain("STORYOS_LLM_API_KEY 未设置");
     expect(cliMessage).not.toMatch(/kkaiapi/i);
   });
 });

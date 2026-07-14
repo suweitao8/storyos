@@ -5,10 +5,10 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { writeFile, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
-const PID_FILE = "inkos.pid";
+const PID_FILE = "storyos.pid";
 
 export const upCommand = new Command("up")
-  .description("Start the InkOS daemon (autonomous mode)")
+  .description("Start the StoryOS daemon (autonomous mode)")
   .option("-q, --quiet", "Suppress console output")
   .action(async (opts) => {
     let logStream: WriteStream | undefined;
@@ -21,13 +21,13 @@ export const upCommand = new Command("up")
       pidPath = join(root, PID_FILE);
       try {
         const existingPid = await readFile(pidPath, "utf-8");
-        logError(`Daemon already running (PID: ${existingPid.trim()}). Run 'inkos down' first.`);
+        logError(`Daemon already running (PID: ${existingPid.trim()}). Run 'storyos down' first.`);
         process.exit(1);
       } catch {
         // No PID file, good
       }
 
-      log("Starting InkOS daemon...");
+      log("Starting StoryOS daemon...");
       log(`  Write cycle: ${config.daemon.schedule.writeCron}`);
       log(`  Radar scan: ${config.daemon.schedule.radarCron}`);
       log(`  Max concurrent books: ${config.daemon.maxConcurrentBooks}`);
@@ -37,7 +37,7 @@ export const upCommand = new Command("up")
       await writeFile(pidPath, String(process.pid), "utf-8");
 
       // File logging for daemon
-      const logPath = join(root, "inkos.log");
+      const logPath = join(root, "storyos.log");
       logStream = createWriteStream(logPath, { flags: "a" });
 
       const scheduler = new Scheduler({
@@ -101,7 +101,7 @@ export const upCommand = new Command("up")
   });
 
 export const downCommand = new Command("down")
-  .description("Stop the InkOS daemon")
+  .description("Stop the StoryOS daemon")
   .action(async () => {
     const root = findProjectRoot();
     const pidPath = join(root, PID_FILE);

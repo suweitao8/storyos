@@ -47,8 +47,8 @@ export function registerProviderRoutes(context: StudioRouteContext): void {
     const secrets = await loadSecrets();
     const keyFor = (service: string): boolean => serviceHasKey(secrets, service, coverSecretKey);
     const envConfigured = Boolean(
-      (process.env.INKOS_COVER_BASE_URL || process.env.INKOS_COVER_ENDPOINT)
-      && (process.env.INKOS_COVER_API_KEY || keyFor("kkaiapi")),
+      (process.env.STORYOS_COVER_BASE_URL || process.env.STORYOS_COVER_ENDPOINT)
+      && (process.env.STORYOS_COVER_API_KEY || keyFor("kkaiapi")),
     );
     const configured = Boolean(cover?.service && keyFor(cover.service)) || envConfigured;
     return c.json({

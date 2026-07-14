@@ -131,7 +131,7 @@ describe("agent tools language wiring (en parity)", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-agent-tools-en-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-agent-tools-en-"));
     agentInstances.length = 0;
     runShortFictionProductionMock.mockClear();
     runScriptCreationMock.mockClear();

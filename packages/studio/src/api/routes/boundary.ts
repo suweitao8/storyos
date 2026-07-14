@@ -23,7 +23,7 @@ export function errorResponse(c: Context, error: unknown): Response {
   }
 
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("LLM API key not set") || message.includes("INKOS_LLM_API_KEY not set")) {
+  if (message.includes("LLM API key not set") || message.includes("STORYOS_LLM_API_KEY not set")) {
     return c.json({ error: { code: "LLM_CONFIG_ERROR", message } }, 400);
   }
 

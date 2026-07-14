@@ -1049,8 +1049,8 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
   const emptyGuidance = (() => {
     if (currentSessionKind === "short") {
       return isZh
-        ? "说一个短篇方向、标题灵感、人物压力或核心冲突，我会走 InkOS Short 生成正文、简介和封面。"
-        : "Describe a short-fiction direction, title hook, pressure, or core conflict to run InkOS Short.";
+        ? "说一个短篇方向、标题灵感、人物压力或核心冲突，我会走 StoryOS Short 生成正文、简介和封面。"
+        : "Describe a short-fiction direction, title hook, pressure, or core conflict to run StoryOS Short.";
     }
     if (currentSessionKind === "play") {
       return isZh

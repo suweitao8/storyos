@@ -100,7 +100,7 @@ export function ServiceConfigSourceCard({ onChange }: { onChange?: () => void })
   const envLabel = envConfig.effectiveSource === "project"
     ? tr("项目 .env", "Project .env")
     : envConfig.effectiveSource === "global"
-      ? tr("全局 ~/.inkos/.env", "Global ~/.inkos/.env")
+      ? tr("全局 ~/.storyos/.env", "Global ~/.storyos/.env")
       : null;
   const envDetected = envConfig.project.detected || envConfig.global.detected;
 

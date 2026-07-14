@@ -49,7 +49,7 @@ describe("Bilibili craft import subtitle correction", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-bilibili-import-test-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-bilibili-import-test-"));
     loadProjectConfigMock.mockResolvedValue(projectConfig);
     importBilibiliSourceMock.mockResolvedValue({
       videoInfo: { bvid: "BV1test00001", aid: 1, cid: 2, title: "测试视频", duration: 12 },

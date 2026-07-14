@@ -8,7 +8,7 @@ describe("Studio skill endpoints", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "inkos-studio-skills-"));
+    root = await mkdtemp(join(tmpdir(), "storyos-studio-skills-"));
   });
 
   afterEach(async () => {
@@ -16,9 +16,9 @@ describe("Studio skill endpoints", () => {
   });
 
   it("lists built-in skills and project-local skills", async () => {
-    await mkdir(join(root, ".inkos", "skills", "detective-play"), { recursive: true });
+    await mkdir(join(root, ".storyos", "skills", "detective-play"), { recursive: true });
     await writeFile(
-      join(root, ".inkos", "skills", "detective-play", "SKILL.md"),
+      join(root, ".storyos", "skills", "detective-play", "SKILL.md"),
       [
         "---",
         "id: detective-play",
@@ -66,7 +66,7 @@ describe("Studio skill endpoints", () => {
     expect(createRes.status).toBe(200);
     const created = await createRes.json() as { skill: { id: string; editable: boolean } };
     expect(created.skill).toMatchObject({ id: "romance-play", editable: true });
-    expect(await readFile(join(root, ".inkos", "skills", "romance-play", "SKILL.md"), "utf-8"))
+    expect(await readFile(join(root, ".storyos", "skills", "romance-play", "SKILL.md"), "utf-8"))
       .toContain("Keep emotional continuity visible.");
 
     const updateRes = await app.request("/api/v1/skills/romance-play", {
@@ -82,7 +82,7 @@ describe("Studio skill endpoints", () => {
       }),
     });
     expect(updateRes.status).toBe(200);
-    expect(await readFile(join(root, ".inkos", "skills", "romance-play", "SKILL.md"), "utf-8"))
+    expect(await readFile(join(root, ".storyos", "skills", "romance-play", "SKILL.md"), "utf-8"))
       .toContain("Track longing, avoidance, and revealed care.");
 
     const deleteRes = await app.request("/api/v1/skills/romance-play", { method: "DELETE" });

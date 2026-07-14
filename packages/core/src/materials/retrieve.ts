@@ -66,7 +66,7 @@ export async function retrieveMaterials(
 }
 
 async function listMaterialAssets(projectRoot: string): Promise<MaterialAsset[]> {
-  const materialsDir = join(projectRoot, ".inkos", "materials");
+  const materialsDir = join(projectRoot, ".storyos", "materials");
   let entries: string[] = [];
   try {
     entries = await readdir(materialsDir);

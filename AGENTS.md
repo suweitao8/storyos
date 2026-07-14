@@ -71,7 +71,7 @@
 | `.studio-live/` | Studio 运行日志（server/client 的 out/err） | 是 |
 | `.screenshots/` | 开发过程中对网页/Studio 的截图，文件名 `{功能描述}-{时间戳}.png` | 是 |
 | `.worktrees/` | Git worktree 隔离工作区 | 是 |
-| `.inkos/` | 用户运行时数据（会话记录、书籍内容、密钥） | 是 |
+| `.storyos/` | 用户运行时数据（会话记录、书籍内容、密钥） | 是 |
 | `books/` `crafts/` `shorts/` `worlds/` `genres/` | 用户创作数据 | 是 |
 | `radar/` `prompt/` `craft-source-uploads/` | 其他运行时数据 | 是 |
 | `tmp/` | 临时文件 | 是 |
@@ -90,4 +90,4 @@
    - 改动范围不清楚、测试失败且无法安全修复、所有权无法确认：保留 worktree，不得为了"清理"而丢弃改动。
    - 主 checkout 的本地配置、运行时数据和未跟踪目录必须单独分类；除非明确属于当前任务，不得带入提交、删除或覆盖。
 
-4. **删除安全**：不得对正在使用或有未提交改动的 worktree 使用 `git worktree remove --force`；只有 Git 已解除 worktree 注册后才允许清理物理目录，递归删除前必须确认路径在 `.worktrees/` 内；不得删除 `.inkos/`、`shorts/` 等用户运行数据；清理后再次检查 `git worktree list`、分支引用、主 checkout 状态和残留目录。
+4. **删除安全**：不得对正在使用或有未提交改动的 worktree 使用 `git worktree remove --force`；只有 Git 已解除 worktree 注册后才允许清理物理目录，递归删除前必须确认路径在 `.worktrees/` 内；不得删除 `.storyos/`、`shorts/` 等用户运行数据；清理后再次检查 `git worktree list`、分支引用、主 checkout 状态和残留目录。

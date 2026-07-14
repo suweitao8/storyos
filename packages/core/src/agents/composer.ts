@@ -186,7 +186,7 @@ async function applyContextBudgetIfNeeded(params: {
     });
     throw new Error(
       `Protected context exceeds available input budget (${protectedTokens}/${availableInputTokens} tokens). ` +
-      "InkOS will not compress protected author intent, current focus, hard state, or active hook evidence.",
+      "StoryOS will not compress protected author intent, current focus, hard state, or active hook evidence.",
     );
   }
   if (compressibleEntries.length === 0) {
