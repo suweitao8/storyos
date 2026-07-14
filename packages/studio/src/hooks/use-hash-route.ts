@@ -27,7 +27,7 @@ export type HashRoute =
   | { page: "film-author"; projectId: string }
   | { page: "film-studio"; projectId: string };
 
-export type ProjectSettingsTabId = "common" | "models" | "genres" | "diagnostics";
+export type ProjectSettingsTabId = "common" | "genres" | "diagnostics";
 
 function parseHash(hash: string): HashRoute {
   const path = hash.replace(/^#\/?/, "");
