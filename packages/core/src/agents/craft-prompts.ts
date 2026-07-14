@@ -391,7 +391,7 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
       user: [
         "用日常中文写，优先使用具体的人、动作、选择和结果；不要把专业分析术语直接当成故事设定内容。",
         "不写论文式分析，不堆叠抽象概念。必须使用专业词时，第一次出现就用一句大白话解释，后面尽量继续用大白话。",
-        "每个板块控制在少量有重点的短句或要点内；大纲按‘发生了什么—主角怎么应对—带来什么新麻烦’展开，不写冗长理论说明。",
+        "每个板块控制在少量有重点的短句或要点内；大纲只写情节——'发生了什么—主角怎么应对—带来什么新麻烦'，不写写作手法、技巧说明或创作理论。",
         "把‘冲突升级机制’写成‘每解决一个问题，新的麻烦变得更大’，把‘信息释放节奏’写成‘先告诉观众什么，哪些事情暂时藏住’。",
         "原创化改编方案也要让普通观众看懂，写清新的空间、人物、关系、事件和结局，不要只列专业检查项。",
       ],
@@ -406,7 +406,7 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
     user: [
       "Use everyday language and prioritize concrete people, actions, choices, and consequences instead of exposing craft jargon as story content.",
       "Do not write an academic analysis or stack abstract concepts. If a technical term is necessary, explain it in plain language the first time and keep using plain language afterward.",
-      "Keep each section focused and concise; structure the outline as what happens, how the protagonist responds, and what bigger problem follows.",
+      "Keep each section focused and concise; the outline must contain only plot events — what happens, how the protagonist responds, and what bigger problem follows — not writing techniques or craft instructions.",
       "Explain the transformation plan in audience-friendly language, naming the new setting, people, relationships, events, and ending rather than listing technical checks.",
     ],
   };
@@ -553,6 +553,9 @@ export function buildStorySeedPrompt(
       language === "zh"
         ? "这是给短片创作使用的故事种子：大纲要能落到可拍摄的段落，角色要写清目标、弱点和关系，反转要能回收前文线索，结局要写清代价与情绪余味。"
         : "This seed is for a short film: make the outline shootable, give characters goals, vulnerabilities, and relationships, make reversals pay off earlier clues, and state the ending cost and emotional aftertaste.",
+      language === "zh"
+        ? "分段故事大纲只写故事里发生了什么——按时间顺序列出每个段落的情节推进：谁做了什么、遇到了什么问题、如何应对、结果怎样。不要写写作手法或创作技巧，例如'首句嗅觉锚定''不交代场景''信息释放节奏''视角策略'等。这些是参考素材里的创作机制，应内化为具体的情节，而不是作为指导说明出现在大纲里。"
+        : "The beat outline must describe only WHAT HAPPENS in the story — list each beat in chronological order: who does what, what problem arises, how they respond, and what follows. Do not include writing techniques or craft instructions such as 'olfactory anchoring in the opening line', 'withhold the setting', 'information release rhythm', or 'POV strategy'. Those are reference mechanisms to internalize into concrete plot events, not instructions to state in the outline.",
       language === "zh"
         ? "原创化改编方案必须具体写出新的空间、身份、关系、因果链、关键事件和结局，并列出不得继承的专有名词、独特道具、对白和连续事件顺序。创作时不是给原故事换名词，而是重建关系和因果链。"
         : "The originality transformation plan must specify a new setting, identities, relationships, causal chain, key events, and ending, plus a do-not-carry list for proper nouns, signature objects, dialogue, and contiguous event order. Do not merely rename the source story; rebuild its relationships and causality.",
