@@ -36,10 +36,12 @@ describe("unified story production", () => {
     expect(result.shots).toHaveLength(2);
     expect(result.shots[0]).toMatchObject({
       scene: "第一场：电梯门口",
-      subtitle: "旁白：凌晨两点，电梯自己亮了。",
+      // 旁白在逗号处断句换行
+      subtitle: "旁白：凌晨两点，\n电梯自己亮了。",
       durationMs: 4000,
       visual: "老旧电梯停在十三层。",
     });
+    // 句号处也会换行（句末标点后跟换行，但 trim 掉尾换行）
     expect(result.shots[1]?.subtitle).toBe("门缝里伸出一只手。");
   });
 
@@ -76,6 +78,46 @@ describe("unified story production", () => {
     expect(result.shots[0]?.subtitle).toBe("他朝着光走去。");
     expect(result.shots[1]?.subtitle).toBe("门外是另一片天地。");
     expect(result.shots[2]?.subtitle).toBe("一切都回不去了。");
+  });
+
+  it("numbers shots per-scene starting from 1", () => {
+    const result = parseUnifiedScript(`# 多场景编号测试
+
+## 场景 A
+
+### 镜头 1
+- 画面：A1
+- 旁白：第一句。
+
+### 镜头 2
+- 画面：A2
+- 旁白：第二句。
+
+## 场景 B
+
+### 镜头 3
+- 画面：B1
+- 旁白：第三句。
+
+### 镜头 4
+- 画面：B2
+- 旁白：第四句。`);
+
+    // 场景 A 的两个镜头编号 1、2，场景 B 的两个镜头重新从 1、2 开始
+    expect(result.shots.map((s) => s.number)).toEqual([1, 2, 1, 2]);
+    expect(result.shots.map((s) => s.scene)).toEqual(["场景 A", "场景 A", "场景 B", "场景 B"]);
+  });
+
+  it("splits long narration at commas and periods for readability", () => {
+    const result = parseUnifiedScript(`# 断句测试
+
+## 场景
+
+### 镜头 1
+- 旁白：天色暗了下来，路灯亮了，她终于走到了门口。`);
+
+    // 逗号和句号后插入换行，句末尾换行被 trim
+    expect(result.shots[0]?.subtitle).toBe("天色暗了下来，\n路灯亮了，\n她终于走到了门口。");
   });
 });
 

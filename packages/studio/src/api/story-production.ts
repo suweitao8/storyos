@@ -70,15 +70,23 @@ function parseDurationMs(value: string): number {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : 0;
 }
 
+/** 在逗号、句号等断句标点后插入换行，让旁白更便于朗读和阅读。 */
+function splitNarrationByPunctuation(text: string): string {
+  return text
+    .replace(/([，。！？；,!?;])\s*/gu, "$1\n")
+    .replace(/\n{2,}/gu, "\n")
+    .trim();
+}
+
 function shotFromParsed(shot: ParsedShot, number: number): UnifiedScriptShot | null {
   // 旁白/字幕/台词已统一为 subtitle。每个镜头必须有旁白——没有旁白的镜头不保留。
-  const subtitle = cleanFieldValue(shot.subtitle);
+  const subtitle = splitNarrationByPunctuation(cleanFieldValue(shot.subtitle));
   const visual = cleanFieldValue(shot.visual || shot.action);
   if (!subtitle && !visual && !shot.imagePrompt) return null;
   return {
     number,
     scene: shot.scene || "未命名场景",
-    visual: visual || subtitle.slice(0, 40) || "画面待补充",
+    visual: visual || subtitle.replace(/\n/gu, " ").slice(0, 40) || "画面待补充",
     ...(shot.camera ? { camera: cleanFieldValue(shot.camera) } : {}),
     ...(shot.action ? { action: cleanFieldValue(shot.action) } : {}),
     subtitle,
@@ -110,10 +118,13 @@ export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
   const shots: UnifiedScriptShot[] = [];
   let scene = "未命名场景";
   let current: ParsedShot | null = null;
+  // 镜头编号按场景内从 1 开始，每进入新场景归零。
+  let sceneShotIndex = 0;
 
   const flush = (): void => {
     if (!current) return;
-    const shot = shotFromParsed(current, shots.length + 1);
+    sceneShotIndex += 1;
+    const shot = shotFromParsed(current, sceneShotIndex);
     if (shot) shots.push(shot);
     current = null;
   };
@@ -125,6 +136,7 @@ export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
     if (sceneMatch) {
       flush();
       scene = cleanFieldValue(sceneMatch[1]!);
+      sceneShotIndex = 0;
       continue;
     }
     const shotMatch = /^###\s+(?:(?:镜头|shot)\s*)?(\d+)?\s*[:：-]?\s*(.*)$/iu.exec(trimmed);
