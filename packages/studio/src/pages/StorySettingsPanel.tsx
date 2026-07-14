@@ -29,18 +29,18 @@ interface StoryContentResponse {
   readonly chapters: ReadonlyArray<StoryChapter>;
 }
 
-type StorySectionGroup = "settings" | "world" | "outline" | "characters" | "other";
+type StorySectionGroup = "settings" | "world" | "outline";
 type StorySettingsTab = StorySectionGroup | "chapters";
 
 export function groupStorySection(section: Pick<StorySection, "file" | "title">): StorySectionGroup {
   const file = section.file.toLowerCase();
   const title = section.title.toLowerCase();
-  if (file.includes("roles/") || title.includes("角色") || title.includes("人物") || title.includes("关系")) return "characters";
   if (file.includes("story_frame") || title.includes("设定")) return "settings";
   if (title.includes("题材") || title.includes("受众") || title.includes("标题方向") || title.includes("核心压力")) return "settings";
+  if (title.includes("角色") || title.includes("人物") || title.includes("关系")) return "settings";
   if (file.includes("rule") || title.includes("规则") || title.includes("世界")) return "world";
   if (file.includes("outline") || title.includes("大纲") || title.includes("走向") || title.includes("提纲")) return "outline";
-  return "other";
+  return "settings";
 }
 
 export function trimStoryHeading(content: string): string {
@@ -55,14 +55,11 @@ const GROUP_LABELS: Record<StorySectionGroup, { readonly zh: string; readonly en
   settings: { zh: "故事设定", en: "Story setup" },
   world: { zh: "世界观与规则", en: "World and rules" },
   outline: { zh: "故事大纲", en: "Outline" },
-  characters: { zh: "角色", en: "Characters" },
-  other: { zh: "其他设定", en: "Other notes" },
 };
 
 export interface StorySettingsTabItem {
   readonly id: StorySettingsTab;
   readonly label: string;
-  readonly count: number;
 }
 
 export function buildStorySettingsTabItems(
@@ -72,12 +69,11 @@ export function buildStorySettingsTabItems(
   isShortStory = false,
 ): ReadonlyArray<StorySettingsTabItem> {
   return [
-    ...groups.map(([group, sections]) => ({
+    ...groups.map(([group]) => ({
       id: group,
       label: GROUP_LABELS[group][isZh ? "zh" : "en"],
-      count: sections.length,
     })),
-    ...(chapterCount > 0 ? [{ id: "chapters" as const, label: isShortStory ? (isZh ? "故事正文" : "Story text") : (isZh ? "章节" : "Chapters"), count: isShortStory ? 0 : chapterCount }] : []),
+    ...(chapterCount > 0 ? [{ id: "chapters" as const, label: isShortStory ? (isZh ? "故事正文" : "Story text") : (isZh ? "章节" : "Chapters") }] : []),
   ];
 }
 
@@ -134,7 +130,7 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
                       onClick={() => setActiveTab(tab.id)}
                       className={`rounded-lg px-3 py-2 text-sm transition-colors ${selectedTab === tab.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"}`}
                     >
-                      {tab.label}<span className={`ml-1.5 text-xs ${selectedTab === tab.id ? "text-primary-foreground/75" : "text-muted-foreground/70"}`}>{tab.count}</span>
+                      {tab.label}
                     </button>
                   ))}
                 </div>
@@ -146,7 +142,6 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
               </section>
             ) : selectedGroup ? (
               <section className="space-y-4 px-6 py-7" role="tabpanel">
-                <h2 className="flex items-center gap-2 text-base font-semibold"><span className="h-5 w-1 rounded-full bg-primary" />{GROUP_LABELS[selectedGroup[0]][isZh ? "zh" : "en"]}</h2>
                 <div className="grid gap-5 lg:grid-cols-2">{selectedGroup[1].map((section) => <DocumentCard key={section.file} section={section} />)}</div>
               </section>
             ) : null}
