@@ -314,9 +314,7 @@ export function App() {
     toTruth: (bookId: string) => setRoute({ page: "truth", bookId }),
     toDaemon: () => setRoute({ page: "daemon" }),
     toLogs: () => setRoute({ page: "logs" }),
-    toGenres: () => setRoute({ page: "genres" }),
     toPromptTemplates: () => setRoute({ page: "prompt-templates" }),
-    toSkills: () => setRoute({ page: "skills" }),
     toCraft: () => setRoute({ page: "craft" }),
     toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => setRoute({ page: "import", ...(tab ? { tab } : {}) }),
     toRadar: () => setRoute({ page: "radar" }),
@@ -546,7 +544,7 @@ export function App() {
           )}
           {route.page === "genres" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
-              <GenreManager nav={nav} theme={theme} t={t} />
+              <GenreManager theme={theme} t={t} />
             </div>
           )}
           {route.page === "prompt-templates" && (

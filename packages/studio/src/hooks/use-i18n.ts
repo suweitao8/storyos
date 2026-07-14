@@ -324,6 +324,8 @@ const strings = {
   "settings.title": { zh: "设置", en: "Settings" },
   "settings.tab.common": { zh: "常用", en: "Common" },
   "settings.tab.models": { zh: "模型", en: "Models" },
+  "settings.tab.skills": { zh: "Skill", en: "Skills" },
+  "settings.tab.genres": { zh: "题材", en: "Genres" },
   "settings.tab.diagnostics": { zh: "诊断", en: "Diagnostics" },
   "settings.general": { zh: "通用", en: "General" },
   "settings.generalHint": { zh: "界面语言与主题皮肤。", en: "Interface language and theme." },
