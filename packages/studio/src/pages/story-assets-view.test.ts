@@ -132,27 +132,34 @@ describe("story asset view helpers", () => {
     expect(renderPanel([])).toContain("No content");
   });
 
-  it("renders safe image URLs, state-specific labels, and does not generate on mount", () => {
+  it("renders safe image URLs and state-specific labels without generating on mount", () => {
     const onGenerateAsset = vi.fn();
-    const onGenerateMissing = vi.fn();
-    const html = renderPanel(assets, { onGenerateAsset, onGenerateMissing });
+    const html = renderPanel(assets, { onGenerateAsset });
 
     expect(html).toContain("/api/v1/stories/book/demo%2Fstory/assets/images/mara");
-    expect(html).toContain("Generate all missing images");
-    expect(renderPanel(assets, { isZh: true })).toContain("生成全部缺失图片");
     expect(html).toContain("Regenerate image");
     expect(onGenerateAsset).not.toHaveBeenCalled();
-    expect(onGenerateMissing).not.toHaveBeenCalled();
   });
 
-  it("renders a compact name-only asset list beside selected asset details", () => {
+  it("renders three grouped lists (characters, scenes, props) beside selected asset details", () => {
     const html = renderPanel();
 
     expect(html).toContain('data-testid="story-assets-list"');
     expect(html).toContain('data-testid="story-asset-details"');
     expect(html).toContain('data-testid="story-asset-item-mara"');
+    expect(html).toContain("Characters");
+    expect(html).toContain("Scenes");
+    expect(html).toContain("Props");
     expect(html).toContain("Mara");
     expect(html).toContain("A careful archivist.");
     expect(html).not.toContain('data-testid="story-asset-card-mara"');
+  });
+
+  it("does not render the removed header buttons", () => {
+    const html = renderPanel();
+
+    expect(html).not.toContain("Generate all missing images");
+    expect(html).not.toContain("Extract assets");
+    expect(html).not.toContain("Story assets");
   });
 });
