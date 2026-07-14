@@ -70,10 +70,10 @@ function parseDurationMs(value: string): number {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : 0;
 }
 
-/** 在逗号、句号等断句标点后插入换行，让旁白更便于朗读和阅读。 */
+/** 在断句标点处拆行并删除标点，让旁白更便于朗读和阅读。 */
 function splitNarrationByPunctuation(text: string): string {
   return text
-    .replace(/([，。！？；,!?;])\s*/gu, "$1\n")
+    .replace(/[，。！？；,!?;]\s*/gu, "\n")
     .replace(/\n{2,}/gu, "\n")
     .trim();
 }
@@ -252,11 +252,11 @@ export function buildSubtitleEntries(shots: readonly UnifiedScriptShot[], gapMs 
     if (!trimmed) continue;
     // 按换行拆成单行，逐行作为独立字幕条目
     const lines = trimmed.split(/\n+/u).map((l) => l.trim()).filter(Boolean);
-    // shot 总时长按比例分配给每行
-    const totalDurationMs = shot.durationMs > 0 ? shot.durationMs : estimateSubtitleDurationMs(trimmed);
-    const perLineMs = lines.length > 0 ? Math.max(1000, Math.round(totalDurationMs / lines.length)) : totalDurationMs;
     for (const line of lines) {
-      const durationMs = perLineMs;
+      // 每行时长按字数估算（每字约 180ms，最低 1 秒）。
+      // 不用 shot.durationMs，因为它是 AI 估算的镜头时长，与实际语音时长无关。
+      // 后续接入语音合成后，应改为按实际 TTS 音频时长。
+      const durationMs = estimateSubtitleDurationMs(line);
       entries.push({
         index: ++index,
         startTimeMs: cursor,
