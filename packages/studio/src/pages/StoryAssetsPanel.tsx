@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, RefreshCw, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
 import { fetchJson, postApi, useApi } from "../hooks/use-api";
@@ -126,6 +126,15 @@ const KIND_LABELS: Record<StoryAssetKind, { readonly zh: string; readonly en: st
   prop: { zh: "道具", en: "Props" },
 };
 
+const KIND_ORDER: ReadonlyArray<StoryAssetKind> = ["character", "scene", "prop"];
+
+const STATUS_DOT: Record<StoryAssetImageStatus, string> = {
+  missing: "bg-muted-foreground/40",
+  generating: "bg-amber-500",
+  ready: "bg-emerald-500",
+  error: "bg-destructive",
+};
+
 const STATUS_CLASS: Record<StoryAssetImageStatus, string> = {
   missing: "border-border/60 bg-secondary/40 text-muted-foreground",
   generating: "border-amber-500/30 bg-amber-500/10 text-amber-500",
@@ -133,62 +142,62 @@ const STATUS_CLASS: Record<StoryAssetImageStatus, string> = {
   error: "border-destructive/30 bg-destructive/10 text-destructive",
 };
 
-function actionLabel(isZh: boolean, action: "extract" | "generateAll"): string {
-  if (action === "extract") return isZh ? "提取资产" : "Extract assets";
-  return isZh ? "生成全部缺失图片" : "Generate all missing images";
-}
-
 export function StoryAssetsPanel({
   kind,
   storyId,
   theme: _theme,
   isZh,
-  onExtractAssets,
+  onExtractAssets: _onExtractAssets,
   onGenerateAsset,
-  onGenerateMissing,
+  onGenerateMissing: _onGenerateMissing,
   onEditAsset,
 }: StoryAssetsPanelProps) {
   const path = storyId ? buildStoryAssetsPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<StoryAssetManifest>(path);
-  const [filter, setFilter] = useState<StoryAssetFilter>("all");
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const assets = data?.assets ?? [];
-  const visibleAssets = useMemo(() => filterStoryAssets(assets, filter), [assets, filter]);
-  const selectedAsset = visibleAssets.find((asset) => asset.id === selectedAssetId) ?? visibleAssets[0] ?? null;
-  const basePath = path;
   const showEmptyState = shouldShowStoryAssetEmptyState(data, storyId, loading);
 
+  // 按类型分组
+  const grouped = useMemo(() => {
+    const map: Record<StoryAssetKind, ReadonlyArray<StoryAsset>> = {
+      character: [],
+      scene: [],
+      prop: [],
+    };
+    for (const asset of assets) {
+      map[asset.kind] = [...map[asset.kind], asset];
+    }
+    return map;
+  }, [assets]);
+
+  const allAssets = useMemo(() => Object.values(grouped).flat(), [grouped]);
+
+  const selectedAsset = allAssets.find((a) => a.id === selectedAssetId) ?? allAssets[0] ?? null;
+
   useEffect(() => {
-    setSelectedAssetId((currentId) => chooseStoryAssetId(visibleAssets, currentId));
-  }, [visibleAssets]);
+    setSelectedAssetId((currentId) => chooseStoryAssetId(allAssets, currentId));
+  }, [allAssets]);
 
   const runAction = async (key: string, action: () => void | Promise<void>) => {
     setBusyAction(key);
-    setActionError(null);
     try {
       await action();
       await refetch();
-    } catch (actionFailure) {
-      setActionError(actionFailure instanceof Error ? actionFailure.message : String(actionFailure));
     } finally {
       setBusyAction(null);
     }
   };
 
-  const extractAssets = () => runAction("extract", onExtractAssets ?? (() => postApi(`${basePath}/extract`)));
-  const generateMissing = () => runAction(
-    "generate-all",
-    onGenerateMissing ?? (() => postApi(buildStoryAssetGenerateMissingImagesPath(kind, storyId ?? ""))),
-  );
-  const generateAsset = (asset: StoryAsset) => runAction(
-    `generate:${asset.id}`,
-    () => chooseStoryAssetAction(
-      onGenerateAsset,
-      () => postApi(buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)),
-    )(asset),
-  );
+  const generateAsset = (asset: StoryAsset) =>
+    runAction(`generate:${asset.id}`, () =>
+      chooseStoryAssetAction(
+        onGenerateAsset,
+        () => postApi(buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)),
+      )(asset),
+    );
+
   const editAsset = (asset: StoryAsset, field: StoryAssetTextField, value: string, detailKey?: string) => {
     if (onEditAsset) {
       void runAction(
@@ -197,128 +206,138 @@ export function StoryAssetsPanel({
       );
       return;
     }
-    const body = field === "details" && detailKey
-      ? { details: { ...asset.details, [detailKey]: value } }
-      : { [field]: value };
+    const body =
+      field === "details" && detailKey
+        ? { details: { ...asset.details, [detailKey]: value } }
+        : { [field]: value };
     void runAction(
       `edit:${asset.id}:${field}:${detailKey ?? ""}`,
-      () => fetchJson(`${basePath}/${encodeURIComponent(asset.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      () =>
+        fetchJson(`${path}/${encodeURIComponent(asset.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
     );
   };
 
   if (showEmptyState) {
     return (
-      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-assets-panel">
-        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-          <EmptyState text={getStoryNoContentState(isZh)} />
-        </div>
+      <section className="flex h-full min-h-0 w-full items-center justify-center bg-card/20" data-testid="story-assets-panel">
+        <EmptyState text={getStoryNoContentState(isZh)} />
       </section>
     );
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-assets-panel">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <Image size={18} className="text-primary" />
-            <h1 className="text-base font-semibold">{isZh ? "故事资产" : "Story assets"}</h1>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {isZh ? "管理角色、场景和道具的文字设定与图片状态。" : "Manage character, scene, and prop descriptions and image status."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => void refetch()} disabled={loading || !storyId} className="rounded-lg border border-border/60 p-2 text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={isZh ? "刷新资产" : "Refresh assets"}>
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
-          <button type="button" onClick={() => void extractAssets()} disabled={!storyId || busyAction !== null} className="rounded-lg border border-border/60 px-3 py-2 text-sm hover:border-primary/50 disabled:opacity-40">
-            {actionLabel(isZh, "extract")}
-          </button>
-          <button type="button" onClick={() => void generateMissing()} disabled={!storyId || busyAction !== null || !hasUnreadyStoryAssetImages(assets)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">
-            <Sparkles size={14} />
-            {actionLabel(isZh, "generateAll")}
-          </button>
-        </div>
-      </header>
+    <section className="flex h-full min-h-0 w-full overflow-hidden bg-card/20" data-testid="story-assets-panel">
+      {!storyId ? (
+        <EmptyState text={isZh ? "创建故事后，这里会显示资产。" : "Assets will appear after a story is created."} />
+      ) : loading && !data ? (
+        <EmptyState text={isZh ? "正在加载故事资产..." : "Loading story assets..."} />
+      ) : error ? (
+        <div className="m-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div>
+      ) : assets.length === 0 ? (
+        <EmptyState text={getAssetEmptyState(isZh)} />
+      ) : (
+        <div className="flex h-full min-h-0 w-full" data-testid="story-assets-list">
+          {/* 左侧：三个分类列表 */}
+          <aside className="flex min-h-0 shrink-0 flex-col overflow-y-auto border-r border-border/40 bg-card/30" style={{ width: "200px" }}>
+            {KIND_ORDER.map((kindName) => (
+              <AssetGroup
+                key={kindName}
+                kind={kindName}
+                isZh={isZh}
+                assets={grouped[kindName]}
+                selectedId={selectedAsset?.id ?? null}
+                onSelect={setSelectedAssetId}
+              />
+            ))}
+          </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 md:p-4">
-        {!storyId ? (
-          <EmptyState text={isZh ? "创建故事后，这里会显示资产。" : "Assets will appear after a story is created."} />
-        ) : loading && !data ? (
-          <EmptyState text={isZh ? "正在加载故事资产..." : "Loading story assets..."} />
-        ) : error ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div>
-        ) : (
-          <>
-            {visibleAssets.length === 0 ? (
-              <EmptyState text={getAssetEmptyState(isZh)} />
-            ) : (
-              <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(170px,220px)_minmax(0,1fr)]">
-                <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card/40" data-testid="story-assets-list">
-                  <div className="shrink-0 border-b border-border/50 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-foreground">{isZh ? "资产列表" : "Assets"}</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>{isZh ? "全部" : "All"}</FilterButton>
-                      {(Object.keys(KIND_LABELS) as StoryAssetKind[]).map((kindName) => (
-                        <FilterButton key={kindName} active={filter === kindName} onClick={() => setFilter(kindName)}>
-                          {KIND_LABELS[kindName][isZh ? "zh" : "en"]}
-                        </FilterButton>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-                    {visibleAssets.map((asset) => {
-                      const isSelected = selectedAsset?.id === asset.id;
-                      return (
-                        <button
-                          key={asset.id}
-                          type="button"
-                          data-testid={`story-asset-item-${asset.id}`}
-                          aria-pressed={isSelected}
-                          onClick={() => setSelectedAssetId(asset.id)}
-                          className={`mb-1 flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors last:mb-0 ${isSelected ? "bg-primary/10 font-medium text-primary" : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground"}`}
-                        >
-                          <span className="truncate">{asset.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </aside>
-                <div className="min-h-0 flex flex-col gap-3">
-                  {actionError ? <p className="shrink-0 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{actionError}</p> : null}
-                  {selectedAsset ? (
-                    <AssetDetails
-                      key={selectedAsset.id}
-                      asset={selectedAsset}
-                      isZh={isZh}
-                      imageUrl={storyId && selectedAsset.image?.status === "ready" ? `/api/v1${buildStoryAssetImagePath(kind, storyId, selectedAsset.id)}` : undefined}
-                      busy={busyAction === `generate:${selectedAsset.id}`}
-                      onGenerate={() => void generateAsset(selectedAsset)}
-                      onEdit={(field, value, detailKey) => editAsset(selectedAsset, field, value, detailKey)}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          {/* 右侧：编辑区铺满 */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {selectedAsset ? (
+              <AssetDetails
+                key={selectedAsset.id}
+                asset={selectedAsset}
+                isZh={isZh}
+                imageUrl={
+                  storyId && selectedAsset.image?.status === "ready"
+                    ? `/api/v1${buildStoryAssetImagePath(kind, storyId, selectedAsset.id)}`
+                    : undefined
+                }
+                busy={busyAction === `generate:${selectedAsset.id}`}
+                onGenerate={() => void generateAsset(selectedAsset)}
+                onEdit={(field, value, detailKey) => editAsset(selectedAsset, field, value, detailKey)}
+              />
+            ) : null}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-function FilterButton({ active, onClick, children }: { readonly active: boolean; readonly onClick: () => void; readonly children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${active ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}>{children}</button>;
+// ---------------------------------------------------------------------------
+// 左侧：单个分类列表（角色 / 场景 / 道具）
+// ---------------------------------------------------------------------------
+
+function AssetGroup({
+  kind,
+  isZh,
+  assets,
+  selectedId,
+  onSelect,
+}: {
+  readonly kind: StoryAssetKind;
+  readonly isZh: boolean;
+  readonly assets: ReadonlyArray<StoryAsset>;
+  readonly selectedId: string | null;
+  readonly onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="border-b border-border/30 last:border-b-0">
+      <div className="shrink-0 px-3 py-2">
+        <p className="text-xs font-semibold text-muted-foreground">
+          {KIND_LABELS[kind][isZh ? "zh" : "en"]}
+          <span className="ml-1.5 text-muted-foreground/60">{assets.length}</span>
+        </p>
+      </div>
+      <div className="pb-1">
+        {assets.length === 0 ? (
+          <p className="px-3 pb-2 text-xs text-muted-foreground/40">{isZh ? "暂无" : "Empty"}</p>
+        ) : (
+          assets.map((asset) => {
+            const isSelected = selectedId === asset.id;
+            const status = asset.image?.status ?? "missing";
+            return (
+              <button
+                key={asset.id}
+                type="button"
+                data-testid={`story-asset-item-${asset.id}`}
+                aria-pressed={isSelected}
+                onClick={() => onSelect(asset.id)}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
+                  isSelected
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-foreground/80 hover:bg-secondary/60 hover:text-foreground"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[status]}`} />
+                <span className="truncate">{asset.name}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }
 
-function EmptyState({ text }: { readonly text: string }) {
-  return <div className="flex min-h-56 flex-1 items-center justify-center rounded-2xl border border-dashed border-border/60 text-center text-sm text-muted-foreground">{text}</div>;
-}
+// ---------------------------------------------------------------------------
+// 右侧：资产编辑区（铺满）
+// ---------------------------------------------------------------------------
 
 function AssetDetails({
   asset,
@@ -337,27 +356,104 @@ function AssetDetails({
 }) {
   const status = asset.image?.status ?? "missing";
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/60 bg-card/40 p-4" data-testid="story-asset-details">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(220px,34%)]">
-        <div className="min-w-0 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{KIND_LABELS[asset.kind][isZh ? "zh" : "en"]}</p>
-              <h2 className="mt-1 truncate text-lg font-semibold">{asset.name}</h2>
-            </div>
-            <span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] ${STATUS_CLASS[status]}`}>{getStoryAssetStatusLabel(status, isZh)}</span>
+    <section className="min-h-0 flex-1 overflow-y-auto bg-card/20 p-4" data-testid="story-asset-details">
+      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        {/* 标题行 */}
+        <div className="flex shrink-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              {KIND_LABELS[asset.kind][isZh ? "zh" : "en"]}
+            </p>
+            <h2 className="mt-1 truncate text-lg font-semibold">{asset.name}</h2>
           </div>
-          <label className="block space-y-1.5 text-xs text-muted-foreground"><span>{isZh ? "名称" : "Name"}</span><input defaultValue={asset.name} onBlur={(event) => onEdit("name", event.target.value)} className="w-full rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm text-foreground outline-none focus:border-primary" /></label>
-          <label className="block space-y-1.5 text-xs text-muted-foreground"><span>{isZh ? "摘要" : "Summary"}</span><textarea defaultValue={asset.summary} rows={3} onBlur={(event) => onEdit("summary", event.target.value)} className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary" /></label>
-          <label className="block space-y-1.5 text-xs text-muted-foreground"><span>{isZh ? "图片提示词" : "Image prompt"}</span><textarea defaultValue={asset.imagePrompt} rows={3} onBlur={(event) => onEdit("imagePrompt", event.target.value)} className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary" /></label>
-          {Object.entries(asset.details).map(([key, value]) => <label key={key} className="block space-y-1.5 text-xs text-muted-foreground"><span>{key}</span><textarea defaultValue={value} rows={2} onBlur={(event) => onEdit("details", event.target.value, key)} className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary" /></label>)}
+          <span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] ${STATUS_CLASS[status]}`}>
+            {getStoryAssetStatusLabel(status, isZh)}
+          </span>
         </div>
-        <div className="space-y-3 xl:sticky xl:top-0 xl:self-start">
-          {imageUrl ? <img src={imageUrl} alt={asset.name} className="aspect-[4/3] w-full rounded-lg border border-border/50 object-cover" /> : <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-border/60 bg-secondary/60 p-4 text-center" data-testid={`asset-placeholder-${asset.id}`}><span className="text-base font-semibold text-foreground/80">{asset.name}</span></div>}
-          <p className={`rounded-lg border px-3 py-2 text-xs ${STATUS_CLASS[status]}`}>{getStoryAssetStatusLabel(status, isZh)}{status === "error" && asset.image?.error ? ` · ${asset.image.error}` : ""}</p>
-          <button type="button" onClick={onGenerate} disabled={busy || status === "generating"} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm hover:border-primary/50 disabled:opacity-50"><Sparkles size={14} />{busy ? (isZh ? "正在生成..." : "Generating...") : getStoryAssetActionLabel(status, isZh)}</button>
+
+        {/* 图片预览 */}
+        <div className="shrink-0">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={asset.name}
+              className="aspect-[16/9] w-full rounded-xl border border-border/50 object-cover"
+            />
+          ) : (
+            <div
+              className="flex aspect-[16/9] items-center justify-center rounded-xl border border-dashed border-border/60 bg-secondary/40"
+              data-testid={`asset-placeholder-${asset.id}`}
+            >
+              <span className="text-base font-semibold text-foreground/60">{asset.name}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 生成按钮 */}
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={busy || status === "generating"}
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-border/60 px-4 py-2 text-sm hover:border-primary/50 disabled:opacity-50"
+        >
+          <Sparkles size={14} />
+          {busy ? (isZh ? "正在生成..." : "Generating...") : getStoryAssetActionLabel(status, isZh)}
+        </button>
+
+        {/* 表单字段 */}
+        <div className="min-h-0 flex-1 space-y-4">
+          <Field label={isZh ? "名称" : "Name"}>
+            <input
+              defaultValue={asset.name}
+              onBlur={(e) => onEdit("name", e.target.value)}
+              className="w-full rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+          </Field>
+          <Field label={isZh ? "摘要" : "Summary"}>
+            <textarea
+              defaultValue={asset.summary}
+              rows={3}
+              onBlur={(e) => onEdit("summary", e.target.value)}
+              className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary"
+            />
+          </Field>
+          <Field label={isZh ? "图片提示词" : "Image prompt"}>
+            <textarea
+              defaultValue={asset.imagePrompt}
+              rows={3}
+              onBlur={(e) => onEdit("imagePrompt", e.target.value)}
+              className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary"
+            />
+          </Field>
+          {Object.entries(asset.details).map(([key, value]) => (
+            <Field key={key} label={key}>
+              <textarea
+                defaultValue={value}
+                rows={2}
+                onBlur={(e) => onEdit("details", e.target.value, key)}
+                className="w-full resize-y rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-primary"
+              />
+            </Field>
+          ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function Field({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5 text-xs text-muted-foreground">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function EmptyState({ text }: { readonly text: string }) {
+  return (
+    <div className="flex min-h-56 flex-1 items-center justify-center rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+      {text}
+    </div>
   );
 }
