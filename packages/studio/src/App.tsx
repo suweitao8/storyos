@@ -12,7 +12,6 @@ import { ProjectSettings } from "./pages/ProjectSettings";
 import { TruthFiles } from "./pages/TruthFiles";
 import { DaemonControl } from "./pages/DaemonControl";
 import { LogViewer } from "./pages/LogViewer";
-import { GenreManager } from "./pages/GenreManager";
 import { PromptTemplatePage } from "./pages/PromptTemplatePage";
 import { CraftManager } from "./pages/CraftManager";
 import { ImportManager } from "./pages/ImportManager";
@@ -60,7 +59,7 @@ export const APP_PAGE_LAYOUT_CLASSES = {
 } as const;
 
 export function getAppPageLayoutClass(page: HashRoute["page"]): string {
-  return page === "craft" || page === "genres"
+  return page === "craft"
     ? APP_PAGE_LAYOUT_CLASSES.wide
     : APP_PAGE_LAYOUT_CLASSES.default;
 }
@@ -93,7 +92,6 @@ export function getRouteToolbarTitle(
         truth: "知识库",
         daemon: "守护进程",
         logs: "日志",
-        genres: "题材",
         "prompt-templates": "提示词模板",
         skills: "Skill",
         craft: "写作模式",
@@ -120,7 +118,6 @@ export function getRouteToolbarTitle(
         truth: "Knowledge Base",
         daemon: "Daemon",
         logs: "Logs",
-        genres: "Genres",
         "prompt-templates": "Prompt Templates",
         skills: "Skill",
         craft: "Writing Modes",
@@ -543,11 +540,6 @@ export function App() {
           {route.page === "logs" && (
             <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
               <LogViewer nav={nav} theme={theme} t={t} />
-            </div>
-          )}
-          {route.page === "genres" && (
-            <div className={`${getAppPageLayoutClass(route.page)} fade-in`}>
-              <GenreManager theme={theme} t={t} />
             </div>
           )}
           {route.page === "prompt-templates" && (
