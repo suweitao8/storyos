@@ -191,7 +191,7 @@ function fallbackUnifiedScript(source: StorySource): string {
   ].join("\n");
 }
 
-function unifiedScriptRequirements(): string {
+export function unifiedScriptRequirements(): string {
   return [
     "这是一个统一的影视制作剧本，用于把故事制作成短视频，必须把分镜直接写在同一份剧本中，不要另起独立分镜文档。",
     "输出必须是 Markdown，严格使用：## 场景 N：场景名、### 镜头 N、- 画面：、- 景别/机位：、- 动作：、- 旁白：、- 时长：N秒、- 图像提示词：。",
@@ -466,36 +466,64 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     if (!source.text.trim()) return c.json({ error: "故事正文为空，无法生成剧本" }, 400);
     const dir = productionPath(context.root, kind, id);
     await mkdir(dir, { recursive: true });
-    let content: string;
+    let content: string | undefined;
     let warning: string | undefined;
-    try {
-      // 读取故事资产（角色/场景/道具），拼进生成提示词，让模型能引用具体设定。
-      const assets = await readStoryAssets(context.root, kind, id);
-      const assetsContext = buildAssetsContext(assets);
-      const requirements = assetsContext
-        ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
-        : unifiedScriptRequirements();
-      const pipeline = new PipelineRunner(await context.buildPipelineConfig());
-      const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
-      content = await agent.writeScript({
-        title: source.title,
-        sourceKind: kind === "short" ? "StoryOS short story" : "StoryOS book",
-        targetFormat: "general_script",
-        sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
-        requirements,
-        language: "zh",
-      });
-      const parsed = parseUnifiedScript(content);
-      if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
-      // 质量校验：检查每个镜头是否有旁白、景别、详细图像提示词、引用的资产名是否合法。
-      // 把问题收集成 warning，让用户知道生成质量是否有缺陷。
-      const assetNames = assets.map((asset) => asset.name);
-      const issues = validateScriptQuality(parsed.shots, assetNames);
-      const issueWarning = formatScriptIssues(issues);
-      if (issueWarning) warning = issueWarning;
-    } catch (error) {
+    // 读取故事资产（角色/场景/道具），拼进生成提示词，让模型能引用具体设定。
+    const assets = await readStoryAssets(context.root, kind, id);
+    const assetsContext = buildAssetsContext(assets);
+    const assetNames = assets.map((asset) => asset.name);
+    const requirements = assetsContext
+      ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
+      : unifiedScriptRequirements();
+    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+    const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
+
+    // 最多重试 2 次：第 1 次失败（异常或 0 镜头）→ 重试；质量太差（>50% 镜头缺旁白或画面）→ 重试。
+    const maxAttempts = 2;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const raw = await agent.writeScript({
+          title: source.title,
+          sourceKind: kind === "short" ? "StoryOS short story" : "StoryOS book",
+          targetFormat: "general_script",
+          sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
+          requirements: attempt > 1
+            ? `${requirements}\n\n上一轮生成的剧本存在问题，请修正后重新输出完整剧本。`
+            : requirements,
+          language: "zh",
+        });
+        const parsed = parseUnifiedScript(raw);
+        if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
+        // 质量校验：检查每个镜头是否有旁白、景别、详细图像提示词、引用的资产名是否合法。
+        const issues = validateScriptQuality(parsed.shots, assetNames);
+        const criticalIssues = issues.filter(
+          (issue) => issue.type === "missing_narration" || issue.type === "thin_image_prompt",
+        );
+        const issueWarning = formatScriptIssues(issues);
+        // 如果质量太差（>50% 镜头有严重问题）且还有重试机会，重试一次。
+        if (criticalIssues.length > parsed.shots.length / 2 && attempt < maxAttempts) {
+          warning = `第 ${attempt} 次生成质量不达标（${criticalIssues.length}/${parsed.shots.length} 镜头有问题），正在重试…`;
+          lastError = new Error(warning);
+          continue;
+        }
+        content = raw;
+        if (issueWarning) warning = issueWarning;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts) {
+          warning = `第 ${attempt} 次生成失败，正在重试…`;
+          continue;
+        }
+      }
+    }
+
+    if (!content) {
       content = fallbackUnifiedScript(source);
-      warning = error instanceof Error ? `模型剧本生成失败，已生成基础脚本：${error.message}` : "模型剧本生成失败，已生成基础脚本";
+      warning = lastError instanceof Error
+        ? `模型剧本生成失败，已生成基础脚本：${lastError.message}`
+        : "模型剧本生成失败，已生成基础脚本";
     }
     const generatedAt = new Date().toISOString();
     await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
