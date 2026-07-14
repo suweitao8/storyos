@@ -381,6 +381,37 @@ function compactStoryDirectionSource(value: string | undefined, maxLength = 2_40
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
 }
 
+function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: readonly string[]; readonly user: readonly string[] } {
+  if (language === "zh") {
+    return {
+      system: [
+        "表达面向B站普通观众，不要求读者懂写作学、影视制作或其他行业知识。",
+        "故事可以有悬疑、反转和复杂因果，但呈现方式必须让没有专业背景的观众也能快速看懂。",
+      ],
+      user: [
+        "用日常中文写，优先使用具体的人、动作、选择和结果；不要把专业分析术语直接当成故事设定内容。",
+        "不写论文式分析，不堆叠抽象概念。必须使用专业词时，第一次出现就用一句大白话解释，后面尽量继续用大白话。",
+        "每个板块控制在少量有重点的短句或要点内；大纲按‘发生了什么—主角怎么应对—带来什么新麻烦’展开，不写冗长理论说明。",
+        "把‘冲突升级机制’写成‘每解决一个问题，新的麻烦变得更大’，把‘信息释放节奏’写成‘先告诉观众什么，哪些事情暂时藏住’。",
+        "原创化改编方案也要让普通观众看懂，写清新的空间、人物、关系、事件和结局，不要只列专业检查项。",
+      ],
+    };
+  }
+
+  return {
+    system: [
+      "Write for a general Bilibili audience without assuming writing, film, or industry expertise.",
+      "The story may contain suspense, reversals, and complex causality, but the presentation must remain easy to follow.",
+    ],
+    user: [
+      "Use everyday language and prioritize concrete people, actions, choices, and consequences instead of exposing craft jargon as story content.",
+      "Do not write an academic analysis or stack abstract concepts. If a technical term is necessary, explain it in plain language the first time and keep using plain language afterward.",
+      "Keep each section focused and concise; structure the outline as what happens, how the protagonist responds, and what bigger problem follows.",
+      "Explain the transformation plan in audience-friendly language, naming the new setting, people, relationships, events, and ending rather than listing technical checks.",
+    ],
+  };
+}
+
 /** Build a generation prompt that transfers craft mechanics into a new story direction. */
 export function buildStoryDirectionPrompt(
   craftProfile: CraftProfile,
@@ -449,11 +480,13 @@ export function buildStoryDirectionPrompt(
   const languageRule = language === "zh"
     ? "用简体中文输出结果。"
     : "Output the result in English.";
+  const plainLanguageGuidance = buildPlainLanguageGuidance(language);
 
   return {
     system: [
       "你是一位故事开发编辑。",
       languageRule,
+      ...plainLanguageGuidance.system,
       "仅将参考素材用于可复用的机制、世界逻辑、节奏功能和情感运动。",
       "创造一个全新的故事方向，包含新的身份、设定细节、因果链、场景和结局。绝不复制 distinctive 的名字、对话、措辞或连续的事件序列；不得复用连续事件顺序。",
       "Originality gate: use new identities, settings, relationships, causal chains, scenes, and endings; never reuse a contiguous event sequence.",
@@ -461,6 +494,7 @@ export function buildStoryDirectionPrompt(
     ].join("\n"),
     user: [
       `根据以下创作参考素材来创建${target}。`,
+      ...plainLanguageGuidance.user,
       "创作参考素材：",
       referenceSections.join("\n\n"),
       previousDirection?.trim()
@@ -479,17 +513,20 @@ export function buildStorySeedPrompt(
   language: "zh" | "en",
   previousDirection?: string,
 ): StoryDirectionPrompt {
+  const plainLanguageGuidance = buildPlainLanguageGuidance(language);
   const base = craftProfile
     ? buildStoryDirectionPrompt(craftProfile, kind, language, previousDirection)
     : {
         system: [
           "你是一位短片故事开发编辑。",
           language === "zh" ? "用简体中文输出结果。" : "Output the result in English.",
+          ...plainLanguageGuidance.system,
           "未选择创作参考素材。使用强有力的原创短片叙事原则：一个具体的主角、一个可见的压力、一个因果递进、一个有意义的反转和一个水到渠成的结局。",
         ].join("\n"),
         user: [
           "从零开始创建一个单章节短篇故事种子。",
           "Create a complete one-chapter short story seed.",
+          ...plainLanguageGuidance.user,
           "未选择创作参考素材；请发明原创的前提、设定、角色、冲突和结局。",
           previousDirection?.trim()
             ? `待改进或替换的上一版种子：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
