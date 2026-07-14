@@ -304,10 +304,11 @@ function formatAssTime(ms: number): string {
  */
 export function buildAssContent(
   entries: readonly SubtitleEntry[],
-  options?: { readonly blur?: number; readonly fontSize?: number },
+  options?: { readonly blur?: number; readonly fontSize?: number; readonly marginV?: number },
 ): string {
   const blur = options?.blur ?? 4;
-  const fontSize = options?.fontSize ?? 12;
+  const fontSize = options?.fontSize ?? 36;
+  const marginV = options?.marginV ?? 64;
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
@@ -318,9 +319,9 @@ export function buildAssContent(
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
     // Shadow style: black text, blurred → acts as soft shadow backdrop
-    `Style: Shadow,Microsoft YaHei,${fontSize},&H66000000,&H66000000,&H66000000,&H66000000,0,0,0,0,100,100,0,0,1,0,0,2,48,48,48,1`,
+    `Style: Shadow,Microsoft YaHei,${fontSize},&H66000000,&H66000000,&H66000000,&H66000000,0,0,0,0,100,100,0,0,1,0,0,2,${marginV},${marginV},${marginV},1`,
     // Text style: white text, no outline, no shadow → crisp
-    `Style: Text,Microsoft YaHei,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,48,48,48,1`,
+    `Style: Text,Microsoft YaHei,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,2,${marginV},${marginV},${marginV},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
