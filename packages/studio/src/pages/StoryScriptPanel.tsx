@@ -114,17 +114,24 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
         <div className="flex h-full min-h-0 w-full">
           {/* 左半边：按场景分组的分镜表格 */}
           <div className="flex h-full min-h-0 w-1/2 shrink-0 flex-col border-r border-border/40" data-testid="story-script-list">
-            <div className="shrink-0 border-b border-border/30 px-3 py-2 text-center">
+            <div className="shrink-0 border-b border-border/30 px-3 py-2">
               <p className="text-xs font-semibold text-muted-foreground">{isZh ? "分镜" : "Shots"}<span className="ml-1 text-muted-foreground/50">{shots.length}</span></p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {actionError || data.warning ? <div className="mx-3 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{actionError ?? data.warning}</div> : null}
               {scenes.map(([scene, sceneShots]) => (
                 <div key={scene} className="border-b border-border/30 last:border-b-0">
+                  {/* 场景标题行（sticky） */}
                   <div className="sticky top-0 z-[1] flex items-baseline gap-2 bg-background/95 px-3 py-1.5 backdrop-blur">
                     <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">{scene}</p>
                     <span className="shrink-0 text-[11px] text-muted-foreground/50">{sceneShots.length}</span>
                   </div>
+                  {/* 表头 */}
+                  <div className="grid grid-cols-2 gap-px border-b border-border/20 bg-border/20 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                    <div className="bg-background/60 px-3 py-1">{isZh ? "分镜内容" : "Visual"}</div>
+                    <div className="bg-background/60 px-3 py-1">{isZh ? "旁白" : "Narration"}</div>
+                  </div>
+                  {/* 分镜行 */}
                   {sceneShots.map((shot) => (
                     <ShotRow key={shotKey(shot)} shot={shot} isZh={isZh} selected={shotKey(shot) === selectedKey} onSelect={() => setSelectedKey(shotKey(shot))} />
                   ))}
@@ -148,7 +155,7 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
 }
 
 // ---------------------------------------------------------------------------
-// 左侧：单行分镜（表格行样式：编号 / 景别 / 旁白摘要）
+// 左侧：单行分镜（两列表格行：左=分镜内容，右=旁白）
 // ---------------------------------------------------------------------------
 
 function ShotRow({ shot, isZh, selected, onSelect }: {
@@ -157,6 +164,7 @@ function ShotRow({ shot, isZh, selected, onSelect }: {
   readonly selected: boolean;
   readonly onSelect: () => void;
 }) {
+  const visual = shot.visual.trim();
   const subtitle = shot.subtitle.trim();
   const camera = shot.camera?.trim();
   return (
@@ -165,16 +173,23 @@ function ShotRow({ shot, isZh, selected, onSelect }: {
       data-testid={`story-script-shot-${shot.number}`}
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${selected ? "bg-primary/10" : "hover:bg-secondary/60"}`}
+      className={`grid w-full grid-cols-2 gap-px border-b border-border/20 bg-border/20 text-left transition-colors ${selected ? "ring-1 ring-inset ring-primary/40" : ""}`}
     >
-      <span className={`mt-0.5 shrink-0 text-xs font-semibold tabular-nums ${selected ? "text-primary" : "text-muted-foreground/70"}`}>{shot.number}</span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
+      {/* 左列：分镜内容 */}
+      <div className={`min-w-0 px-3 py-2 ${selected ? "bg-primary/10" : "bg-background/60"}`}>
+        <div className="mb-1 flex items-center gap-1.5">
+          <span className={`shrink-0 text-xs font-semibold tabular-nums ${selected ? "text-primary" : "text-muted-foreground/70"}`}>{shot.number}</span>
           {camera ? <span className="shrink-0 rounded border border-border/50 bg-secondary/50 px-1.5 py-px text-[10px] text-muted-foreground">{camera}</span> : null}
-          <span className="truncate text-xs text-muted-foreground/50">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : isZh ? "自动" : "auto"}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground/40">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : isZh ? "自动" : "auto"}</span>
         </div>
-        <p className={`mt-0.5 line-clamp-1 text-sm ${selected ? "font-medium text-primary" : "text-foreground/80"}`}>
-          {subtitle || shot.visual || (isZh ? "（无旁白）" : "(no narration)")}
+        <p className={`line-clamp-2 text-xs leading-5 ${selected ? "font-medium text-primary" : "text-foreground/80"}`}>
+          {visual || (isZh ? "画面待补充" : "No visual")}
+        </p>
+      </div>
+      {/* 右列：旁白 */}
+      <div className={`min-w-0 px-3 py-2 ${selected ? "bg-primary/10" : "bg-background/60"}`}>
+        <p className="line-clamp-2 text-xs leading-5 text-foreground/80">
+          {subtitle || (isZh ? "（无旁白）" : "(none)")}
         </p>
       </div>
     </button>
