@@ -306,7 +306,7 @@ export function StoryCreationPanel({
           <div>
             <h2 className="text-lg font-semibold">{isZh ? "用写作模式创建故事" : "Create with writing craft"}</h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {isZh ? "先生成基础故事，再切换到“对话调整”继续修改。" : "Create the story foundation first, then refine it in chat."}
+              {isZh ? "先生成基础故事，再到故事设定和故事资产中查看结果。" : "Create the story foundation first, then review the story settings and assets."}
             </p>
           </div>
           <Wand2 size={22} className="shrink-0 text-primary" />
@@ -495,7 +495,7 @@ export function StoryCreationPanel({
         {busy ? (isZh ? "正在创建…" : "Creating…") : (isZh ? "创建故事基础" : "Create story foundation")}
       </button>
       <p className="pb-4 text-center text-xs leading-5 text-muted-foreground">
-        {isZh ? "创建完成后会自动切换到“故事设定”，你可以从这里查看资产或打开对话调整。封面不会在这里生成。" : "After creation, the view switches to story settings, where you can review assets or open chat adjustment. Covers are not generated here."}
+        {isZh ? "创建完成后会自动切换到“故事设定”，你可以从这里查看故事资产。封面不会在这里生成。" : "After creation, the view switches to story settings, where you can review the story assets. Covers are not generated here."}
       </p>
         </aside>
       </div>
