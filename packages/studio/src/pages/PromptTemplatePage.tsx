@@ -32,6 +32,7 @@ const IMAGE_LABELS: Record<string, { zh: string; en: string }> = {
   character: { zh: "角色图片提示词", en: "Character Image Prompt" },
   scene: { zh: "场景图片提示词", en: "Scene Image Prompt" },
   prop: { zh: "道具图片提示词", en: "Prop Image Prompt" },
+  shot: { zh: "分镜图片提示词", en: "Shot Image Prompt" },
 };
 
 export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction }) {

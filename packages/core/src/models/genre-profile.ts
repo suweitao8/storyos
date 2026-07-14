@@ -37,10 +37,11 @@ export const ART_STYLES: ReadonlyArray<{
 // in default-prompt-templates.ts) driven by character assets at generation
 // time, rather than fixed age-group × gender buckets.
 
-/** Image prompt template kind, mirroring {@link StoryAssetKind}. */
-export type ImagePromptKind = "character" | "scene" | "prop";
+/** Image prompt template kind. character/scene/prop mirror {@link StoryAssetKind};
+ *  shot is a non-asset kind for storyboard image prompts. */
+export type ImagePromptKind = "character" | "scene" | "prop" | "shot";
 
-export const IMAGE_PROMPT_KINDS: ReadonlyArray<ImagePromptKind> = ["character", "scene", "prop"];
+export const IMAGE_PROMPT_KINDS: ReadonlyArray<ImagePromptKind> = ["character", "scene", "prop", "shot"];
 
 // ---------------------------------------------------------------------------
 // Genre profile
