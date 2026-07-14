@@ -322,11 +322,11 @@ async function composeSegmentVideo(args: {
     warning = "未配置可用的语音模型或 API Key，已降级为字幕视频。";
   }
 
-  const subtitleFilter = `subtitles='${escapeFfmpegFilterPath(srtPath)}':force_style='FontName=Microsoft YaHei,FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Outline=2,Alignment=2,MarginV=60'`;
+  const subtitleFilter = `subtitles='${escapeFfmpegFilterPath(srtPath)}':force_style='FontName=Microsoft YaHei,FontSize=12,PrimaryColour=&HFFFFFF,OutlineColour=&H80000000,Outline=0,Shadow=4,Alignment=2,MarginV=48'`;
   const baseArgs = [
     "-y",
     "-f", "lavfi",
-    "-i", `color=c=0x101827:s=1280x720:r=24:d=${(durationMs / 1000).toFixed(3)}`,
+    "-i", `color=c=3B2F2F:s=1280x720:r=24:d=${(durationMs / 1000).toFixed(3)}`,
     "-vf", subtitleFilter,
   ];
   const commandArgs = voiceEnabled
