@@ -5335,8 +5335,8 @@ describe("story asset API", () => {
     expect(JSON.stringify(body)).not.toContain("EISDIR");
 
     const missing = await app.request("/api/v1/shorts/missing-story/assets");
-    expect(missing.status).toBe(404);
-    await expect(missing.json()).resolves.toMatchObject({ error: { code: "STORY_ASSET_MANIFEST_NOT_FOUND" } });
+    expect(missing.status).toBe(200);
+    await expect(missing.json()).resolves.toMatchObject({ storyId: "missing-story", assets: [] });
   });
 
   it("extracts text assets without invoking image generation", async () => {

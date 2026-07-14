@@ -152,6 +152,7 @@ import {
 import type { CraftSourceManifest } from "./craft-source-assets.js";
 import { restoreShortStory, softDeleteShortStory } from "./short-story-list.js";
 import { registerStudioRoutes } from "./routes/index.js";
+import { createEmptyStoryContent } from "./routes/stories.js";
 import { normalizeBilibiliCraftName } from "../pages/craft-name.js";
 
 // -- Studio server language (read per request from the project config's `language`) --
@@ -2855,7 +2856,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const id = c.req.param("id");
     try {
       const book = await state.loadBookConfig(id);
-      if (book.deletedAt) return c.json({ error: `Book "${id}" is in the trash` }, 404);
+      if (book.deletedAt) return c.json(createEmptyStoryContent(id, "book"));
       const bookDir = state.bookDir(id);
       const storyDir = join(bookDir, "story");
       const sectionFiles: ReadonlyArray<{ readonly file: string; readonly title: string }> = [
@@ -2904,7 +2905,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
       return c.json({ book, sections: [...sections, ...roleSections], chapters });
     } catch {
-      return c.json({ error: `Book "${id}" not found` }, 404);
+      return c.json(createEmptyStoryContent(id, "book"));
     }
   });
 

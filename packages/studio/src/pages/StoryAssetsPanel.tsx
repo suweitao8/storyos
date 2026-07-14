@@ -30,6 +30,14 @@ export interface StoryAssetManifest {
   readonly assets: ReadonlyArray<StoryAsset>;
 }
 
+export function shouldShowStoryAssetEmptyState(
+  manifest: StoryAssetManifest | null,
+  storyId: string | null,
+  loading: boolean,
+): boolean {
+  return !loading && (!storyId || manifest?.assets.length === 0);
+}
+
 export function filterStoryAssets(
   assets: ReadonlyArray<StoryAsset>,
   filter: StoryAssetFilter,
@@ -86,6 +94,10 @@ export function getStoryAssetStatusLabel(status: StoryAssetImageStatus, isZh: bo
 
 export function getAssetEmptyState(isZh: boolean): string {
   return isZh ? "还没有故事资产" : "No story assets yet";
+}
+
+export function getStoryNoContentState(isZh: boolean): string {
+  return isZh ? "暂无内容" : "No content";
 }
 
 export function buildStoryAssetsPath(kind: "book" | "short", storyId: string): string {
@@ -146,6 +158,7 @@ export function StoryAssetsPanel({
   const visibleAssets = useMemo(() => filterStoryAssets(assets, filter), [assets, filter]);
   const selectedAsset = visibleAssets.find((asset) => asset.id === selectedAssetId) ?? visibleAssets[0] ?? null;
   const basePath = path;
+  const showEmptyState = shouldShowStoryAssetEmptyState(data, storyId, loading);
 
   useEffect(() => {
     setSelectedAssetId((currentId) => chooseStoryAssetId(visibleAssets, currentId));
@@ -196,6 +209,16 @@ export function StoryAssetsPanel({
       }),
     );
   };
+
+  if (showEmptyState) {
+    return (
+      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-assets-panel">
+        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+          <EmptyState text={getStoryNoContentState(isZh)} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-assets-panel">

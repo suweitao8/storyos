@@ -11,6 +11,10 @@ interface ProductionResponse {
   readonly warning?: string | null;
 }
 
+export function hasStoryProductionContent(value: { readonly script?: { readonly exists?: boolean } } | null | undefined): boolean {
+  return value?.script?.exists === true;
+}
+
 export function buildStoryProductionPath(kind: "book" | "short", storyId: string): string {
   return `/${kind === "short" ? "shorts" : "books"}/${encodeURIComponent(storyId)}/production`;
 }
@@ -27,6 +31,16 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (!loading && (!storyId || data && !hasStoryProductionContent(data))) {
+    return (
+      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-script-panel">
+        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+          <EmptyState text={isZh ? "暂无内容" : "No content"} />
+        </div>
+      </section>
+    );
+  }
 
   const generate = async () => {
     if (!storyId) return;
@@ -47,10 +61,7 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border/40 px-6 py-5">
         <div className="flex min-w-0 items-center gap-3">
           <Clapperboard size={21} className="shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold">{data?.script.title || (isZh ? "剧本" : "Script")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{isZh ? "剧本内直接包含场景、镜头、字幕和图像提示词。" : "The script includes scenes, shots, subtitles, and image prompts."}</p>
-          </div>
+          <div className="min-w-0" />
         </div>
         <button type="button" onClick={() => void generate()} disabled={!storyId || busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
           {busy ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -58,7 +69,7 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {!storyId ? <EmptyState text={isZh ? "选择故事后才能生成剧本。" : "Select a story before generating a script."} /> : loading && !data ? <EmptyState text={isZh ? "正在加载剧本..." : "Loading script..."} /> : error ? <ErrorState text={error} /> : !data?.script.exists ? <EmptyState text={isZh ? "还没有剧本，点击右上角生成一个基础版本。" : "No script yet. Generate a first draft from the button above."} /> : (
+        {loading && !data ? <EmptyState text={isZh ? "正在加载剧本..." : "Loading script..."} /> : error ? <ErrorState text={error} /> : !data?.script.exists ? <EmptyState text={isZh ? "暂无内容" : "No content"} /> : (
           <div className="space-y-6">
             {actionError || data.warning ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">{actionError ?? data.warning}</div> : null}
             <div className="grid gap-3 sm:grid-cols-2">

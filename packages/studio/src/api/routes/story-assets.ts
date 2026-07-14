@@ -216,7 +216,13 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   };
   const getStoryAssetManifest = async (c: Context, kindValue: unknown, storyIdValue: unknown) => {
     try { return c.json((await loadStoryAssetManifest(kindValue, storyIdValue)).manifest); }
-    catch (error) { return storyAssetErrorResponse(c, error); }
+    catch (error) {
+      if (error instanceof ApiError && error.code === "STORY_ASSET_MANIFEST_NOT_FOUND") {
+        const current = storyAssetContext(kindValue, storyIdValue);
+        return c.json({ version: 1, storyId: current.storyId, updatedAt: new Date(0).toISOString(), assets: [] });
+      }
+      return storyAssetErrorResponse(c, error);
+    }
   };
   app.get("/api/v1/stories/:kind/:id/assets", async (c) => getStoryAssetManifest(c, c.req.param("kind"), c.req.param("id")));
   app.get("/api/v1/books/:id/assets", async (c) => getStoryAssetManifest(c, "book", c.req.param("id")));

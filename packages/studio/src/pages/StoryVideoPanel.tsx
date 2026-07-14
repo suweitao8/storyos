@@ -27,6 +27,16 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const [actionError, setActionError] = useState<string | null>(null);
   const videoUrl = storyId ? `${path}/video/file?ts=${encodeURIComponent(data?.video.generatedAt ?? "0")}` : "";
 
+  if (!loading && (!storyId || data && !data.script.exists)) {
+    return (
+      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-video-panel">
+        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+          <EmptyState text={isZh ? "暂无内容" : "No content"} />
+        </div>
+      </section>
+    );
+  }
+
   const generate = async () => {
     if (!storyId) return;
     setBusy(true);
@@ -44,14 +54,14 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   return (
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-video-panel">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border/40 px-6 py-5">
-        <div className="flex min-w-0 items-center gap-3"><Film size={21} className="shrink-0 text-primary" /><div><h1 className="text-2xl font-semibold">{isZh ? "视频" : "Video"}</h1><p className="mt-1 text-sm text-muted-foreground">{isZh ? "使用剧本中的镜头、字幕和语音合成基础视频。" : "Compose a first video from the script shots, subtitles, and voice."}</p></div></div>
+        <div className="flex min-w-0 items-center gap-3"><Film size={21} className="shrink-0 text-primary" /><div className="min-w-0" /></div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={withVoice} onChange={(event) => setWithVoice(event.target.checked)} />{withVoice ? <Volume2 size={15} /> : <VolumeX size={15} />}{isZh ? "合成语音" : "Synthesize voice"}</label>
           <button type="button" onClick={() => void generate()} disabled={!storyId || !data?.script.exists || busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{busy ? <RefreshCw size={16} className="animate-spin" /> : <Film size={16} />}{busy ? (isZh ? "合成中..." : "Composing...") : data?.video.exists ? (isZh ? "重新生成视频" : "Regenerate video") : (isZh ? "生成视频" : "Generate video")}</button>
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {!storyId ? <EmptyState text={isZh ? "选择故事后才能制作视频。" : "Select a story before making a video."} /> : loading && !data ? <EmptyState text={isZh ? "正在加载视频状态..." : "Loading video status..."} /> : error ? <ErrorState text={error} /> : !data?.script.exists ? <EmptyState text={isZh ? "请先进入剧本阶段生成剧本。" : "Generate the script first."} /> : (
+        {loading && !data ? <EmptyState text={isZh ? "正在加载视频状态..." : "Loading video status..."} /> : error ? <ErrorState text={error} /> : !data?.script.exists ? <EmptyState text={isZh ? "暂无内容" : "No content"} /> : (
           <div className="mx-auto w-full max-w-5xl space-y-5">
             {actionError || data.warning || data.video.warning ? <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">{actionError ?? data.warning ?? data.video.warning}</div> : null}
             {data.video.exists ? <video key={videoUrl} className="aspect-video w-full rounded-2xl border border-border/50 bg-black shadow-lg" src={videoUrl} controls preload="metadata" /> : <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-background/50 text-sm text-muted-foreground">{isZh ? "还没有视频，点击右上角生成基础版本。" : "No video yet. Generate a first version above."}</div>}

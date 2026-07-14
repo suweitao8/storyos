@@ -16,6 +16,19 @@ interface SoftDeletedBookSummary {
   readonly updatedAt?: string;
 }
 
+export function createEmptyStoryContent(id: string, kind: "short" | "book") {
+  return {
+    book: {
+      title: id,
+      genre: kind,
+      chapterWordCount: 0,
+      targetChapters: kind === "short" ? 1 : 0,
+    },
+    sections: [],
+    chapters: [],
+  };
+}
+
 export function getShortStoryWordCount(
   fullContent: string,
   artifact: ShortStoryContentArtifact | undefined,
@@ -126,7 +139,7 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
     const deletedAt = await getShortStoryDeletedAt(root, id).catch(() => undefined);
     if (deletedAt) {
       if (isSoftDeleteExpired(deletedAt)) await rm(shortDir, { recursive: true, force: true });
-      return c.json({ error: `Short story "${id}" is in the trash` }, 404);
+      return c.json(createEmptyStoryContent(id, "short"));
     }
     const readOptional = async (file: string): Promise<string> =>
       readFile(join(shortDir, file), "utf-8").catch(() => "");
@@ -137,7 +150,7 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
     const salesPackage = await readOptional("final/sales-package.md");
     const coverPrompt = await readOptional("final/cover-prompt.md");
     if (!outline.trim() && !full.trim()) {
-      return c.json({ error: `Short story "${id}" not found` }, 404);
+      return c.json(createEmptyStoryContent(id, "short"));
     }
 
     let artifact: ShortStoryContentArtifact | undefined;

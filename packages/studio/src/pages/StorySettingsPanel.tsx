@@ -47,6 +47,10 @@ export function trimStoryHeading(content: string): string {
   return content.replace(/^\uFEFF?\s*#\s+[^\n]+\n?/, "").trim();
 }
 
+export function hasStorySettingsContent(value: { readonly sections?: ReadonlyArray<unknown>; readonly chapters?: ReadonlyArray<unknown> } | null | undefined): boolean {
+  return Boolean((value?.sections?.length ?? 0) > 0 || (value?.chapters?.length ?? 0) > 0);
+}
+
 const GROUP_LABELS: Record<StorySectionGroup, { readonly zh: string; readonly en: string }> = {
   settings: { zh: "故事设定", en: "Story setup" },
   world: { zh: "世界观与规则", en: "World and rules" },
@@ -104,6 +108,16 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
   const selectedGroup = selectedTab === "chapters" ? undefined : groups.find(([group]) => group === selectedTab);
   const wordCount = (data?.chapters ?? []).reduce((total, chapter) => total + (chapter.wordCount || 0), 0);
 
+  if (!loading && (!bookId && !storyId || data && !hasStorySettingsContent(data))) {
+    return (
+      <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-settings-panel">
+        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+          <DocumentEmpty text={isZh ? "暂无内容" : "No content"} />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card/20" data-testid="story-settings-panel">
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-4 border-b border-border/40 px-6 py-6">
@@ -111,7 +125,6 @@ export function StorySettingsPanel({ bookId, storyId, theme: _theme, isZh }: Sto
           <BookOpen size={21} className="mt-1 shrink-0 text-primary" />
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-semibold">{data?.book.title ?? (isZh ? "故事设定" : "Story settings")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{isZh ? "按故事设定、角色和大纲分组查看生成内容。" : "Review generated content grouped by setup, characters, and outline."}</p>
           </div>
         </div>
       </header>

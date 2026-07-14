@@ -31,7 +31,7 @@ import type { StorySeed } from "@actalk/inkos-core";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
-import { StoryScriptPanel } from "./StoryScriptPanel";
+import { buildStoryProductionPath, StoryScriptPanel } from "./StoryScriptPanel";
 import { StoryVideoPanel } from "./StoryVideoPanel";
 import {
   buildLongStoryCreationAction,
@@ -988,6 +988,17 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     }
   };
 
+  const requestStoryScriptCreation = async (kind: "book" | "short", storyId: string | null) => {
+    if (!storyId) return;
+    try {
+      await fetchJson(`${buildStoryProductionPath(kind, storyId)}/script`, { method: "POST" });
+    } catch (error) {
+      // Empty stories legitimately have no script source yet; the script stage
+      // will show its empty state instead of turning story creation into a failure.
+      console.warn("[studio] Story script creation skipped", error);
+    }
+  };
+
   const extractCreatedStoryAssets = (kind: "book" | "short", storyId: string | null) => {
     if (!storyId) return;
     setStoryAssetExtractionFailure(null);
@@ -1005,6 +1016,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       actionPayload: action.actionPayload,
     });
     const createdBookId = useChatStore.getState().sessions[activeSessionId]?.bookId ?? activeBookId ?? null;
+    await requestStoryScriptCreation("book", createdBookId);
     extractCreatedStoryAssets("book", createdBookId);
     setStoryWorkspaceStage("settings");
     setStoryContentRefreshToken((value) => value + 1);
@@ -1021,6 +1033,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
       actionPayload: action.actionPayload,
     });
     const createdShortId = latestShortStoryId(useChatStore.getState().sessions[activeSessionId]?.messages ?? []);
+    await requestStoryScriptCreation("short", createdShortId);
     extractCreatedStoryAssets("short", createdShortId);
     setStoryWorkspaceStage("settings");
     setStoryContentRefreshToken((value) => value + 1);

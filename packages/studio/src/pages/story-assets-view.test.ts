@@ -129,7 +129,7 @@ describe("story asset view helpers", () => {
   it("returns a stable empty state for an empty filtered list", () => {
     expect(getAssetEmptyState(true)).toBe("还没有故事资产");
     expect(getAssetEmptyState(false)).toBe("No story assets yet");
-    expect(renderPanel([])).toContain("No story assets yet");
+    expect(renderPanel([])).toContain("No content");
   });
 
   it("renders safe image URLs, state-specific labels, and does not generate on mount", () => {
