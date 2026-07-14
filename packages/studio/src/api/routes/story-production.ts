@@ -1,11 +1,15 @@
 import { execFile } from "node:child_process";
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   PipelineRunner,
   ScriptCreationAgent,
+  generateImageFromPrompt,
+  resolveCoverGenerationRequest,
   voiceSecretKey,
+  type ShortFictionCoverRequest,
   type StoryAsset,
   type StoryAssetKind,
   type StoryAssetManifest,
@@ -230,6 +234,19 @@ function parseLlmVoiceConfig(raw: Record<string, unknown>, secrets: Record<strin
   return apiKey ? { model, apiKey } : null;
 }
 
+/**
+ * Resolve the cover/image generation config for per-shot video frames.
+ * Returns null if no image provider is configured — the video composer
+ * will fall back to a solid-color background in that case.
+ */
+async function resolveImageConfig(root: string): Promise<ShortFictionCoverRequest | null> {
+  try {
+    return await resolveCoverGenerationRequest({ root });
+  } catch {
+    return null;
+  }
+}
+
 async function readAudioResponse(response: Response): Promise<Buffer> {
   const body = await response.text();
   let data: { output?: { audio?: { data?: string; url?: string } }; code?: string; message?: string };
@@ -293,6 +310,8 @@ async function composeSegmentVideo(args: {
   readonly shots: ReadonlyArray<UnifiedScriptShot>;
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
+  readonly imageConfig?: ShortFictionCoverRequest | null;
+  readonly imageCacheDir?: string;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string }> {
   const entries = buildSubtitleEntries(args.shots);
   if (entries.length === 0) throw new Error("场景中没有可用于字幕或配音的台词");
@@ -324,17 +343,63 @@ async function composeSegmentVideo(args: {
     warning = "未配置可用的语音模型或 API Key，已降级为字幕视频。";
   }
 
+  // Generate per-shot images if image config is available.
+  let backgroundImage: string | null = null;
+  if (args.imageConfig) {
+    const cacheDir = args.imageCacheDir ?? args.tempDir;
+    await mkdir(cacheDir, { recursive: true });
+    const shotsWithPrompts = args.shots.filter((shot) => shot.imagePrompt?.trim());
+    const imagePaths: string[] = [];
+    let imageWarning: string | undefined;
+    for (const [index, shot] of shotsWithPrompts.entries()) {
+      const imgPath = join(cacheDir, `shot-${String(index + 1).padStart(3, "0")}.png`);
+      // Skip if cached (user can delete files to force regen).
+      if (existsSync(imgPath)) {
+        imagePaths.push(imgPath);
+        continue;
+      }
+      try {
+        const result = await generateImageFromPrompt(args.imageConfig, shot.imagePrompt!.trim(), "1280x720");
+        await writeFile(imgPath, result.buffer);
+        imagePaths.push(imgPath);
+      } catch (error) {
+        imageWarning = error instanceof Error ? `部分镜头图片生成失败：${error.message}` : "部分镜头图片生成失败";
+      }
+    }
+    if (imagePaths.length > 0) {
+      // Use the first generated image as the background with a slow zoom (Ken Burns).
+      backgroundImage = imagePaths[0]!;
+    }
+    if (imageWarning && !warning) warning = imageWarning;
+  }
+
   const subtitleFilter = `subtitles='${escapeFfmpegFilterPath(assPath)}'`;
-  const baseArgs = [
-    "-y",
-    "-f", "lavfi",
-    "-i", `color=c=3B2F2F:s=1280x720:r=24:d=${(durationMs / 1000).toFixed(3)}`,
-    "-vf", subtitleFilter,
-  ];
+  const durationSec = (durationMs / 1000).toFixed(3);
+
+  let baseArgs: string[];
+  if (backgroundImage) {
+    // Image background with slow zoom + subtitles.
+    const zoomFilter = `scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,zoompan=z='min(zoom+0.0008,1.15)':d=${Math.ceil(Number(durationSec) * 24)}:s=1280x720:fps=24,${subtitleFilter}`;
+    baseArgs = [
+      "-y",
+      "-loop", "1",
+      "-i", backgroundImage,
+      "-t", durationSec,
+      "-vf", zoomFilter,
+    ];
+  } else {
+    // Fallback: solid color background + subtitles.
+    baseArgs = [
+      "-y",
+      "-f", "lavfi",
+      "-i", `color=c=3B2F2F:s=1280x720:r=24:d=${durationSec}`,
+      "-vf", subtitleFilter,
+    ];
+  }
   const commandArgs = voiceEnabled
     ? [...baseArgs, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "libx264", "-c:a", "aac", "-shortest", "-pix_fmt", "yuv420p", "-movflags", "+faststart", args.outputPath]
     : [...baseArgs, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", args.outputPath];
-  await execFileAsync(FFMPEG_PATH, commandArgs, { timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
+  await execFileAsync(FFMPEG_PATH, commandArgs, { timeout: 180_000, maxBuffer: 8 * 1024 * 1024 });
   return { durationMs, voiceEnabled, ...(warning ? { warning } : {}) };
 }
 
@@ -343,6 +408,7 @@ async function composeVideo(args: {
   readonly script: UnifiedScriptDocument;
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
+  readonly imageConfig?: ShortFictionCoverRequest | null;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string; scenes: SceneGroup[] }> {
   const scenes = groupShotsByScene(args.script.shots);
   if (scenes.length === 0) throw new Error("剧本中没有可用于字幕或配音的台词");
@@ -351,6 +417,8 @@ async function composeVideo(args: {
   await mkdir(scenesDir, { recursive: true });
   const tempDir = join(args.productionDir, ".tmp-video");
   await mkdir(tempDir, { recursive: true });
+  const imageCacheDir = join(args.productionDir, "images");
+  if (args.imageConfig) await mkdir(imageCacheDir, { recursive: true });
 
   let voiceEnabled = false;
   let warning: string | undefined;
@@ -359,12 +427,15 @@ async function composeVideo(args: {
   for (const scene of scenes) {
     const sceneOutput = join(scenesDir, `scene-${String(scene.index).padStart(3, "0")}.mp4`);
     const sceneTemp = join(tempDir, `scene-${scene.index}`);
+    const sceneImageCache = args.imageConfig ? join(imageCacheDir, `scene-${scene.index}`) : undefined;
     const result = await composeSegmentVideo({
       tempDir: sceneTemp,
       outputPath: sceneOutput,
       shots: scene.shots,
       voiceConfig: args.voiceConfig,
       withVoice: args.withVoice,
+      imageConfig: args.imageConfig,
+      imageCacheDir: sceneImageCache,
     }).catch((error) => {
       warning = `场景 ${scene.index + 1}「${scene.name}」视频生成失败：${error instanceof Error ? error.message : String(error)}`;
       return null;
@@ -540,11 +611,13 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
     const raw = await context.loadRawConfig();
     const secrets = await context.loadSecrets();
+    const imageConfig = await resolveImageConfig(context.root);
     const result = await composeVideo({
       productionDir: dir,
       script: parseUnifiedScript(script),
       voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
       withVoice: body.voice !== false,
+      imageConfig,
     });
     const previous = await readManifest(dir);
     await writeFile(join(dir, "manifest.json"), JSON.stringify({
@@ -571,10 +644,13 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
     const raw = await context.loadRawConfig();
     const secrets = await context.loadSecrets();
+    const imageConfig = await resolveImageConfig(context.root);
     const scenesDir = join(dir, "scenes");
     const tempDir = join(dir, ".tmp-video", `scene-${index}`);
     await mkdir(scenesDir, { recursive: true });
     await mkdir(tempDir, { recursive: true });
+    const sceneImageCache = imageConfig ? join(dir, "images", `scene-${index}`) : undefined;
+    if (sceneImageCache) await mkdir(sceneImageCache, { recursive: true });
     const sceneOutput = join(scenesDir, `scene-${String(index).padStart(3, "0")}.mp4`);
     const result = await composeSegmentVideo({
       tempDir,
@@ -582,6 +658,8 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       shots: scene.shots,
       voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
       withVoice: body.voice !== false,
+      imageConfig,
+      imageCacheDir: sceneImageCache,
     });
     // 单场景生成不更新合集（story.mp4）：合集可能因此与单场景不一致，
     // 前端可提示用户重新生成合集以合并最新场景。
