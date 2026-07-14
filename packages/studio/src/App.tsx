@@ -24,8 +24,10 @@ const FlowView = lazy(() => import("./pages/FlowView"));
 const FilmWizard = lazy(() => import("./pages/FilmWizard"));
 import { LanguageSelector } from "./pages/LanguageSelector";
 import { BookSidebar, BookSidebarToggle } from "./components/chat/BookSidebar";
+import { Toaster } from "./components/Toaster";
 import { useSSE } from "./hooks/use-sse";
 import { useSessionEvents } from "./hooks/use-session-events";
+import { useBackgroundCreation } from "./hooks/use-background-creation";
 import { useTheme } from "./hooks/use-theme";
 import { useI18n } from "./hooks/use-i18n";
 import { setAppLanguage, tr } from "./lib/app-language";
@@ -297,6 +299,7 @@ export function App() {
   }, [project]);
 
   useSessionEvents(sse, route, setRoute);
+  useBackgroundCreation(sse);
 
   const nav = {
     toDashboard: () => setRoute({ page: "dashboard" }),
@@ -608,6 +611,7 @@ export function App() {
         </main>
       </div>
       </div>
+      <Toaster />
     </PageToolbarProvider>
   );
 }
