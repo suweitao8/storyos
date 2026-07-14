@@ -31,6 +31,13 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+type CraftArtStyle = "realistic" | "cg3d";
+
+const CRAFT_ART_STYLES: ReadonlyArray<{ readonly key: CraftArtStyle; readonly label: string }> = [
+  { key: "realistic", label: "写实风格" },
+  { key: "cg3d", label: "3D国漫风格" },
+];
+
 interface CraftMeta {
   readonly id: string;
   readonly sourceName: string;
@@ -43,7 +50,7 @@ interface CraftMeta {
   readonly storySeed?: StorySeed;
   readonly storySeedStatus?: "pending" | "ready" | "error";
   readonly storySeedError?: string;
-  readonly genre?: string;
+  readonly artStyle?: CraftArtStyle;
   readonly processingStatus?: "processing" | "ready" | "error";
   readonly processingStage?: string;
   readonly processingError?: string;
@@ -648,7 +655,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
           craftId={selectedCraftId}
           initialProfile={newProfile}
           initialMeta={newMeta ?? crafts.find((cr) => cr.id === selectedCraftId)}
-          initialGenre={crafts.find((cr) => cr.id === selectedCraftId)?.genre}
+          initialArtStyle={crafts.find((cr) => cr.id === selectedCraftId)?.artStyle}
           c={c}
           t={t}
           onNew={openCreate}
@@ -1113,11 +1120,11 @@ interface CraftStatusResponse {
   readonly error?: string | null;
 }
 
-function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t, onNew }: {
+function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
   initialMeta?: CraftMeta;
-  initialGenre?: string;
+  initialArtStyle?: CraftArtStyle;
   c: ReturnType<typeof useColors>;
   t: TFunction;
   onNew: () => void;
@@ -1142,24 +1149,23 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
   const [storySeedGenerating, setStorySeedGenerating] = useState(false);
   const [subtitleText, setSubtitleText] = useState<string | null>(null);
   const [subtitleLoading, setSubtitleLoading] = useState(false);
-  const [genre, setGenre] = useState<string>(initialGenre ?? "");
-  const [genreSaving, setGenreSaving] = useState(false);
-  const { data: genresData } = useApi<{ genres: ReadonlyArray<{ id: string; name: string }> }>("/genres");
+  const [artStyle, setArtStyle] = useState<CraftArtStyle>(initialArtStyle ?? "realistic");
+  const [artStyleSaving, setArtStyleSaving] = useState(false);
 
   useEffect(() => {
-    setGenre(initialGenre ?? "");
-  }, [craftId, initialGenre]);
+    setArtStyle(initialArtStyle ?? "realistic");
+  }, [craftId, initialArtStyle]);
 
-  const handleGenreChange = useCallback(async (nextGenre: string) => {
+  const handleArtStyleChange = useCallback(async (nextArtStyle: CraftArtStyle) => {
     if (!craftId) return;
-    setGenre(nextGenre);
-    setGenreSaving(true);
+    setArtStyle(nextArtStyle);
+    setArtStyleSaving(true);
     try {
-      await putApi(`/crafts/${craftId}/meta`, { genre: nextGenre });
+      await putApi(`/crafts/${craftId}/meta`, { artStyle: nextArtStyle });
     } catch {
       // silent — user can retry by selecting again
     } finally {
-      setGenreSaving(false);
+      setArtStyleSaving(false);
     }
   }, [craftId]);
 
@@ -1499,20 +1505,24 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialGenre, c, t,
       {detailTab === "overview" && craftId && (
         <section className={`border ${c.cardStatic} rounded-xl p-4`}>
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">题材</h3>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">画面风格</h3>
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                角色和场景图片生成时使用的视觉风格。
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <select
-                value={genre}
-                onChange={(e) => void handleGenreChange(e.target.value)}
-                disabled={genreSaving}
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm min-w-[160px] disabled:opacity-50"
+                value={artStyle}
+                onChange={(e) => void handleArtStyleChange(e.target.value as CraftArtStyle)}
+                disabled={artStyleSaving}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm min-w-[140px] disabled:opacity-50"
               >
-                <option value="">未指定</option>
-                {(genresData?.genres ?? []).map((g) => (
-                  <option key={g.id} value={g.id}>{g.name} ({g.id})</option>
+                {CRAFT_ART_STYLES.map((style) => (
+                  <option key={style.key} value={style.key}>{style.label}</option>
                 ))}
               </select>
-              {genreSaving && (
+              {artStyleSaving && (
                 <span className="text-xs text-muted-foreground">保存中…</span>
               )}
             </div>
