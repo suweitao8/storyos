@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSubtitleEntries,
+  formatScriptIssues,
   parseUnifiedScript,
+  validateScriptQuality,
 } from "./story-production";
 import { buildBookSourceFallbackText, buildAssetsContext } from "./routes/story-production";
 
@@ -124,5 +126,64 @@ describe("buildAssetsContext", () => {
 
   it("returns empty string when no assets", () => {
     expect(buildAssetsContext([])).toBe("");
+  });
+});
+
+describe("validateScriptQuality", () => {
+  const goodShot = {
+    number: 1, scene: "场景一",
+    visual: "走廊尽头站着一个女人【林小雨】。",
+    camera: "中景",
+    subtitle: "她终于来了。",
+    durationMs: 3000,
+    imagePrompt: "年轻女人穿白色连衣裙站在昏暗走廊尽头，冷蓝色调，侧光，中景，悬疑氛围",
+  };
+
+  it("passes a well-formed shot without issues", () => {
+    const issues = validateScriptQuality([goodShot], ["林小雨"]);
+    expect(issues).toHaveLength(0);
+  });
+
+  it("detects missing narration", () => {
+    const issues = validateScriptQuality([{ ...goodShot, subtitle: "" }], ["林小雨"]);
+    expect(issues.some((i) => i.type === "missing_narration" && i.shot === 1)).toBe(true);
+  });
+
+  it("detects missing camera", () => {
+    const issues = validateScriptQuality([{ ...goodShot, camera: undefined }], ["林小雨"]);
+    expect(issues.some((i) => i.type === "missing_camera" && i.shot === 1)).toBe(true);
+  });
+
+  it("detects thin image prompt", () => {
+    const issues = validateScriptQuality([{ ...goodShot, imagePrompt: "女人" }], ["林小雨"]);
+    expect(issues.some((i) => i.type === "thin_image_prompt" && i.shot === 1)).toBe(true);
+  });
+
+  it("detects untracked asset name referenced in visual", () => {
+    const issues = validateScriptQuality(
+      [{ ...goodShot, visual: "走廊尽头站着一个女人【不存在的角色】。" }],
+      ["林小雨"],
+    );
+    expect(issues.some((i) => i.type === "untracked_asset_name" && i.message.includes("不存在的角色"))).toBe(true);
+  });
+
+  it("does not flag asset names when no asset names provided", () => {
+    const issues = validateScriptQuality([goodShot], []);
+    expect(issues.some((i) => i.type === "untracked_asset_name")).toBe(false);
+  });
+
+  it("formatScriptIssues returns null when no issues", () => {
+    expect(formatScriptIssues([])).toBeNull();
+  });
+
+  it("formatScriptIssues groups issues by type in readable text", () => {
+    const issues = validateScriptQuality([
+      { number: 1, scene: "s", visual: "v", subtitle: "", durationMs: 0 },
+      { number: 2, scene: "s", visual: "v【张三】", camera: "特写", subtitle: "旁白", durationMs: 0, imagePrompt: "详细的提示词描述" },
+    ], []);
+    const formatted = formatScriptIssues(issues);
+    expect(formatted).not.toBeNull();
+    expect(formatted!).toContain("剧本质量校验发现问题");
+    expect(formatted!).toContain("缺少旁白");
   });
 });
