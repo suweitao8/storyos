@@ -2,16 +2,16 @@ import type { StorySeed } from "@actalk/inkos-core";
 
 export const STORY_SEED_SECTION_DEFINITIONS = [
   { key: "title", zh: "故事名称", en: "Story title" },
-  { key: "genreTone", zh: "类型与基调", en: "Genre and tone" },
-  { key: "hook", zh: "一句话故事钩子", en: "One-line story hook" },
-  { key: "worldview", zh: "世界观与运行规则", en: "Worldview and rules" },
-  { key: "characters", zh: "角色与关系", en: "Characters and relationships" },
-  { key: "conflict", zh: "核心冲突、代价与 stakes", en: "Core conflict, stakes, and cost" },
-  { key: "outline", zh: "分段故事大纲", en: "Beat outline" },
-  { key: "reversals", zh: "关键反转与线索回收", en: "Key reversals and clue payoffs" },
-  { key: "ending", zh: "结局与情绪余味", en: "Ending and emotional aftertaste" },
-  { key: "visualAudioMotifs", zh: "画面与声音母题", en: "Visual and audio motifs" },
-  { key: "originalizationPlan", zh: "原创化改编方案", en: "Originality transformation plan" },
+  { key: "genreTone", zh: "类型与风格", en: "Genre and tone" },
+  { key: "hook", zh: "一句话简介", en: "One-line summary" },
+  { key: "worldview", zh: "世界设定", en: "World and rules" },
+  { key: "characters", zh: "角色介绍", en: "Characters" },
+  { key: "conflict", zh: "主要矛盾与代价", en: "Main conflict and stakes" },
+  { key: "outline", zh: "故事大纲", en: "Story outline" },
+  { key: "reversals", zh: "关键转折与伏笔", en: "Key twists and payoffs" },
+  { key: "ending", zh: "结局", en: "Ending" },
+  { key: "visualAudioMotifs", zh: "画面与氛围", en: "Visuals and mood" },
+  { key: "originalizationPlan", zh: "原创要点", en: "Originality notes" },
 ] as const;
 
 export function serializeStorySeed(seed: StorySeed, language: "zh" | "en" = "zh"): string {
