@@ -1,13 +1,12 @@
-import { fetchJson, useApi, postApi } from "../hooks/use-api";
+import { fetchJson, useApi } from "../hooks/use-api";
 import { useState } from "react";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useI18n } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
 import { Modal } from "../components/Modal";
-import { Plus, Pencil, List } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { filterGenresForLanguage } from "./genre-page-state";
-import { usePageToolbar } from "../components/PageToolbar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -219,16 +218,12 @@ function GenreForm({
 // Main component
 // ---------------------------------------------------------------------------
 
-interface Nav {
-  toDashboard: () => void;
-}
-
-export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFunction }) {
+export function GenreManager({ theme, t }: { theme: Theme; t: TFunction }) {
   const c = useColors(theme);
   const { lang } = useI18n();
   const { data, refetch } = useApi<{ genres: ReadonlyArray<GenreInfo> }>("/genres");
   const [selected, setSelected] = useState<string | null>(null);
-  const [formMode, setFormMode] = useState<"hidden" | "create" | "edit">("hidden");
+  const [formMode, setFormMode] = useState<"hidden" | "edit">("hidden");
   const [form, setForm] = useState<GenreFormData>(EMPTY_FORM);
 
   const filteredGenres = filterGenresForLanguage(data?.genres ?? [], lang);
@@ -236,11 +231,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   const selectedGenre = filteredGenres.find((g) => g.id === validSelected) ?? null;
 
   const { data: detail } = useApi<GenreDetail>(validSelected ? `/genres/${validSelected}` : "");
-
-  const openCreateForm = () => {
-    setForm(EMPTY_FORM);
-    setFormMode("create");
-  };
 
   const openEditForm = () => {
     if (!detail) return;
@@ -263,41 +253,6 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
   const closeForm = () => setFormMode("hidden");
 
   const isZh = lang === "zh";
-  usePageToolbar("genres", {
-    tabs: [
-      { id: "list", label: isZh ? "题材列表" : "Genres", icon: <List size={14} /> },
-      { id: "edit", label: formMode === "edit" ? (isZh ? "编辑" : "Edit") : (isZh ? "新建" : "Create"), icon: <Plus size={14} /> },
-    ],
-    activeTab: formMode === "hidden" ? "list" : "edit",
-    onTabChange: (next) => {
-      if (next === "list") closeForm();
-      else openCreateForm();
-    },
-  });
-
-  const handleCreate = async () => {
-    try {
-      await postApi("/genres/create", {
-        id: form.id,
-        name: form.name,
-        language: form.language,
-        chapterTypes: parseCommaSeparated(form.chapterTypes),
-        fatigueWords: parseCommaSeparated(form.fatigueWords),
-        numericalSystem: form.numericalSystem,
-        powerScaling: form.powerScaling,
-        eraResearch: form.eraResearch,
-        pacingRule: form.pacingRule,
-        artStyle: form.artStyle,
-        body: form.body,
-      });
-      setFormMode("hidden");
-      setSelected(form.id);
-      await refetch();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to create genre");
-    }
-  };
-
   const handleEdit = async () => {
     if (!validSelected) return;
     try {
@@ -331,16 +286,16 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
     <div className="space-y-5">
       <Modal
         open={formMode !== "hidden"}
-        title={formMode === "create" ? t("genre.createNew") : `${t("common.edit")}: ${form.id}`}
+        title={`${t("common.edit")}: ${form.id}`}
         onClose={closeForm}
         maxWidth="max-w-2xl"
       >
         <GenreForm
           form={form}
           onChange={setForm}
-          onSubmit={formMode === "create" ? handleCreate : handleEdit}
+          onSubmit={handleEdit}
           onCancel={closeForm}
-          isEdit={formMode === "edit"}
+          isEdit
           c={c}
           t={t}
         />
@@ -354,29 +309,32 @@ export function GenreManager({ nav, theme, t }: { nav: Nav; theme: Theme; t: TFu
               <div className="text-sm font-semibold">{t("genre.list")}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">{filteredGenres.length} {t("genre.available")}</div>
             </div>
-            <button
-              onClick={openCreateForm}
-              title={t("genre.createNew")}
-              className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-lg ${c.btnPrimary}`}
-            >
-              <Plus size={16} />
-            </button>
           </div>
           <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
-            {filteredGenres.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelected(g.id)}
-                className={`w-full border-b border-border/40 px-4 py-3 text-left transition-colors last:border-b-0 ${
-                  validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
-                }`}
-              >
-                <div className="text-sm font-medium">{g.name}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
-                  {g.id} · {g.source}
-                </div>
-              </button>
-            ))}
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/30 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">{t("genre.name")}</th>
+                  <th className="px-4 py-3 font-medium">ID</th>
+                  <th className="px-4 py-3 font-medium">{isZh ? "来源" : "Source"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {filteredGenres.map((g) => (
+                  <tr
+                    key={g.id}
+                    onClick={() => setSelected(g.id)}
+                    className={`cursor-pointer transition-colors ${
+                      validSelected === g.id ? "bg-primary/10 text-primary" : "hover:bg-muted/30"
+                    }`}
+                  >
+                    <td className="px-4 py-3 font-medium">{g.name}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{g.id}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{g.source}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 

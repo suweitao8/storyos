@@ -31,7 +31,6 @@ import {
   BookPlus,
   BookCopy,
   BookOpen,
-  Boxes,
   Feather,
   FolderOpen,
   ChevronRight,
@@ -44,7 +43,6 @@ import {
   Rows3,
   Film,
   FileText,
-  Bot,
 } from "lucide-react";
 import { InkosLogo } from "./InkosLogo";
 
@@ -85,9 +83,7 @@ interface Nav {
   toBookCreate: () => void;
   toServices: () => void;
   toProjectSettings: () => void;
-  toGenres: () => void;
   toPromptTemplates: () => void;
-  toSkills: () => void;
   toCraft: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toRadar: () => void;
@@ -575,22 +571,10 @@ export function Sidebar({ nav, activePage, sse, t }: {
           </div>
           <div className="space-y-0.5">
             <SidebarItem
-              label={t("create.genre")}
-              icon={<Boxes size={16} />}
-              active={activePage === "genres"}
-              onClick={nav.toGenres}
-            />
-            <SidebarItem
               label={t("nav.promptTemplates")}
               icon={<FileText size={16} />}
               active={activePage === "prompt-templates"}
               onClick={nav.toPromptTemplates}
-            />
-            <SidebarItem
-              label={t("nav.skills")}
-              icon={<Bot size={16} />}
-              active={activePage === "skills"}
-              onClick={nav.toSkills}
             />
             <SidebarItem
               label={t("nav.settings")}
