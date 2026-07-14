@@ -65,9 +65,9 @@ describe("CraftAnalyzerAgent", () => {
   it("uses a readable Chinese craft-analysis prompt with concrete-output constraints", () => {
     const prompt = buildCraftAnalysisSystemPrompt("zh");
 
-    expect(prompt).toContain("你是一位写作手法分析师");
-    expect(prompt).toContain("每个必填字段都必须是具体");
-    expect(prompt).toContain("不要输出“未明确说明”");
+    expect(prompt).toContain("帮读者看懂写作技巧");
+    expect(prompt).toContain("大白话");
+    expect(prompt).toContain("不要输出");
   });
 
   it("distinguishes Bilibili commentary from short-story reference material", () => {
@@ -86,8 +86,7 @@ describe("CraftAnalyzerAgent", () => {
     expect(prompt).toContain("worldview");
     expect(prompt).toContain("storyOutline");
     expect(prompt).toContain("6-10");
-    expect(prompt).toContain("推进章节");
-    expect(prompt).toContain("悬念管理");
+    expect(prompt).toContain("大白话");
   });
 
   it("declares every required technique field for timestamped video analysis", () => {
