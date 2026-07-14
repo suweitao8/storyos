@@ -22,7 +22,7 @@ export interface StoryAssetManifestStore {
 }
 
 export interface StoryAssetImageRuntime {
-  generateImage(prompt: string): Promise<{
+  generateImage(prompt: string, size?: string): Promise<{
     readonly buffer: Uint8Array;
     readonly extension: string;
   }>;
@@ -180,7 +180,9 @@ export async function generateStoryAssetImage(
   await input.manifestStore.writeManifest(path, generatingManifest);
 
   try {
-    const generated = await input.imageRuntime.generateImage(asset.imagePrompt);
+    // All story asset images use 16:9 landscape: character reference sheets,
+    // scene establishing shots, and prop close-ups (centered with side space).
+    const generated = await input.imageRuntime.generateImage(asset.imagePrompt, "1536x1024");
     if (!isRecord(generated) || !(generated.buffer instanceof Uint8Array) || typeof generated.extension !== "string") {
       throw new Error("Image runtime returned an invalid image result.");
     }
