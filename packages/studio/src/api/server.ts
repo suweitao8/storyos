@@ -117,9 +117,8 @@ import {
   type CraftMode,
   DEFAULT_IMAGE_TEMPLATES,
   DEFAULT_IMAGE_STYLES,
-  DEFAULT_VOICE_PROMPTS,
+  DEFAULT_VOICE_PROMPT,
   ART_STYLES,
-  VOICE_AGE_GROUPS,
 } from "@actalk/inkos-core";
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -5175,9 +5174,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({
       imageTemplates: DEFAULT_IMAGE_TEMPLATES,
       imageStyles: DEFAULT_IMAGE_STYLES,
-      voice: DEFAULT_VOICE_PROMPTS,
+      voice: DEFAULT_VOICE_PROMPT,
       artStyles: ART_STYLES,
-      voiceGroups: VOICE_AGE_GROUPS,
     });
   });
 

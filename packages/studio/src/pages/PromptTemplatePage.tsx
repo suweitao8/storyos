@@ -23,18 +23,11 @@ interface ArtStyleOption {
   readonly labelEn: string;
 }
 
-interface VoiceGroupOption {
-  readonly key: string;
-  readonly label: string;
-  readonly labelEn: string;
-}
-
 interface ApiResponse {
   readonly imageTemplates: Record<string, string>;
   readonly imageStyles: Record<ArtStyleKey, Record<string, string>>;
-  readonly voice: Record<string, string>;
+  readonly voice: string;
   readonly artStyles: ReadonlyArray<ArtStyleOption>;
-  readonly voiceGroups: ReadonlyArray<VoiceGroupOption>;
 }
 
 type FormTab = "writing" | "imageTemplates" | "imageStyles" | "voice";
@@ -210,17 +203,18 @@ export function PromptTemplatePage({ theme, t }: { theme: Theme; t: TFunction })
 
             {tab === "voice" && (
               <div className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {data.voiceGroups.map((group) => (
-                    <div key={group.key}>
-                      <label className="text-xs text-muted-foreground uppercase tracking-wide">
-                        {isZh ? group.label : group.labelEn}
-                      </label>
-                      <pre className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-                        {data.voice[group.key] || `（${isZh ? "空" : "empty"}）`}
-                      </pre>
-                    </div>
-                  ))}
+                <p className="text-xs text-muted-foreground">
+                  {isZh
+                    ? "通用音色推导模板。根据角色档案（年龄、性别、体型、性格等）动态推导音色，不预设固定音色。"
+                    : "Generic voice derivation template. Derives voice characteristics from the character's profile (age, gender, body type, personality) — no fixed timbre."}
+                </p>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {isZh ? "语音提示词模板" : "Voice Prompt Template"}
+                  </label>
+                  <pre className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-mono text-foreground/80 whitespace-pre-wrap max-h-[420px] overflow-y-auto">
+                    {data.voice || `（${isZh ? "空" : "empty"}）`}
+                  </pre>
                 </div>
               </div>
             )}
