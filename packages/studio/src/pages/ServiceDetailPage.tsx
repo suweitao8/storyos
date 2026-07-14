@@ -26,7 +26,7 @@ interface TextModelConfigPanelProps {
 
 function DetailSkeleton() {
   return (
-    <div className="mx-auto max-w-xl animate-pulse space-y-6">
+    <div className="animate-pulse space-y-6">
       <div className="h-4 w-16 rounded bg-muted" />
       <div className="space-y-2">
         <div className="h-3 w-16 rounded bg-muted/60" />
@@ -337,7 +337,7 @@ export function TextModelConfigPanel({
   if (loading) return <DetailSkeleton />;
 
   return (
-    <div className={compact ? "space-y-4" : "mx-auto max-w-xl space-y-6"}>
+    <div className={compact ? "space-y-4" : "space-y-6"}>
       {onBack && (
         <button
           onClick={onBack}
