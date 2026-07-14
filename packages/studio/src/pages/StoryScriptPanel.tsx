@@ -224,7 +224,7 @@ function ShotDetails({ shot, isZh }: { readonly shot: UnifiedScriptShot; readonl
         {/* 标题行 */}
         <div className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-baseline gap-2">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{shot.scene}</p>
+            <p className="shrink-0 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{shot.scene}</p>
             <h2 className="truncate text-lg font-semibold">{isZh ? `镜头 ${shot.number}` : `Shot ${shot.number}`}</h2>
             {shot.camera ? <span className="shrink-0 rounded border border-border/50 bg-secondary/50 px-1.5 py-0.5 text-[11px] text-muted-foreground">{shot.camera}</span> : null}
           </div>
