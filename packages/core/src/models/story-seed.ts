@@ -69,6 +69,14 @@ const SECTION_KEY_BY_LABEL = new Map<string, StorySeedSectionKey>(
   STORY_SEED_SECTION_DEFINITIONS.flatMap((definition) => [
     [definition.zh, definition.key],
     [definition.en, definition.key],
+    // The prompt (craft-prompts.ts buildStorySeedPrompt) asks the model to emit
+    // the originalization section as "原创要点" / "Originality notes", but the
+    // canonical label in STORY_SEED_SECTION_DEFINITIONS is "原创化改编方案" /
+    // "Originality transformation plan". Accept both so parseStorySeed can find
+    // the section regardless of which label the model uses.
+    ...(definition.key === "originalizationPlan"
+      ? [["原创要点", definition.key] as const, ["Originality notes", definition.key] as const]
+      : []),
     ...(definition.key === "conflict" ? [["核心冲突、代价与后果", definition.key] as const] : []),
   ]),
 );

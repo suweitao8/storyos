@@ -116,4 +116,18 @@ describe("short story seed", () => {
     })).toBe(true);
     expect(isStorySeedWithOriginalizationPlan(COMPLETE_SEED)).toBe(false);
   });
+
+  it("accepts the prompt alias label '原创要点' for originalizationPlan", () => {
+    // The buildStorySeedPrompt asks the model to emit the originalization
+    // section as "原创要点" (not "原创化改编方案"). parseStorySeed must
+    // accept both labels so newly generated seeds pass validation.
+    const aliasedMarkdown = `${COMPLETE_SEED_MARKDOWN.trim()}
+
+## 原创要点
+重新设计空间、身份、关系、因果链和结局。`;
+
+    const seed = parseStorySeed(aliasedMarkdown);
+    expect(seed.originalizationPlan).toContain("重新设计空间");
+    expect(isStorySeedWithOriginalizationPlan(seed)).toBe(true);
+  });
 });
