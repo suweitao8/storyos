@@ -37,7 +37,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const [selection, setSelection] = useState<Selection>({ type: "collection" });
 
   const collectionVideoUrl = storyId
-    ? `${path}/video/file?ts=${encodeURIComponent(data?.video.generatedAt ?? "0")}`
+    ? `/api/v1${path}/video/file?ts=${encodeURIComponent(data?.video.generatedAt ?? "0")}`
     : "";
   const scenes = data?.scenes ?? [];
 
@@ -69,7 +69,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const selectedScene = selection.type === "scene" ? scenes.find((s) => s.index === selection.index) : null;
   const selectedSceneVideoUrl =
     selection.type === "scene" && storyId
-      ? `${path}/video/scene/${selection.index}/file`
+      ? `/api/v1${path}/video/scene/${selection.index}/file`
       : null;
 
   return (
