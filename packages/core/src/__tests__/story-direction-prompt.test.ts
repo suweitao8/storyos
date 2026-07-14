@@ -32,26 +32,24 @@ const profile: CraftProfile = {
 };
 
 describe("story direction prompt", () => {
-  it("uses the craft worldview and outline while asking for an original direction", () => {
+  it("uses the craft worldview but NOT the source story outline", () => {
     const prompt = buildStoryDirectionPrompt(profile, "short", "zh", "old direction");
 
-    expect(prompt.system).toContain("新的身份");
+    expect(prompt.system).toContain("全新的故事");
     expect(prompt.user).toContain(profile.worldview);
-    expect(prompt.user).toContain(profile.storyOutline);
+    // storyOutline is the source story's actual plot — must NOT be injected
+    expect(prompt.user).not.toContain(profile.storyOutline);
     expect(prompt.user).toContain("old direction");
     expect(prompt.user).toContain("一篇单章节短篇故事");
   });
 
-  it("keeps story directions readable for a general Bilibili audience", () => {
+  it("keeps story directions plain and simple for a general audience", () => {
     const directionPrompt = buildStoryDirectionPrompt(profile, "short", "zh");
     const seedPrompt = buildStorySeedPrompt(profile, "short", "zh");
 
     for (const prompt of [directionPrompt, seedPrompt]) {
-      expect(prompt.system).toContain("B站普通观众");
-      expect(prompt.user).toContain("日常中文");
-      expect(prompt.user).toContain("不写论文式分析");
-      expect(prompt.user).toContain("冲突升级机制");
-      expect(prompt.user).toContain("信息释放节奏");
+      expect(prompt.system).toContain("普通观众");
+      expect(prompt.user).toContain("说人话");
     }
   });
 
@@ -73,7 +71,6 @@ describe("story direction prompt", () => {
       expect(prompt.user).toContain(section);
     }
     expect(prompt.user).toContain(profile.worldview);
-    expect(prompt.user).toContain(profile.storyOutline);
     expect(prompt.system).toContain("Do not output <think>");
     expect(prompt.system).toContain("十个基础 Markdown 板块");
     expect(prompt.user).toContain("原创化改编方案");
@@ -87,11 +84,11 @@ describe("story direction prompt", () => {
     expect(prompt.user).toContain("未选择创作参考素材");
   });
 
-  it("requires a concrete originality transformation plan", () => {
+  it("emphasizes originality over copying the source story", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
     expect(prompt.user).toContain("原创化改编方案");
     expect(prompt.user).toContain("新的空间、身份、关系、因果链、关键事件和结局");
-    expect(prompt.system).toContain("不得复用连续事件顺序");
+    expect(prompt.system).toContain("严禁照搬");
   });
 });
