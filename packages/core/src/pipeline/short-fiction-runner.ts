@@ -20,6 +20,7 @@ import {
   ShortFictionPackagingAgent,
   ShortFictionWriterAgent,
   findEmptyShortFictionChapters,
+  findShortFictionLengthDeficits,
   formatShortFictionChapterHeading,
   renderShortFictionDraftMarkdown,
   validateShortFictionDraftForFinal,
@@ -35,7 +36,10 @@ import { toPosixPath as projectPath } from "../utils/posix-path.js";
 import { buildCraftGuide, buildCraftExemplars } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 
-const SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS = 3;
+// A provider may stop a single response around 4K-8K Chinese characters even
+// when the requested chapter is much longer; allow enough continuation passes
+// to reach the 85% minimum without silently publishing a short synopsis.
+const SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS = 5;
 
 export interface ShortFictionRunRuntimes {
   readonly planner: AgentContext;
@@ -122,6 +126,7 @@ export async function runShortFictionProduction(
     providedStoryId
     && await projectFileExists(root, join(outDir, providedStoryId, "final", "full.md"))
     && !await isFailedShortRun(root, join(outDir, providedStoryId, "status.json"))
+    && (!options.charsPerChapter || await isShortRunAtTarget(root, join(outDir, providedStoryId), options.charsPerChapter, options.language))
   ) {
     return buildShortRunResult(providedStoryId, join(outDir, providedStoryId), { coverError: "already-complete" });
   }
@@ -247,10 +252,19 @@ async function produceShort(
       language,
     });
     let missingFromDraft = findEmptyShortFictionChapters(draftV1);
-    if (missingFromDraft.length > 0) {
+    let shortChapters = findShortFictionLengthDeficits(draftV1, charsPerChapter, language);
+    if (missingFromDraft.length > 0 || shortChapters.length > 0) {
       await writeDraftArtifacts(root, baseDir, "v001-partial", draftV1, language);
-      for (let attempt = 1; missingFromDraft.length > 0 && attempt <= SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS; attempt += 1) {
-        options.onProgress?.(`Completing missing short fiction chapters: ${missingFromDraft.join(", ")}...`);
+      for (
+        let attempt = 1;
+        (missingFromDraft.length > 0 || shortChapters.length > 0) && attempt <= SHORT_FICTION_DRAFT_COMPLETION_ATTEMPTS;
+        attempt += 1
+      ) {
+        if (missingFromDraft.length > 0) {
+          options.onProgress?.(`Completing missing short fiction chapters: ${missingFromDraft.join(", ")}...`);
+        } else {
+          options.onProgress?.(`Expanding short fiction chapters below target length: ${shortChapters.map((chapter) => chapter.chapter).join(", ")}...`);
+        }
         draftV1 = await writer.continueDraft({
           direction: options.direction,
           outlineMarkdown,
@@ -260,12 +274,17 @@ async function produceShort(
           draft: draftV1,
         });
         missingFromDraft = findEmptyShortFictionChapters(draftV1);
-        if (missingFromDraft.length > 0) {
+        shortChapters = findShortFictionLengthDeficits(draftV1, charsPerChapter, language);
+        if (missingFromDraft.length > 0 || shortChapters.length > 0) {
           await writeDraftArtifacts(root, baseDir, "v001-partial", draftV1, language);
         }
       }
     }
-    validateShortFictionDraftForFinal(draftV1, { expectedChapters: chapterCount });
+    validateShortFictionDraftForFinal(draftV1, {
+      expectedChapters: chapterCount,
+      minimumCharsPerChapter: charsPerChapter,
+      language,
+    });
     await writeDraftArtifacts(root, baseDir, "v001", draftV1, language);
 
     finalDraft = draftV1;
@@ -294,7 +313,11 @@ async function produceShort(
         charsPerChapter,
         language,
       });
-      validateShortFictionDraftForFinal(draftV2, { expectedChapters: chapterCount });
+      validateShortFictionDraftForFinal(draftV2, {
+        expectedChapters: chapterCount,
+        minimumCharsPerChapter: charsPerChapter,
+        language,
+      });
       await writeDraftArtifacts(root, baseDir, "v002", draftV2, language);
       finalDraft = draftV2;
     } catch (error) {
@@ -473,6 +496,25 @@ async function writeDraftArtifacts(
       chapter.content,
     ].join("\n")),
   ));
+}
+
+async function isShortRunAtTarget(
+  root: string,
+  baseDir: string,
+  targetLength: number,
+  language: ShortFictionLanguage | undefined,
+): Promise<boolean> {
+  const rawArtifact = await tryReadProjectText(root, join(baseDir, "final", "short-story.json"));
+  if (!rawArtifact?.trim()) return true;
+
+  try {
+    const draft = JSON.parse(rawArtifact) as ShortFictionBatchDraft;
+    return findEmptyShortFictionChapters(draft).length === 0
+      && findShortFictionLengthDeficits(draft, targetLength, language).length === 0;
+  } catch {
+    // Preserve legacy completed artifacts that predate short-story.json.
+    return true;
+  }
 }
 
 async function writeFinalArtifacts(

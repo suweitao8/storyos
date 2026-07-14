@@ -21,7 +21,7 @@ const DRAFT_MD = `
 ${Array.from({ length: CH }, (_, i) => `=== CHAPTER ${i + 1} TITLE ===
 第${i + 1}章
 === CHAPTER ${i + 1} CONTENT ===
-${"深夜的电梯停在不存在的十三层，门开了。".repeat(20)}`).join("\n")}
+${"深夜的电梯停在不存在的十三层，门开了。".repeat(50)}`).join("\n")}
 `;
 const PARTIAL_DRAFT_MD = `
 === SHORT_FICTION_TITLE ===
@@ -29,7 +29,7 @@ const PARTIAL_DRAFT_MD = `
 ${Array.from({ length: 5 }, (_, i) => `=== CHAPTER ${i + 1} TITLE ===
 第${i + 1}章
 === CHAPTER ${i + 1} CONTENT ===
-${"深夜的电梯停在不存在的十三层，门开了。".repeat(20)}`).join("\n")}
+${"深夜的电梯停在不存在的十三层，门开了。".repeat(50)}`).join("\n")}
 `;
 const MIDDLE_GAP_DRAFT_MD = `
 === SHORT_FICTION_TITLE ===
@@ -37,13 +37,21 @@ const MIDDLE_GAP_DRAFT_MD = `
 ${Array.from({ length: CH }, (_, i) => `=== CHAPTER ${i + 1} TITLE ===
 第${i + 1}章
 === CHAPTER ${i + 1} CONTENT ===
-${i === 4 || i === 7 ? "" : "深夜的电梯停在不存在的十三层，门开了。".repeat(20)}`).join("\n")}
+${i === 4 || i === 7 ? "" : "深夜的电梯停在不存在的十三层，门开了。".repeat(50)}`).join("\n")}
 `;
 const CHAPTER_5_ONLY_CONTINUATION_MD = `
 === CHAPTER 5 TITLE ===
 第5章
 === CHAPTER 5 CONTENT ===
-${"第五章补写完成，电梯井里传来旧广播声。".repeat(20)}
+${"第五章补写完成，电梯井里传来旧广播声。".repeat(50)}
+`;
+const SHORT_DRAFT_MD = `
+=== SHORT_FICTION_TITLE ===
+电梯多一层
+${Array.from({ length: CH }, (_, i) => `=== CHAPTER ${i + 1} TITLE ===
+第${i + 1}章
+=== CHAPTER ${i + 1} CONTENT ===
+短正文`).join("\n")}
 `;
 
 function ctx(projectRoot: string) {
@@ -136,6 +144,27 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(final).toContain("第12章");
   });
 
+  it("continues a non-empty draft when its chapters are below the requested length", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    const initial = parseShortFictionBatchDraft(SHORT_DRAFT_MD, { expectedChapters: CH });
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    const continueDraft = vi.spyOn(ShortFictionWriterAgent.prototype, "continueDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(initial);
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("looks fine");
+    vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "恐怖短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, runtimes: runtimes(root),
+    });
+
+    expect(continueDraft).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps completing a draft when the first continuation fills only some missing middle chapters", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
@@ -197,6 +226,25 @@ describe("short fiction resume + failure marker (C2)", () => {
 
     expect(writeDraft).not.toHaveBeenCalled();       // nothing regenerated
     expect(result.coverError).toBe("already-complete");
+  });
+
+  it("does not treat a completed artifact below the requested length as complete", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "elevator", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "full.md"), "# partial", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "short-story.json"), JSON.stringify({
+      storyTitle: "电梯多一层",
+      chapters: [{ number: 1, title: "第一章", content: "短正文", charCount: 3 }],
+    }), "utf-8");
+    stubDownstream();
+
+    const result = await runShortFictionProduction({
+      projectRoot: root, direction: "恐怖短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, runtimes: runtimes(root),
+    });
+
+    expect(result.coverError).not.toBe("already-complete");
   });
 
   it("does not skip a previously failed run just because final/full.md exists", async () => {

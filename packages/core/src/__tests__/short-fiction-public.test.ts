@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { LLMClient } from "../llm/provider.js";
 import {
   ShortFictionDraftReviserAgent,
+  ShortFictionWriterAgent,
+  findShortFictionLengthDeficits,
   parseShortFictionBatchDraft,
   validateShortFictionDraftForFinal,
 } from "../agents/short-fiction.js";
@@ -83,6 +85,62 @@ describe("public short-fiction chain", () => {
     expect(draft.chapters[1]?.content).not.toContain("陆景琛踹开老宅院门");
     expect(draft.chapters[2]?.content).toContain("直播链接");
     expect(() => validateShortFictionDraftForFinal(draft, { expectedChapters: 3 })).not.toThrow();
+  });
+
+  it("detects a non-empty but severely under-length chapter", () => {
+    const draft = parseShortFictionBatchDraft(`
+=== SHORT_FICTION_TITLE ===
+短篇
+=== CHAPTER 1 TITLE ===
+唯一一章
+=== CHAPTER 1 CONTENT ===
+${"正文".repeat(2_146)}
+`, { expectedChapters: 1 });
+
+    expect(draft.chapters[0]?.charCount).toBe(4_292);
+    expect(findShortFictionLengthDeficits(draft, 20_000)).toEqual([
+      { chapter: 1, currentLength: 4_292, targetLength: 20_000, minimumLength: 17_000 },
+    ]);
+    expect(() => validateShortFictionDraftForFinal(draft, {
+      expectedChapters: 1,
+      minimumCharsPerChapter: 20_000,
+    })).toThrow(/too short/);
+  });
+
+  it("appends a length continuation instead of replacing the existing chapter", async () => {
+    const draft = parseShortFictionBatchDraft(`
+=== SHORT_FICTION_TITLE ===
+短篇
+=== CHAPTER 1 TITLE ===
+唯一一章
+=== CHAPTER 1 CONTENT ===
+旧正文
+`, { expectedChapters: 1 });
+    const chatSpy = vi
+      .spyOn(ShortFictionWriterAgent.prototype as never, "chat" as never)
+      .mockResolvedValue({
+        content: `=== CHAPTER 1 CONTENT ===\n补写正文`,
+        usage: ZERO_USAGE,
+      });
+    const agent = new ShortFictionWriterAgent({
+      client: fakeClient(),
+      model: "fake",
+      projectRoot: "/tmp",
+    });
+
+    const continued = await agent.continueDraft({
+      direction: "悬疑短篇",
+      outlineMarkdown: "## 大纲",
+      chapterCount: 1,
+      charsPerChapter: 1000,
+      draft,
+    });
+
+    expect(continued.chapters[0]?.content).toBe("旧正文\n\n补写正文");
+    expect(chatSpy.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: "user", content: expect.stringContaining("低于目标字数") }),
+    ]));
+    chatSpy.mockRestore();
   });
 
   it("uses the previous draft as assistant context for the second writer pass", async () => {

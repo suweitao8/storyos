@@ -24,6 +24,7 @@ export const SHORT_FICTION_DEFAULT_CHARS_PER_CHAPTER = 1000;
 export const SHORT_FICTION_MIN_CHARS_PER_CHAPTER = 900;
 // Video-derived craft profiles can recommend more than the fixed 10,000 option.
 export const SHORT_FICTION_MAX_CHARS_PER_CHAPTER = 100_000;
+export const SHORT_FICTION_MINIMUM_LENGTH_RATIO = 0.85;
 
 // English shorts are calibrated in words, not characters. length-metrics.ts pins
 // the full-length chapter defaults at zh 3000 chars ≈ en 2000 words (a 2/3 ratio),
@@ -52,6 +53,13 @@ export interface ShortFictionBatchDraft {
   readonly openingHook?: string;
   readonly chapters: ReadonlyArray<ShortFictionChapter>;
   readonly rawContent: string;
+}
+
+export interface ShortFictionLengthDeficit {
+  readonly chapter: number;
+  readonly currentLength: number;
+  readonly targetLength: number;
+  readonly minimumLength: number;
 }
 
 export interface ShortFictionSalesPackage {
@@ -196,7 +204,12 @@ export class ShortFictionWriterAgent extends BaseAgent {
 
   async continueDraft(input: ShortFictionDraftInput & { readonly draft: ShortFictionBatchDraft }): Promise<ShortFictionBatchDraft> {
     const missingChapters = findEmptyShortFictionChapters(input.draft);
-    if (missingChapters.length === 0) return input.draft;
+    const underLengthChapters = findShortFictionLengthDeficits(input.draft, input.charsPerChapter, input.language);
+    const continuationChapters = [...new Set([
+      ...missingChapters,
+      ...underLengthChapters.map((chapter) => chapter.chapter),
+    ])];
+    if (continuationChapters.length === 0) return input.draft;
 
     const response = await retryShortFictionCall(async () => {
       const systemPrompt = await this.withPromptPackGuidance(
@@ -209,18 +222,20 @@ export class ShortFictionWriterAgent extends BaseAgent {
           chapterCount: input.chapterCount,
           charsPerChapter: input.charsPerChapter,
           existingDraftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
-          missingChapters,
+          missingChapters: continuationChapters,
+          underLengthChapters,
         }, input.language) },
       ], {
         temperature: 0.68,
-        maxTokens: estimateShortFictionMaxTokens(missingChapters.length, input.charsPerChapter),
+        maxTokens: estimateShortFictionMaxTokens(continuationChapters.length, input.charsPerChapter),
       });
     }, this.name, this.log);
 
-    return parseShortFictionBatchDraft(
-      `${input.draft.rawContent.trim()}\n\n${response.content.trim()}`,
-      { expectedChapters: input.chapterCount, language: input.language },
-    );
+    const continuation = parseShortFictionBatchDraft(response.content, {
+      expectedChapters: input.chapterCount,
+      language: input.language,
+    });
+    return mergeShortFictionContinuation(input.draft, continuation, missingChapters, underLengthChapters, input.language);
   }
 }
 
@@ -358,7 +373,11 @@ export function parseShortFictionBatchDraft(
 
 export function validateShortFictionDraftForFinal(
   draft: ShortFictionBatchDraft,
-  options?: { readonly expectedChapters?: number },
+  options?: {
+    readonly expectedChapters?: number;
+    readonly minimumCharsPerChapter?: number;
+    readonly language?: ShortFictionLanguage;
+  },
 ): void {
   if (options?.expectedChapters !== undefined && draft.chapters.length !== options.expectedChapters) {
     throw new Error(`Short-hit draft is incomplete; expected ${options.expectedChapters} chapters, got ${draft.chapters.length}.`);
@@ -368,12 +387,83 @@ export function validateShortFictionDraftForFinal(
   if (emptyChapters.length > 0) {
     throw new Error(`Short-hit draft is incomplete; empty chapters: ${emptyChapters.join(", ")}.`);
   }
+
+  const deficits = options?.minimumCharsPerChapter
+    ? findShortFictionLengthDeficits(draft, options.minimumCharsPerChapter, options.language)
+    : [];
+  if (deficits.length > 0) {
+    throw new Error(`Short-hit draft is too short; chapters below target: ${formatShortFictionLengthDeficits(deficits)}.`);
+  }
 }
 
 export function findEmptyShortFictionChapters(draft: ShortFictionBatchDraft): number[] {
   return draft.chapters
     .filter((chapter) => !chapter.content.trim())
     .map((chapter) => chapter.number);
+}
+
+export function findShortFictionLengthDeficits(
+  draft: ShortFictionBatchDraft,
+  targetLength: number,
+  language: ShortFictionLanguage = "zh",
+): ShortFictionLengthDeficit[] {
+  const countingMode = resolveLengthCountingMode(language);
+  const normalizedTarget = Math.max(1, Math.round(targetLength));
+  const minimumLength = Math.max(1, Math.floor(normalizedTarget * SHORT_FICTION_MINIMUM_LENGTH_RATIO));
+  return draft.chapters
+    .map((chapter) => ({
+      chapter: chapter.number,
+      currentLength: countChapterLength(chapter.content, countingMode),
+      targetLength: normalizedTarget,
+      minimumLength,
+    }))
+    .filter((chapter) => chapter.currentLength > 0 && chapter.currentLength < chapter.minimumLength);
+}
+
+function formatShortFictionLengthDeficits(deficits: ReadonlyArray<ShortFictionLengthDeficit>): string {
+  return deficits
+    .map((deficit) => `第${deficit.chapter}章 ${deficit.currentLength}/${deficit.targetLength}字`)
+    .join(", ");
+}
+
+function mergeShortFictionContinuation(
+  draft: ShortFictionBatchDraft,
+  continuation: ShortFictionBatchDraft,
+  missingChapters: ReadonlyArray<number>,
+  underLengthChapters: ReadonlyArray<ShortFictionLengthDeficit>,
+  language: ShortFictionLanguage = "zh",
+): ShortFictionBatchDraft {
+  const missing = new Set(missingChapters);
+  const underLength = new Set(underLengthChapters.map((chapter) => chapter.chapter));
+  const countingMode = resolveLengthCountingMode(language);
+  const continuationByNumber = new Map(continuation.chapters.map((chapter) => [chapter.number, chapter]));
+  const chapters = draft.chapters.map((chapter) => {
+    const addition = continuationByNumber.get(chapter.number);
+    if (!addition?.content.trim()) return chapter;
+
+    if (underLength.has(chapter.number) && chapter.content.trim()) {
+      const content = `${chapter.content.trim()}\n\n${addition.content.trim()}`;
+      return { ...chapter, content, charCount: countChapterLength(content, countingMode) };
+    }
+
+    if (missing.has(chapter.number) || !chapter.content.trim()) {
+      return {
+        ...chapter,
+        title: addition.title || chapter.title,
+        content: addition.content.trim(),
+        charCount: countChapterLength(addition.content, countingMode),
+      };
+    }
+
+    return chapter;
+  });
+
+  return {
+    storyTitle: draft.storyTitle || continuation.storyTitle,
+    openingHook: draft.openingHook ?? continuation.openingHook,
+    chapters,
+    rawContent: `${draft.rawContent.trim()}\n\n${continuation.rawContent.trim()}`.trim(),
+  };
 }
 
 export function renderShortFictionDraftMarkdown(

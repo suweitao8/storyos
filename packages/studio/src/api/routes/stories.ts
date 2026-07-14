@@ -1,9 +1,28 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { computeAnalytics } from "@actalk/inkos-core";
+import { computeAnalytics, countChapterLength } from "@actalk/inkos-core";
 import { isSafeBookId } from "../safety.js";
 import { splitShortOutlineSections } from "../short-outline-sections.js";
 import type { StudioRouteContext } from "./context.js";
+
+interface ShortStoryContentArtifact {
+  readonly chapters?: unknown;
+}
+
+export function getShortStoryWordCount(
+  fullContent: string,
+  artifact: ShortStoryContentArtifact | undefined,
+): number {
+  const artifactCount = Array.isArray(artifact?.chapters)
+    ? artifact.chapters.reduce((total, chapter) => {
+        if (!chapter || typeof chapter !== "object") return total;
+        const value = chapter as { readonly wordCount?: unknown; readonly charCount?: unknown };
+        const count = value.wordCount ?? value.charCount;
+        return total + (typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : 0);
+      }, 0)
+    : 0;
+  return artifactCount > 0 ? artifactCount : countChapterLength(fullContent, "zh_chars");
+}
 
 export function registerStoryReadRoutes(context: StudioRouteContext): void {
   const { app, root, state, loadBookListSummary } = context;
@@ -86,11 +105,20 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
     const outlineV2 = await readOptional("outline/v002.md");
     const outline = outlineV2.trim() ? outlineV2 : await readOptional("outline/v001.md");
     const full = await readOptional("final/full.md");
+    const artifactRaw = await readOptional("final/short-story.json");
     const salesPackage = await readOptional("final/sales-package.md");
     const coverPrompt = await readOptional("final/cover-prompt.md");
     if (!outline.trim() && !full.trim()) {
       return c.json({ error: `Short story "${id}" not found` }, 404);
     }
+
+    let artifact: ShortStoryContentArtifact | undefined;
+    try {
+      artifact = artifactRaw.trim() ? JSON.parse(artifactRaw) as ShortStoryContentArtifact : undefined;
+    } catch {
+      artifact = undefined;
+    }
+    const wordCount = getShortStoryWordCount(full, artifact);
 
     const outlineFile = outlineV2.trim() ? "outline/v002.md" : "outline/v001.md";
     const sections = [
@@ -99,10 +127,10 @@ export function registerStoryReadRoutes(context: StudioRouteContext): void {
       coverPrompt.trim() ? { file: "final/cover-prompt.md", title: "封面提示词", content: coverPrompt } : null,
     ].filter((section): section is { file: string; title: string; content: string } => Boolean(section));
     const chapters = full.trim()
-      ? [{ number: 1, title: "短篇故事", status: "completed", wordCount: full.length, content: full }]
+      ? [{ number: 1, title: "短篇故事", status: "completed", wordCount, content: full }]
       : [];
     return c.json({
-      book: { title: id, genre: "short", chapterWordCount: full.length, targetChapters: 1 },
+      book: { title: id, genre: "short", chapterWordCount: wordCount, targetChapters: 1 },
       sections,
       chapters,
     });
