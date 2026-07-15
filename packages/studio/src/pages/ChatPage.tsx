@@ -2,7 +2,7 @@ import { memo, useCallback, useRef, useEffect, useMemo, useState } from "react";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
-import { fetchJson, useApi } from "../hooks/use-api";
+import { fetchJson, persistRecentCraftSelection, useApi } from "../hooks/use-api";
 import type { ChatAttachmentPayload, MessagePart } from "../store/chat/types";
 import { chatSelectors, useChatStore } from "../store/chat";
 import type { ChatSessionKind } from "../store/chat";
@@ -961,13 +961,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
 
   const handleCraftChange = (craftId: string) => {
     setSelectedCraftId(craftId);
-    void (craftId
-      ? fetchJson("/crafts/recent", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ craftId }),
-        })
-      : fetchJson("/crafts/recent", { method: "DELETE" }));
+    void persistRecentCraftSelection(craftId).catch(() => undefined);
   };
 
   const handleGenerateStoryDirection = useCallback(async (input: StoryDirectionGenerationInput) => {

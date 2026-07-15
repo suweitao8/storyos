@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchJson, putApi, useApi, postApi } from "../hooks/use-api";
+import { fetchJson, persistRecentCraftSelection, putApi, useApi, postApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { useColors } from "../hooks/use-colors";
@@ -541,11 +541,7 @@ export function CraftManager({ nav, theme, t, sse }: { nav: Nav; theme: Theme; t
     const nextWrite = recentCraftWriteChainRef.current
       .catch(() => undefined)
       .then(async () => {
-        if (craftId) {
-          await putApi("/crafts/recent", { craftId });
-        } else {
-          await fetchJson("/crafts/recent", { method: "DELETE" });
-        }
+        await persistRecentCraftSelection(craftId);
       })
       .catch(() => undefined);
     recentCraftWriteChainRef.current = nextWrite;
