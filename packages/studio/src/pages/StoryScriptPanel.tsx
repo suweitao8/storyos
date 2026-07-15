@@ -46,6 +46,7 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
   const path = storyId ? buildStoryProductionPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
   const [busy, setBusy] = useState(false);
+  const [backgroundPending, setBackgroundPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -63,13 +64,23 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
 
   const selectedShot = useMemo(() => shots.find((shot) => shotKey(shot) === selectedKey) ?? null, [shots, selectedKey]);
 
+  useEffect(() => {
+    if (!backgroundPending) return;
+    if (data?.script.exists) {
+      setBackgroundPending(false);
+      return;
+    }
+    const interval = window.setInterval(() => { void refetch(); }, 4_000);
+    return () => window.clearInterval(interval);
+  }, [backgroundPending, data?.script.exists, refetch]);
+
   async function generate(): Promise<void> {
     if (!storyId) return;
     setBusy(true);
     setActionError(null);
     try {
-      await postApi(`${path}/script`);
-      await refetch();
+      await postApi(`${path}/script?background=true`);
+      setBackgroundPending(true);
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -80,10 +91,11 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
   const emptyBody = (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
       <EmptyState text={isZh ? "暂无剧本" : "No script yet"} />
+      {backgroundPending ? <p className="text-xs text-muted-foreground">{isZh ? "剧本正在后台生成，可切换到其他页面。" : "Script generation continues in the background."}</p> : null}
       {storyId ? (
-        <button type="button" onClick={() => void generate()} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" onClick={() => void generate()} disabled={busy || backgroundPending} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
           {busy ? <Sparkles size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {busy ? (isZh ? "生成中..." : "Generating...") : isZh ? "生成剧本" : "Generate script"}
+          {busy ? (isZh ? "正在提交..." : "Submitting...") : backgroundPending ? (isZh ? "后台生成中" : "Generating in background") : isZh ? "生成剧本" : "Generate script"}
         </button>
       ) : null}
     </div>

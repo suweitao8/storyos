@@ -14,6 +14,7 @@ import { latestShortStoryId } from "../pages/ChatPage";
 import { fetchJson } from "./use-api";
 import { toast } from "../store/toast/store";
 import { tr } from "../lib/app-language";
+import type { ProductionTask } from "../api/background-production-tasks";
 
 /**
  * 全局监听 SSE 事件，驱动后台创建任务的收尾：
@@ -58,6 +59,24 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
 
   // 消费 SSE 事件
   useNewSSEMessages(sse.messages, (recent) => {
+    if (recent.event === "production:task") {
+      const task = recent.data as ProductionTask | null;
+      if (!task?.id) return;
+      const label = task.kind === "script"
+        ? tr("剧本", "script")
+        : task.kind === "video"
+          ? tr("合集视频", "collection video")
+          : tr("场景视频", "scene video");
+      if (task.status === "running") {
+        toast.info(tr("已转入后台生成", "Generation started in background"), tr(`${label}会继续生成，可自由切换页面`, `${label} will keep running while you navigate.`));
+      } else if (task.status === "completed") {
+        toast.success(tr("后台生成完成", "Background generation completed"), label);
+      } else if (task.status === "failed") {
+        toast.error(tr("后台生成失败", "Background generation failed"), task.error ?? label);
+      }
+      return;
+    }
+
     if (recent.event === "agent:complete") {
       const data = recent.data as { sessionId?: string; activeBookId?: string } | null;
       if (!data?.sessionId) return;

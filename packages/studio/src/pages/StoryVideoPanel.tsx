@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Film, Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
@@ -33,6 +33,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const path = storyId ? buildStoryProductionPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
   const [busy, setBusy] = useState(false);
+  const [backgroundPending, setBackgroundPending] = useState<Selection | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>({ type: "collection" });
 
@@ -40,6 +41,19 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
     ? `/api/v1${path}/video/file?ts=${encodeURIComponent(data?.video.generatedAt ?? "0")}`
     : "";
   const scenes = data?.scenes ?? [];
+
+  useEffect(() => {
+    if (!backgroundPending) return;
+    const completed = backgroundPending.type === "collection"
+      ? data?.video.exists
+      : scenes.find((scene) => scene.index === backgroundPending.index)?.videoExists;
+    if (completed) {
+      setBackgroundPending(null);
+      return;
+    }
+    const interval = window.setInterval(() => { void refetch(); }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [backgroundPending, data?.video.exists, refetch, scenes]);
 
   if (!loading && (!storyId || (data && !data.script.exists))) {
     return (
@@ -57,8 +71,8 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
       const endpoint = selection.type === "scene"
         ? `${path}/video/scene/${selection.index}`
         : `${path}/video`;
-      await postApi(endpoint, { voice: true });
-      await refetch();
+      await postApi(`${endpoint}?background=true`, { voice: true });
+      setBackgroundPending(selection);
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -137,12 +151,17 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                 {actionError ?? data.warning ?? data.video.warning}
               </div>
             ) : null}
+            {backgroundPending ? (
+              <div className="mb-3 shrink-0 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary">
+                {isZh ? "视频正在后台生成，可切换到其他页面。" : "Video generation continues in the background."}
+              </div>
+            ) : null}
 
             {selection.type === "collection" ? (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                   <h2 className="text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
-                  <GenerateButton busy={busy} onGenerate={generate} isZh={isZh} scope="collection" />
+                  <GenerateButton busy={busy || backgroundPending?.type === "collection"} onGenerate={generate} isZh={isZh} scope="collection" />
                 </div>
                 {data.video.exists ? (
                   <video
@@ -164,7 +183,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   <h2 className="truncate text-base font-semibold">
                     {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
                   </h2>
-                  <GenerateButton busy={busy} onGenerate={generate} isZh={isZh} scope="scene" />
+                  <GenerateButton busy={busy || (backgroundPending?.type === "scene" && backgroundPending.index === selection.index)} onGenerate={generate} isZh={isZh} scope="scene" />
                 </div>
                 {selectedSceneVideoUrl && selectedScene?.videoExists ? (
                   <video
@@ -208,7 +227,7 @@ function GenerateButton({
     >
       <Sparkles size={12} />
       {busy
-        ? (isZh ? "生成中..." : "Generating...")
+        ? (isZh ? "后台生成中" : "Generating in background")
         : scope === "scene"
           ? (isZh ? "生成本场景" : "Generate scene")
           : (isZh ? "生成合集" : "Generate all")}
