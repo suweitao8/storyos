@@ -1284,10 +1284,24 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
   }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, profile?.storySeed]);
 
   useEffect(() => {
-    if (!craftId || meta?.storySeedStatus !== "pending" || meta.processingStatus === "processing") return;
+    if (!craftId || meta.processingStatus === "processing") return;
+    // Keep polling while the story seed is generating (pending) or while the
+    // AI quality score hasn't been written yet (score runs after the seed is ready).
+    const seedPending = meta?.storySeedStatus === "pending";
+    const scorePending = meta?.storySeedStatus === "ready" && meta?.storySeed && typeof meta?.storySeedScore !== "number";
+    if (!seedPending && !scorePending) return;
     let active = true;
+    const startedAt = Date.now();
     const poll = async () => {
-      if (active) await loadStatus();
+      if (!active) return;
+      // Safety timeout: stop polling after 90 s to avoid an infinite spinner
+      // if the background scoring call silently fails.
+      if (Date.now() - startedAt > 90_000) {
+        active = false;
+        window.clearInterval(timer);
+        return;
+      }
+      await loadStatus();
     };
     void poll();
     const timer = window.setInterval(() => { void poll(); }, 2500);
@@ -1295,7 +1309,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
       active = false;
       window.clearInterval(timer);
     };
-  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus]);
+  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, meta?.storySeedScore, meta?.storySeed]);
 
   useEffect(() => {
     if (!craftId || meta?.processingStatus !== "processing") return;
