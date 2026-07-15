@@ -33,15 +33,14 @@ describe("story creation actions", () => {
     expect(resolveDefaultCreationCraftId(filterCraftOptionsForStoryKind("short", crafts), "novel")).toBe("short");
   });
 
-  it("limits dedicated video-story creation to its matching craft mode", () => {
+  it("uses legacy review crafts as film-commentary references", () => {
     const crafts = [
       { id: "short", sourceName: "短篇参考", mode: "bilibili-short-story" as const, sourceType: "bilibili" as const },
       { id: "film", sourceName: "影视解说", mode: "bilibili-commentary" as const, sourceType: "bilibili" as const },
       { id: "review", sourceName: "评论调侃", mode: "bilibili-review" as const, sourceType: "bilibili" as const },
     ];
 
-    expect(filterCraftOptionsForStoryKind("short", crafts, "bilibili-commentary").map((craft) => craft.id)).toEqual(["film"]);
-    expect(filterCraftOptionsForStoryKind("short", crafts, "bilibili-review").map((craft) => craft.id)).toEqual(["review"]);
+    expect(filterCraftOptionsForStoryKind("short", crafts, "bilibili-commentary").map((craft) => craft.id)).toEqual(["film", "review"]);
   });
 
   it("never automatically generates a short-story seed", () => {
@@ -226,7 +225,7 @@ describe("story creation actions", () => {
     expect(direction).toContain("重新设计人物、场景、因果链和结局");
   });
 
-  it("turns a Bilibili review craft into an original story direction", () => {
+  it("treats a legacy Bilibili review craft as film commentary", () => {
     const direction = buildDefaultStoryDirection({
       id: "craft-review",
       sourceName: "测试评论调侃",
@@ -234,10 +233,10 @@ describe("story creation actions", () => {
       sourceType: "bilibili",
     }, "short", true);
 
-    expect(direction).toContain("评论调侃");
+    expect(direction).toContain("影视解说");
     expect(direction).toContain("原创短篇故事");
     expect(direction).toContain("重新设计人物、场景、因果链和结局");
-    expect(direction).not.toContain("解说这部电影");
+    expect(direction).not.toContain("评论调侃");
   });
 
   it("binds dedicated video-story creation to the requested craft mode", () => {

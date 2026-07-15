@@ -1281,7 +1281,10 @@ export function createShortFictionRunTool(
       const craftMeta = craftId
         ? (await pipeline.listCrafts()).find((craft) => craft.id === craftId)
         : undefined;
-      if (shortPayload?.requiredCraftMode && (craftMeta?.mode !== shortPayload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
+      const effectiveCraftMode = craftMeta?.mode === "bilibili-review"
+        ? "bilibili-commentary"
+        : craftMeta?.mode;
+      if (shortPayload?.requiredCraftMode && (effectiveCraftMode !== shortPayload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
         throw new Error(`短篇故事只能使用${shortPayload.requiredCraftMode}写作模式。`);
       }
       const result = await runShortFictionProduction({

@@ -11,7 +11,6 @@ const strings = {
   "nav.createNovel": { zh: "长篇小说", en: "Long Novel" },
   "nav.createShort": { zh: "短篇故事", en: "Short Story" },
   "nav.createFilmCommentary": { zh: "影视解说", en: "Film Commentary" },
-  "nav.createCommentaryReview": { zh: "评论调侃", en: "Review & Commentary" },
   "nav.createScript": { zh: "剧本创作", en: "Script" },
   "nav.createStoryboard": { zh: "分镜创作", en: "Storyboard" },
   "nav.createInteractiveFilm": { zh: "互动影游", en: "Interactive Film" },

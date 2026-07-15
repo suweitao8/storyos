@@ -313,7 +313,7 @@ export function StoryCreationPanel({
         </div>
         <div className="mt-5 grid gap-4 rounded-xl border border-border/50 bg-background/35 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <dl className="grid gap-2 text-sm sm:grid-cols-3">
-            <div><dt className="text-xs text-muted-foreground">{isZh ? "故事类型" : "Story type"}</dt><dd className="mt-1 font-medium">{kind === "long" ? (isZh ? "长篇小说" : "Long novel") : requiredCraftMode === "bilibili-commentary" ? (isZh ? "影视解说原创故事" : "Original film-commentary story") : requiredCraftMode === "bilibili-review" ? (isZh ? "评论调侃原创故事" : "Original review story") : (isZh ? "短篇故事" : "Short story")}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{isZh ? "故事类型" : "Story type"}</dt><dd className="mt-1 font-medium">{kind === "long" ? (isZh ? "长篇小说" : "Long novel") : requiredCraftMode === "bilibili-commentary" ? (isZh ? "影视解说原创故事" : "Original film-commentary story") : (isZh ? "短篇故事" : "Short story")}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{isZh ? "写作模式" : "Writing mode"}</dt><dd className="mt-1 truncate font-medium">{selectedCraft ? selectedCraft.sourceName : (isZh ? "默认规则" : "Default rules")}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{isZh ? "每章字数" : "Words / chapter"}</dt><dd className="mt-1 font-medium">{formatStoryWordCount(Number(chapterWordCount), isZh ? "zh" : "en")}</dd></div>
           </dl>
