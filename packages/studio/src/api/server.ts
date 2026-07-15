@@ -2849,6 +2849,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const language = options.language ?? profile.language ?? "zh";
       const quality = await evaluateStorySeedQuality(storySeed, profile, pipeline, language);
       if (!quality) {
+        if ((options.attempt ?? 0) < 1) {
+          await scoreCraftStorySeed(craftId, { ...options, attempt: (options.attempt ?? 0) + 1 });
+          return;
+        }
         const current = await (options.generationId
           ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
               storySeedScoreStatus: "error",
@@ -2886,6 +2890,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           }));
       if (current) broadcast("craft:story-seed-score-complete", { craftId, generationId: options.generationId, score: quality.score });
     } catch (error) {
+      if ((options.attempt ?? 0) < 1) {
+        await scoreCraftStorySeed(craftId, { ...options, attempt: (options.attempt ?? 0) + 1 });
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error);
       const current = await (options.generationId
         ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
