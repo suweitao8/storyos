@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -55,13 +55,36 @@ export function buildBookSourceFallbackText(
     .join("\n\n");
 }
 
-interface ProductionManifest {
+export interface ProductionManifest {
   readonly craftId?: string;
   readonly scriptGeneratedAt?: string;
   readonly videoGeneratedAt?: string;
   readonly videoDurationMs?: number;
   readonly voiceEnabled?: boolean;
+  readonly sceneVideoGeneratedAt?: Readonly<Record<string, string>>;
   readonly warning?: string;
+}
+
+/**
+ * A scene render replaces one input of the aggregate video. Keep the scene
+ * timestamp, but remove aggregate metadata so the UI cannot present the old
+ * story.mp4 as if it still matched the current scene set.
+ */
+export function markSceneVideoGenerated(
+  previous: ProductionManifest,
+  sceneIndex: number,
+  generatedAt: string,
+): ProductionManifest {
+  return {
+    ...previous,
+    videoGeneratedAt: undefined,
+    videoDurationMs: undefined,
+    voiceEnabled: undefined,
+    sceneVideoGeneratedAt: {
+      ...previous.sceneVideoGeneratedAt,
+      [String(sceneIndex)]: generatedAt,
+    },
+  };
 }
 
 interface TtsConfig {
@@ -592,6 +615,7 @@ async function readProduction(context: StudioRouteContext, kind: StoryKind, id: 
       name: scene.name,
       shotCount: scene.shots.length,
       videoExists: false as boolean, // 异步检查在下面做
+      generatedAt: manifest.sceneVideoGeneratedAt?.[String(scene.index)] ?? null,
     };
   }) : [];
 
@@ -695,6 +719,7 @@ async function generateProductionScript(
       : "模型剧本生成失败，已生成基础脚本";
   }
   const generatedAt = new Date().toISOString();
+  await invalidateVideoArtifacts(dir);
   await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
   await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(craftId ? { craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
   return { ...(await readProduction(context, kind, id)), warning: warning ?? null };
@@ -779,10 +804,53 @@ async function generateProductionSceneVideo(
     imageCacheDir: sceneImageCache,
     sourceVideoPath,
   });
+  await rm(join(dir, "story.mp4"), { force: true });
+  const generatedAt = new Date().toISOString();
+  await writeFile(join(dir, "manifest.json"), JSON.stringify(
+    markSceneVideoGenerated(previous, index, generatedAt),
+    null,
+    2,
+  ), "utf-8");
   return { ...(await readProduction(context, kind, id)), warning: result.warning ?? null };
 }
 
-function registerProductionRoutesForKind(context: StudioRouteContext, kind: StoryKind, tasks: ProductionTaskRegistry): void {
+async function invalidateVideoArtifacts(dir: string): Promise<void> {
+  await Promise.all([
+    rm(join(dir, "story.mp4"), { force: true }),
+    rm(join(dir, "scenes"), { recursive: true, force: true }),
+    rm(join(dir, "images"), { recursive: true, force: true }),
+    rm(join(dir, ".tmp-video"), { recursive: true, force: true }),
+  ]);
+}
+
+export class StoryProductionLock {
+  private readonly tails = new Map<string, Promise<void>>();
+
+  async run<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.tails.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.tails.set(key, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.tails.get(key) === current) this.tails.delete(key);
+    }
+  }
+}
+
+function productionLockKey(kind: StoryKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+function registerProductionRoutesForKind(
+  context: StudioRouteContext,
+  kind: StoryKind,
+  tasks: ProductionTaskRegistry,
+  productionLock: StoryProductionLock,
+): void {
   const prefix = kind === "short" ? "/api/v1/shorts" : "/api/v1/books";
 
   context.app.get(`${prefix}/:id/production`, async (c) => {
@@ -818,83 +886,20 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       const body = await c.req.json<{ craftId?: string }>().catch(() => ({}));
       const task = tasks.start(
         { kind: "script", storyId: id, storyKind: kind },
-        async () => { await generateProductionScript(context, kind, id, body); },
+        async () => {
+          await productionLock.run(productionLockKey(kind, id), () => generateProductionScript(context, kind, id, body));
+        },
       );
       return c.json({ task }, 202);
     }
     const source = await readStorySource(context, kind, id);
     if (!source.text.trim()) return c.json({ error: "故事正文为空，无法生成剧本" }, 400);
-    const dir = productionPath(context.root, kind, id);
     const body = await c.req.json<{ craftId?: string }>().catch(() => ({} as { craftId?: string }));
-    const craftId = body.craftId ?? await resolveStoryCraftId(context.root, kind, id);
-    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, craftId);
-    await mkdir(dir, { recursive: true });
-    let content: string | undefined;
-    let warning: string | undefined;
-    // 读取故事资产（角色/场景/道具），拼进生成提示词，让模型能引用具体设定。
-    const assets = await readStoryAssets(context.root, kind, id);
-    const assetsContext = buildAssetsContext(assets);
-    const assetNames = assets.map((asset) => asset.name);
-    const requirements = assetsContext
-      ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
-      : unifiedScriptRequirements();
-    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
-    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
-    const styleDescription = resolveImageStyleDescription("shot", artStyle);
-    const styledRequirements = `${requirements}\n\n## 统一画面风格（必须遵守）\n所有「- 图像提示词：」都必须明确使用以下画面风格，不得只停留在抽象的风格标签：\n${styleDescription}`;
-    const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
-
-    // 最多重试 2 次：第 1 次失败（异常或 0 镜头）→ 重试；质量太差（>50% 镜头缺旁白或画面）→ 重试。
-    const maxAttempts = 2;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        const raw = await agent.writeScript({
-          title: source.title,
-          sourceKind: kind === "short" ? "StoryOS short story" : "StoryOS book",
-          targetFormat: "general_script",
-          sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
-          requirements: attempt > 1
-            ? `${styledRequirements}\n\n上一轮生成的剧本存在问题，请修正后重新输出完整剧本。`
-            : styledRequirements,
-          language: "zh",
-        });
-        const parsed = parseUnifiedScript(raw, { confirmedSourceSegments });
-        if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
-        // 质量校验：检查每个镜头是否有旁白、景别、详细图像提示词、引用的资产名是否合法。
-        const issues = validateScriptQuality(parsed.shots, assetNames);
-        const criticalIssues = issues.filter(
-          (issue) => issue.type === "missing_narration" || issue.type === "thin_image_prompt",
-        );
-        const issueWarning = formatScriptIssues(issues);
-        // 如果质量太差（>50% 镜头有严重问题）且还有重试机会，重试一次。
-        if (criticalIssues.length > parsed.shots.length / 2 && attempt < maxAttempts) {
-          warning = `第 ${attempt} 次生成质量不达标（${criticalIssues.length}/${parsed.shots.length} 镜头有问题），正在重试…`;
-          lastError = new Error(warning);
-          continue;
-        }
-        content = raw;
-        if (issueWarning) warning = issueWarning;
-        break;
-      } catch (error) {
-        lastError = error;
-        if (attempt < maxAttempts) {
-          warning = `第 ${attempt} 次生成失败，正在重试…`;
-          continue;
-        }
-      }
-    }
-
-    if (!content) {
-      content = fallbackUnifiedScript(source);
-      warning = lastError instanceof Error
-        ? `模型剧本生成失败，已生成基础脚本：${lastError.message}`
-        : "模型剧本生成失败，已生成基础脚本";
-    }
-    const generatedAt = new Date().toISOString();
-    await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
-    await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(craftId ? { craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
-    return c.json({ ...(await readProduction(context, kind, id)), warning: warning ?? null });
+    const result = await productionLock.run(
+      productionLockKey(kind, id),
+      () => generateProductionScript(context, kind, id, body),
+    );
+    return c.json(result);
   });
 
   context.app.post(`${prefix}/:id/production/video`, async (c) => {
@@ -904,7 +909,9 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       const body = await c.req.json<{ voice?: boolean }>().catch(() => ({}));
       const task = tasks.start(
         { kind: "video", storyId: id, storyKind: kind },
-        async () => { await generateProductionVideo(context, kind, id, body); },
+        async () => {
+          await productionLock.run(productionLockKey(kind, id), () => generateProductionVideo(context, kind, id, body));
+        },
       );
       return c.json({ task }, 202);
     }
@@ -912,33 +919,11 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const script = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
     if (!script.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
     const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
-    const raw = await context.loadRawConfig();
-    const secrets = await context.loadSecrets();
-    const imageConfig = await resolveImageConfig(context.root);
-    const previous = await readManifest(dir);
-    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
-    const sourceVideoPath = previous.craftId
-      ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
-      : undefined;
-    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
-    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
-    const result = await composeVideo({
-      productionDir: dir,
-      script: parseUnifiedScript(script, { confirmedSourceSegments }),
-      voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
-      withVoice: body.voice !== false,
-      imageConfig,
-      sourceVideoPath,
-      artStyle,
-    });
-    await writeFile(join(dir, "manifest.json"), JSON.stringify({
-      ...previous,
-      videoGeneratedAt: new Date().toISOString(),
-      videoDurationMs: result.durationMs,
-      voiceEnabled: result.voiceEnabled,
-      ...(result.warning ? { warning: result.warning } : {}),
-    }, null, 2), "utf-8");
-    return c.json({ ...(await readProduction(context, kind, id)), warning: result.warning ?? null });
+    const result = await productionLock.run(
+      productionLockKey(kind, id),
+      () => generateProductionVideo(context, kind, id, body),
+    );
+    return c.json(result);
   });
 
   context.app.post(`${prefix}/:id/production/video/scene/:index`, async (c) => {
@@ -950,48 +935,23 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       const body = await c.req.json<{ voice?: boolean }>().catch(() => ({}));
       const task = tasks.start(
         { kind: "scene-video", sceneIndex: index, storyId: id, storyKind: kind },
-        async () => { await generateProductionSceneVideo(context, kind, id, index, body); },
+        async () => {
+          await productionLock.run(productionLockKey(kind, id), () => generateProductionSceneVideo(context, kind, id, index, body));
+        },
       );
       return c.json({ task }, 202);
     }
     const dir = productionPath(context.root, kind, id);
     const scriptText = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
     if (!scriptText.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
-    const previous = await readManifest(dir);
-    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
-    const sourceVideoPath = previous.craftId
-      ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
-      : undefined;
-    const scenes = groupShotsByScene(parseUnifiedScript(scriptText, { confirmedSourceSegments }).shots);
-    const scene = scenes.find((item) => item.index === index);
-    if (!scene) return c.json({ error: "场景不存在" }, 404);
+    const production = await readProduction(context, kind, id);
+    if (!production.scenes.some((scene) => scene.index === index)) return c.json({ error: "场景不存在" }, 404);
     const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
-    const raw = await context.loadRawConfig();
-    const secrets = await context.loadSecrets();
-    const imageConfig = await resolveImageConfig(context.root);
-    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
-    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
-    const scenesDir = join(dir, "scenes");
-    const tempDir = join(dir, ".tmp-video", `scene-${index}`);
-    await mkdir(scenesDir, { recursive: true });
-    await mkdir(tempDir, { recursive: true });
-    const sceneImageCache = imageConfig ? join(dir, "images", `scene-${index}`) : undefined;
-    if (sceneImageCache) await mkdir(sceneImageCache, { recursive: true });
-    const sceneOutput = join(scenesDir, `scene-${String(index).padStart(3, "0")}.mp4`);
-    const result = await composeSegmentVideo({
-      tempDir,
-      outputPath: sceneOutput,
-      shots: scene.shots,
-      voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
-      withVoice: body.voice !== false,
-      imageConfig,
-      artStyle,
-      imageCacheDir: sceneImageCache,
-      sourceVideoPath,
-    });
-    // 单场景生成不更新合集（story.mp4）：合集可能因此与单场景不一致，
-    // 前端可提示用户重新生成合集以合并最新场景。
-    return c.json({ ...(await readProduction(context, kind, id)), warning: result.warning ?? null });
+    const result = await productionLock.run(
+      productionLockKey(kind, id),
+      () => generateProductionSceneVideo(context, kind, id, index, body),
+    );
+    return c.json(result);
   });
 
   context.app.get(`${prefix}/:id/production/video/file`, async (c) => {
@@ -1016,6 +976,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
 
 export function registerStoryProductionRoutes(context: StudioRouteContext): void {
   const tasks = new ProductionTaskRegistry((task) => context.broadcast("production:task", task));
-  registerProductionRoutesForKind(context, "short", tasks);
-  registerProductionRoutesForKind(context, "book", tasks);
+  const productionLock = new StoryProductionLock();
+  registerProductionRoutesForKind(context, "short", tasks, productionLock);
+  registerProductionRoutesForKind(context, "book", tasks, productionLock);
 }
