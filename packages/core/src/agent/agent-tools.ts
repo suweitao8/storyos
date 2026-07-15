@@ -28,6 +28,7 @@ import { PlayStore } from "../play/play-store.js";
 import type { AgentContext } from "../agents/base.js";
 import { ActionPayloadSchema, isUsablePlayInitialScene, type ActionPayload } from "../interaction/action-envelope.js";
 import { ResearchSearchConfigSchema } from "../models/project.js";
+import { STORY_SEED_MIN_CREATION_SCORE } from "../models/story-seed.js";
 import { searchWeb } from "../utils/web-search.js";
 
 // ---------------------------------------------------------------------------
@@ -1289,6 +1290,13 @@ export function createShortFictionRunTool(
       }
       if (craftMeta?.storySeedStatus === "error") {
         throw new Error("该写作模式的故事设定未通过质量检查，请重新生成后再创建短篇故事。");
+      }
+      if (
+        craftMeta?.storySeedScoreStatus === "ready"
+        && typeof craftMeta.storySeedScore === "number"
+        && craftMeta.storySeedScore < STORY_SEED_MIN_CREATION_SCORE
+      ) {
+        throw new Error(`该写作模式的故事设定评分为 ${craftMeta.storySeedScore}，低于 ${STORY_SEED_MIN_CREATION_SCORE} 分创作标准，请重新生成后再创建短篇故事。`);
       }
       // The score is durable background feedback. A ready story seed can start
       // production immediately while its score is still being calculated.

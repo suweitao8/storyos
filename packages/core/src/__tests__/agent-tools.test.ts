@@ -869,6 +869,26 @@ describe("agent deterministic writing tools", () => {
     expect(pipeline.createAgentContext).not.toHaveBeenCalled();
   });
 
+  it("rejects a short-fiction run when its published story seed score is below the creation threshold", async () => {
+    const pipeline = {
+      loadCraft: vi.fn(async () => ({ id: "craft-low-score" })),
+      listCrafts: vi.fn(async () => ([{
+        id: "craft-low-score",
+        storySeedStatus: "ready",
+        storySeedScoreStatus: "ready",
+        storySeedScore: 55,
+      }])),
+      createAgentContext: vi.fn(),
+    };
+    const tool = createShortFictionRunTool(pipeline as never, root, { language: "zh" });
+
+    await expect(tool.execute("short-low-score", {
+      craftId: "craft-low-score",
+      direction: "现实悬疑短篇",
+    })).rejects.toThrow("70");
+    expect(pipeline.createAgentContext).not.toHaveBeenCalled();
+  });
+
   it("starts short-fiction production while writing mode story seed scoring continues in the background", async () => {
     const pipeline = {
       loadCraft: vi.fn(async () => ({ id: "craft-scoring" })),

@@ -1,4 +1,5 @@
 import { Loader2, Sparkles } from "lucide-react";
+import { STORY_SEED_MIN_CREATION_SCORE } from "@actalk/inkos-core";
 import type { StorySeedGenerationStatus } from "./story-seed-stream";
 
 interface StorySeedPreviewProps {
@@ -58,7 +59,7 @@ export function StorySeedPreview({
 
   const hasScore = typeof score === "number";
   const scoreColor = !hasScore ? "" : score >= 75 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-destructive";
-  const lowScore = hasScore && score < 60;
+  const lowScore = hasScore && score < STORY_SEED_MIN_CREATION_SCORE;
 
   const sections = streamedContent ? parseSections(streamedContent) : [];
   const hasSections = sections.length > 0;
@@ -103,7 +104,7 @@ export function StorySeedPreview({
           )}
           {lowScore && (
             <span className="text-xs font-medium text-destructive">
-              {isZh ? "分数偏低，建议重新生成" : "Low score — consider regenerating"}
+              {isZh ? `低于 ${STORY_SEED_MIN_CREATION_SCORE} 分创作标准，请重新生成` : `Below the ${STORY_SEED_MIN_CREATION_SCORE}-point creation standard — regenerate`}
             </span>
           )}
         </div>
