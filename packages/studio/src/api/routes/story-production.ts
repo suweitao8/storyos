@@ -889,6 +889,7 @@ function registerProductionRoutesForKind(
         async () => {
           await productionLock.run(productionLockKey(kind, id), () => generateProductionScript(context, kind, id, body));
         },
+        { payload: body },
       );
       return c.json({ task }, 202);
     }
@@ -912,6 +913,7 @@ function registerProductionRoutesForKind(
         async () => {
           await productionLock.run(productionLockKey(kind, id), () => generateProductionVideo(context, kind, id, body));
         },
+        { payload: body },
       );
       return c.json({ task }, 202);
     }
@@ -938,6 +940,7 @@ function registerProductionRoutesForKind(
         async () => {
           await productionLock.run(productionLockKey(kind, id), () => generateProductionSceneVideo(context, kind, id, index, body));
         },
+        { payload: body },
       );
       return c.json({ task }, 202);
     }
@@ -975,8 +978,33 @@ function registerProductionRoutesForKind(
 }
 
 export function registerStoryProductionRoutes(context: StudioRouteContext): void {
-  const tasks = new ProductionTaskRegistry((task) => context.broadcast("production:task", task));
+  const tasks = new ProductionTaskRegistry((task) => context.broadcast("production:task", task), {
+    persistencePath: context.backgroundTaskPersistenceDir
+      ? join(context.backgroundTaskPersistenceDir, "story-production-tasks.json")
+      : undefined,
+  });
   const productionLock = new StoryProductionLock();
   registerProductionRoutesForKind(context, "short", tasks, productionLock);
   registerProductionRoutesForKind(context, "book", tasks, productionLock);
+  tasks.resumePending(async (task) => {
+    if (!isSafeStoryId(task.storyId)) throw new Error("Invalid persisted story id.");
+    const kind = task.storyKind;
+    if (task.kind === "script") {
+      const craftId = typeof task.payload?.craftId === "string" ? task.payload.craftId : undefined;
+      await productionLock.run(productionLockKey(kind, task.storyId), () => generateProductionScript(context, kind, task.storyId, { craftId }));
+      return;
+    }
+    const voice = typeof task.payload?.voice === "boolean" ? task.payload.voice : undefined;
+    if (task.kind === "video") {
+      await productionLock.run(productionLockKey(kind, task.storyId), () => generateProductionVideo(context, kind, task.storyId, { voice }));
+      return;
+    }
+    if (task.kind === "scene-video") {
+      const sceneIndex = task.sceneIndex;
+      if (sceneIndex === undefined || !Number.isInteger(sceneIndex) || sceneIndex < 0) {
+        throw new Error("Invalid persisted scene index.");
+      }
+      await productionLock.run(productionLockKey(kind, task.storyId), () => generateProductionSceneVideo(context, kind, task.storyId, sceneIndex, { voice }));
+    }
+  });
 }

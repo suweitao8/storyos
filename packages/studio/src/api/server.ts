@@ -3227,6 +3227,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     getLanguage: currentProjectLanguage,
     buildPipelineConfig,
     broadcast,
+    backgroundTaskPersistenceDir: join(root, ".storyos"),
     loadBookListSummary: (bookId) => loadStudioBookListSummary(state, bookId),
     loadRawConfig: () => loadRawConfig(root),
     saveRawConfig: (config) => saveRawConfig(root, config),

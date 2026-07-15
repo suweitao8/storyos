@@ -219,7 +219,11 @@ async function createStoryAssetImageRuntime(root: string, assetId: string): Prom
 
 export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   const { app, root, getProjectConfig, buildPipelineConfig, broadcast } = context;
-  const tasks = new ProductionTaskRegistry((task) => broadcast("production:task", task));
+  const tasks = new ProductionTaskRegistry((task) => broadcast("production:task", task), {
+    persistencePath: context.backgroundTaskPersistenceDir
+      ? join(context.backgroundTaskPersistenceDir, "story-asset-tasks.json")
+      : undefined,
+  });
   const storyAssetContext = (kindValue: unknown, storyIdValue: unknown) => {
     const kind = assertStoryAssetKind(kindValue);
     const storyId = assertStoryAssetId(storyIdValue);
@@ -272,41 +276,43 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
     }
   });
 
+  const runExtraction = async (kind: StoryAssetRouteKind, storyId: string, queryStyle?: string) => {
+    broadcast("story-assets:start", { kind, storyId, operation: "extract" });
+    const current = storyAssetContext(kind, storyId);
+    const sources = await readStoryAssetSources(root, kind, storyId);
+    if (!sources.hasSource) throw new ApiError(404, "STORY_NOT_FOUND", `Story not found for ${storyId}.`);
+    const config = await getProjectConfig({ requireApiKey: false });
+    const pipeline = await buildPipelineConfig({ currentConfig: config, ...(kind === "book" ? { bookIdForSettings: storyId } : {}) });
+    const textModel: StoryAssetTextModel = async (messages, options) => (await chatCompletion(pipeline.client, pipeline.model, messages, { ...options, retry: false })).content;
+
+    // Resolve the selected craft style from the story's persisted visual config.
+    // A query override is kept for callers that explicitly regenerate assets.
+    let artStyle: ArtStyle = await resolveStoryArtStyle(root, kind, storyId, new PipelineRunner(pipeline));
+    if (queryStyle === "realistic" || queryStyle === "cg3d") artStyle = queryStyle;
+
+    const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides(artStyle);
+    const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore, imagePromptGuides });
+    broadcast("story-assets:complete", { kind, storyId, operation: "extract", assetCount: result.manifest.assets.length });
+    return { ...result.manifest, path: result.path, drafts: result.drafts };
+  };
+
   const extractRoute = async (c: Context, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind; let storyId: string;
     try { kind = assertStoryAssetKind(kindValue); storyId = assertStoryAssetId(storyIdValue); } catch (error) { return storyAssetErrorResponse(c, error); }
     const queryStyle = c.req.query("artStyle");
-    const runExtraction = async () => {
-      broadcast("story-assets:start", { kind, storyId, operation: "extract" });
-      const current = storyAssetContext(kind, storyId);
-      const sources = await readStoryAssetSources(root, kind, storyId);
-      if (!sources.hasSource) throw new ApiError(404, "STORY_NOT_FOUND", `Story not found for ${storyId}.`);
-      const config = await getProjectConfig({ requireApiKey: false });
-      const pipeline = await buildPipelineConfig({ currentConfig: config, ...(kind === "book" ? { bookIdForSettings: storyId } : {}) });
-      const textModel: StoryAssetTextModel = async (messages, options) => (await chatCompletion(pipeline.client, pipeline.model, messages, { ...options, retry: false })).content;
-
-      // Resolve the selected craft style from the story's persisted visual config.
-      // A query override is kept for callers that explicitly regenerate assets.
-      let artStyle: ArtStyle = await resolveStoryArtStyle(root, kind, storyId, new PipelineRunner(pipeline));
-      if (queryStyle === "realistic" || queryStyle === "cg3d") artStyle = queryStyle;
-
-      const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides(artStyle);
-      const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore, imagePromptGuides });
-      broadcast("story-assets:complete", { kind, storyId, operation: "extract", assetCount: result.manifest.assets.length });
-      return { ...result.manifest, path: result.path, drafts: result.drafts };
-    };
     if (c.req.query("background") === "true") {
       const task = tasks.start(
         { kind: "asset-extract", storyId, storyKind: kind },
         async () => {
-          await runExtraction();
+          await runExtraction(kind, storyId, queryStyle);
           await queuePostExtractionProductionScript(app, kind, storyId);
         },
+        { payload: queryStyle ? { artStyle: queryStyle } : undefined },
       );
       return c.json({ task }, 202);
     }
     try {
-      return c.json(await runExtraction());
+      return c.json(await runExtraction(kind, storyId, queryStyle));
     } catch (error) { broadcastStoryAssetError(kind, storyId, "extract", error); return storyAssetErrorResponse(c, error); }
   };
   app.post("/api/v1/stories/:kind/:id/assets/extract", async (c) => extractRoute(c, c.req.param("kind"), c.req.param("id")));
@@ -349,56 +355,52 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   app.patch("/api/v1/books/:id/assets/:assetId", async (c) => patchRoute(c, "book", c.req.param("id"), c.req.param("assetId")));
   app.patch("/api/v1/shorts/:id/assets/:assetId", async (c) => patchRoute(c, "short", c.req.param("id"), c.req.param("assetId")));
 
+  const runGenerateImage = async (kind: StoryAssetRouteKind, storyId: string, assetId: string) => {
+    const current = await loadStoryAssetManifest(kind, storyId);
+    if (!current.manifest.assets.some((candidate) => candidate.id === assetId)) throw new ApiError(404, "STORY_ASSET_NOT_FOUND", `Story asset not found: ${assetId}.`);
+    const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
+    const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
+    const result = await generateStoryAssetImage({ storyId, storyType: kind, assetId, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, assetId), fileWriter: current.fileWriter });
+    broadcast("story-assets:complete", { kind, storyId, assetId, operation: "generate-image", status: result.status });
+    return result;
+  };
+
   const generateImageRoute = async (c: Context, kindValue: unknown, storyIdValue: unknown, assetIdValue: unknown) => {
     let kind: StoryAssetRouteKind; let storyId: string; let assetId: string;
     try { kind = assertStoryAssetKind(kindValue); storyId = assertStoryAssetId(storyIdValue); assetId = assertStoryAssetAssetId(assetIdValue); } catch (error) { return storyAssetErrorResponse(c, error); }
     if (c.req.query("background") === "true") {
-      const task = tasks.start({ assetId, kind: "asset-image", storyId, storyKind: kind }, async () => {
-        const current = await loadStoryAssetManifest(kind, storyId);
-        if (!current.manifest.assets.some((candidate) => candidate.id === assetId)) throw new ApiError(404, "STORY_ASSET_NOT_FOUND", `Story asset not found: ${assetId}.`);
-        const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
-        const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
-        const result = await generateStoryAssetImage({ storyId, storyType: kind, assetId, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, assetId), fileWriter: current.fileWriter });
-        broadcast("story-assets:complete", { kind, storyId, assetId, operation: "generate-image", status: result.status });
-      });
+      const task = tasks.start({ assetId, kind: "asset-image", storyId, storyKind: kind }, async () => { await runGenerateImage(kind, storyId, assetId); });
       return c.json({ task }, 202);
     }
     broadcast("story-assets:start", { kind, storyId, assetId, operation: "generate-image" });
     try {
-      const current = await loadStoryAssetManifest(kind, storyId);
-      if (!current.manifest.assets.some((candidate) => candidate.id === assetId)) throw new ApiError(404, "STORY_ASSET_NOT_FOUND", `Story asset not found: ${assetId}.`);
-      const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
-      const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
-      const result = await generateStoryAssetImage({ storyId, storyType: kind, assetId, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, assetId), fileWriter: current.fileWriter });
-      broadcast("story-assets:complete", { kind, storyId, assetId, operation: "generate-image", status: result.status });
-      return c.json(result);
+      return c.json(await runGenerateImage(kind, storyId, assetId));
     } catch (error) { broadcastStoryAssetError(kind, storyId, "generate-image", error); return storyAssetErrorResponse(c, error); }
   };
   app.post("/api/v1/stories/:kind/:id/assets/:assetId/generate-image", async (c) => generateImageRoute(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
   app.post("/api/v1/books/:id/assets/:assetId/generate-image", async (c) => generateImageRoute(c, "book", c.req.param("id"), c.req.param("assetId")));
   app.post("/api/v1/shorts/:id/assets/:assetId/generate-image", async (c) => generateImageRoute(c, "short", c.req.param("id"), c.req.param("assetId")));
 
+  const runGenerateMissing = async (kind: StoryAssetRouteKind, storyId: string) => {
+    const current = await loadStoryAssetManifest(kind, storyId);
+    const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
+    const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
+    const results = await generateMissingStoryAssetImages({ storyId, storyType: kind, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, "batch"), fileWriter: current.fileWriter });
+    broadcast("story-assets:complete", { kind, storyId, operation: "generate-missing", count: results.length });
+    return results;
+  };
+
   const generateMissingRoute = async (c: Context, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind; let storyId: string;
     try { kind = assertStoryAssetKind(kindValue); storyId = assertStoryAssetId(storyIdValue); } catch (error) { return storyAssetErrorResponse(c, error); }
     if (c.req.query("background") === "true") {
-      const task = tasks.start({ kind: "asset-batch", storyId, storyKind: kind }, async () => {
-        const current = await loadStoryAssetManifest(kind, storyId);
-        const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
-        const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
-        const results = await generateMissingStoryAssetImages({ storyId, storyType: kind, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, "batch"), fileWriter: current.fileWriter });
-        broadcast("story-assets:complete", { kind, storyId, operation: "generate-missing", count: results.length });
-      });
+      const task = tasks.start({ kind: "asset-batch", storyId, storyKind: kind }, async () => { await runGenerateMissing(kind, storyId); });
       return c.json({ task }, 202);
     }
     broadcast("story-assets:start", { kind, storyId, operation: "generate-missing" });
     try {
-      const current = await loadStoryAssetManifest(kind, storyId);
-      const pipeline = new PipelineRunner(await buildPipelineConfig({ currentConfig: await getProjectConfig({ requireApiKey: false }) }));
-      const artStyle = await resolveStoryArtStyle(root, kind, storyId, pipeline);
-      const results = await generateMissingStoryAssetImages({ storyId, storyType: kind, artStyle, manifestStore: current.manifestStore, imageRuntime: await createStoryAssetImageRuntime(root, "batch"), fileWriter: current.fileWriter });
+      const results = await runGenerateMissing(kind, storyId);
       const manifest = await loadStoryAssetManifest(kind, storyId);
-      broadcast("story-assets:complete", { kind, storyId, operation: "generate-missing", count: results.length });
       return c.json({ results, manifest: manifest.manifest });
     } catch (error) { broadcastStoryAssetError(kind, storyId, "generate-missing", error); return storyAssetErrorResponse(c, error); }
   };
@@ -430,4 +432,23 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   }
   app.get("/api/v1/stories/:kind/:id/assets/images/:assetId", async (c) => serveImageRoute(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
   app.get("/api/v1/stories/:kind/:id/assets/:assetId/image", async (c) => serveImageRoute(c, c.req.param("kind"), c.req.param("id"), c.req.param("assetId")));
+
+  tasks.resumePending(async (task) => {
+    const kind = assertStoryAssetKind(task.storyKind);
+    const storyId = assertStoryAssetId(task.storyId);
+    if (task.kind === "asset-extract") {
+      const artStyle = typeof task.payload?.artStyle === "string" ? task.payload.artStyle : undefined;
+      await runExtraction(kind, storyId, artStyle);
+      await queuePostExtractionProductionScript(app, kind, storyId);
+      return;
+    }
+    if (task.kind === "asset-image") {
+      const assetId = assertStoryAssetAssetId(task.assetId);
+      await runGenerateImage(kind, storyId, assetId);
+      return;
+    }
+    if (task.kind === "asset-batch") {
+      await runGenerateMissing(kind, storyId);
+    }
+  });
 }
