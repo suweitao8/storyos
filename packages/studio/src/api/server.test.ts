@@ -993,6 +993,44 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
+  it("retries background scoring once when the model returns a malformed score", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "评分模型暂时没有按要求返回数字。" })
+      .mockResolvedValueOnce({ content: "84\n题材和现实感稳定，冲突推进清楚。" });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(currentMeta.storySeedScore).toBe(84));
+    expect(chatCompletionMock).toHaveBeenCalledTimes(3);
+    expect(currentMeta).toMatchObject({
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "ready",
+      storySeedScore: 84,
+    });
+  });
+
   it("does not replace or disable a published story seed after a low background score", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
