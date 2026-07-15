@@ -21,7 +21,11 @@ export interface PendingCreation {
 type CreationCompletedHandler = (entry: PendingCreation, result: { readonly storyId: string | null }) => void;
 type CreationFailedHandler = (entry: PendingCreation, error: string) => void;
 
-const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时
+/**
+ * 长篇或多轮短篇生产会经过设定、提纲、初稿、审稿与改稿等多个模型阶段。
+ * 注册表必须覆盖整个后台任务窗口，否则完成事件到达时无法继续触发脚本和资产生成。
+ */
+export const PENDING_CREATION_TIMEOUT_MS = 60 * 60 * 1000; // 1 小时
 
 const registry = new Map<string, PendingCreation>();
 const completedHandlers = new Set<CreationCompletedHandler>();
@@ -42,7 +46,7 @@ export function getPendingCreation(sessionId: string): PendingCreation | undefin
   const entry = registry.get(sessionId);
   if (!entry) return undefined;
   // 超时自动清理
-  if (Date.now() - entry.createdAt > PENDING_TIMEOUT_MS) {
+  if (Date.now() - entry.createdAt > PENDING_CREATION_TIMEOUT_MS) {
     registry.delete(sessionId);
     return undefined;
   }
