@@ -7,7 +7,12 @@ import {
   validateScriptQuality,
 } from "./story-production";
 import type { SourceSegmentRef } from "@actalk/inkos-core";
-import { buildBookSourceFallbackText, buildAssetsContext } from "./routes/story-production";
+import {
+  buildBookSourceFallbackText,
+  buildAssetsContext,
+  markSceneVideoGenerated,
+  StoryProductionLock,
+} from "./routes/story-production";
 
 describe("unified story production", () => {
   it("can use book settings as script source before chapters exist", () => {
@@ -178,6 +183,51 @@ describe("buildAssetsContext", () => {
 
   it("returns empty string when no assets", () => {
     expect(buildAssetsContext([])).toBe("");
+  });
+});
+
+describe("production artifact freshness", () => {
+  it("invalidates the aggregate video when a scene is regenerated", () => {
+    const next = markSceneVideoGenerated({
+      scriptGeneratedAt: "2026-07-16T00:00:00.000Z",
+      videoGeneratedAt: "2026-07-16T01:00:00.000Z",
+      videoDurationMs: 12_000,
+      voiceEnabled: true,
+      sceneVideoGeneratedAt: { "0": "2026-07-16T01:00:00.000Z" },
+    }, 1, "2026-07-16T02:00:00.000Z");
+
+    expect(next.sceneVideoGeneratedAt).toEqual({
+      "0": "2026-07-16T01:00:00.000Z",
+      "1": "2026-07-16T02:00:00.000Z",
+    });
+    expect(next.videoGeneratedAt).toBeUndefined();
+    expect(next.videoDurationMs).toBeUndefined();
+    expect(next.voiceEnabled).toBeUndefined();
+  });
+
+  it("serializes production work for one story while allowing other stories to proceed", async () => {
+    const lock = new StoryProductionLock();
+    let releaseFirst!: () => void;
+    const firstFinished = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const events: string[] = [];
+
+    const first = lock.run("short:story-1", async () => {
+      events.push("first-start");
+      await firstFinished;
+      events.push("first-end");
+    });
+    const second = lock.run("short:story-1", async () => {
+      events.push("second");
+    });
+    const otherStory = lock.run("short:story-2", async () => {
+      events.push("other-story");
+    });
+
+    await Promise.resolve();
+    expect(events).toEqual(["first-start", "other-story"]);
+    releaseFirst();
+    await Promise.all([first, second, otherStory]);
+    expect(events).toEqual(["first-start", "other-story", "first-end", "second"]);
   });
 });
 
