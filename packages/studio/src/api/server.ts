@@ -42,6 +42,7 @@ import {
   chatCompletion,
   buildStoryDirectionPrompt,
   buildStorySeedPrompt,
+  buildStorySeedQualitySystemPrompt,
   STORY_SEED_SECTION_DEFINITIONS,
   isStorySeed,
   parseStorySeed,
@@ -116,6 +117,7 @@ import {
   type SessionKind,
   type AgentSessionAttachment,
   type CraftMode,
+  type CraftProfile,
   DEFAULT_IMAGE_TEMPLATES,
   DEFAULT_IMAGE_STYLES,
   DEFAULT_VOICE_PROMPT,
@@ -2742,7 +2744,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const storySeed = parseStorySeed(response.content);
       if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
         // Score the generated seed in the background (non-blocking).
-        void scoreStorySeed(craftId, generationId, storySeed, pipeline, language);
+        void scoreStorySeed(craftId, generationId, storySeed, profile, pipeline, language);
         broadcast("craft:story-seed-complete", { craftId, generationId, status: "ready" });
       }
     } catch (error) {
@@ -2761,30 +2763,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     craftId: string,
     generationId: string,
     storySeed: StorySeed,
+    craftProfile: CraftProfile,
     pipeline: PipelineRunner,
     language: "zh" | "en",
   ): Promise<void> => {
     try {
       const seedMarkdown = serializeStorySeed(storySeed, language);
-      const systemPrompt = language === "zh"
-        ? [
-            "你是一个故事编辑，负责评估故事设定的精彩程度。",
-            "从以下几个维度打分（0-100 分），然后给出总分：",
-            "- 钩子吸引力：开场能不能抓住人。",
-            "- 冲突张力：主角面临的困境够不够紧迫、够不够有戏剧性。",
-            "- 意外感：故事走向有没有让人意想不到的转折。",
-            "- 情感共鸣：读者能不能代入主角、能不能被打动。",
-            "- 完整性：故事从头到尾逻辑通不通、有没有明显漏洞。",
-            "总分低于 60 分的故事设定通常需要重新生成。",
-            "输出格式：第一行写总分数字（0-100），第二行起写一句简短评价（不超过 50 字）。",
-            "只输出数字和评价，不要其他内容。",
-          ].join("\n")
-        : [
-            "You are a story editor evaluating the quality of a story foundation.",
-            "Score 0-100 based on hook strength, conflict tension, surprise, emotional resonance, and completeness.",
-            "Below 60 usually means it should be regenerated.",
-            "Output format: first line is the numeric score (0-100), second line is a brief comment (max 50 words).",
-          ].join("\n");
+      const systemPrompt = buildStorySeedQualitySystemPrompt(craftProfile, language);
       const agent = pipeline.createAgentContext("short-outline");
       const response = await chatCompletion(
         agent.client,
