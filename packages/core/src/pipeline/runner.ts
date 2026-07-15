@@ -477,6 +477,7 @@ export class PipelineRunner {
     readonly reviewer: FoundationReviewerAgent;
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
+    readonly writingContract?: string;
     readonly language: "zh" | "en";
     readonly stageLanguage: LengthLanguage;
     readonly targetChapters?: number;
@@ -499,6 +500,7 @@ export class PipelineRunner {
         foundation,
         mode: params.mode,
         sourceCanon: params.sourceCanon,
+        writingContract: params.writingContract,
         language: params.language,
         targetChapters: params.targetChapters,
       });
@@ -527,6 +529,7 @@ export class PipelineRunner {
       foundation,
       mode: params.mode,
       sourceCanon: params.sourceCanon,
+      writingContract: params.writingContract,
       language: params.language,
       targetChapters: params.targetChapters,
     });
@@ -946,6 +949,7 @@ export class PipelineRunner {
       ),
       reviewer,
       mode: "original",
+      writingContract: craftGuide || undefined,
       language: resolvedLanguage,
       stageLanguage,
       targetChapters: book.targetChapters,
@@ -1035,6 +1039,11 @@ export class PipelineRunner {
     }
 
     const book = await this.state.loadBookConfig(bookId);
+    const craftProfile = book.craftId ? await this.loadCraft(book.craftId) : null;
+    if (book.craftId && !craftProfile) {
+      throw new Error(`Craft profile not found: ${book.craftId}`);
+    }
+    const craftGuide = buildCraftGuide(craftProfile ?? undefined);
     let oldStoryBible: string;
     let oldVolumeOutline: string;
     let oldBookRules: string;
@@ -1057,7 +1066,7 @@ export class PipelineRunner {
     }
 
     const architect = new ArchitectAgent(this.agentCtxFor("architect", bookId));
-    const foundation = await architect.generateFoundation(book, undefined, undefined, {
+    const foundation = await architect.generateFoundation(book, craftGuide || undefined, undefined, {
       reviseFrom: {
         storyBible: oldStoryBible,
         volumeOutline: oldVolumeOutline,
@@ -1073,6 +1082,7 @@ export class PipelineRunner {
       const review = await reviewer.review({
         foundation,
         mode: "original",
+        writingContract: craftGuide || undefined,
         language: resolvedLanguage,
         targetChapters: book.targetChapters,
       } as Parameters<FoundationReviewerAgent["review"]>[0]);
