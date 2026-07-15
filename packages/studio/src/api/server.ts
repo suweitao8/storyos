@@ -2988,15 +2988,18 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         throw new Error("Generated story seed is incomplete; missing required creation-contract sections.");
       }
       const realityDrift = detectStorySeedRealityDrift(profile, storySeed);
-      if (realityDrift.length > 0 && (options.attempt ?? 0) < 1) {
-        console.warn(`[craft] story seed reality drift detected; retrying once: ${realityDrift.join(", ")}`);
-        await generateCraftStorySeed(craftId, {
-          ...options,
-          attempt: (options.attempt ?? 0) + 1,
-          previousDirection: serializeStorySeed(storySeed, language),
-          generationId,
-        });
-        return;
+      if (realityDrift.length > 0) {
+        if ((options.attempt ?? 0) < 1) {
+          console.warn(`[craft] story seed reality drift detected; retrying once: ${realityDrift.join(", ")}`);
+          await generateCraftStorySeed(craftId, {
+            ...options,
+            attempt: (options.attempt ?? 0) + 1,
+            previousDirection: serializeStorySeed(storySeed, language),
+            generationId,
+          });
+          return;
+        }
+        throw new Error(`Generated story seed still violates the reality-level lock: ${realityDrift.join(", ")}.`);
       }
       if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
         await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, generationId, {
