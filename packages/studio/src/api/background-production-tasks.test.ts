@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { ProductionTaskRegistry } from "./background-production-tasks";
 
@@ -19,6 +22,12 @@ const taskTarget = {
 };
 
 describe("ProductionTaskRegistry", () => {
+  const temporaryRoots: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+
   it("starts a production job without waiting for its completion", async () => {
     const updates: string[] = [];
     const registry = new ProductionTaskRegistry((task) => updates.push(task.status));
@@ -90,5 +99,36 @@ describe("ProductionTaskRegistry", () => {
       error: "provider unavailable",
       status: "failed",
     });
+  });
+
+  it("persists task state and resumes a running task after a process restart", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-production-task-"));
+    temporaryRoots.push(root);
+    const persistencePath = join(root, "tasks.json");
+    const firstWork = deferred<void>();
+    const first = new ProductionTaskRegistry(undefined, { persistencePath });
+    const task = first.start(taskTarget, () => firstWork.promise, { payload: { voice: false } });
+    await first.flush();
+
+    const secondWork = deferred<void>();
+    const resumed = vi.fn((_task: typeof task) => secondWork.promise);
+    const restarted = new ProductionTaskRegistry(undefined, { persistencePath });
+    restarted.resumePending(resumed);
+
+    expect(restarted.latest(taskTarget)).toMatchObject({
+      id: task.id,
+      status: "running",
+      payload: { voice: false },
+    });
+    expect(resumed).toHaveBeenCalledWith(expect.objectContaining({ id: task.id, payload: { voice: false } }));
+
+    secondWork.resolve();
+    await Promise.resolve();
+    await restarted.flush();
+
+    expect(restarted.latest(taskTarget)).toMatchObject({ id: task.id, status: "completed" });
+    firstWork.resolve();
+    await Promise.resolve();
+    await first.flush();
   });
 });

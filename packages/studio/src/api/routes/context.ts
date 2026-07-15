@@ -23,6 +23,8 @@ export interface StudioRouteContext {
     readonly externalContext?: string;
   }) => Promise<PipelineConfig>;
   readonly broadcast: (event: string, data: unknown) => void;
+  /** Directory for durable background task snapshots; omitted by lightweight route tests. */
+  readonly backgroundTaskPersistenceDir?: string;
   readonly loadBookListSummary: (bookId: string) => Promise<unknown>;
   readonly loadRawConfig: () => Promise<Record<string, unknown>>;
   readonly saveRawConfig: (config: Record<string, unknown>) => Promise<void>;
