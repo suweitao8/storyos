@@ -155,7 +155,7 @@ export function stubChatCompletion(
   messages: ReadonlyArray<LLMMessage>,
   _model: string,
 ): LLMResponse {
-  const joined = messages.map((m) => m.content).join("\n");
+  const joined = messages.map((m) => typeof m.content === "string" ? m.content : JSON.stringify(m.content)).join("\n");
   const content = /骨架|nodes|结构/i.test(joined) ? STRUCTURE_JSON : NODE_JSON;
   return {
     content,

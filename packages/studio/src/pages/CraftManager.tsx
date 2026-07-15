@@ -18,6 +18,7 @@ import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-bre
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import type { StorySeed } from "@actalk/inkos-core";
 import { StorySeedPreview } from "./StorySeedPreview";
+import { SourceAlignmentPanel } from "./SourceAlignmentPanel";
 import {
   serializeStorySeed,
   type StorySeedGenerationStatus,
@@ -198,7 +199,7 @@ export function craftProcessingErrorText(
 
 export type CraftSourceType = "bilibili" | "novel";
 
-type CraftSourceFileKey = "source" | "video" | "subtitlesJson" | "subtitlesText" | "analysisInput";
+type CraftSourceFileKey = "source" | "video" | "commentaryVideo" | "sourceVideo" | "timeline" | "subtitlesJson" | "subtitlesText" | "analysisInput";
 
 interface CraftSourceFile {
   readonly key: CraftSourceFileKey;
@@ -231,6 +232,7 @@ export const CRAFT_DETAIL_TABS = [
   { value: "modules", label: "写作要点" },
   { value: "exemplars", label: "示例" },
   { value: "source", label: "原始资料" },
+  { value: "alignment", label: "原片对齐" },
 ] as const;
 
 type CraftDetailTab = typeof CRAFT_DETAIL_TABS[number]["value"];
@@ -1505,7 +1507,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
       <div className="overflow-x-auto border-b border-border">
         <div className="flex min-w-max gap-1">
           {CRAFT_DETAIL_TABS
-            .filter((tab) => tab.value !== "video" || !!detail.videoStory)
+            .filter((tab) => (tab.value !== "video" || !!detail.videoStory) && (tab.value !== "alignment" || initialMeta?.sourceType === "bilibili"))
             .map((tab) => (
               <button
                 key={tab.value}
@@ -1774,6 +1776,10 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
         </div>
       )}
 
+      {detailTab === "alignment" && craftId && initialMeta?.sourceType === "bilibili" && (
+        <SourceAlignmentPanel craftId={craftId} source={source} />
+      )}
+
       {detailTab === "source" && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1874,7 +1880,9 @@ function CraftSection({ title, fields, exemplar, c }: {
 }
 
 function craftSourceFileLabel(key: CraftSourceFileKey, downloadName: string): string {
-  if (key === "video") return "视频文件（保留原始下载）";
+  if (key === "video" || key === "commentaryVideo") return "解说视频（保留原始下载）";
+  if (key === "sourceVideo") return "原片视频（用于画面对齐）";
+  if (key === "timeline") return "原片关键帧时间线";
   if (key === "subtitlesJson") return "字幕数据（JSON）";
   if (key === "subtitlesText") return "字幕文本";
   if (key === "analysisInput") return "解析输入文本";

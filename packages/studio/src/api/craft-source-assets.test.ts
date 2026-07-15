@@ -4,9 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   addCraftSourceFile,
+  addCraftSourceFileToCraft,
   createCraftSourceUpload,
   finalizeCraftSourceUpload,
   loadCraftSourceManifest,
+  normalizeCraftSourceFileKey,
   resolveCraftSourceFile,
 } from "./craft-source-assets.js";
 
@@ -15,6 +17,11 @@ async function makeRoot(): Promise<string> {
 }
 
 describe("craft source assets", () => {
+  it("registers the original film separately from the commentary video", () => {
+    expect(normalizeCraftSourceFileKey("sourceVideo")).toBe("sourceVideo");
+    expect(normalizeCraftSourceFileKey("video")).toBe("commentaryVideo");
+  });
+
   it("persists an uploaded source and analysis input, then archives both under the craft", async () => {
     const root = await makeRoot();
     const upload = await createCraftSourceUpload(root, {
@@ -94,5 +101,37 @@ describe("craft source assets", () => {
 
     expect(manifest.files.find((file) => file.key === "video")?.size).toBe(16);
     expect(await readFile(join(upload.directory, "video.mp4"))).toEqual(Buffer.alloc(16, 7));
+  });
+
+  it("adds the original film to an already archived craft without replacing its commentary video", async () => {
+    const root = await makeRoot();
+    const upload = await createCraftSourceUpload(root, {
+      sourceType: "bilibili",
+      sourceName: "解说",
+      originalName: "BV1.mp4",
+      analysisText: "字幕",
+    });
+    await addCraftSourceFile(root, upload.assetId, {
+      key: "video",
+      fileName: "video.mp4",
+      downloadName: "解说.mp4",
+      content: Buffer.from("commentary"),
+      mimeType: "video/mp4",
+    });
+    await finalizeCraftSourceUpload(root, upload.assetId, "craft-3", { sourceRef: "BV1" });
+
+    const manifest = await addCraftSourceFileToCraft(root, "craft-3", {
+      key: "sourceVideo",
+      fileName: "original-film.mp4",
+      downloadName: "原片.mp4",
+      content: Buffer.from("original"),
+      mimeType: "video/mp4",
+    });
+    expect(manifest.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "video" }),
+      expect.objectContaining({ key: "sourceVideo", downloadName: "原片.mp4" }),
+    ]));
+    expect(await readFile(await resolveCraftSourceFile(root, "craft-3", "sourceVideo"), "utf8")).toBe("original");
+    expect(await readFile(await resolveCraftSourceFile(root, "craft-3", "commentaryVideo"), "utf8")).toBe("commentary");
   });
 });

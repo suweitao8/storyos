@@ -6,6 +6,7 @@ import {
   parseUnifiedScript,
   validateScriptQuality,
 } from "./story-production";
+import type { SourceSegmentRef } from "@actalk/inkos-core";
 import { buildBookSourceFallbackText, buildAssetsContext } from "./routes/story-production";
 
 describe("unified story production", () => {
@@ -120,6 +121,13 @@ describe("unified story production", () => {
 
     // 逗号和句号处断行并删除标点，末尾标点被 trim
     expect(result.shots[0]?.subtitle).toBe("天色暗了下来\n路灯亮了\n她终于走到了门口");
+  });
+
+  it("accepts a script source reference only when the server supplies a confirmed match", () => {
+    const raw = `# 原片引用\n\n## 场景\n\n### 镜头 1\n- 画面：地下室入口\n- 旁白：门被推开。\n- 原片匹配：match-1`;
+    const ref: SourceSegmentRef = { matchId: "match-1", sourceFileKey: "sourceVideo", startSeconds: 2, endSeconds: 7, status: "confirmed" };
+    expect(parseUnifiedScript(raw).shots[0]).not.toHaveProperty("sourceSegmentRef");
+    expect(parseUnifiedScript(raw, { confirmedSourceSegments: new Map([[ref.matchId, ref]]) }).shots[0]).toMatchObject({ sourceSegmentRef: ref });
   });
 });
 

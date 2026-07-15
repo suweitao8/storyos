@@ -1,5 +1,5 @@
 import type { LLMClient, LLMMessage, LLMResponse, OnStreamProgress } from "../llm/provider.js";
-import { chatCompletion } from "../llm/provider.js";
+import { chatCompletion, getLLMTextContent } from "../llm/provider.js";
 import { appendPromptPackGuidance } from "../skills/prompt-pack.js";
 import { searchWeb, fetchUrl } from "../utils/web-search.js";
 import type { Logger } from "../utils/logger.js";
@@ -67,7 +67,7 @@ export abstract class BaseAgent {
 
     try {
       // Extract search query from user message (first 200 chars)
-      const query = lastUserMsg.content.slice(0, 200);
+      const query = getLLMTextContent(lastUserMsg.content).slice(0, 200);
       this.log?.info(`[search] Searching: ${query.slice(0, 60)}...`);
 
       const results = await searchWeb(query, 3);
@@ -93,7 +93,7 @@ export abstract class BaseAgent {
       // Inject search results before the last user message
       const augmentedMessages: LLMMessage[] = messages.map((m) =>
         m === lastUserMsg
-          ? { ...m, content: `${searchContext}\n\n---\n\n${m.content}` }
+          ? { ...m, content: `${searchContext}\n\n---\n\n${getLLMTextContent(m.content)}` }
           : m,
       );
 

@@ -65,6 +65,7 @@ export {
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
 export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";
+export { type SourceFileKey, type SourceMatchStatus, type SourceScene, type SourceTimeline, type NarrationAnchor, type SourceMatch, type SourceSegmentRef, type SourceSegmentValidation, validateSourceSegmentRef } from "./models/source-alignment.js";
 export { STORY_SEED_SECTION_DEFINITIONS, REQUIRED_STORY_SEED_SECTION_DEFINITIONS, StorySeedParseError, isStorySeed, isStorySeedWithOriginalizationPlan, parseStorySeed, serializeStorySeed, type StorySeed, type StorySeedSectionKey } from "./models/story-seed.js";
 export { estimateVideoNovelWordCount } from "./craft/video-word-count.js";
 export { type LengthCountingMode, type LengthNormalizeMode, type LengthSpec, type LengthTelemetry, type LengthWarning, LengthCountingModeSchema, LengthNormalizeModeSchema, LengthSpecSchema, LengthTelemetrySchema, LengthWarningSchema } from "./models/length-governance.js";
@@ -460,7 +461,7 @@ export {
 export * from "./agent/index.js";
 
 // LLM
-export { createLLMClient, chatCompletion, createStreamMonitor, PartialResponseError, type LLMClient, type LLMResponse, type LLMMessage, type StreamProgress, type OnStreamProgress } from "./llm/provider.js";
+export { createLLMClient, chatCompletion, createStreamMonitor, PartialResponseError, serializeLLMContentForChat, serializeLLMContentForResponses, serializeLLMContentForAnthropic, getLLMTextContent, type LLMClient, type LLMResponse, type LLMMessage, type LLMMessageContent, type LLMTextPart, type LLMImagePart, type StreamProgress, type OnStreamProgress } from "./llm/provider.js";
 export {
   SERVICE_PRESETS,
   SERVICE_TO_PI_PROVIDER,

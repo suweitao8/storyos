@@ -4,8 +4,20 @@ import { basename, extname, join, relative, resolve } from "node:path";
 
 export type CraftSourceType = "bilibili" | "novel";
 
+export type CraftSourceFileKey =
+  | "source"
+  | "video"
+  | "commentaryVideo"
+  | "sourceVideo"
+  | "sourceVideoSubtitles"
+  | "subtitlesJson"
+  | "subtitlesText"
+  | "timeline"
+  | "frame"
+  | "analysisInput";
+
 export interface CraftSourceFile {
-  readonly key: "source" | "video" | "subtitlesJson" | "subtitlesText" | "analysisInput";
+  readonly key: CraftSourceFileKey;
   readonly fileName: string;
   readonly downloadName: string;
   readonly size: number;
@@ -42,6 +54,10 @@ export interface AddCraftSourceFileInput {
   readonly content?: Uint8Array;
   readonly sourcePath?: string;
   readonly mimeType: string;
+}
+
+export function normalizeCraftSourceFileKey(key: string): Exclude<CraftSourceFileKey, "video"> {
+  return key === "video" ? "commentaryVideo" : key as Exclude<CraftSourceFileKey, "video">;
 }
 
 const UPLOADS_DIR = "craft-source-uploads";
@@ -136,7 +152,22 @@ export async function addCraftSourceFile(
   input: AddCraftSourceFileInput,
 ): Promise<CraftSourceManifest> {
   assertSafeSegment(assetId, "asset id");
-  const directory = pendingRoot(root, assetId);
+  return addCraftSourceFileAtDirectory(pendingRoot(root, assetId), input);
+}
+
+export async function addCraftSourceFileToCraft(
+  root: string,
+  craftId: string,
+  input: AddCraftSourceFileInput,
+): Promise<CraftSourceManifest> {
+  assertSafeSegment(craftId, "craft id");
+  return addCraftSourceFileAtDirectory(craftSourceRoot(root, craftId), input);
+}
+
+async function addCraftSourceFileAtDirectory(
+  directory: string,
+  input: AddCraftSourceFileInput,
+): Promise<CraftSourceManifest> {
   const manifest = await readManifest(directory);
   const fileName = safeFileName(input.fileName, `${input.key}.bin`);
   const targetPath = join(directory, fileName);
@@ -195,7 +226,8 @@ export async function loadCraftSourceManifest(root: string, craftId: string): Pr
 export async function resolveCraftSourceFile(root: string, craftId: string, key: string): Promise<string> {
   assertSafeSegment(craftId, "craft id");
   const manifest = await loadCraftSourceManifest(root, craftId);
-  const file = manifest?.files.find((candidate) => candidate.key === key);
+  const normalizedKey = normalizeCraftSourceFileKey(key);
+  const file = manifest?.files.find((candidate) => normalizeCraftSourceFileKey(candidate.key) === normalizedKey);
   if (!file) throw new Error("Source file is not registered");
   const directory = craftSourceRoot(root, craftId);
   const path = resolve(directory, file.fileName);
