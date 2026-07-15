@@ -395,7 +395,7 @@ export class ContinuityAuditor extends BaseAgent {
       };
     },
   ): Promise<AuditResult> {
-    const [diskCurrentState, diskLedger, diskHooks, writingMethodologyRaw, subplotBoard, emotionalArcs, characterMatrix, chapterSummaries, parentCanon, fanficCanon, volumeOutline] =
+    const [diskCurrentState, diskLedger, diskHooks, writingMethodologyRaw, writingContractRaw, subplotBoard, emotionalArcs, characterMatrix, chapterSummaries, parentCanon, fanficCanon, volumeOutline] =
       await Promise.all([
         // Phase 5 consolidation: derive initial state from roles + seed hooks
         // when current_state.md is still the architect seed placeholder.
@@ -403,6 +403,7 @@ export class ContinuityAuditor extends BaseAgent {
         this.readFileSafe(join(bookDir, "story/particle_ledger.md")),
         this.readFileSafe(join(bookDir, "story/pending_hooks.md")),
         this.readFileSafe(join(bookDir, "story/writing_methodology.md")),
+        this.readFileSafe(join(bookDir, "story/brief.md")),
         this.readFileSafe(join(bookDir, "story/subplot_board.md")),
         this.readFileSafe(join(bookDir, "story/emotional_arcs.md")),
         readCharacterContext(bookDir, "(文件不存在)"),
@@ -442,6 +443,7 @@ export class ContinuityAuditor extends BaseAgent {
 
     const resolvedLanguage = bookLanguage ?? gp.language;
     const isEnglish = resolvedLanguage === "en";
+    const hasWritingContract = writingContractRaw !== "(文件不存在)" && writingContractRaw.trim().length > 0;
     const fanficMode = hasFanficCanon ? (bookRules?.fanficMode as FanficMode | undefined) : undefined;
     const dimensions = buildDimensionList(gp, bookRules, resolvedLanguage, hasParentCanon, fanficMode);
     const dimList = dimensions
@@ -461,6 +463,11 @@ export class ContinuityAuditor extends BaseAgent {
         : "\n\n你有联网搜索能力（search_web / fetch_url）。对于涉及真实年代、人物、事件、地理、政策的内容，你必须用search_web核实，不可凭记忆判断。至少对比2个来源交叉验证。"
       : "";
 
+    const writingContractRule = hasWritingContract
+      ? isEnglish
+        ? "\n\nA Writing Mode Contract is supplied with the chapter. Treat its explicit genre, reality-level, narrative-mechanism, and originality constraints as hard requirements. A chapter that contradicts them must receive a critical issue with repair_scope=\"structural\"."
+        : "\n\n本章附带了写作模式契约。契约中明确的题材、现实程度、叙事机制与原创化边界都是硬要求；如果章节违背它们，必须标为 critical，repair_scope=\"structural\"。"
+      : "";
     const systemPromptBase = isEnglish
       ? `You are a strict ${genreLabel} web-fiction structural editor. Audit the chapter for completion and structure, not for prose craft. ALL OUTPUT MUST BE IN ENGLISH.${protagonistBlock}${searchNote}
 
@@ -503,8 +510,8 @@ overall_score calibration:
 - 75-84: Noticeable problems but the story backbone holds, needs revision but not urgent
 - 65-74: Multiple issues hurt the reading experience, pacing or continuity has gaps
 - < 65: Structural breakdown, needs major rewrite
-Score holistically — do not let a single minor issue tank the score.`
-      : `你是一位严格的${gp.name}网络小说结构审稿编辑。你只审完成度 + 结构，不审文笔。${protagonistBlock}${searchNote}
+Score holistically — do not let a single minor issue tank the score.${writingContractRule}`
+      : `你是一位严格的${gp.name}网络小说结构审稿编辑。你只审完成度 + 结构，不审文笔。${protagonistBlock}${searchNote}${writingContractRule}
 
 ## 审稿边界（硬约束）
 
@@ -620,6 +627,11 @@ overall_score 评分校准：
         ? `\n## Writing Methodology\n${writingMethodology}`
         : `\n## 写作方法论\n${writingMethodology}`
       : "";
+    const writingContractBlock = hasWritingContract
+      ? isEnglish
+        ? `\n## Writing Mode Contract (for genre and reality-level drift checks)\n${writingContractRaw}\n`
+        : `\n## 写作模式契约（用于题材与现实感偏离检测）\n${writingContractRaw}\n`
+      : "";
 
     const prevChapterBlock = previousChapter
       ? isEnglish
@@ -633,7 +645,7 @@ overall_score 评分校准：
 ## Current State Card
 ${currentState}
 ${ledgerBlock}
-${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}
+${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}${writingContractBlock}
 
 ## Chapter Content Under Review
 ${chapterContent}`
@@ -642,7 +654,7 @@ ${chapterContent}`
 ## 当前状态卡
 ${currentState}
 ${ledgerBlock}
-${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}
+${hooksBlock}${volumeSummariesBlock}${subplotBlock}${emotionalBlock}${matrixBlock}${summariesBlock}${canonBlock}${fanficCanonBlock}${reducedControlBlock}${memoBlock}${prevChapterBlock}${methodologyBlock}${writingContractBlock}
 
 ## 待审章节内容
 ${chapterContent}`;
