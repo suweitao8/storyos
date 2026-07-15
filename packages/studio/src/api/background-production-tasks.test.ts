@@ -52,6 +52,17 @@ describe("ProductionTaskRegistry", () => {
     expect(duplicateRun).not.toHaveBeenCalled();
   });
 
+  it("does not merge image tasks for different assets in the same story", () => {
+    const registry = new ProductionTaskRegistry();
+    const heroWork = deferred<void>();
+    const sceneWork = deferred<void>();
+
+    const hero = registry.start({ ...taskTarget, assetId: "hero", kind: "asset-image" }, () => heroWork.promise);
+    const scene = registry.start({ ...taskTarget, assetId: "warehouse", kind: "asset-image" }, () => sceneWork.promise);
+
+    expect(scene.id).not.toBe(hero.id);
+  });
+
   it("records a failed task instead of leaking its rejection", async () => {
     const registry = new ProductionTaskRegistry();
     const task = registry.start(taskTarget, async () => {

@@ -1,8 +1,9 @@
-export type ProductionTaskKind = "script" | "video" | "scene-video";
+export type ProductionTaskKind = "script" | "video" | "scene-video" | "asset-image" | "asset-batch";
 export type ProductionStoryKind = "book" | "short";
 export type ProductionTaskStatus = "completed" | "failed" | "running";
 
 export interface ProductionTaskTarget {
+  assetId?: string;
   kind: ProductionTaskKind;
   sceneIndex?: number;
   storyId: string;
@@ -20,7 +21,7 @@ export interface ProductionTask extends ProductionTaskTarget {
 type TaskUpdateListener = (task: ProductionTask) => void;
 
 function taskKey(target: ProductionTaskTarget): string {
-  return [target.storyKind, target.storyId, target.kind, target.sceneIndex ?? ""].join(":");
+  return [target.storyKind, target.storyId, target.kind, target.sceneIndex ?? "", target.assetId ?? ""].join(":");
 }
 
 function taskId(): string {
