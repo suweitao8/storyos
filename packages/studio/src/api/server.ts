@@ -120,6 +120,8 @@ import {
   DEFAULT_IMAGE_STYLES,
   DEFAULT_VOICE_PROMPT,
   ART_STYLES,
+  validateSourceSegmentRef,
+  type SourceTimeline,
 } from "@actalk/inkos-core";
 import { access, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -146,11 +148,24 @@ import {
   cleanupCraftSourceUpload,
   addCraftSourceFile,
   createCraftSourceUpload,
+  addCraftSourceFileToCraft,
   finalizeCraftSourceUpload,
   loadCraftSourceManifest,
   resolveCraftSourceFile,
 } from "./craft-source-assets.js";
 import type { CraftSourceManifest } from "./craft-source-assets.js";
+import {
+  buildSourceTimeline,
+  createFfmpegSourceTimelineDeps,
+  type SourceTimelineDeps,
+} from "./source-timeline.js";
+import {
+  buildSourceAlignmentMessages,
+  groupNarrationAnchors,
+  parseSourceMatches,
+  toSuggestedSourceMatches,
+  type SourceAlignmentCandidate,
+} from "./source-alignment.js";
 import { restoreShortStory, softDeleteShortStory } from "./short-story-list.js";
 import { registerStudioRoutes } from "./routes/index.js";
 import { createEmptyStoryContent } from "./routes/stories.js";
@@ -188,6 +203,46 @@ export function deriveCraftSourceName(filename: string): string {
     .trim();
 
   return normalizedName || baseName || "未命名小说";
+}
+
+function craftSourceTimelineDirectory(root: string, craftId: string): string {
+  return join(root, "crafts", craftId, "source", "timeline");
+}
+
+function craftSourceTimelineFile(root: string, craftId: string, name: string): string {
+  return join(craftSourceTimelineDirectory(root, craftId), name);
+}
+
+function resolveTimelineFramePath(root: string, craftId: string, thumbnailFile: string): string {
+  if (!/^frames\/[A-Za-z0-9_.-]+$/u.test(thumbnailFile)) {
+    throw new Error("Timeline frame path is unsafe");
+  }
+  const directory = craftSourceTimelineDirectory(root, craftId);
+  const candidate = resolve(directory, thumbnailFile.replace(/\//gu, "\\"));
+  const relativePath = relative(directory, candidate);
+  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+    throw new Error("Timeline frame path is unsafe");
+  }
+  return candidate;
+}
+
+async function readJsonFile<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8")) as T;
+}
+
+function isVideoFilename(filename: string): boolean {
+  return /\.(?:mp4|m4v|mov|mkv|webm|avi)$/iu.test(filename);
+}
+
+function sourceAlignmentMaxUploadBytes(): number {
+  const configured = Number.parseInt(process.env.STORYOS_SOURCE_VIDEO_MAX_BYTES ?? "", 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : 2 * 1024 * 1024 * 1024;
+}
+
+function isSubtitleEntry(value: unknown): value is { readonly from: number; readonly to: number; readonly content: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as { from?: unknown; to?: unknown; content?: unknown };
+  return typeof entry.from === "number" && typeof entry.to === "number" && typeof entry.content === "string";
 }
 
 function pick(lang: StudioLanguage, zh: string, en: string): string {
@@ -2529,7 +2584,10 @@ export function normalizeCraftMode(
   return "general";
 }
 
-export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: { readonly nodeImageGenerator?: NodeImageDeps } = {}) {
+export function createStudioServer(initialConfig: ProjectConfig, root: string, overrides: {
+  readonly nodeImageGenerator?: NodeImageDeps;
+  readonly sourceTimelineBuilder?: (videoPath: string, deps: SourceTimelineDeps) => Promise<SourceTimeline>;
+} = {}) {
   const app = new Hono();
   const state = new StateManager(root);
   let cachedConfig = initialConfig;
@@ -6159,6 +6217,199 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   // --- Retained Craft Source ---
 
+  const sourceTimelineBuilder = overrides.sourceTimelineBuilder ?? ((videoPath: string, deps: SourceTimelineDeps) => buildSourceTimeline(videoPath, deps));
+
+  app.post("/api/v1/crafts/:id/source/original-video", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    const existingManifest = await loadCraftSourceManifest(root, id);
+    if (existingManifest?.sourceType !== "bilibili") {
+      throw new ApiError(409, "CRAFT_SOURCE_TYPE_UNSUPPORTED", "Original-film alignment is only available for Bilibili crafts.");
+    }
+    const rawFilename = c.req.header("X-Filename") ?? "original-film.mp4";
+    const filename = (() => {
+      try { return decodeURIComponent(rawFilename); } catch { return rawFilename; }
+    })();
+    const contentType = c.req.header("Content-Type") ?? "application/octet-stream";
+    if (!contentType.toLowerCase().startsWith("video/") && !isVideoFilename(filename)) {
+      throw new ApiError(400, "INVALID_ORIGINAL_VIDEO", "Original source must be a supported video file.");
+    }
+    const body = await c.req.arrayBuffer();
+    if (body.byteLength === 0) throw new ApiError(400, "INVALID_ORIGINAL_VIDEO", "Original video is empty.");
+    if (body.byteLength > sourceAlignmentMaxUploadBytes()) {
+      throw new ApiError(400, "ORIGINAL_VIDEO_TOO_LARGE", "Original video exceeds the configured upload limit.");
+    }
+    const manifest = await addCraftSourceFileToCraft(root, id, {
+      key: "sourceVideo",
+      fileName: "original-film.mp4",
+      downloadName: filename,
+      content: new Uint8Array(body),
+      mimeType: contentType.startsWith("video/") ? contentType : "video/mp4",
+    });
+    return c.json({ craftId: id, file: manifest.files.find((file) => file.key === "sourceVideo"), manifest });
+  });
+
+  app.post("/api/v1/crafts/:id/source/timeline/build", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    const manifest = await loadCraftSourceManifest(root, id);
+    if (!manifest) throw new ApiError(409, "CRAFT_SOURCE_NOT_AVAILABLE", "Retained source files not found.");
+    let sourceVideoPath: string;
+    try {
+      sourceVideoPath = await resolveCraftSourceFile(root, id, "sourceVideo");
+    } catch {
+      throw new ApiError(409, "ORIGINAL_VIDEO_NOT_FOUND", "Please upload the original film first.");
+    }
+    const body = await c.req.json<{ sampleEverySeconds?: number }>().catch(() => ({} as { sampleEverySeconds?: number }));
+    const timelineDirectory = craftSourceTimelineDirectory(root, id);
+    await mkdir(timelineDirectory, { recursive: true });
+    const defaults = createFfmpegSourceTimelineDeps(timelineDirectory);
+    const timeline = await sourceTimelineBuilder(sourceVideoPath, {
+      ...defaults,
+      ...(typeof body.sampleEverySeconds === "number" ? { sampleEverySeconds: body.sampleEverySeconds } : {}),
+    });
+    await writeFile(craftSourceTimelineFile(root, id, "timeline.json"), JSON.stringify(timeline, null, 2), "utf8");
+    await addCraftSourceFileToCraft(root, id, {
+      key: "timeline",
+      fileName: "timeline.json",
+      downloadName: "原片时间线.json",
+      content: Buffer.from(JSON.stringify(timeline, null, 2), "utf8"),
+      mimeType: "application/json; charset=utf-8",
+    });
+    return c.json(timeline);
+  });
+
+  app.get("/api/v1/crafts/:id/source/timeline", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    let timeline: SourceTimeline;
+    try {
+      timeline = await readJsonFile<SourceTimeline>(craftSourceTimelineFile(root, id, "timeline.json"));
+    } catch {
+      throw new ApiError(404, "SOURCE_TIMELINE_NOT_FOUND", "Original-film timeline has not been built.");
+    }
+    const anchors = await readJsonFile<unknown[]>(craftSourceTimelineFile(root, id, "narration-anchors.json")).catch(() => []);
+    const matches = await readJsonFile<unknown[]>(craftSourceTimelineFile(root, id, "source-matches.json")).catch(() => []);
+    return c.json({ timeline, anchors, matches });
+  });
+
+  app.post("/api/v1/crafts/:id/source/alignment", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const pipelineConfig = await buildPipelineConfig();
+    const pipeline = new PipelineRunner(pipelineConfig);
+    const profile = await pipeline.loadCraft(id);
+    if (!profile) throw new ApiError(404, "CRAFT_NOT_FOUND", "Craft not found.");
+    const manifest = await loadCraftSourceManifest(root, id);
+    if (!manifest) throw new ApiError(409, "CRAFT_SOURCE_NOT_AVAILABLE", "Retained source files not found.");
+    const timeline = await readJsonFile<SourceTimeline>(craftSourceTimelineFile(root, id, "timeline.json")).catch(() => undefined);
+    if (!timeline) throw new ApiError(409, "SOURCE_TIMELINE_NOT_FOUND", "Build the original-film timeline first.");
+    let subtitlePath: string;
+    try {
+      subtitlePath = await resolveCraftSourceFile(root, id, "subtitlesJson");
+    } catch {
+      throw new ApiError(409, "CRAFT_SUBTITLES_NOT_FOUND", "This craft has no retained subtitles.");
+    }
+    const subtitleValues = await readJsonFile<unknown>(subtitlePath);
+    const subtitleEntries = Array.isArray(subtitleValues) ? subtitleValues.filter(isSubtitleEntry) : [];
+    const anchors = groupNarrationAnchors(subtitleEntries);
+    const commentaryDuration = Math.max(manifest.sourceDurationSeconds ?? 0, subtitleEntries.at(-1)?.to ?? 0, 1);
+    const allCandidates: SourceAlignmentCandidate[] = [];
+    for (const scene of timeline.scenes) {
+      try {
+        const framePath = resolveTimelineFramePath(root, id, scene.thumbnailFile);
+        const frame = await readFile(framePath);
+        allCandidates.push({
+          id: scene.id,
+          startSeconds: scene.startSeconds,
+          endSeconds: scene.endSeconds,
+          thumbnailDataUrl: `data:image/jpeg;base64,${frame.toString("base64")}`,
+          visualSummary: scene.visualSummary,
+        });
+      } catch {
+        // Missing thumbnails are excluded; the model must never receive a fake visual.
+      }
+    }
+    const matches = [] as ReturnType<typeof toSuggestedSourceMatches>;
+    for (const anchor of anchors) {
+      if (allCandidates.length === 0) break;
+      const center = Math.round((anchor.commentaryStartSeconds / commentaryDuration) * allCandidates.length);
+      const start = Math.max(0, Math.min(allCandidates.length - 24, center - 12));
+      const candidates = allCandidates.slice(start, start + 24);
+      const response = await chatCompletion(
+        pipelineConfig.client,
+        pipelineConfig.model,
+        buildSourceAlignmentMessages({ anchor, candidates }),
+        { temperature: 0.1, maxTokens: 800, retry: false },
+      );
+      matches.push(...toSuggestedSourceMatches(anchor, parseSourceMatches(response.content, candidates)));
+    }
+    await mkdir(craftSourceTimelineDirectory(root, id), { recursive: true });
+    await writeFile(craftSourceTimelineFile(root, id, "narration-anchors.json"), JSON.stringify(anchors, null, 2), "utf8");
+    await writeFile(craftSourceTimelineFile(root, id, "source-matches.json"), JSON.stringify(matches, null, 2), "utf8");
+    return c.json({ anchors, matches });
+  });
+
+  app.put("/api/v1/crafts/:id/source/matches/:matchId", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const matchId = c.req.param("matchId");
+    const matches = await readJsonFile<ReturnType<typeof toSuggestedSourceMatches>>(craftSourceTimelineFile(root, id, "source-matches.json")).catch(() => []);
+    const matchIndex = matches.findIndex((match) => match.id === matchId);
+    if (matchIndex < 0) throw new ApiError(404, "SOURCE_MATCH_NOT_FOUND", "Source match not found.");
+    const body = await c.req.json<{ status?: string; startSeconds?: number; endSeconds?: number }>().catch(() => ({} as { status?: string; startSeconds?: number; endSeconds?: number }));
+    if (body.status !== "confirmed" && body.status !== "rejected") {
+      throw new ApiError(400, "INVALID_SOURCE_MATCH_STATUS", "Status must be confirmed or rejected.");
+    }
+    const nextMatch = { ...matches[matchIndex]!, status: body.status as "confirmed" | "rejected" };
+    let sourceSegmentRef: unknown = null;
+    if (body.status === "confirmed") {
+      const timeline = await readJsonFile<SourceTimeline>(craftSourceTimelineFile(root, id, "timeline.json")).catch(() => undefined);
+      const scene = timeline?.scenes.find((candidate) => candidate.id === nextMatch.sceneId);
+      if (!timeline || !scene || typeof body.startSeconds !== "number" || typeof body.endSeconds !== "number") {
+        throw new ApiError(400, "INVALID_SOURCE_MATCH_RANGE", "Confirmed source ranges must include a selected scene range.");
+      }
+      if (body.startSeconds < scene.startSeconds || body.endSeconds > scene.endSeconds) {
+        throw new ApiError(400, "INVALID_SOURCE_MATCH_RANGE", "Confirmed range must stay inside the selected scene.");
+      }
+      sourceSegmentRef = {
+        matchId,
+        sourceFileKey: "sourceVideo",
+        startSeconds: body.startSeconds,
+        endSeconds: body.endSeconds,
+        status: "confirmed",
+      };
+      const validation = validateSourceSegmentRef(sourceSegmentRef, timeline.durationSeconds);
+      if (!validation.ok) throw new ApiError(400, "INVALID_SOURCE_MATCH_RANGE", validation.reason);
+      Object.assign(nextMatch, { sourceStartSeconds: body.startSeconds, sourceEndSeconds: body.endSeconds });
+    }
+    matches[matchIndex] = nextMatch;
+    await writeFile(craftSourceTimelineFile(root, id, "source-matches.json"), JSON.stringify(matches, null, 2), "utf8");
+    return c.json({ match: nextMatch, sourceSegmentRef });
+  });
+
+  app.get("/api/v1/crafts/:id/source/segment/:matchId", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const matchId = c.req.param("matchId");
+    const matches = await readJsonFile<ReturnType<typeof toSuggestedSourceMatches>>(craftSourceTimelineFile(root, id, "source-matches.json")).catch(() => []);
+    const match = matches.find((candidate) => candidate.id === matchId);
+    if (!match || match.status !== "confirmed") {
+      throw new ApiError(409, "SOURCE_MATCH_NOT_CONFIRMED", "Only confirmed original-film matches can be used as source segments.");
+    }
+    const timeline = await readJsonFile<SourceTimeline>(craftSourceTimelineFile(root, id, "timeline.json"));
+    const sourceSegmentRef = {
+      matchId,
+      sourceFileKey: "sourceVideo" as const,
+      startSeconds: match.sourceStartSeconds,
+      endSeconds: match.sourceEndSeconds,
+      status: "confirmed" as const,
+    };
+    const validation = validateSourceSegmentRef(sourceSegmentRef, timeline.durationSeconds);
+    if (!validation.ok) throw new ApiError(409, "INVALID_SOURCE_MATCH_RANGE", validation.reason);
+    return c.json({ ...sourceSegmentRef, previewUrl: `/api/v1/crafts/${id}/source/sourceVideo#t=${sourceSegmentRef.startSeconds},${sourceSegmentRef.endSeconds}` });
+  });
+
   app.get("/api/v1/crafts/:id/source", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
     const pipeline = new PipelineRunner(await buildPipelineConfig());
@@ -6171,7 +6422,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const key = c.req.param("key");
     const manifest = await loadCraftSourceManifest(root, id);
     if (!manifest) throw new ApiError(404, "CRAFT_SOURCE_NOT_FOUND", "Retained source files not found.");
-    const file = manifest.files.find((candidate) => candidate.key === key);
+    const file = manifest.files.find((candidate) => candidate.key === key || (key === "commentaryVideo" && candidate.key === "video"));
     if (!file) throw new ApiError(404, "CRAFT_SOURCE_FILE_NOT_FOUND", "Source file not found.");
 
     let filePath: string;

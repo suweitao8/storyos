@@ -152,7 +152,22 @@ export async function addCraftSourceFile(
   input: AddCraftSourceFileInput,
 ): Promise<CraftSourceManifest> {
   assertSafeSegment(assetId, "asset id");
-  const directory = pendingRoot(root, assetId);
+  return addCraftSourceFileAtDirectory(pendingRoot(root, assetId), input);
+}
+
+export async function addCraftSourceFileToCraft(
+  root: string,
+  craftId: string,
+  input: AddCraftSourceFileInput,
+): Promise<CraftSourceManifest> {
+  assertSafeSegment(craftId, "craft id");
+  return addCraftSourceFileAtDirectory(craftSourceRoot(root, craftId), input);
+}
+
+async function addCraftSourceFileAtDirectory(
+  directory: string,
+  input: AddCraftSourceFileInput,
+): Promise<CraftSourceManifest> {
   const manifest = await readManifest(directory);
   const fileName = safeFileName(input.fileName, `${input.key}.bin`);
   const targetPath = join(directory, fileName);

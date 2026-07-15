@@ -276,6 +276,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     evaluateBookQuality: evaluateBookQualityMock,
     computeAnalytics: vi.fn(() => ({})),
     isSafeBookId: actual.isSafeBookId,
+    validateSourceSegmentRef: actual.validateSourceSegmentRef,
     normalizePlatformOrOther: actual.normalizePlatformOrOther,
     defaultChapterLength: actual.defaultChapterLength,
     buildImagePromptGuides: actual.buildImagePromptGuides,
@@ -1018,6 +1019,89 @@ describe("createStudioServer daemon lifecycle", () => {
       undefined,
       "craft-1",
     );
+  });
+
+  it("uploads the original film, builds bounded matches, and exposes only confirmed source segments", async () => {
+    const sourceAssets = await import("./craft-source-assets.js");
+    const sourceUpload = await sourceAssets.createCraftSourceUpload(root, {
+      sourceType: "bilibili",
+      sourceName: "电影解说",
+      originalName: "BV1.mp4",
+      analysisText: "主角推门。",
+      sourceRef: "BV1",
+      sourceDurationSeconds: 20,
+    });
+    await sourceAssets.addCraftSourceFile(root, sourceUpload.assetId, {
+      key: "video",
+      fileName: "video.mp4",
+      downloadName: "解说.mp4",
+      content: Buffer.from("commentary"),
+      mimeType: "video/mp4",
+    });
+    await sourceAssets.addCraftSourceFile(root, sourceUpload.assetId, {
+      key: "subtitlesJson",
+      fileName: "subtitles.json",
+      downloadName: "字幕.json",
+      content: Buffer.from(JSON.stringify([{ from: 0, to: 4, content: "主角推开地下室的门" }])),
+      mimeType: "application/json",
+    });
+    await sourceAssets.finalizeCraftSourceUpload(root, sourceUpload.assetId, "craft-1", { sourceRef: "BV1" });
+    loadCraftMock.mockResolvedValue({ sourceType: "bilibili", sourceName: "电影解说", language: "zh", mode: "bilibili-commentary" });
+    chatCompletionMock.mockResolvedValue({
+      content: JSON.stringify({ matches: [{ sceneId: "scene-1", startSeconds: 2, endSeconds: 7, confidence: 0.92, reason: "关键帧显示地下室入口" }] }),
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root, {
+      sourceTimelineBuilder: async (_videoPath, deps) => {
+        await mkdir(join(deps.outputDirectory, "frames"), { recursive: true });
+        await writeFile(join(deps.outputDirectory, "frames", "scene-0001.jpg"), Buffer.from([0xff, 0xd8, 0xff]));
+        return {
+          version: 1,
+          sourceFileKey: "sourceVideo",
+          durationSeconds: 20,
+          scenes: [{ id: "scene-1", startSeconds: 0, endSeconds: 10, thumbnailFile: "frames/scene-0001.jpg", visualSummary: "" }],
+        };
+      },
+    });
+
+    const upload = await app.request("http://localhost/api/v1/crafts/craft-1/source/original-video", {
+      method: "POST",
+      headers: { "content-type": "video/mp4", "x-filename": encodeURIComponent("原片.mp4") },
+      body: Buffer.from("original"),
+    });
+    expect(upload.status).toBe(200);
+    await expect(upload.json()).resolves.toMatchObject({ file: { key: "sourceVideo" } });
+
+    const timeline = await app.request("http://localhost/api/v1/crafts/craft-1/source/timeline/build", { method: "POST" });
+    expect(timeline.status).toBe(200);
+    await expect(timeline.json()).resolves.toMatchObject({ sourceFileKey: "sourceVideo" });
+
+    const alignment = await app.request("http://localhost/api/v1/crafts/craft-1/source/alignment", { method: "POST" });
+    expect(alignment.status).toBe(200);
+    const alignmentBody = await alignment.json() as { matches: Array<{ id: string; status: string }> };
+    expect(alignmentBody.matches[0]).toMatchObject({ status: "suggested" });
+    expect(chatCompletionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.arrayContaining([expect.objectContaining({ content: expect.any(Array) })]),
+      expect.objectContaining({ retry: false }),
+    );
+
+    const suggestedSegment = await app.request(`http://localhost/api/v1/crafts/craft-1/source/segment/${alignmentBody.matches[0]!.id}`);
+    expect(suggestedSegment.status).toBe(409);
+
+    const confirmed = await app.request(`http://localhost/api/v1/crafts/craft-1/source/matches/${alignmentBody.matches[0]!.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "confirmed", startSeconds: 2, endSeconds: 7 }),
+    });
+    expect(confirmed.status).toBe(200);
+
+    const segment = await app.request(`http://localhost/api/v1/crafts/craft-1/source/segment/${alignmentBody.matches[0]!.id}`);
+    expect(segment.status).toBe(200);
+    await expect(segment.json()).resolves.toMatchObject({ sourceFileKey: "sourceVideo", startSeconds: 2, endSeconds: 7 });
   });
 
   it("streams a complete short-story seed as final text deltas and a parsed candidate", async () => {
