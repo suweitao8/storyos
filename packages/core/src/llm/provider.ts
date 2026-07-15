@@ -110,9 +110,59 @@ export interface LLMResponse {
   };
 }
 
+export interface LLMTextPart {
+  readonly type: "text";
+  readonly text: string;
+}
+
+export interface LLMImagePart {
+  readonly type: "image_url";
+  readonly image_url: {
+    readonly url: string;
+    readonly detail?: "auto" | "low" | "high";
+  };
+}
+
+export type LLMMessageContent = string | ReadonlyArray<LLMTextPart | LLMImagePart>;
+
 export interface LLMMessage {
   readonly role: "system" | "user" | "assistant";
-  readonly content: string;
+  readonly content: LLMMessageContent;
+}
+
+type ChatImagePart = { readonly type: "image_url"; readonly image_url: { readonly url: string; readonly detail?: "auto" | "low" | "high" } };
+type ChatContent = string | ReadonlyArray<LLMTextPart | ChatImagePart>;
+type ResponsesContent = ReadonlyArray<{ readonly type: "input_text"; readonly text: string } | { readonly type: "input_image"; readonly image_url: string; readonly detail?: "auto" | "low" | "high" }>;
+type AnthropicContent = ReadonlyArray<{ readonly type: "text"; readonly text: string } | { readonly type: "image"; readonly source: { readonly type: "base64" | "url"; readonly media_type?: string; readonly data?: string; readonly url?: string } }>;
+
+export function serializeLLMContentForChat(content: LLMMessageContent): ChatContent {
+  if (typeof content === "string") return content;
+  return content.map((part) => part.type === "text"
+    ? { type: "text", text: part.text }
+    : { type: "image_url", image_url: { url: part.image_url.url, ...(part.image_url.detail ? { detail: part.image_url.detail } : {}) } });
+}
+
+export function serializeLLMContentForResponses(content: LLMMessageContent): ResponsesContent {
+  if (typeof content === "string") return [{ type: "input_text", text: content }];
+  return content.map((part) => part.type === "text"
+    ? { type: "input_text", text: part.text }
+    : { type: "input_image", image_url: part.image_url.url, ...(part.image_url.detail ? { detail: part.image_url.detail } : {}) });
+}
+
+export function serializeLLMContentForAnthropic(content: LLMMessageContent): string | AnthropicContent {
+  if (typeof content === "string") return content;
+  return content.map((part) => {
+    if (part.type === "text") return { type: "text", text: part.text };
+    const parsed = parseDataUrl(part.image_url.url);
+    if (parsed) {
+      return { type: "image", source: { type: "base64", media_type: parsed.mediaType, data: parsed.data } };
+    }
+    return { type: "image", source: { type: "url", url: part.image_url.url } };
+  });
+}
+
+export function getLLMTextContent(content: LLMMessageContent): string {
+  return typeof content === "string" ? content : content.filter((part): part is LLMTextPart => part.type === "text").map((part) => part.text).join("");
 }
 
 export interface LLMClient {
@@ -193,7 +243,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
     // 千万不要从 lobe abilities.reasoning 自动推导，否则 Moonshot 这类不支持 developer role 的服务
     // 会把 content 吃掉，只返回 reasoning_content（见 R4 bug 1 诊断）。
     reasoning: false,
-    input: ["text"] as ("text" | "image")[],
+    input: ["text", "image"] as ("text" | "image")[],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: modelCard?.contextWindowTokens ?? 128_000,
     maxTokens: modelCard?.maxOutput ?? UNKNOWN_MODEL_FALLBACK_MAX_TOKENS,
@@ -252,6 +302,11 @@ function parseEnvHeaders(): Record<string, string> | undefined {
     }
   }
   return undefined;
+}
+
+function parseDataUrl(value: string): { readonly mediaType: string; readonly data: string } | undefined {
+  const match = /^data:([^;,]+);base64,(.+)$/u.exec(value);
+  return match ? { mediaType: match[1]!, data: match[2]! } : undefined;
 }
 
 // === Partial Response（流式生成中途被掐断）===
@@ -356,7 +411,7 @@ function estimateJsonTokens(value: unknown): number {
 }
 
 function estimateLLMMessagesTokens(messages: ReadonlyArray<LLMMessage>): number {
-  return messages.reduce((total, message) => total + estimateTextTokens(message.content), 0);
+  return messages.reduce((total, message) => total + estimateTextTokens(getLLMTextContent(message.content)), 0);
 }
 
 type PiMessageContent = PiContext["messages"][number]["content"];
@@ -678,40 +733,40 @@ function sanitizeHeaderApiKey(apiKey: string | undefined): string {
 
 function joinSystemPrompt(messages: ReadonlyArray<LLMMessage>): string | undefined {
   const systemParts = messages
-    .filter((message) => message.role === "system" && message.content.trim().length > 0)
-    .map((message) => message.content.trim());
+    .map((message) => message.role === "system" ? getLLMTextContent(message.content).trim() : "")
+    .filter((content) => content.length > 0);
   return systemParts.length > 0 ? systemParts.join("\n\n") : undefined;
 }
 
-function buildChatMessages(messages: ReadonlyArray<LLMMessage>): Array<{ role: string; content: string }> {
+export function buildChatMessages(messages: ReadonlyArray<LLMMessage>): Array<{ role: string; content: ChatContent }> {
   return messages
     .filter((message) => message.role !== "system")
     .map((message) => ({
       role: message.role,
-      content: message.content,
+      content: serializeLLMContentForChat(message.content),
     }));
 }
 
-function buildAnthropicMessages(messages: ReadonlyArray<LLMMessage>): Array<{ role: "user" | "assistant"; content: string }> {
+function buildAnthropicMessages(messages: ReadonlyArray<LLMMessage>): Array<{ role: "user" | "assistant"; content: string | AnthropicContent }> {
   return messages
     .filter((message): message is Readonly<LLMMessage> & { role: "user" | "assistant" } => message.role === "user" || message.role === "assistant")
     .map((message) => ({
       role: message.role,
-      content: message.content,
+      content: serializeLLMContentForAnthropic(message.content),
     }));
 }
 
-function buildResponsesInput(messages: ReadonlyArray<LLMMessage>): Array<{ role: string; content: Array<{ type: "input_text"; text: string }> }> {
+function buildResponsesInput(messages: ReadonlyArray<LLMMessage>): Array<{ role: string; content: ResponsesContent }> {
   return messages
     .filter((message) => message.role !== "system")
     .map((message) => ({
       role: message.role,
-      content: [{ type: "input_text", text: message.content }],
+      content: serializeLLMContentForResponses(message.content),
     }));
 }
 
 function hasSystemMessages(messages: ReadonlyArray<LLMMessage>): boolean {
-  return messages.some((message) => message.role === "system" && message.content.trim().length > 0);
+  return messages.some((message) => message.role === "system" && getLLMTextContent(message.content).trim().length > 0);
 }
 
 function foldSystemMessagesIntoFirstUser(messages: ReadonlyArray<LLMMessage>): LLMMessage[] {
@@ -726,8 +781,13 @@ function foldSystemMessagesIntoFirstUser(messages: ReadonlyArray<LLMMessage>): L
   }
 
   return nonSystemMessages.map((message, index) => index === firstUserIndex
-    ? { ...message, content: `${prefix}${message.content}` }
+    ? { ...message, content: prependLLMText(message.content, prefix) }
     : message);
+}
+
+function prependLLMText(content: LLMMessageContent, prefix: string): LLMMessageContent {
+  if (typeof content === "string") return `${prefix}${content}`;
+  return [{ type: "text", text: prefix }, ...content];
 }
 
 function isSystemRoleUnsupportedErrorText(text: string): boolean {
@@ -1056,7 +1116,7 @@ async function chatCompletionViaCustomOpenAICompatible(
     messages: [
       ...messages
         .filter((message) => message.role === "system")
-        .map((message) => ({ role: "system", content: message.content })),
+        .map((message) => ({ role: "system", content: serializeLLMContentForChat(message.content) })),
       ...buildChatMessages(messages),
     ],
     stream: client.stream,
@@ -1249,18 +1309,18 @@ function resolvePiModel(client: LLMClient, model: string): PiModel<PiApi> {
 
 /** Convert storyos LLMMessage[] to pi-ai Context. */
 function toPiContext(messages: ReadonlyArray<LLMMessage>): PiContext {
-  const systemParts = messages.filter((m) => m.role === "system").map((m) => m.content);
+  const systemParts = messages.filter((m) => m.role === "system").map((m) => getLLMTextContent(m.content));
   const systemPrompt = systemParts.length > 0 ? systemParts.join("\n\n") : undefined;
   const piMessages = messages
     .filter((m) => m.role !== "system")
     .map((m) => {
       if (m.role === "user") {
-        return { role: "user" as const, content: m.content, timestamp: Date.now() };
+        return { role: "user" as const, content: toPiMessageContent(m.content), timestamp: Date.now() };
       }
       // assistant
       return {
         role: "assistant" as const,
-        content: [{ type: "text" as const, text: m.content }],
+        content: toPiMessageContent(m.content),
         api: "openai-completions" as PiApi,
         provider: "openai",
         model: "",
@@ -1269,7 +1329,17 @@ function toPiContext(messages: ReadonlyArray<LLMMessage>): PiContext {
         timestamp: Date.now(),
       };
     });
-  return { systemPrompt, messages: piMessages };
+  return { systemPrompt, messages: piMessages as unknown as PiContext["messages"] };
+}
+
+function toPiMessageContent(content: LLMMessageContent): PiMessageContent {
+  if (typeof content === "string") return content;
+  return content.map((part) => {
+    if (part.type === "text") return { type: "text" as const, text: part.text };
+    const parsed = parseDataUrl(part.image_url.url);
+    if (!parsed) throw new Error("Vision inputs must use base64 data URLs");
+    return { type: "image" as const, data: parsed.data, mimeType: parsed.mediaType };
+  }) as unknown as PiMessageContent;
 }
 
 async function chatCompletionViaPiAi(
