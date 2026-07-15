@@ -36,8 +36,8 @@ describe("unified story production", () => {
     expect(result.shots).toHaveLength(2);
     expect(result.shots[0]).toMatchObject({
       scene: "第一场：电梯门口",
-      // 旁白在逗号处断行并删除标点
-      subtitle: "旁白：凌晨两点\n电梯自己亮了",
+      // 冒号被删除，逗号处断行并删除标点
+      subtitle: "旁白凌晨两点\n电梯自己亮了",
       durationMs: 4000,
       visual: "老旧电梯停在十三层。",
     });
