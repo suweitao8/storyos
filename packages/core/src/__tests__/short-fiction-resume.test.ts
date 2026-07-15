@@ -13,6 +13,7 @@ import {
   parseShortFictionBatchDraft,
 } from "../agents/short-fiction.js";
 import { runShortFictionProduction } from "../pipeline/short-fiction-runner.js";
+import type { CraftProfile } from "../models/craft-profile.js";
 
 const CH = 12;
 const DRAFT_MD = `
@@ -61,6 +62,19 @@ function runtimes(projectRoot: string) {
   const c = ctx(projectRoot);
   return { planner: c, outlineReview: c, writer: c, draftReview: c, revise: c, package: c };
 }
+
+const realisticCraft: CraftProfile = {
+  sourceName: "realistic suspense reference",
+  analyzedAt: "2026-07-16T00:00:00.000Z",
+  language: "zh",
+  worldview: "\u73b0\u4ee3\u57ce\u5e02\u7684\u8d22\u52a1\u72af\u7f6a\u4e0e\u4eba\u9645\u5173\u7cfb\u538b\u529b\u3002",
+  storyOutline: "\u76ee\u51fb\u8bc1\u4eba\u901a\u8fc7\u8bc1\u636e\u4e0e\u52a8\u673a\u8ffd\u67e5\u771f\u76f8\u3002",
+  structure: { openingPattern: "hook", chapterArc: "pressure", endingHookType: "cost" },
+  sceneRhythm: { sceneTransitionTechnique: "cuts", pacingCurve: "rising", conflictEscalation: "rising cost" },
+  informationDisclosure: { foreshadowingDensity: "high", informationReleaseRhythm: "staged", suspenseManagement: "questions" },
+  narrativePerspective: { povStrategy: "close third", narrationDialogueRatio: "balanced", narrativeDistance: "close" },
+  exemplars: [],
+};
 
 describe("short fiction resume + failure marker (C2)", () => {
   let root: string;
@@ -120,6 +134,29 @@ describe("short fiction resume + failure marker (C2)", () => {
     const status = JSON.parse(await readFile(join(root, "shorts", "elevator", "status.json"), "utf-8"));
     expect(status.status).toBe("failed");
     expect(status.error).toContain("503");
+  });
+
+  it("rejects a realistic writing mode draft that introduces a science-fiction mechanism", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## existing outline", "utf-8");
+    const driftingDraft = parseShortFictionBatchDraft(
+      `${DRAFT_MD}\n\u5acc\u7591\u4eba\u624d\u53d1\u73b0\uff0c\u51f6\u624b\u662f\u6765\u81ea\u672a\u6765\u7684\u4eba\u5de5\u667a\u80fd\u3002`,
+      { expectedChapters: CH },
+    );
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(driftingDraft);
+    const packageStory = vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "realistic story", intro: "hook", sellingPoints: ["payoff"], coverPrompt: "", rawContent: "",
+    });
+
+    await expect(runShortFictionProduction({
+      projectRoot: root, direction: "\u73b0\u5b9e\u60ac\u7591\u77ed\u7bc7", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      craftProfile: realisticCraft, runtimes: runtimes(root),
+    })).rejects.toThrow(/reality-level lock/i);
+
+    expect(packageStory).not.toHaveBeenCalled();
+    const status = JSON.parse(await readFile(join(root, "shorts", "elevator", "status.json"), "utf-8"));
+    expect(status.status).toBe("failed");
   });
 
   it("continues a truncated first draft before review instead of reviewing empty chapters", async () => {

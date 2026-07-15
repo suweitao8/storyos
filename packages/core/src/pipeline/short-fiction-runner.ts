@@ -34,7 +34,7 @@ import { loadSecrets } from "../llm/secrets.js";
 import { safeChildPath } from "../utils/path-safety.js";
 import { toPosixPath as projectPath } from "../utils/posix-path.js";
 import { resolveProjectConfigPath } from "../utils/project-config-path.js";
-import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
+import { buildShortFictionCraftGuide, detectCraftRealityDrift } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 import type { ArtStyle } from "../models/genre-profile.js";
 import { appendImageStylePrompt } from "./image-style.js";
@@ -301,6 +301,7 @@ async function produceShort(
       minimumCharsPerChapter: charsPerChapter,
       language,
     });
+    assertDraftMatchesCraftReality(draftV1, options.craftProfile);
     await writeDraftArtifacts(root, baseDir, "v001", draftV1, language);
 
     finalDraft = draftV1;
@@ -336,6 +337,7 @@ async function produceShort(
         minimumCharsPerChapter: charsPerChapter,
         language,
       });
+      assertDraftMatchesCraftReality(draftV2, options.craftProfile);
       await writeDraftArtifacts(root, baseDir, "v002", draftV2, language);
       finalDraft = draftV2;
     } catch (error) {
@@ -410,6 +412,17 @@ async function produceShort(
   });
 
   return buildShortRunResult(storyId, baseDir, coverArtifacts, { quick: options.quick === true });
+}
+
+function assertDraftMatchesCraftReality(
+  draft: ShortFictionBatchDraft,
+  craftProfile: CraftProfile | undefined,
+): void {
+  if (!craftProfile) return;
+  const violations = detectCraftRealityDrift(craftProfile, draft.rawContent);
+  if (violations.length > 0) {
+    throw new Error(`Short fiction draft violates the writing mode reality-level lock: ${violations.join(", ")}.`);
+  }
 }
 
 function buildShortRunResult(

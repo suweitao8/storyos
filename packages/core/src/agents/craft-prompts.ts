@@ -614,15 +614,7 @@ function buildRealityLevelGuidance(
   ];
 }
 
-/** Find hard reality-level violations before a seed is persisted. */
-export function detectStorySeedRealityDrift(
-  craftProfile: CraftProfile,
-  storySeed: StorySeed,
-): readonly string[] {
-  if (inferCraftRealityLevel(craftProfile) !== "realistic") return [];
-  const text = Object.values(storySeed)
-    .filter((value): value is string => typeof value === "string")
-    .join("\n");
+function detectUnsupportedRealityMechanisms(text: string): readonly string[] {
   const violations: string[] = [];
   if (/鬼魂|冤魂|亡魂|灵魂|附身|诅咒|法术|超自然|灵异|鬼笔|借活人的手|轮回|前世|ghost|spirit|possession|curse|spell|supernatural|paranormal|haunted|afterlife|reincarnation|past life/iu.test(text)) {
     violations.push("unsupported supernatural mechanism");
@@ -631,6 +623,26 @@ export function detectStorySeedRealityDrift(
     violations.push("unsupported science-fiction mechanism");
   }
   return violations;
+}
+
+/** Find hard reality-level violations in any generated content for a realistic craft mode. */
+export function detectCraftRealityDrift(
+  craftProfile: CraftProfile,
+  text: string,
+): readonly string[] {
+  if (inferCraftRealityLevel(craftProfile) !== "realistic") return [];
+  return detectUnsupportedRealityMechanisms(text);
+}
+
+/** Find hard reality-level violations before a seed is persisted. */
+export function detectStorySeedRealityDrift(
+  craftProfile: CraftProfile,
+  storySeed: StorySeed,
+): readonly string[] {
+  const text = Object.values(storySeed)
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  return detectCraftRealityDrift(craftProfile, text);
 }
 
 function buildStoryFoundationCraftContext(
