@@ -1,4 +1,4 @@
-export type ProductionTaskKind = "script" | "video" | "scene-video" | "asset-image" | "asset-batch";
+export type ProductionTaskKind = "script" | "video" | "scene-video" | "asset-extract" | "asset-image" | "asset-batch";
 export type ProductionStoryKind = "book" | "short";
 export type ProductionTaskStatus = "completed" | "failed" | "running";
 

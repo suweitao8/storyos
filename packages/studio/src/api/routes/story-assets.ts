@@ -236,8 +236,9 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   const extractRoute = async (c: Context, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind; let storyId: string;
     try { kind = assertStoryAssetKind(kindValue); storyId = assertStoryAssetId(storyIdValue); } catch (error) { return storyAssetErrorResponse(c, error); }
-    broadcast("story-assets:start", { kind, storyId, operation: "extract" });
-    try {
+    const queryStyle = c.req.query("artStyle");
+    const runExtraction = async () => {
+      broadcast("story-assets:start", { kind, storyId, operation: "extract" });
       const current = storyAssetContext(kind, storyId);
       const sources = await readStoryAssetSources(root, kind, storyId);
       if (!sources.hasSource) throw new ApiError(404, "STORY_NOT_FOUND", `Story not found for ${storyId}.`);
@@ -248,13 +249,22 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
       // Resolve the selected craft style from the story's persisted visual config.
       // A query override is kept for callers that explicitly regenerate assets.
       let artStyle: ArtStyle = await resolveStoryArtStyle(root, kind, storyId, new PipelineRunner(pipeline));
-      const queryStyle = c.req.query("artStyle");
       if (queryStyle === "realistic" || queryStyle === "cg3d") artStyle = queryStyle;
 
       const imagePromptGuides: StoryAssetImagePromptGuides = buildImagePromptGuides(artStyle);
       const result = await extractStoryAssets({ storyId, storyType: kind, ...sources, textModel, manifestStore: current.manifestStore, imagePromptGuides });
       broadcast("story-assets:complete", { kind, storyId, operation: "extract", assetCount: result.manifest.assets.length });
-      return c.json({ ...result.manifest, path: result.path, drafts: result.drafts });
+      return { ...result.manifest, path: result.path, drafts: result.drafts };
+    };
+    if (c.req.query("background") === "true") {
+      const task = tasks.start(
+        { kind: "asset-extract", storyId, storyKind: kind },
+        async () => { await runExtraction(); },
+      );
+      return c.json({ task }, 202);
+    }
+    try {
+      return c.json(await runExtraction());
     } catch (error) { broadcastStoryAssetError(kind, storyId, "extract", error); return storyAssetErrorResponse(c, error); }
   };
   app.post("/api/v1/stories/:kind/:id/assets/extract", async (c) => extractRoute(c, c.req.param("kind"), c.req.param("id")));
