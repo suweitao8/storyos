@@ -775,6 +775,24 @@ describe("story asset image lifecycle", () => {
     });
   });
 
+  it("applies the selected art style when generating a story asset image", async () => {
+    const manifest = makeImageManifest("story-styled-image", [makeStoryAssetImage("character_1", "missing")]);
+    const runtime: StoryAssetImageRuntime = {
+      generateImage: vi.fn(async () => ({ buffer: Buffer.from("image"), extension: "png" })),
+    };
+    const deps = makeImageDeps(manifest, runtime);
+
+    await generateStoryAssetImage({
+      storyId: "story-styled-image",
+      storyType: "short",
+      assetId: "character_1",
+      artStyle: "cg3d",
+      ...deps,
+    });
+
+    expect(runtime.generateImage).toHaveBeenCalledWith(expect.stringContaining("3D国漫风格"), "1536x1024");
+  });
+
   it("skips ready assets while returning a result for every batch asset", async () => {
     const manifest = makeImageManifest("story-batch", [
       { ...makeStoryAssetImage("ready_asset", "ready"), image: { status: "ready", path: "assets/images/ready_asset.png" } },
@@ -900,7 +918,8 @@ describe("story asset image lifecycle", () => {
       ...deps,
     });
 
-    expect(runtime.generateImage).toHaveBeenCalledWith("asset_1 prompt", "1536x1024");
+    expect(runtime.generateImage).toHaveBeenCalledWith(expect.stringContaining("asset_1 prompt"), "1536x1024");
+    expect(runtime.generateImage).toHaveBeenCalledWith(expect.stringContaining("写实摄影风格"), "1536x1024");
     expect(extractSpy).not.toHaveBeenCalled();
     extractSpy.mockRestore();
   });

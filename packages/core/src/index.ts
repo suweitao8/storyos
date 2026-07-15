@@ -62,6 +62,10 @@ export {
   resolveAllPromptTemplates,
   buildImagePromptGuides,
 } from "./models/default-prompt-templates.js";
+export {
+  appendImageStylePrompt,
+  resolveImageStyleDescription,
+} from "./pipeline/image-style.js";
 export { type BookRules, type ParsedBookRules, BookRulesSchema, parseBookRules, tryParseBookRulesFrontmatter } from "./models/book-rules.js";
 export { type DetectionHistoryEntry, type DetectionStats } from "./models/detection.js";
 export { type CraftMode, type CraftProfile, type CraftExemplar, type CraftBreakdownModule, type CraftStructure, type CraftSceneRhythm, type CraftInformationDisclosure, type CraftNarrativePerspective, type GhostStoryCraft, type CraftMeta, type CraftWordCountEstimate, type VideoStoryCraft } from "./models/craft-profile.js";

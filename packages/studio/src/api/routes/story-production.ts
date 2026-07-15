@@ -13,8 +13,12 @@ import {
   type StoryAsset,
   type StoryAssetKind,
   type StoryAssetManifest,
+  appendImageStylePrompt,
+  resolveImageStyleDescription,
+  type ArtStyle,
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
+import { resolveStoryArtStyle } from "../story-art-style.js";
 import { isSafeBookId } from "../safety.js";
 import {
   buildAssContent,
@@ -356,6 +360,7 @@ async function composeSegmentVideo(args: {
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
   readonly imageConfig?: ShortFictionCoverRequest | null;
+  readonly artStyle: ArtStyle;
   readonly imageCacheDir?: string;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string }> {
   const entries = buildSubtitleEntries(args.shots);
@@ -404,7 +409,11 @@ async function composeSegmentVideo(args: {
         continue;
       }
       try {
-        const result = await generateImageFromPrompt(args.imageConfig, shot.imagePrompt!.trim(), "1280x720");
+        const result = await generateImageFromPrompt(
+          args.imageConfig,
+          appendImageStylePrompt(shot.imagePrompt!.trim(), "shot", args.artStyle),
+          "1280x720",
+        );
         await writeFile(imgPath, result.buffer);
         imagePaths.push(imgPath);
       } catch (error) {
@@ -454,6 +463,7 @@ async function composeVideo(args: {
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
   readonly imageConfig?: ShortFictionCoverRequest | null;
+  readonly artStyle: ArtStyle;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string; scenes: SceneGroup[] }> {
   const scenes = groupShotsByScene(args.script.shots);
   if (scenes.length === 0) throw new Error("剧本中没有可用于字幕或配音的台词");
@@ -480,6 +490,7 @@ async function composeVideo(args: {
       voiceConfig: args.voiceConfig,
       withVoice: args.withVoice,
       imageConfig: args.imageConfig,
+      artStyle: args.artStyle,
       imageCacheDir: sceneImageCache,
     }).catch((error) => {
       warning = `场景 ${scene.index + 1}「${scene.name}」视频生成失败：${error instanceof Error ? error.message : String(error)}`;
@@ -592,6 +603,9 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
       : unifiedScriptRequirements();
     const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
+    const styleDescription = resolveImageStyleDescription("shot", artStyle);
+    const styledRequirements = `${requirements}\n\n## 统一画面风格（必须遵守）\n所有「- 图像提示词：」都必须明确使用以下画面风格，不得只停留在抽象的风格标签：\n${styleDescription}`;
     const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
 
     // 最多重试 2 次：第 1 次失败（异常或 0 镜头）→ 重试；质量太差（>50% 镜头缺旁白或画面）→ 重试。
@@ -605,8 +619,8 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
           targetFormat: "general_script",
           sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
           requirements: attempt > 1
-            ? `${requirements}\n\n上一轮生成的剧本存在问题，请修正后重新输出完整剧本。`
-            : requirements,
+            ? `${styledRequirements}\n\n上一轮生成的剧本存在问题，请修正后重新输出完整剧本。`
+            : styledRequirements,
           language: "zh",
         });
         const parsed = parseUnifiedScript(raw);
@@ -657,12 +671,15 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const raw = await context.loadRawConfig();
     const secrets = await context.loadSecrets();
     const imageConfig = await resolveImageConfig(context.root);
+    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
     const result = await composeVideo({
       productionDir: dir,
       script: parseUnifiedScript(script),
       voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
       withVoice: body.voice !== false,
       imageConfig,
+      artStyle,
     });
     const previous = await readManifest(dir);
     await writeFile(join(dir, "manifest.json"), JSON.stringify({
@@ -690,6 +707,8 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const raw = await context.loadRawConfig();
     const secrets = await context.loadSecrets();
     const imageConfig = await resolveImageConfig(context.root);
+    const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+    const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
     const scenesDir = join(dir, "scenes");
     const tempDir = join(dir, ".tmp-video", `scene-${index}`);
     await mkdir(scenesDir, { recursive: true });
@@ -704,6 +723,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
       withVoice: body.voice !== false,
       imageConfig,
+      artStyle,
       imageCacheDir: sceneImageCache,
     });
     // 单场景生成不更新合集（story.mp4）：合集可能因此与单场景不一致，

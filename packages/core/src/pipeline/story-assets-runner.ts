@@ -12,6 +12,8 @@ import {
   type StoryAssetTextModel,
 } from "../agents/story-assets.js";
 import type { StoryAssetImage } from "../models/story-assets.js";
+import type { ArtStyle } from "../models/genre-profile.js";
+import { appendImageStylePrompt } from "./image-style.js";
 
 export type StoryAssetStoryType = "book" | "short";
 export type StoryAssetStoryTypeInput = StoryAssetStoryType | "long" | "short-fiction";
@@ -65,6 +67,7 @@ export interface GenerateStoryAssetImageInput {
   readonly manifestStore: StoryAssetManifestStore;
   readonly imageRuntime: StoryAssetImageRuntime;
   readonly fileWriter: StoryAssetFileWriter;
+  readonly artStyle?: ArtStyle;
   readonly clock?: StoryAssetClock;
   readonly now?: StoryAssetClock;
 }
@@ -182,7 +185,10 @@ export async function generateStoryAssetImage(
   try {
     // All story asset images use 16:9 landscape: character reference sheets,
     // scene establishing shots, and prop close-ups (centered with side space).
-    const generated = await input.imageRuntime.generateImage(asset.imagePrompt, "1536x1024");
+    const generated = await input.imageRuntime.generateImage(
+      appendImageStylePrompt(asset.imagePrompt, asset.kind, input.artStyle),
+      "1536x1024",
+    );
     if (!isRecord(generated) || !(generated.buffer instanceof Uint8Array) || typeof generated.extension !== "string") {
       throw new Error("Image runtime returned an invalid image result.");
     }

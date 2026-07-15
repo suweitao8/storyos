@@ -36,6 +36,8 @@ import { toPosixPath as projectPath } from "../utils/posix-path.js";
 import { resolveProjectConfigPath } from "../utils/project-config-path.js";
 import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
+import type { ArtStyle } from "../models/genre-profile.js";
+import { appendImageStylePrompt } from "./image-style.js";
 
 // Continuation is only for structurally truncated responses. A non-empty but
 // short draft must fail validation instead of being padded with extra scenes.
@@ -72,6 +74,9 @@ export interface ShortFictionRunOptions {
   readonly onProgress?: (message: string) => void;
   /** Optional writing craft profile to guide technique imitation. */
   readonly craftProfile?: CraftProfile;
+  /** Selected craft metadata used by every downstream image prompt. */
+  readonly craftId?: string;
+  readonly artStyle?: ArtStyle;
 }
 
 export interface ShortFictionRunResult {
@@ -101,6 +106,7 @@ export interface ShortFictionCoverOptions {
   readonly coverModel?: string;
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
+  readonly artStyle?: ArtStyle;
 }
 
 export interface ShortFictionCoverResult {
@@ -128,6 +134,9 @@ export async function runShortFictionProduction(
     && !await isFailedShortRun(root, join(outDir, providedStoryId, "status.json"))
     && (!options.charsPerChapter || await isShortRunAtTarget(root, join(outDir, providedStoryId), options.charsPerChapter, options.language))
   ) {
+    if (options.artStyle) {
+      await writeShortStoryVisualConfig(root, join(outDir, providedStoryId), options.craftId, options.artStyle);
+    }
     return buildShortRunResult(providedStoryId, join(outDir, providedStoryId), { coverError: "already-complete" });
   }
 
@@ -235,6 +244,8 @@ async function produceShort(
       outlineMarkdown = outlineV2.rawContent;
     }
   }
+
+  await writeShortStoryVisualConfig(root, baseDir, options.craftId, options.artStyle);
 
   let finalDraft: ShortFictionBatchDraft;
   let revisionWarning: string | undefined;
@@ -369,6 +380,7 @@ async function produceShort(
         coverModel: options.coverModel,
         coverSize: options.coverSize,
         coverApiKeyEnv: options.coverApiKeyEnv,
+        artStyle: options.artStyle,
       }).catch((error: unknown) => ({ coverError: String(error) }))
     : await writeLocalCoverPlaceholder({
         root,
@@ -442,6 +454,7 @@ export async function generateShortFictionCover(
   }
 
   const outputDir = normalizeOutputDir(options.outputDir ?? join("covers", safeSegment(title)));
+  const artStyle = options.artStyle ?? await readArtStyleNearOutput(options.projectRoot, outputDir);
   const salesPackage: ShortFictionSalesPackage = {
     title,
     intro: options.intro?.trim() ?? "",
@@ -451,7 +464,7 @@ export async function generateShortFictionCover(
   };
   const promptPath = join(outputDir, "cover-prompt.md");
   const imagePrompt = buildCoverImagePrompt(salesPackage, options.promptMode ?? "generic", options.language);
-  await writeText(options.projectRoot, promptPath, imagePrompt);
+  await writeText(options.projectRoot, promptPath, appendImageStylePrompt(imagePrompt, "shot", artStyle));
 
   const artifact = await generateCoverImageArtifact({
     root: options.projectRoot,
@@ -464,6 +477,7 @@ export async function generateShortFictionCover(
     coverModel: options.coverModel,
     coverSize: options.coverSize,
     coverApiKeyEnv: options.coverApiKeyEnv,
+    artStyle,
   });
 
   return {
@@ -572,6 +586,37 @@ async function writeShortRunStatus(
   });
 }
 
+async function writeShortStoryVisualConfig(
+  root: string,
+  baseDir: string,
+  craftId: string | undefined,
+  artStyle: ArtStyle | undefined,
+): Promise<void> {
+  if (!craftId && !artStyle) return;
+  await writeJson(root, join(baseDir, "story-config.json"), {
+    ...(craftId ? { craftId } : {}),
+    ...(artStyle ? { artStyle } : {}),
+  });
+}
+
+async function readArtStyleNearOutput(root: string, outputDir: string): Promise<ArtStyle | undefined> {
+  const candidates = [
+    join(outputDir, "story-config.json"),
+    join(outputDir, "..", "story-config.json"),
+  ];
+  for (const path of candidates) {
+    const raw = await tryReadProjectText(root, path);
+    if (!raw) continue;
+    try {
+      const value = JSON.parse(raw) as { artStyle?: unknown };
+      if (value.artStyle === "realistic" || value.artStyle === "cg3d") return value.artStyle;
+    } catch {
+      // Ignore malformed legacy metadata and keep the default style.
+    }
+  }
+  return undefined;
+}
+
 async function generateCoverArtifact(input: {
   readonly root: string;
   readonly baseDir: string;
@@ -582,6 +627,7 @@ async function generateCoverArtifact(input: {
   readonly coverModel?: string;
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
+  readonly artStyle?: ArtStyle;
 }): Promise<{ readonly coverImagePath: string }> {
   return generateCoverImageArtifact({
     ...input,
@@ -611,6 +657,7 @@ async function generateCoverImageArtifact(input: {
   readonly coverModel?: string;
   readonly coverSize?: string;
   readonly coverApiKeyEnv?: string;
+  readonly artStyle?: ArtStyle;
 }): Promise<{ readonly coverImagePath: string }> {
   await clearCoverOutputArtifacts(input.root, input.outputDir);
   const request = await resolveCoverGenerationRequest({
@@ -621,7 +668,12 @@ async function generateCoverImageArtifact(input: {
     coverApiKeyEnv: input.coverApiKeyEnv,
   });
   const size = input.coverSize || process.env.STORYOS_COVER_SIZE || "1024x1360";
-  const { buffer, extension } = await generateImageFromPrompt(request, buildCoverImagePrompt(input.salesPackage, input.promptMode ?? "short", input.language), size);
+  const prompt = appendImageStylePrompt(
+    buildCoverImagePrompt(input.salesPackage, input.promptMode ?? "short", input.language),
+    "shot",
+    input.artStyle,
+  );
+  const { buffer, extension } = await generateImageFromPrompt(request, prompt, size);
   const coverPath = join(input.outputDir, extension === "jpg" ? "cover.jpg" : "cover.png");
   await writeBinary(input.root, coverPath, buffer);
   return { coverImagePath: projectPath(coverPath) };
