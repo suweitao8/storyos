@@ -3,8 +3,11 @@ import {
   buildStoryDirectionPrompt,
   buildStorySeedPrompt,
   buildStorySeedQualitySystemPrompt,
+  detectStorySeedRealityDrift,
+  inferCraftRealityLevel,
 } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
+import type { StorySeed } from "../models/story-seed.js";
 
 const profile: CraftProfile = {
   sourceName: "reference",
@@ -125,6 +128,44 @@ describe("story direction prompt", () => {
     expect(prompt.system).not.toContain("末班地铁");
   });
 
+  it("adds a reality-level lock that keeps realistic stories in the same contemporary domain", () => {
+    const prompt = buildStorySeedPrompt({
+      ...profile,
+      mode: "bilibili-short-story",
+      worldview: "普通网约车司机在深夜接到一单异常行程，车里留下了可验证的血迹。",
+      storyOutline: "司机通过订单、监控和乘客关系查找真相，最后承担现实后果。",
+    }, "short", "zh");
+
+    expect(prompt.user).toContain("现实层级锁");
+    expect(prompt.user).toContain("同一类当代生活领域");
+    expect(prompt.user).toContain("不要从普通城市故事跳到跨时代旧案");
+    expect(prompt.user).toContain("不要突然宣布“其实是鬼”");
+  });
+
+  it("classifies source reality level before generating a new story", () => {
+    expect(inferCraftRealityLevel(profile)).toBe("realistic");
+    expect(inferCraftRealityLevel({ ...profile, mode: "ghost-story" })).toBe("supernatural");
+    expect(inferCraftRealityLevel({ ...profile, worldview: "未来城市由人工智能管理" })).toBe("science-fiction");
+    expect(inferCraftRealityLevel({ ...profile, worldview: "A haunted house leaves evidence after midnight." })).toBe("supernatural");
+    expect(inferCraftRealityLevel({ ...profile, worldview: "A science fiction city uses future technology." })).toBe("science-fiction");
+  });
+
+  it("detects unsupported supernatural and science-fiction drift in realistic seeds", () => {
+    const driftedSeed: StorySeed = {
+      title: "末班车",
+      worldview: "车站会在夜里重置现场。",
+      outline: "主角调查车站，并发现一条无法解释的记录。",
+      ending: "最后确认是鬼魂在时间循环里反复附身。",
+      reversals: "人工智能控制着平行宇宙入口。",
+    };
+
+    expect(detectStorySeedRealityDrift(profile, driftedSeed)).toEqual([
+      "unsupported supernatural mechanism",
+      "unsupported science-fiction mechanism",
+    ]);
+    expect(detectStorySeedRealityDrift({ ...profile, mode: "ghost-story" }, driftedSeed)).toEqual([]);
+  });
+
   it("keeps ghost-story supernatural horror without allowing a sci-fi drift", () => {
     const prompt = buildStoryDirectionPrompt({
       ...profile,
@@ -153,6 +194,8 @@ describe("story direction prompt", () => {
 
     expect(qualityPrompt).toContain("题材与现实感一致性");
     expect(qualityPrompt).toContain("科幻");
+    expect(qualityPrompt).toContain("参考现实层级");
+    expect(qualityPrompt).toContain("59");
     expect(qualityPrompt).toContain(profile.worldview);
     expect(qualityPrompt).toContain(profile.storyOutline);
   });
