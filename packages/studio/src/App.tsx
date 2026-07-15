@@ -79,7 +79,9 @@ export function getRouteToolbarTitle(
         chat: "聊天",
         book: "写作",
         "book-settings": "书籍设置",
-        "book-create": "长篇故事",
+        "book-create": "长篇小说",
+        "film-commentary": "影视解说",
+        "commentary-review": "评论调侃",
         services: "模型配置",
         "project-settings": "设置",
         "service-detail": "服务配置",
@@ -106,6 +108,8 @@ export function getRouteToolbarTitle(
         book: "Writing",
         "book-settings": "Book Settings",
         "book-create": "Long Novel",
+        "film-commentary": "Film Commentary",
+        "commentary-review": "Review & Commentary",
         services: "Model Configuration",
         "project-settings": "Settings",
         "service-detail": "Service Configuration",
@@ -297,6 +301,8 @@ export function App() {
     toShort: (shortId?: string) => setRoute(shortId ? { page: "short", shortId } : { page: "short" }),
     toBookSettings: (bookId: string) => setRoute({ page: "book-settings", bookId }),
     toBookCreate: () => setRoute({ page: "book-create" }),
+    toFilmCommentary: () => setRoute({ page: "film-commentary" }),
+    toCommentaryReview: () => setRoute({ page: "commentary-review" }),
     toChapter: (bookId: string, chapterNumber: number) =>
       setRoute({ page: "chapter", bookId, chapterNumber }),
     toAnalytics: (bookId: string) => setRoute({ page: "analytics", bookId }),
@@ -436,6 +442,30 @@ export function App() {
             <div className="absolute inset-0 flex min-w-0">
               <ChatPage
                 mode="book-create"
+                nav={nav}
+                theme={theme}
+                t={t}
+                sse={sse}
+              />
+            </div>
+          )}
+          {route.page === "film-commentary" && (
+            <div className="absolute inset-0 flex min-w-0">
+              <ChatPage
+                mode="script-create"
+                scriptCraftMode="film-commentary"
+                nav={nav}
+                theme={theme}
+                t={t}
+                sse={sse}
+              />
+            </div>
+          )}
+          {route.page === "commentary-review" && (
+            <div className="absolute inset-0 flex min-w-0">
+              <ChatPage
+                mode="script-create"
+                scriptCraftMode="review-commentary"
                 nav={nav}
                 theme={theme}
                 t={t}

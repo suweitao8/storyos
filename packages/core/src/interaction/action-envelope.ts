@@ -51,6 +51,13 @@ export const ShortRunActionPayloadSchema = z.object({
   charsPerChapter: z.number().int().min(900).max(SHORT_FICTION_MAX_CHARS_PER_CHAPTER).optional(),
   cover: z.boolean().optional(),
   quick: z.boolean().optional(),
+  requiredCraftMode: z.enum([
+    "general",
+    "ghost-story",
+    "bilibili-short-story",
+    "bilibili-commentary",
+    "bilibili-review",
+  ]).optional(),
 }).strict();
 
 export const PlayStartActionPayloadSchema = z.object({
@@ -88,6 +95,14 @@ export const ScriptCreateActionPayloadSchema = z.object({
   requirements: z.string().min(1).optional(),
   episodeCount: z.number().int().min(1).optional(),
   episodeDuration: z.string().min(1).optional(),
+  craftId: z.string().min(1).optional(),
+  requiredCraftMode: z.enum([
+    "general",
+    "ghost-story",
+    "bilibili-short-story",
+    "bilibili-commentary",
+    "bilibili-review",
+  ]).optional(),
   projectId: z.string().min(1).optional(),
   outDir: z.string().min(1).optional(),
 }).strict();

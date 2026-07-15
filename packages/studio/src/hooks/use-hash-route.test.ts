@@ -35,9 +35,14 @@ describe("hash route", () => {
       expect(parseHash("#/book/%E4%B9%9D%E9%BE%99")).toEqual({ page: "book", bookId: "九龙" });
     });
 
-    it("parses book/new as book-create", () => {
-      expect(parseHash("#/book/new")).toEqual({ page: "book-create" });
-    });
+  it("parses book/new as book-create", () => {
+    expect(parseHash("#/book/new")).toEqual({ page: "book-create" });
+  });
+
+  it("parses dedicated video creation routes", () => {
+    expect(parseHash("#/film-commentary")).toEqual({ page: "film-commentary" });
+    expect(parseHash("#/commentary-review")).toEqual({ page: "commentary-review" });
+  });
 
     it("parses config as project-settings (redirect)", () => {
       expect(parseHash("#/config")).toEqual({ page: "project-settings" });
@@ -104,9 +109,14 @@ describe("hash route", () => {
       expect(decodeURIComponent(hash)).toContain("九龙城夜行");
     });
 
-    it("book-create -> #/book/new", () => {
-      expect(routeToHash({ page: "book-create" })).toBe("#/book/new");
-    });
+  it("book-create -> #/book/new", () => {
+    expect(routeToHash({ page: "book-create" })).toBe("#/book/new");
+  });
+
+  it("serializes dedicated video creation routes", () => {
+    expect(routeToHash({ page: "film-commentary" })).toBe("#/film-commentary");
+    expect(routeToHash({ page: "commentary-review" })).toBe("#/commentary-review");
+  });
 
     it("services serializes to settings (redirect)", () => {
       expect(routeToHash({ page: "services" })).toBe("#/settings");

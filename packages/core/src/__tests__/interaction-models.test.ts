@@ -75,10 +75,14 @@ describe("interaction models", () => {
       episodeCount: 12,
       episodeDuration: "2分钟",
       requirements: "保留调查线七成、家怨三成。",
+      craftId: "craft-commentary",
+      requiredCraftMode: "bilibili-commentary",
     })).toMatchObject({
       title: "冷库账页",
       targetFormat: "vertical_short_drama",
       episodeCount: 12,
+      craftId: "craft-commentary",
+      requiredCraftMode: "bilibili-commentary",
     });
 
     expect(StoryboardCreateActionPayloadSchema.parse({

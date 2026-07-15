@@ -81,6 +81,8 @@ interface Nav {
   toBook: (id: string) => void;
   toShort: (id?: string) => void;
   toBookCreate: () => void;
+  toFilmCommentary: () => void;
+  toCommentaryReview: () => void;
   toServices: () => void;
   toProjectSettings: () => void;
   toPromptTemplates: () => void;
@@ -312,6 +314,8 @@ export function Sidebar({ nav, activePage, sse, t }: {
               active={isShortSidebarItemActive(activePage, activeSession?.sessionKind)}
               onClick={() => launchProjectMode("short")}
             />
+            <CreateItem icon={<Clapperboard size={16} />} label={t("nav.createFilmCommentary")} active={activePage === "film-commentary"} onClick={nav.toFilmCommentary} />
+            <CreateItem icon={<MessageSquare size={16} />} label={t("nav.createCommentaryReview")} active={activePage === "commentary-review"} onClick={nav.toCommentaryReview} />
             <CreateItem icon={<BookOpen size={16} />} label={t("nav.craft")} active={activePage === "craft"} onClick={nav.toCraft} />
           </div>
         </div>

@@ -7,6 +7,8 @@ export type HashRoute =
   | { page: "short"; shortId?: string }
   | { page: "book-settings"; bookId: string }
   | { page: "book-create" }
+  | { page: "film-commentary" }
+  | { page: "commentary-review" }
   | { page: "services" }
   | { page: "project-settings"; tab?: ProjectSettingsTabId }
   | { page: "service-detail"; serviceId: string }
@@ -45,6 +47,8 @@ function parseHash(hash: string): HashRoute {
   if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
   if (path.startsWith("import/")) return { page: "import" };
   if (path === "book/new") return { page: "book-create" };
+  if (path === "film-commentary") return { page: "film-commentary" };
+  if (path === "commentary-review") return { page: "commentary-review" };
 
   const serviceMatch = path.match(/^services\/([^/]+)$/);
   if (serviceMatch) return { page: "service-detail", serviceId: decodeURIComponent(serviceMatch[1]) };
@@ -86,6 +90,8 @@ function routeToHash(route: HashRoute): string {
       : "#/short";
     case "book-settings": return `#/book/${encodeURIComponent(route.bookId)}/settings`;
     case "book-create": return "#/book/new";
+    case "film-commentary": return "#/film-commentary";
+    case "commentary-review": return "#/commentary-review";
     case "services": return "#/settings";
     case "project-settings": return "#/settings";
     case "doctor": return "#/settings";
@@ -102,7 +108,7 @@ function routeToHash(route: HashRoute): string {
   }
 }
 
-const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "services", "project-settings", "service-detail", "import", "craft", "play", "film", "flow", "film-author", "film-studio", "prompt-templates"]);
+const HASH_PAGES = new Set(["dashboard", "chat", "book", "short", "book-settings", "book-create", "film-commentary", "commentary-review", "services", "project-settings", "service-detail", "import", "craft", "play", "film", "flow", "film-author", "film-studio", "prompt-templates"]);
 
 export function shouldWriteRouteHash(route: HashRoute): boolean {
   return HASH_PAGES.has(route.page);
