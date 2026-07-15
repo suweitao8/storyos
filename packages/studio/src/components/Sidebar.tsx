@@ -79,7 +79,7 @@ interface Nav {
   toDashboard: () => void;
   toChat: () => void;
   toBook: (id: string) => void;
-  toShort: (id: string) => void;
+  toShort: (id?: string) => void;
   toBookCreate: () => void;
   toServices: () => void;
   toProjectSettings: () => void;
@@ -249,6 +249,12 @@ export function Sidebar({ nav, activePage, sse, t }: {
   };
 
   const launchProjectMode = (kind: "short" | "play" | "script" | "storyboard" | "interactive-film", playMode?: "guided" | "open") => {
+    if (kind === "short") {
+      setInput("");
+      nav.toShort();
+      return;
+    }
+
     setProjectChatExpanded(true);
     // Play mode (分支互动 = guided / 自由互动 = open) is now decided here at the
     // launcher, not via an in-chat button.

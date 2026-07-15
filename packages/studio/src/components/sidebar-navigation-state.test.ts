@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { isShortSidebarItemActive, isStudioNavigationPageVisible } from "./sidebar-navigation-state";
 
 describe("isShortSidebarItemActive", () => {
-  it("highlights short story only on the chat route", () => {
-    expect(isShortSidebarItemActive("chat", "short")).toBe(true);
+  it("highlights short story on the short-story routes", () => {
+    expect(isShortSidebarItemActive("short", undefined)).toBe(true);
+    expect(isShortSidebarItemActive("short:story-1", undefined)).toBe(true);
+    expect(isShortSidebarItemActive("chat", "short")).toBe(false);
     expect(isShortSidebarItemActive("craft", "short")).toBe(false);
   });
 

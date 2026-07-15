@@ -69,10 +69,6 @@ export function getRouteToolbarTitle(
   lang: "zh" | "en",
   sessionKind?: ChatSessionKind,
 ): string {
-  if (route.page === "chat" && sessionKind === "short") {
-    return lang === "zh" ? "短篇故事" : "Short Story";
-  }
-
   if (route.page === "short") {
     return lang === "zh" ? "短篇故事" : "Short Story";
   }
@@ -151,8 +147,7 @@ export function resolveActiveShortStoryId(input: {
   readonly recentShortStoryId?: string | null;
   readonly shorts: ReadonlyArray<ToolbarStory>;
 }): string | null {
-  const isShortSurface = input.route.page === "short"
-    || (input.route.page === "chat" && input.sessionKind === "short");
+  const isShortSurface = input.route.page === "short";
   if (!isShortSurface) return null;
 
   const availableStoryIds = new Set(input.shorts.map((story) => story.id));
@@ -184,11 +179,9 @@ export function resolveActiveStoryTitle(input: {
   }
 
   if (route.page === "short") {
-    return input.shorts.find((story) => story.id === route.shortId)?.title ?? noContent;
-  }
-
-  if (route.page === "chat" && input.sessionKind === "short") {
-    return input.shorts.find((story) => story.id === input.activeShortStoryId)?.title ?? noContent;
+    return route.shortId
+      ? input.shorts.find((story) => story.id === route.shortId)?.title ?? noContent
+      : undefined;
   }
 
   if (route.page === "book-create") {
@@ -301,7 +294,7 @@ export function App() {
     toDashboard: () => setRoute({ page: "dashboard" }),
     toChat: () => setRoute({ page: "chat" }),
     toBook: (bookId: string) => setRoute({ page: "book", bookId }),
-    toShort: (shortId: string) => setRoute({ page: "short", shortId }),
+    toShort: (shortId?: string) => setRoute(shortId ? { page: "short", shortId } : { page: "short" }),
     toBookSettings: (bookId: string) => setRoute({ page: "book-settings", bookId }),
     toBookCreate: () => setRoute({ page: "book-create" }),
     toChapter: (bookId: string, chapterNumber: number) =>
@@ -329,7 +322,7 @@ export function App() {
     activeBookId
       ? `book:${activeBookId}`
       : route.page === "short"
-        ? `short:${route.shortId}`
+        ? route.shortId ? `short:${route.shortId}` : "short"
       : route.page === "service-detail"
         ? "services"
         : route.page;
@@ -347,11 +340,7 @@ export function App() {
   });
 
   useEffect(() => {
-    const storyId = route.page === "short"
-      ? route.shortId
-      : activeSessionKind === "short"
-        ? selectedShortStoryId
-        : null;
+    const storyId = route.page === "short" ? route.shortId : null;
     if (!storyId || storyId === recentShortStoryId) return;
     setRecentShortStoryId(storyId);
     setLastSelectedShortStoryId(storyId);
@@ -457,7 +446,6 @@ export function App() {
           {route.page === "chat" && (
             <div className="absolute inset-0 flex min-w-0">
               <ChatPage
-                activeShortId={activeSessionKind === "short" ? selectedShortStoryId ?? undefined : undefined}
                 mode="project-chat"
                 nav={nav}
                 theme={theme}

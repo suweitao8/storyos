@@ -15,6 +15,10 @@ describe("hash route", () => {
       expect(parseHash("#/chat")).toEqual({ page: "chat" });
     });
 
+    it("parses the short-story landing route without requiring a story id", () => {
+      expect(parseHash("#/short")).toEqual({ page: "short" });
+    });
+
     it("parses book route", () => {
       expect(parseHash("#/book/my-novel")).toEqual({ page: "book", bookId: "my-novel" });
     });
@@ -84,6 +88,10 @@ describe("hash route", () => {
 
     it("short story -> #/short/{id}", () => {
       expect(routeToHash({ page: "short", shortId: "short-1" })).toBe("#/short/short-1");
+    });
+
+    it("short-story landing route -> #/short", () => {
+      expect(routeToHash({ page: "short" })).toBe("#/short");
     });
 
     it("book-settings -> #/book/{id}/settings", () => {
