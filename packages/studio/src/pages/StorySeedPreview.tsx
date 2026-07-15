@@ -1,5 +1,5 @@
 import { Loader2, Sparkles } from "lucide-react";
-import { STORY_SEED_MIN_CREATION_SCORE } from "@actalk/inkos-core";
+import { STORY_SEED_MIN_CREATION_SCORE } from "../../../core/src/models/story-seed-constants";
 import type { StorySeedGenerationStatus } from "./story-seed-stream";
 
 interface StorySeedPreviewProps {

@@ -4,8 +4,7 @@ export const REQUIRED_STORY_SEED_SECTION_DEFINITIONS = [
   { key: "outline", zh: "分段故事大纲", en: "Beat outline" },
 ] as const;
 
-/** Minimum background quality score required before a seed can enter production. */
-export const STORY_SEED_MIN_CREATION_SCORE = 70;
+export { STORY_SEED_MIN_CREATION_SCORE } from "./story-seed-constants.js";
 
 const OPTIONAL_STORY_SEED_SECTION_DEFINITIONS = [
   { key: "genreTone", zh: "类型与基调", en: "Genre and tone" },
