@@ -7,6 +7,7 @@ import {
   createCraftSourceUpload,
   finalizeCraftSourceUpload,
   loadCraftSourceManifest,
+  normalizeCraftSourceFileKey,
   resolveCraftSourceFile,
 } from "./craft-source-assets.js";
 
@@ -15,6 +16,11 @@ async function makeRoot(): Promise<string> {
 }
 
 describe("craft source assets", () => {
+  it("registers the original film separately from the commentary video", () => {
+    expect(normalizeCraftSourceFileKey("sourceVideo")).toBe("sourceVideo");
+    expect(normalizeCraftSourceFileKey("video")).toBe("commentaryVideo");
+  });
+
   it("persists an uploaded source and analysis input, then archives both under the craft", async () => {
     const root = await makeRoot();
     const upload = await createCraftSourceUpload(root, {
