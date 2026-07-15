@@ -455,4 +455,41 @@ describe("ContinuityAuditor", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("uses the saved writing-mode contract when auditing chapter drift", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-auditor-craft-contract-"));
+    const bookDir = join(root, "book");
+    const storyDir = join(bookDir, "story");
+    await mkdir(storyDir, { recursive: true });
+    await Promise.all([
+      writeFile(join(storyDir, "current_state.md"), "# 当前状态\n", "utf-8"),
+      writeFile(join(storyDir, "pending_hooks.md"), "# 伏笔\n", "utf-8"),
+      writeFile(join(storyDir, "chapter_summaries.md"), "# 章节摘要\n", "utf-8"),
+      writeFile(join(storyDir, "subplot_board.md"), "# 支线\n", "utf-8"),
+      writeFile(join(storyDir, "emotional_arcs.md"), "# 情感\n", "utf-8"),
+      writeFile(join(storyDir, "character_matrix.md"), "# 矩阵\n", "utf-8"),
+      writeFile(join(storyDir, "style_guide.md"), "# 文风\n", "utf-8"),
+      writeFile(
+        join(storyDir, "brief.md"),
+        "MODE_CONTRACT: 现实悬疑；所有异常必须有现实解释，禁止科幻技术与超自然设定。",
+        "utf-8",
+      ),
+    ]);
+
+    const auditor = new ContinuityAuditor({ client: {} as never, model: "test-model", projectRoot: root });
+    const chatSpy = vi.spyOn(ContinuityAuditor.prototype as never, "chat" as never).mockResolvedValue({
+      content: JSON.stringify({ passed: true, issues: [], summary: "ok" }),
+      usage: ZERO_USAGE,
+    });
+
+    try {
+      await auditor.auditChapter(bookDir, "章节正文。", 1, "other");
+      const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ content: string }> | undefined;
+      expect(messages?.[0]?.content).toContain("必须标为 critical，repair_scope");
+      expect(messages?.[1]?.content).toContain("## 写作模式契约（用于题材与现实感偏离检测）");
+      expect(messages?.[1]?.content).toContain("MODE_CONTRACT: 现实悬疑");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
