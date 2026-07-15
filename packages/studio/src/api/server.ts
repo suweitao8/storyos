@@ -6410,6 +6410,23 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return c.json({ ...sourceSegmentRef, previewUrl: `/api/v1/crafts/${id}/source/sourceVideo#t=${sourceSegmentRef.startSeconds},${sourceSegmentRef.endSeconds}` });
   });
 
+  app.get("/api/v1/crafts/:id/source/timeline/frame/:sceneId", async (c) => {
+    const id = normalizeCraftId(c.req.param("id"));
+    const sceneId = c.req.param("sceneId");
+    const timeline = await readJsonFile<SourceTimeline>(craftSourceTimelineFile(root, id, "timeline.json")).catch(() => undefined);
+    const scene = timeline?.scenes.find((candidate) => candidate.id === sceneId);
+    if (!scene) throw new ApiError(404, "SOURCE_SCENE_NOT_FOUND", "Original-film scene not found.");
+    let framePath: string;
+    try {
+      framePath = resolveTimelineFramePath(root, id, scene.thumbnailFile);
+    } catch {
+      throw new ApiError(404, "SOURCE_FRAME_NOT_FOUND", "Original-film frame not found.");
+    }
+    const frame = await readFile(framePath).catch(() => null);
+    if (!frame) throw new ApiError(404, "SOURCE_FRAME_NOT_FOUND", "Original-film frame not found.");
+    return new Response(frame, { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600" } });
+  });
+
   app.get("/api/v1/crafts/:id/source", async (c) => {
     const id = normalizeCraftId(c.req.param("id"));
     const pipeline = new PipelineRunner(await buildPipelineConfig());

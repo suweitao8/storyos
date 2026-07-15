@@ -1077,6 +1077,9 @@ describe("createStudioServer daemon lifecycle", () => {
     const timeline = await app.request("http://localhost/api/v1/crafts/craft-1/source/timeline/build", { method: "POST" });
     expect(timeline.status).toBe(200);
     await expect(timeline.json()).resolves.toMatchObject({ sourceFileKey: "sourceVideo" });
+    const frame = await app.request("http://localhost/api/v1/crafts/craft-1/source/timeline/frame/scene-1");
+    expect(frame.status).toBe(200);
+    expect(frame.headers.get("content-type")).toContain("image/jpeg");
 
     const alignment = await app.request("http://localhost/api/v1/crafts/craft-1/source/alignment", { method: "POST" });
     expect(alignment.status).toBe(200);

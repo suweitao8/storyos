@@ -1,3 +1,5 @@
+import type { SourceSegmentRef } from "@actalk/inkos-core";
+
 export interface UnifiedScriptShot {
   readonly number: number;
   readonly scene: string;
@@ -7,6 +9,7 @@ export interface UnifiedScriptShot {
   readonly subtitle: string;
   readonly durationMs: number;
   readonly imagePrompt?: string;
+  readonly sourceSegmentRef?: SourceSegmentRef;
 }
 
 export interface UnifiedScriptDocument {
@@ -36,6 +39,9 @@ const FIELD_LABELS: Readonly<Record<string, keyof ParsedShot>> = {
   "时长": "duration",
   "图像提示词": "imagePrompt",
   "图片提示词": "imagePrompt",
+  "原片匹配": "sourceMatchId",
+  "原片素材": "sourceMatchId",
+  "sourceMatchId": "sourceMatchId",
 };
 
 interface ParsedShot {
@@ -46,6 +52,7 @@ interface ParsedShot {
   subtitle: string;
   duration: number;
   imagePrompt: string;
+  sourceMatchId: string;
 }
 
 function emptyShot(scene: string): ParsedShot {
@@ -57,6 +64,7 @@ function emptyShot(scene: string): ParsedShot {
     subtitle: "",
     duration: 0,
     imagePrompt: "",
+    sourceMatchId: "",
   };
 }
 
@@ -98,11 +106,16 @@ function splitNarrationByPunctuation(text: string): string {
     .trim();
 }
 
-function shotFromParsed(shot: ParsedShot, number: number): UnifiedScriptShot | null {
+function shotFromParsed(
+  shot: ParsedShot,
+  number: number,
+  confirmedSourceSegments?: ReadonlyMap<string, SourceSegmentRef>,
+): UnifiedScriptShot | null {
   // 旁白/字幕/台词已统一为 subtitle。每个镜头必须有旁白——没有旁白的镜头不保留。
   const subtitle = splitNarrationByPunctuation(cleanFieldValue(shot.subtitle));
   const visual = cleanFieldValue(shot.visual || shot.action);
   if (!subtitle && !visual && !shot.imagePrompt) return null;
+  const sourceSegmentRef = shot.sourceMatchId.trim() ? confirmedSourceSegments?.get(shot.sourceMatchId.trim()) : undefined;
   return {
     number,
     scene: shot.scene || "未命名场景",
@@ -112,6 +125,7 @@ function shotFromParsed(shot: ParsedShot, number: number): UnifiedScriptShot | n
     subtitle,
     durationMs: shot.duration,
     ...(shot.imagePrompt ? { imagePrompt: cleanFieldValue(shot.imagePrompt) } : {}),
+    ...(sourceSegmentRef ? { sourceSegmentRef } : {}),
   };
 }
 
@@ -132,7 +146,10 @@ function fallbackShots(raw: string, title: string): UnifiedScriptShot[] {
   }));
 }
 
-export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
+export function parseUnifiedScript(
+  raw: string,
+  options?: { readonly confirmedSourceSegments?: ReadonlyMap<string, SourceSegmentRef> },
+): UnifiedScriptDocument {
   const lines = raw.split(/\r?\n/u);
   const title = cleanFieldValue(lines.find((line) => /^#\s+[^#]/u.test(line.trim()))?.replace(/^#\s+/u, "") || "未命名故事");
   const shots: UnifiedScriptShot[] = [];
@@ -144,7 +161,7 @@ export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
   const flush = (): void => {
     if (!current) return;
     sceneShotIndex += 1;
-    const shot = shotFromParsed(current, sceneShotIndex);
+    const shot = shotFromParsed(current, sceneShotIndex, options?.confirmedSourceSegments);
     if (shot) shots.push(shot);
     current = null;
   };

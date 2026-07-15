@@ -13,9 +13,12 @@ import {
   type StoryAsset,
   type StoryAssetKind,
   type StoryAssetManifest,
+  validateSourceSegmentRef,
+  type SourceSegmentRef,
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
 import { isSafeBookId } from "../safety.js";
+import { resolveCraftSourceFile } from "../craft-source-assets.js";
 import {
   buildAssContent,
   buildSubtitleEntries,
@@ -48,6 +51,7 @@ export function buildBookSourceFallbackText(
 }
 
 interface ProductionManifest {
+  readonly craftId?: string;
   readonly scriptGeneratedAt?: string;
   readonly videoGeneratedAt?: string;
   readonly videoDurationMs?: number;
@@ -165,6 +169,32 @@ async function readStorySource(context: StudioRouteContext, kind: StoryKind, id:
 
 async function readManifest(path: string): Promise<ProductionManifest> {
   return (await readJson<ProductionManifest>(join(path, "manifest.json"))) ?? {};
+}
+
+async function readConfirmedSourceSegments(root: string, craftId: string | undefined): Promise<ReadonlyMap<string, SourceSegmentRef>> {
+  if (!craftId || !isSafeBookId(craftId)) return new Map();
+  const sourceDir = join(root, "crafts", craftId, "source", "timeline");
+  const timeline = await readJson<{ durationSeconds?: unknown }>(join(sourceDir, "timeline.json"));
+  const matches = await readJson<Array<{
+    id?: unknown;
+    status?: unknown;
+    sourceStartSeconds?: unknown;
+    sourceEndSeconds?: unknown;
+  }>>(join(sourceDir, "source-matches.json"));
+  if (typeof timeline?.durationSeconds !== "number" || !matches) return new Map();
+  const result = new Map<string, SourceSegmentRef>();
+  for (const match of matches) {
+    if (typeof match.id !== "string" || match.status !== "confirmed" || typeof match.sourceStartSeconds !== "number" || typeof match.sourceEndSeconds !== "number") continue;
+    const ref: SourceSegmentRef = {
+      matchId: match.id,
+      sourceFileKey: "sourceVideo",
+      startSeconds: match.sourceStartSeconds,
+      endSeconds: match.sourceEndSeconds,
+      status: "confirmed",
+    };
+    if (validateSourceSegmentRef(ref, timeline.durationSeconds).ok) result.set(ref.matchId, ref);
+  }
+  return result;
 }
 
 function fallbackUnifiedScript(source: StorySource): string {
@@ -357,6 +387,7 @@ async function composeSegmentVideo(args: {
   readonly withVoice: boolean;
   readonly imageConfig?: ShortFictionCoverRequest | null;
   readonly imageCacheDir?: string;
+  readonly sourceVideoPath?: string;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string }> {
   const entries = buildSubtitleEntries(args.shots);
   if (entries.length === 0) throw new Error("场景中没有可用于字幕或配音的台词");
@@ -368,6 +399,10 @@ async function composeSegmentVideo(args: {
 
   let voiceEnabled = false;
   let warning: string | undefined;
+  const sourceRef = args.shots.find((shot) => shot.sourceSegmentRef)?.sourceSegmentRef;
+  if (sourceRef && !args.sourceVideoPath) {
+    throw new Error("已指定原片引用，但原片文件不可用；不会改用其他图片或解说视频");
+  }
   if (args.withVoice && args.voiceConfig) {
     try {
       const clips: string[] = [];
@@ -390,7 +425,7 @@ async function composeSegmentVideo(args: {
 
   // Generate per-shot images if image config is available.
   let backgroundImage: string | null = null;
-  if (args.imageConfig) {
+  if (!sourceRef && args.imageConfig) {
     const cacheDir = args.imageCacheDir ?? args.tempDir;
     await mkdir(cacheDir, { recursive: true });
     const shotsWithPrompts = args.shots.filter((shot) => shot.imagePrompt?.trim());
@@ -422,7 +457,16 @@ async function composeSegmentVideo(args: {
   const durationSec = (durationMs / 1000).toFixed(3);
 
   let baseArgs: string[];
-  if (backgroundImage) {
+  if (sourceRef && args.sourceVideoPath) {
+    const sourceDurationSec = Math.max(0.1, sourceRef.endSeconds - sourceRef.startSeconds);
+    baseArgs = [
+      "-y",
+      "-ss", sourceRef.startSeconds.toFixed(3),
+      "-i", args.sourceVideoPath,
+      "-t", sourceDurationSec.toFixed(3),
+      "-vf", `scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,${subtitleFilter}`,
+    ];
+  } else if (backgroundImage) {
     // Image background with slow zoom + subtitles.
     const zoomFilter = `scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,zoompan=z='min(zoom+0.0008,1.15)':d=${Math.ceil(Number(durationSec) * 24)}:s=1280x720:fps=24,${subtitleFilter}`;
     baseArgs = [
@@ -454,6 +498,7 @@ async function composeVideo(args: {
   readonly voiceConfig: TtsConfig | null;
   readonly withVoice: boolean;
   readonly imageConfig?: ShortFictionCoverRequest | null;
+  readonly sourceVideoPath?: string;
 }): Promise<{ durationMs: number; voiceEnabled: boolean; warning?: string; scenes: SceneGroup[] }> {
   const scenes = groupShotsByScene(args.script.shots);
   if (scenes.length === 0) throw new Error("剧本中没有可用于字幕或配音的台词");
@@ -481,6 +526,7 @@ async function composeVideo(args: {
       withVoice: args.withVoice,
       imageConfig: args.imageConfig,
       imageCacheDir: sceneImageCache,
+      sourceVideoPath: args.sourceVideoPath,
     }).catch((error) => {
       warning = `场景 ${scene.index + 1}「${scene.name}」视频生成失败：${error instanceof Error ? error.message : String(error)}`;
       return null;
@@ -523,7 +569,8 @@ async function readProduction(context: StudioRouteContext, kind: StoryKind, id: 
   const script = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
   const manifest = await readManifest(dir);
   const videoExists = await access(join(dir, "story.mp4")).then(() => true).catch(() => false);
-  const parsed = script.trim() ? parseUnifiedScript(script) : null;
+  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, manifest.craftId);
+  const parsed = script.trim() ? parseUnifiedScript(script, { confirmedSourceSegments }) : null;
 
   // 场景列表：从剧本分组，检查每个场景视频是否存在
   const sceneList = parsed ? groupShotsByScene(parsed.shots).map((scene) => {
@@ -581,6 +628,8 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const source = await readStorySource(context, kind, id);
     if (!source.text.trim()) return c.json({ error: "故事正文为空，无法生成剧本" }, 400);
     const dir = productionPath(context.root, kind, id);
+    const body = await c.req.json<{ craftId?: string }>().catch(() => ({} as { craftId?: string }));
+    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, body.craftId);
     await mkdir(dir, { recursive: true });
     let content: string | undefined;
     let warning: string | undefined;
@@ -609,7 +658,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
             : requirements,
           language: "zh",
         });
-        const parsed = parseUnifiedScript(raw);
+        const parsed = parseUnifiedScript(raw, { confirmedSourceSegments });
         if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
         // 质量校验：检查每个镜头是否有旁白、景别、详细图像提示词、引用的资产名是否合法。
         const issues = validateScriptQuality(parsed.shots, assetNames);
@@ -643,7 +692,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     }
     const generatedAt = new Date().toISOString();
     await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
-    await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(warning ? { warning } : {}) }, null, 2), "utf-8");
+    await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(body.craftId ? { craftId: body.craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
     return c.json({ ...(await readProduction(context, kind, id)), warning: warning ?? null });
   });
 
@@ -657,14 +706,19 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const raw = await context.loadRawConfig();
     const secrets = await context.loadSecrets();
     const imageConfig = await resolveImageConfig(context.root);
+    const previous = await readManifest(dir);
+    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
+    const sourceVideoPath = previous.craftId
+      ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
+      : undefined;
     const result = await composeVideo({
       productionDir: dir,
-      script: parseUnifiedScript(script),
+      script: parseUnifiedScript(script, { confirmedSourceSegments }),
       voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
       withVoice: body.voice !== false,
       imageConfig,
+      sourceVideoPath,
     });
-    const previous = await readManifest(dir);
     await writeFile(join(dir, "manifest.json"), JSON.stringify({
       ...previous,
       videoGeneratedAt: new Date().toISOString(),
@@ -683,7 +737,12 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const dir = productionPath(context.root, kind, id);
     const scriptText = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
     if (!scriptText.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
-    const scenes = groupShotsByScene(parseUnifiedScript(scriptText).shots);
+    const previous = await readManifest(dir);
+    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
+    const sourceVideoPath = previous.craftId
+      ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
+      : undefined;
+    const scenes = groupShotsByScene(parseUnifiedScript(scriptText, { confirmedSourceSegments }).shots);
     const scene = scenes.find((item) => item.index === index);
     if (!scene) return c.json({ error: "场景不存在" }, 404);
     const body: { voice?: boolean } = await c.req.json<{ voice?: boolean }>().catch(() => ({ voice: undefined }));
@@ -705,6 +764,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
       withVoice: body.voice !== false,
       imageConfig,
       imageCacheDir: sceneImageCache,
+      sourceVideoPath,
     });
     // 单场景生成不更新合集（story.mp4）：合集可能因此与单场景不一致，
     // 前端可提示用户重新生成合集以合并最新场景。
