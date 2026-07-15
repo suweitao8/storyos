@@ -88,7 +88,7 @@ export function buildDefaultStoryDirection(
 
   if (craft.mode === "bilibili-commentary") {
     return isZh
-      ? `参考这条 B 站影视解说提取出的悬念、剧情骨架、反转和节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}，最终制作成视频。影视解说只提供结构参考，不要继续解说原电影；必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
+      ? `参考这条 B 站影视解说提取出的悬念、剧情骨架、反转和节奏，先创作一个全新的原创电影或故事，再用影视解说的角度讲述它，形成一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}并最终制作成视频。影视解说只提供结构参考，不要继续解说原电影；必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
       : `Use the selected Bilibili commentary's plot skeleton, reversals, and pacing as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"}. Redesign the characters, setting, causal chain, and ending; do not copy the film, series, or commentary.`;
   }
 

@@ -8,6 +8,7 @@ import {
   craftCardMeta,
   craftSourceTypeLabel,
   craftProcessingErrorText,
+  craftSourceFilesForDisplay,
   formatCraftBeatDuration,
   shouldReloadCraftProfileAfterStatus,
 } from "./CraftManager";
@@ -37,6 +38,15 @@ describe("craft mode presentation", () => {
       "exemplars",
       "source",
     ]);
+  });
+
+  it("does not expose original-film alignment files in the source tab", () => {
+    expect(craftSourceFilesForDisplay([
+      { key: "video" },
+      { key: "sourceVideo" },
+      { key: "timeline" },
+      { key: "subtitlesText" },
+    ] as never).map((file) => file.key)).toEqual(["video", "subtitlesText"]);
   });
 
   it("uses a generic fallback description for legacy ghost-story records", () => {

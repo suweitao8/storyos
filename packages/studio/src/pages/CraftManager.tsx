@@ -18,7 +18,6 @@ import { deriveCraftBreakdownModules } from "@actalk/inkos-core/agents/craft-bre
 import type { VideoStoryCraft } from "@actalk/inkos-core/models/craft-profile";
 import type { StorySeed } from "@actalk/inkos-core";
 import { StorySeedPreview } from "./StorySeedPreview";
-import { SourceAlignmentPanel } from "./SourceAlignmentPanel";
 import {
   serializeStorySeed,
   type StorySeedGenerationStatus,
@@ -209,6 +208,10 @@ interface CraftSourceFile {
   readonly mimeType: string;
 }
 
+export function craftSourceFilesForDisplay<T extends Pick<CraftSourceFile, "key">>(files: ReadonlyArray<T>): ReadonlyArray<T> {
+  return files.filter((file) => file.key !== "sourceVideo" && file.key !== "timeline");
+}
+
 interface CraftSourceManifest {
   readonly version: 1;
   readonly sourceType: CraftSourceType;
@@ -232,7 +235,6 @@ export const CRAFT_DETAIL_TABS = [
   { value: "modules", label: "写作要点" },
   { value: "exemplars", label: "示例" },
   { value: "source", label: "原始资料" },
-  { value: "alignment", label: "原片对齐" },
 ] as const;
 
 type CraftDetailTab = typeof CRAFT_DETAIL_TABS[number]["value"];
@@ -1514,7 +1516,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
       <div className="overflow-x-auto border-b border-border">
         <div className="flex min-w-max gap-1">
           {CRAFT_DETAIL_TABS
-            .filter((tab) => (tab.value !== "video" || !!detail.videoStory) && (tab.value !== "alignment" || initialMeta?.sourceType === "bilibili"))
+            .filter((tab) => tab.value !== "video" || !!detail.videoStory)
             .map((tab) => (
               <button
                 key={tab.value}
@@ -1783,10 +1785,6 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
         </div>
       )}
 
-      {detailTab === "alignment" && craftId && initialMeta?.sourceType === "bilibili" && (
-        <SourceAlignmentPanel craftId={craftId} source={source} />
-      )}
-
       {detailTab === "source" && (
         <section className={`space-y-4 rounded-2xl border ${c.cardStatic} p-4`}>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1811,7 +1809,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
               )}
 
               <div className="grid gap-2 md:grid-cols-2">
-                {source.files.map((file) => (
+                {craftSourceFilesForDisplay(source.files).map((file) => (
                   <a
                     key={file.key}
                     href={`/api/v1/crafts/${craftId}/source/${file.key}`}
