@@ -115,6 +115,38 @@ describe("short-fiction originality wiring", () => {
     expect(writerInput?.craftExemplars).toBeUndefined();
   });
 
+  it("keeps the originality contract when completing a truncated draft", async () => {
+    root = await mkdtemp(join(tmpdir(), "storyos-short-continuation-contract-"));
+    vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline").mockResolvedValue({
+      storyTitle: "办公楼里的空工位",
+      rawContent: "## 故事方案\n全新的办公楼因果链。",
+    });
+    const partial = parseShortFictionBatchDraft("=== SHORT_FICTION_TITLE ===\n办公楼里的空工位", { expectedChapters: 1 });
+    const completed = parseShortFictionBatchDraft([
+      "=== SHORT_FICTION_TITLE ===", "办公楼里的空工位",
+      "=== CHAPTER 1 TITLE ===", "空工位",
+      "=== CHAPTER 1 CONTENT ===", "有效场面。".repeat(500),
+    ].join("\n"), { expectedChapters: 1 });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(partial);
+    const continuation = vi.spyOn(ShortFictionWriterAgent.prototype, "continueDraft").mockResolvedValue(completed);
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "办公楼里的空工位", intro: "原创悬疑", sellingPoints: ["新因果链"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root,
+      direction: "以原创化改编方案创作一篇新短篇",
+      runtimes: { planner: {} as never, outlineReview: {} as never, writer: {} as never, draftReview: {} as never, revise: {} as never, package: {} as never },
+      craftProfile,
+      chapterCount: 1,
+      charsPerChapter: 1_000,
+      quick: true,
+      cover: false,
+    });
+
+    expect(continuation.mock.calls[0]?.[0].craftGuide).toContain("NEW_SPACE=OFFICE");
+  });
+
   it("carries the same craft contract into outline review and revision", async () => {
     root = await mkdtemp(join(tmpdir(), "storyos-short-contract-"));
     const outline = { storyTitle: "写字楼的空工位", rawContent: "## 故事方案\n全新的办公楼因果链。" };
