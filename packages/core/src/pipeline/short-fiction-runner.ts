@@ -401,12 +401,13 @@ async function produceShort(
         title: salesPackage.title,
       });
 
-  if (revisionWarning) {
-    await writeShortRunStatus(root, baseDir, {
-      status: "complete",
-      warning: `revision skipped: ${revisionWarning}`,
-    }).catch(() => undefined);
-  }
+  await writeShortRunStatus(root, baseDir, {
+    status: "complete",
+    stage: "packaged",
+    generationMode: options.quick ? "quick" : "reviewed",
+    draftRevision: options.quick ? "skipped" : revisionWarning ? "kept-first-draft" : "applied",
+    ...(revisionWarning ? { warning: `revision skipped: ${revisionWarning}` } : {}),
+  });
 
   return buildShortRunResult(storyId, baseDir, coverArtifacts, { quick: options.quick === true });
 }

@@ -25,6 +25,16 @@ afterEach(async () => {
 });
 
 describe("short story trash lifecycle", () => {
+  it("does not list a short whose production status is failed even if a partial final draft exists", async () => {
+    const root = await createShortStoryRoot();
+    await writeFile(join(root, "shorts", "sample", "status.json"), JSON.stringify({
+      status: "failed",
+      error: "packaging failed",
+    }), "utf-8");
+
+    await expect(listStudioShortStories(root)).resolves.toEqual([]);
+  });
+
   it("lists a deleted short story last, restores it, and exposes its marker", async () => {
     const root = await createShortStoryRoot();
     await softDeleteShortStory(root, "sample", "2026-07-14T00:00:00.000Z");
