@@ -23,7 +23,7 @@ describe("groupStorySection", () => {
 
     expect(buildStorySettingsTabItems(groups, 3, true)).toEqual([
       { id: "settings", label: "故事设定" },
-      { id: "world", label: "世界观与规则" },
+      { id: "world", label: "世界设定" },
       { id: "outline", label: "故事大纲" },
       { id: "chapters", label: "章节" },
     ]);

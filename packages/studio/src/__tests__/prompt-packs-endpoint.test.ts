@@ -40,7 +40,7 @@ describe("Studio prompt pack endpoints", () => {
     }));
     expect(json.prompts.find((prompt) => prompt.id === "longform.reviser")?.source).toBe("builtin");
     expect(json.prompts.find((prompt) => prompt.id === "longform.writer")?.defaultContent)
-      .toContain("长篇章节写作器");
+      .toContain("受控的章节意图");
   });
 
   it("saves and resets project prompt overrides", async () => {
@@ -71,7 +71,7 @@ describe("Studio prompt pack endpoints", () => {
       source: "builtin",
       overridden: false,
     });
-    expect(reset.prompt.content).toContain("长篇章节写作器");
+    expect(reset.prompt.content).toContain("受控的章节意图");
   });
 
   it("rejects unknown prompt ids instead of writing arbitrary files", async () => {

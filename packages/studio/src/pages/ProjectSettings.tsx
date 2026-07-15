@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { Globe, Moon, Stethoscope, Sun } from "lucide-react";
+import { Boxes, Globe, Moon, Sparkles, Stethoscope, Sun } from "lucide-react";
 import { usePageToolbar } from "../components/PageToolbar";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import { EnvironmentDiagnostics } from "./DoctorView";
 import { ServiceListPage } from "./ServiceListPage";
+import { GenreManager } from "./GenreManager";
+import { SkillManager } from "./SkillManager";
 import type { ProjectSettingsTabId } from "../hooks/use-hash-route";
 
-export const PROJECT_SETTINGS_TAB_IDS = ["common", "diagnostics"] as const;
+export const PROJECT_SETTINGS_TAB_IDS = ["common", "resources", "diagnostics"] as const;
+export const PROJECT_SETTINGS_RESOURCE_TABLES = ["genres", "skills"] as const;
 type ProjectSettingsTab = typeof PROJECT_SETTINGS_TAB_IDS[number];
 
 function SettingsCard({
@@ -52,6 +55,7 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
   usePageToolbar("project-settings", {
     tabs: [
       { id: "common", label: t("settings.tab.common"), icon: <Globe size={14} /> },
+      { id: "resources", label: t("settings.tab.resources"), icon: <Boxes size={14} /> },
       { id: "diagnostics", label: t("settings.tab.diagnostics"), icon: <Stethoscope size={14} /> },
     ],
     activeTab,
@@ -111,6 +115,36 @@ export function ProjectSettings({ theme, setTheme, lang, onLangChange, t, initia
 
       {activeTab === "diagnostics" && (
         <EnvironmentDiagnostics theme={theme} t={t} />
+      )}
+
+      {activeTab === "resources" && (
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary"><Boxes size={18} /></div>
+              <div>
+                <h2 className="text-base font-bold">{t("settings.tab.genres")}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {lang === "zh" ? "低频维护项：查看和编辑现有题材规则。" : "Low-frequency maintenance: view and edit existing genre rules."}
+                </p>
+              </div>
+            </div>
+            <GenreManager theme={theme} t={t} />
+          </section>
+
+          <section className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary"><Sparkles size={18} /></div>
+              <div>
+                <h2 className="text-base font-bold">{t("settings.tab.skills")}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {lang === "zh" ? "低频维护项：查看和编辑已有 Skill。" : "Low-frequency maintenance: view and edit existing skills."}
+                </p>
+              </div>
+            </div>
+            <SkillManager theme={theme} lang={lang} t={t} />
+          </section>
+        </div>
       )}
     </div>
   );

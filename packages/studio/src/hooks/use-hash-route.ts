@@ -27,7 +27,7 @@ export type HashRoute =
   | { page: "film-author"; projectId: string }
   | { page: "film-studio"; projectId: string };
 
-export type ProjectSettingsTabId = "common" | "diagnostics";
+export type ProjectSettingsTabId = "common" | "resources" | "diagnostics";
 
 function parseHash(hash: string): HashRoute {
   const path = hash.replace(/^#\/?/, "");
@@ -40,8 +40,7 @@ function parseHash(hash: string): HashRoute {
   if (path === "import") return { page: "import" };
   if (path === "craft") return { page: "craft" };
   if (path === "prompt-templates") return { page: "prompt-templates" };
-  if (path === "skills") return { page: "project-settings" };
-  if (path === "genres") return { page: "project-settings" };
+  if (path === "skills" || path === "genres") return { page: "project-settings", tab: "resources" };
   const importMatch = path.match(/^import\/(chapters|canon|fanfic|spinoff)$/);
   if (importMatch) return { page: "import", tab: importMatch[1] as "chapters" | "canon" | "fanfic" | "spinoff" };
   if (path.startsWith("import/")) return { page: "import" };

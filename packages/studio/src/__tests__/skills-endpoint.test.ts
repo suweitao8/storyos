@@ -38,7 +38,7 @@ describe("Studio skill endpoints", () => {
     const json = await res.json() as { skills: Array<{ id: string; source: string; editable: boolean; body?: string }> };
 
     expect(res.status).toBe(200);
-    expect(json.skills.map((skill) => skill.id)).toContain("open-world-play");
+    expect(json.skills.map((skill) => skill.id)).toContain("longform-writing");
     expect(json.skills).toContainEqual(expect.objectContaining({
       id: "detective-play",
       source: "project",
