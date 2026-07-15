@@ -216,6 +216,8 @@ describe("story creation actions", () => {
 
     expect(direction).toContain("影视解说");
     expect(direction).toContain("原创短篇故事");
+    expect(direction).toContain("全新的原创电影或故事");
+    expect(direction).toContain("影视解说的角度讲述");
     expect(direction).toContain("重新设计人物、场景、因果链和结局");
   });
 

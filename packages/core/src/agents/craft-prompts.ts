@@ -78,11 +78,11 @@ export function buildCraftAnalysisSystemPrompt(
       ? language === "en"
         ? [
             "This is a Bilibili film or television commentary reference. The creator narrated someone else's movie or show in their own style. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original story.",
-            "The profile must support making a similar-feeling original story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending. The goal is to create your own original commentary-style story, not to retell the same movie.",
+            "Create a completely new film or story first, then present it from a film-commentary viewpoint. The profile must support making a similar-feeling original story from the commentary structure, while replacing the source film or series identities, setting, scenes, causal chain, and ending. Do not retell the same movie.",
           ]
         : [
             "这是B站影视解说参考。UP主用自己的风格解说了一部电影或电视剧。把解说当作被压缩的剧情来分析：重点提取因果链、人物压力、反转、信息揭示节奏和情绪回报。",
-            "目标是参考这个解说的叙事结构，创作一个剧情完全原创的解说故事。必须替换原影视作品的人物、场景、因果链、具体事件和结局——只迁移叙事节奏和结构手法。",
+            "目标是参考这个解说的叙事结构，先创作一部全新电影或故事，再用影视解说的角度讲述它。剧情必须完全原创，必须替换原影视作品的人物、场景、因果链、具体事件和结局——只迁移叙事节奏和结构手法。",
           ]
       : mode === "bilibili-review"
         ? language === "en"
@@ -703,8 +703,8 @@ export function buildStoryDirectionPrompt(
       languageRule,
       ...plainLanguageGuidance.system,
       language === "zh"
-        ? "参考素材提供了世界观、故事骨架和写作模式。你要写一个同框架但细节不同的新故事：保留题材、时代、现实感、情绪承诺、悬念或恐怖强度和叙事功能，不是简单替换名字或地点，而是重新设计人物、空间、道具、因果链与结局代价。"
-        : "The reference provides a worldview, story skeleton, and craft mode. Write a new story with the same framework: preserve its genre, era, reality level, emotional promise, suspense or horror intensity, and narrative functions, while rebuilding the people, setting, props, causal chain, and ending cost.",
+        ? `参考素材提供了世界观、故事骨架和写作模式。你要写一个同框架但细节不同的新故事：保留题材、时代、现实感、情绪承诺、悬念或恐怖强度和叙事功能，不是简单替换名字或地点，而是重新设计人物、空间、道具、因果链与结局代价。${craftProfile.mode === "bilibili-commentary" ? "这是影视解说型原创电影故事：先创作一部全新电影或故事，再用影视解说的角度讲述它，不要把原电影重新解说一遍。" : ""}`
+        : `The reference provides a worldview, story skeleton, and craft mode. Write a new story with the same framework: preserve its genre, era, reality level, emotional promise, suspense or horror intensity, and narrative functions, while rebuilding the people, setting, props, causal chain, and ending cost.${craftProfile.mode === "bilibili-commentary" ? " Create a completely new film or story first, then tell it from a film-commentary viewpoint; do not retell the source movie." : ""}`,
       language === "zh"
         ? "换的是人物、空间和事件，不是题材和现实层级；没有参考依据时，不得把现实悬疑/恐怖升级成科幻。"
         : "Change the people, setting, and events — not the genre or reality level. Without evidence in the reference, never upgrade realistic suspense or horror into science fiction.",
