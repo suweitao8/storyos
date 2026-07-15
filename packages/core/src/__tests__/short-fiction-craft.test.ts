@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 import {
+  buildShortFictionDraftReviewUserPrompt,
   buildShortFictionOutlineUserPrompt,
+  buildShortFictionOutlineReviewUserPrompt,
   buildShortFictionWriterUserPrompt,
 } from "../prompts/short-fiction.js";
 
@@ -110,6 +112,27 @@ describe("short-fiction writer craft prompt", () => {
     expect(prompt).toContain("一次写完整");
     expect(prompt).toContain("85% 到 115%");
     expect(prompt).not.toContain("低于目标字数");
+  });
+
+  it("turns outline and draft review into actionable quality gates", () => {
+    const outlineReview = buildShortFictionOutlineReviewUserPrompt({
+      direction: "现实悬疑短篇",
+      outline: { rawContent: "完整大纲" },
+      craftGuide: "MODE_CONTRACT",
+    });
+    const draftReview = buildShortFictionDraftReviewUserPrompt({
+      direction: "现实悬疑短篇",
+      outlineMarkdown: "完整大纲",
+      draftMarkdown: "完整正文",
+      chapterCount: 1,
+      charsPerChapter: 5000,
+      craftGuide: "MODE_CONTRACT",
+    });
+
+    expect(outlineReview).toContain("MODE_CONTRACT");
+    expect(outlineReview).toContain("必须修复的问题");
+    expect(draftReview).toContain("模式一致性");
+    expect(draftReview).toContain("可执行修改清单");
   });
 });
 

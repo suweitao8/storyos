@@ -55,6 +55,15 @@ export function isStorySeedWithOriginalizationPlan(
     && value.originalizationPlan.trim().length > 0;
 }
 
+/** New generation must provide a usable contract for every downstream stage. */
+export function isCompleteStorySeed(value: unknown): value is Required<StorySeed> {
+  if (!isStorySeed(value)) return false;
+  const candidate = value as unknown as Record<string, unknown>;
+  return STORY_SEED_SECTION_DEFINITIONS.every(({ key }) => (
+    typeof candidate[key] === "string" && candidate[key].trim().length > 0
+  ));
+}
+
 export class StorySeedParseError extends Error {
   readonly missingSections: ReadonlyArray<StorySeedSectionKey>;
 

@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CraftProfile } from "../models/craft-profile.js";
 import {
   ShortFictionOutlineAgent,
+  ShortFictionOutlineReviewerAgent,
+  ShortFictionOutlineReviserAgent,
+  ShortFictionDraftReviewerAgent,
+  ShortFictionDraftReviserAgent,
   ShortFictionPackagingAgent,
   ShortFictionWriterAgent,
   parseShortFictionBatchDraft,
@@ -109,5 +113,33 @@ describe("short-fiction originality wiring", () => {
     expect(outlineInput?.craftGuide).not.toContain("REFERENCE_STORY_OUTLINE_EVENT");
     expect(writerInput?.craftGuide).toContain("NEW_SPACE=OFFICE");
     expect(writerInput?.craftExemplars).toBeUndefined();
+  });
+
+  it("carries the same craft contract into outline review and revision", async () => {
+    root = await mkdtemp(join(tmpdir(), "storyos-short-contract-"));
+    const outline = { storyTitle: "写字楼的空工位", rawContent: "## 故事方案\n全新的办公楼因果链。" };
+    vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline").mockResolvedValue(outline);
+    const reviewer = vi.spyOn(ShortFictionOutlineReviewerAgent.prototype, "reviewOutline").mockResolvedValue("可执行修改清单");
+    const reviser = vi.spyOn(ShortFictionOutlineReviserAgent.prototype, "reviseOutline").mockResolvedValue(outline);
+    const draft = parseShortFictionBatchDraft([
+      "=== SHORT_FICTION_TITLE ===", "写字楼的空工位",
+      "=== CHAPTER 1 TITLE ===", "空工位",
+      "=== CHAPTER 1 CONTENT ===", "有效场面。".repeat(500),
+    ].join("\n"), { expectedChapters: 1 });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(draft);
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("无");
+    vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockResolvedValue(draft);
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "写字楼的空工位", intro: "原创悬疑", sellingPoints: ["新因果链"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "以原创化改编方案创作一篇新短篇",
+      runtimes: { planner: {} as never, outlineReview: {} as never, writer: {} as never, draftReview: {} as never, revise: {} as never, package: {} as never },
+      craftProfile, chapterCount: 1, charsPerChapter: 1_000, cover: false,
+    });
+
+    expect(reviewer.mock.calls[0]?.[0].craftGuide).toContain("NEW_SPACE=OFFICE");
+    expect(reviser.mock.calls[0]?.[0].craftGuide).toContain("NEW_SPACE=OFFICE");
   });
 });

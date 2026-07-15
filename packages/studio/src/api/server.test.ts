@@ -289,6 +289,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
     isStorySeedWithOriginalizationPlan: actual.isStorySeedWithOriginalizationPlan,
+    isCompleteStorySeed: actual.isCompleteStorySeed,
     parseStorySeed: actual.parseStorySeed,
     serializeStorySeed: actual.serializeStorySeed,
     splitCraftChapters: actual.splitCraftChapters,
@@ -1248,8 +1249,8 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(chatCompletionMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),
-      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("500") })]),
-      expect.objectContaining({ onTextDelta: expect.any(Function), retry: false }),
+      expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("900-1400") })]),
+      expect.objectContaining({ onTextDelta: expect.any(Function), retry: false, maxTokens: 3_000 }),
     );
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   StorySeedParseError,
+  isCompleteStorySeed,
   isStorySeed,
   isStorySeedWithOriginalizationPlan,
   parseStorySeed,
@@ -115,6 +116,19 @@ describe("short story seed", () => {
       originalizationPlan: "重新设计空间、身份、关系、因果链和结局。",
     })).toBe(true);
     expect(isStorySeedWithOriginalizationPlan(COMPLETE_SEED)).toBe(false);
+  });
+
+  it("requires every creation-contract section before a generated seed is persisted", () => {
+    expect(isCompleteStorySeed({
+      ...COMPLETE_SEED,
+      originalizationPlan: "重新设计空间、身份、关系、因果链和结局。",
+    })).toBe(true);
+    expect(isCompleteStorySeed(COMPLETE_SEED)).toBe(false);
+    expect(isCompleteStorySeed({
+      ...COMPLETE_SEED,
+      originalizationPlan: "重新设计空间、身份、关系、因果链和结局。",
+      conflict: "",
+    })).toBe(false);
   });
 
   it("accepts the prompt alias label '原创要点' for originalizationPlan", () => {

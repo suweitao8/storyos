@@ -18,6 +18,7 @@ export interface ShortFictionOutlineReviewPromptInput {
     readonly rawContent: string;
   };
   readonly reference?: ShortFictionReferencePromptInput;
+  readonly craftGuide?: string;
 }
 
 export interface ShortFictionOutlineRevisionPromptInput extends ShortFictionOutlineReviewPromptInput {
@@ -67,6 +68,7 @@ export function buildShortFictionOutlineSystemPrompt(language: ShortFictionLangu
       "You are the managing editor for short web fiction. Your job is to turn one creative direction into a complete short-story plan.",
       "Work only from this direction and any reference text the user supplied; never claim to have read, quoted, or inherited material that was not provided.",
       "Content comes first: the title, the opening, the pressure on the protagonist, the evidence/relationship/identity leverage, the escalation chain, the reversal chain, and the payoff landing must be strong enough to carry a single-pass full draft.",
+      "Treat the creative direction and craft contract as immutable anchors: preserve their genre, reality level, emotional promise, originality plan, and the promised ending payoff. Do not silently replace them with a more familiar premise.",
       "Do not over-structure and do not output JSON/YAML. Write human-readable Markdown, but the chapter plan must be dense enough that a writer can draft the whole story in one pass.",
       "A short defaults to 1 chapter. The per-chapter target is selected by the Studio creation flow. The story must be complete — not the first five chapters of a novel starter kit.",
     ].join("\n");
@@ -75,6 +77,7 @@ export function buildShortFictionOutlineSystemPrompt(language: ShortFictionLangu
     "你是短篇小说总编，负责把一个创作方向做成完整短篇故事方案。",
     "只基于本次创作方向和用户提供的参考文本创作；没有提供的资料，不要声称读过、引用过或继承过。",
     "目标是内容优先：标题、开篇、人物压力、证据/关系/身份杠杆、升级链、反转链和回报落点必须能支撑一次写完整篇。",
+    "把创作方向和写作模式契约当作不可漂移的锚点：必须继承其中的题材、现实层级、情绪承诺、原创化方案和结局回报，不能为了好写临时换成另一个故事。",
     "不要过度结构化，不要输出 JSON/YAML。用人能读的 Markdown，但章节方案必须足够密，写手拿到后能直接一次写完。",
     "短篇默认 1 章，每章字数由创建设置选择。故事要完整，不是长篇前 5 章启动包。",
   ].join("\n");
@@ -164,6 +167,13 @@ export function buildShortFictionOutlineReviewUserPrompt(
       "- Is the outline dense enough, or will the writer run out of material in the back half?",
       "- Do the key scenes contain character action, counterattack, and payoff, instead of bare result summaries?",
       "- Will readers be thrown out of the story by timeline, relationship, evidence-access, physical-state, or common-sense problems?",
+      "- Does the plan keep the creative direction's genre, reality level, originality transformation, and promised payoff instead of drifting into a different premise?",
+      "## Required Review Format",
+      "### What works",
+      "### Must-fix issues",
+      "List at most five concrete issues. Each issue must name the broken setup/causality and the exact scene, action, clue, or consequence the revision needs. If there is no hard issue, write `None`.",
+      "### Revision priorities",
+      "Give a numbered, executable repair order. Do not give vague advice such as 'make it more engaging'.",
     ].filter(Boolean).join("\n");
   }
   return [
@@ -171,6 +181,7 @@ export function buildShortFictionOutlineReviewUserPrompt(
     input.direction,
     "",
     input.reference?.text ? "## 可选参考文本\n" + input.reference.text.trim() + "\n" : "",
+    input.craftGuide ?? "",
     "## 待审故事方案",
     input.outline.rawContent,
     "",
@@ -180,6 +191,13 @@ export function buildShortFictionOutlineReviewUserPrompt(
     "- 大纲是否足够密，写手是否会在后半段泄气。",
     "- 关键场面有没有人物行动、反扑和回报，不是纯结果摘要。",
     "- 读者会不会因为时间线、人物关系、证据权限、身体状态、常识问题出戏。",
+    "- 是否守住创作方向的题材、现实层级、原创化改编方案和结局回报，而不是中途漂成另一个更好写的故事。",
+    "## 审稿输出格式（必须遵守）",
+    "### 可保留内容",
+    "### 必须修复的问题",
+    "最多列 5 条。每条都要写清“哪条铺垫/因果断了”和“该补哪个场面、动作、线索或后果”。如果没有硬伤，写“无”。",
+    "### 可执行修改清单",
+    "按优先级编号，给能直接改进大纲的动作；不要写“更精彩一点”这类空话。",
   ].join("\n");
 }
 
@@ -193,6 +211,7 @@ export function buildShortFictionOutlineRevisionFollowup(
       "This is round two of the same project: do not start over from scratch, and do not output a list of edits instead of the plan.",
       `Keep the structure at ${input.chapterCount} chapters of about ${input.charsPerChapter} words each.`,
       "Keep the genre engine and relationships that work; fix the flaws that would make the finished draft fall flat.",
+      input.craftGuide ?? "",
       "",
       "## Outline Review",
       input.review.trim(),
@@ -209,6 +228,7 @@ export function buildShortFictionOutlineRevisionFollowup(
     "这是同一次创作的第二轮，不要另起炉灶，不要只写修改说明。",
     `仍然按 ${input.chapterCount} 章、每章约 ${input.charsPerChapter} 字来组织。`,
     "保留能打的题材发动机和人物关系，修掉会导致成稿不好看的硬伤。",
+    input.craftGuide ?? "",
     "",
     "## 审纲意见",
     input.review.trim(),
@@ -406,14 +426,14 @@ export function buildShortFictionDraftReviewSystemPrompt(language: ShortFictionL
       "You are a short-fiction draft reviewer.",
       "You judge only whether the content can sell, reads smoothly, and keeps pulling the reader forward; do not turn the review into deterministic scoring.",
       "Focus on: the title, chapter titles, the opening, character motivation, the timeline, relationships, evidence and access, escalating pressure, the antagonist's counterattack, whether the back half sags, and whether the ending payoff lands.",
-      "Output Markdown. Separate the problems that would visibly stop readers from reading on from the small blemishes that are acceptable.",
+      "Output Markdown. Separate the problems that would visibly stop readers from reading on from the small blemishes that are acceptable. Every blocking problem needs an executable repair instruction.",
     ].join("\n");
   }
   return [
     "你是短篇成稿审稿编辑。",
     "你只看内容是否能卖、是否顺、是否有继续读的欲望；不要把审稿变成确定性打分。",
     "重点看标题、章节标题、开篇、人物动机、时间线、人物关系、证据/权限、压力递进、反派反扑、后半段是否泄气、结尾回报是否落地。",
-    "输出 Markdown，写清哪些问题会明显影响读者读下去，哪些只是可接受的小瑕疵。",
+    "输出 Markdown，写清哪些问题会明显影响读者读下去，哪些只是可接受的小瑕疵。每个硬伤都必须给可执行的修复动作。",
   ].join("\n");
 }
 
@@ -437,6 +457,12 @@ export function buildShortFictionDraftReviewUserPrompt(
       "Talk like a person: where does this story pull, where does it break immersion, where does it read like a synopsis, where does the back half sag, which title or chapter titles would nobody tap?",
       "Never condemn a chapter just for running slightly short or long; judge first whether the content is complete, dramatic, and paying off.",
       "If a writing-mode craft guide was provided, also judge whether the draft follows its rhythm, scene-craft, and narrative techniques.",
+      "## Required Review Format",
+      "### Reader pull and kept strengths",
+      "### Blocking issues",
+      "Check mode fidelity, premise/reality drift, causal continuity, character motivation, staged scenes, reversal setup, climax payoff, and ending aftertaste. For each issue, name the exact chapter/beat and the repair action.",
+      "### Revision priorities",
+      "Give no more than five ordered repair actions. If no blocking issue exists, write `None`.",
     ].filter(Boolean).join("\n");
   }
   return [
@@ -454,6 +480,12 @@ export function buildShortFictionDraftReviewUserPrompt(
     "直接说人话：这本读起来哪里有欲望、哪里出戏、哪里像梗概、哪里后半段泄气、哪里标题或章节标题不想点。",
     "不要因为某章略短或略长就判死；先判断内容是否完整、有戏、有回报。",
     "如果提供了写作模式指南，也要判断正文是否遵循了参考作品的节奏、场景调度和叙事手法。",
+    "## 审稿输出格式（必须遵守）",
+    "### 读者拉力与可保留内容",
+    "### 必须修复的问题",
+    "检查模式一致性、题材/现实感漂移、因果连续性、人物动机、场景是否当场发生、反转铺垫、高潮回报和结尾余味。每条问题都要点出具体章节/情节，并写出修复动作。",
+    "### 可执行修改清单",
+    "最多 5 条，按优先级排序；没有硬伤就写“无”。",
   ].filter(Boolean).join("\n");
 }
 

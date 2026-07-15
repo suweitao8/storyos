@@ -795,7 +795,7 @@ export function buildStorySeedPrompt(
             : "",
         ].filter(Boolean).join("\n\n"),
       };
-  const labels = REQUIRED_STORY_SEED_SECTION_DEFINITIONS
+  const labels = STORY_SEED_SECTION_DEFINITIONS
     .map((definition) => language === "zh" ? definition.zh : definition.en).join(", ");
 
   return {
@@ -806,8 +806,8 @@ export function buildStorySeedPrompt(
         : "Return only the Markdown sections listed below — no prefaces, analysis, or code fences.",
       "Do not output <think>, reasoning, or analysis.",
       language === "zh"
-        ? "故事名称一句话。世界观两三句话，让人一看就懂。大纲是重点——用大白话把故事从头到尾讲一遍，让人想读下去。总共 400-500 字。"
-        : "Story title: one line. Worldview: 2-3 clear sentences. The outline is the core — tell the whole story in plain language, make it engaging. Total 400-500 words.",
+        ? "这是一份会被后续大纲、正文、审稿和包装反复引用的创作契约，不是三段式梗概。每一板块都必须具体、互相一致：人物有明确欲望和代价，冲突有现实可执行的因果，反转必须由前文线索支撑，结局必须兑现开篇承诺。总长约 900-1400 字。"
+        : "This is a creation contract reused by outline, drafting, review, and packaging — not a three-field synopsis. Make every section specific and consistent: characters need desire and cost, conflict needs executable causality, reversals need setup, and the ending must pay off the opening. Aim for 900-1400 words.",
     ].join("\n"),
     user: [
       base.user,
@@ -815,8 +815,16 @@ export function buildStorySeedPrompt(
         ? `按以下顺序输出二级 Markdown 标题：${labels}。`
         : `Output these level-two Markdown headings in this order: ${labels}.`,
       language === "zh"
-        ? "大纲只写故事：谁、做了什么、出了什么事、结果怎样。像跟朋友讲一部电影那样从头讲到尾。"
-        : "The outline only tells the story: who, what they do, what happens, how it ends. Like describing a movie to a friend, start to finish.",
+        ? [
+            "填写要求：类型与基调要锁定现实感和情绪承诺；钩子要写第一屏发生的异常或危机；角色与关系要写主角目标、阻力和相互牵制；冲突要写失败的具体代价。",
+            "分段故事大纲按开场→施压→反扑→反转→结局讲清场面与因果；关键反转与线索回收逐条说明“前面埋了什么、此处如何兑现”；结局写最终选择与余味。",
+            "原创化改编方案必须明确替换故事空间、身份/职业、关系结构、核心因果链、关键道具或规则、关键场面和结局代价。不得只换名字、地点或措辞。",
+          ].join("\n")
+        : [
+            "Fill each section precisely: genre and tone lock the reality level and emotional promise; hook states the first-screen anomaly or crisis; characters and relationships state the protagonist's goal, resistance, and leverage; conflict states the concrete cost of failure.",
+            "Tell the beat outline through opening → pressure → counterattack → reversal → ending with scenes and causality; for each reversal, state the earlier setup and its payoff; state the final choice and aftertaste.",
+            "The originality plan must explicitly replace the setting, identity/profession, relationship structure, causal chain, key prop or rule, key scenes, and ending cost. Never merely rename people or places.",
+          ].join("\n"),
     ].join("\n\n"),
   };
 }

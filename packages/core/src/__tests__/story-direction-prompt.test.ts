@@ -67,19 +67,26 @@ describe("story direction prompt", () => {
     expect(seedPrompt.system).toContain("朋友");
   });
 
-  it("requests only three sections: title, worldview, outline", () => {
+  it("requests a complete creation contract instead of a three-field synopsis", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
     for (const section of [
       "故事名称",
+      "类型与基调",
+      "一句话故事钩子",
       "世界观与运行规则",
+      "角色与关系",
+      "核心冲突、代价与 stakes",
       "分段故事大纲",
+      "关键反转与线索回收",
+      "结局与情绪余味",
+      "画面与声音母题",
+      "原创化改编方案",
     ]) {
       expect(prompt.user).toContain(section);
     }
-    // The originality plan section should NOT be requested anymore
-    expect(prompt.user).not.toContain("原创要点");
-    expect(prompt.user).not.toContain("原创化改编方案");
+    expect(prompt.system).toContain("创作契约");
+    expect(prompt.user).toContain("不得只换名字");
   });
 
   it("forbids thinking and analysis output", () => {

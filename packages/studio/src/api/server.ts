@@ -45,6 +45,7 @@ import {
   buildStorySeedQualitySystemPrompt,
   detectStorySeedRealityDrift,
   STORY_SEED_SECTION_DEFINITIONS,
+  isCompleteStorySeed,
   isStorySeed,
   parseStorySeed,
   serializeStorySeed,
@@ -2968,11 +2969,25 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         ],
         {
           temperature: 0.85,
-          maxTokens: 1_500,
+          maxTokens: 3_000,
           retry: false,
         },
       );
       const storySeed = parseStorySeed(response.content);
+      if (!isCompleteStorySeed(storySeed)) {
+        const retrying = (options.attempt ?? 0) < 1;
+        if (retrying) {
+          console.warn("[craft] incomplete story seed detected; retrying once");
+          await generateCraftStorySeed(craftId, {
+            ...options,
+            attempt: (options.attempt ?? 0) + 1,
+            previousDirection: serializeStorySeed(storySeed, language),
+            generationId,
+          });
+          return;
+        }
+        throw new Error("Generated story seed is incomplete; missing required creation-contract sections.");
+      }
       const realityDrift = detectStorySeedRealityDrift(profile, storySeed);
       if (realityDrift.length > 0 && (options.attempt ?? 0) < 1) {
         console.warn(`[craft] story seed reality drift detected; retrying once: ${realityDrift.join(", ")}`);
@@ -6776,6 +6791,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         );
         await writeChain;
         const seed = parseStorySeed(response.content || generated);
+        if (!isCompleteStorySeed(seed)) {
+          throw new Error("Generated story seed is incomplete; please regenerate it.");
+        }
         await stream.writeSSE({ event: "complete", data: JSON.stringify({
           seed,
           content: response.content || generated,
