@@ -70,11 +70,26 @@ function parseDurationMs(value: string): number {
   return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : 0;
 }
 
-/** 在断句标点处拆行并删除标点，让旁白更便于朗读和阅读。 */
+/**
+ * 清理旁白文本：在断句标点处拆行，删除所有不需要的标点。
+ *
+ * 删除的标点类型：
+ * - 断句标点（逗号、句号、感叹号、问号、分号）→ 拆为换行
+ * - 引号（对话引号 ""''""）→ 直接删除，不保留角色对话标记
+ * - 冒号（：:）→ 直接删除
+ * - 破折号（———--）→ 直接删除
+ *
+ * 清理后空行被合并，首尾空白被去除。
+ */
 function splitNarrationByPunctuation(text: string): string {
   return text
+    // 先删除引号、冒号、破折号（不拆行）
+    .replace(/["""''「」『』：:———\-]{1,}/gu, "")
+    // 断句标点处拆为换行并删除标点
     .replace(/[，。！？；,!?;]\s*/gu, "\n")
+    // 合并连续空行，去掉首尾空白
     .replace(/\n{2,}/gu, "\n")
+    .replace(/^\n+|\n+$/gu, "")
     .trim();
 }
 
