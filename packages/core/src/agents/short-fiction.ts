@@ -217,6 +217,7 @@ export class ShortFictionWriterAgent extends BaseAgent {
           outlineMarkdown: input.outlineMarkdown,
           chapterCount: input.chapterCount,
           charsPerChapter: input.charsPerChapter,
+          craftGuide: input.craftGuide,
           existingDraftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
           missingChapters,
         }, input.language) },
