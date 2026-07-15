@@ -45,6 +45,23 @@ export interface CraftOption {
   readonly storySeedGenerationId?: string;
 }
 
+export function filterCraftOptionsForStoryKind(
+  kind: "long" | "short",
+  crafts: ReadonlyArray<CraftOption>,
+): ReadonlyArray<CraftOption> {
+  return kind === "short"
+    ? crafts.filter((craft) => craft.mode === "bilibili-short-story" && craft.sourceType === "bilibili")
+    : crafts;
+}
+
+export function resolveDefaultCreationCraftId(
+  crafts: ReadonlyArray<CraftOption>,
+  recentCraftId: string | null | undefined,
+): string {
+  if (recentCraftId && crafts.some((craft) => craft.id === recentCraftId)) return recentCraftId;
+  return crafts[0]?.id ?? "";
+}
+
 export function shouldAutoGenerateShortStorySeed(storySeed?: StorySeed): boolean {
   void storySeed;
   return false;
@@ -123,7 +140,7 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
   const direction = input.direction.trim();
   return {
     instruction: [
-      `创建长篇故事《${title}》`,
+      `创建长篇小说《${title}》`,
       `题材：${genre}`,
       `故事方向：${direction}`,
       input.craftId ? "使用所选写作模式生成基础设定，并将模式绑定到书籍。" : "不使用额外写作模式。",
@@ -150,6 +167,9 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
   readonly actionPayload: ActionPayload;
 } {
   const direction = input.direction.trim();
+  if (!input.craftId) {
+    throw new Error("短篇故事必须选择短篇故事写作模式。");
+  }
   return {
     instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式的原创化改编方案和节奏功能作为参考，重新设计故事空间、身份、关系、因果链、关键事件与结局，不复制原作。" : "。"}`,
     requestedIntent: "short_run",
@@ -160,7 +180,8 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
         charsPerChapter: input.chapterWordCount,
         cover: false,
         quick: input.quality === "quick",
-        ...(input.craftId ? { craftId: input.craftId } : {}),
+        craftId: input.craftId,
+        requiredCraftMode: "bilibili-short-story",
       },
     },
   };

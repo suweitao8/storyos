@@ -95,6 +95,7 @@ export function StoryCreationPanel({
   const selectedCraftRecommendedWordCount = selectedCraft?.recommendedWordCount
     ? resolveDefaultStoryWordCount(selectedCraft?.recommendedWordCount)
     : undefined;
+  const requiresCraftSelection = kind === "short";
 
   useEffect(() => {
     if (kind === "short") {
@@ -230,7 +231,8 @@ export function StoryCreationPanel({
         ? longTitle.trim() && longGenre.trim() && longDirection.trim()
         : shortSeed
           ? Boolean(shortSeed.title?.trim() && shortSeed.worldview?.trim() && shortSeed.outline?.trim())
-          : shortDirection.trim()),
+          : shortDirection.trim())
+      && (!requiresCraftSelection || hasCraftSelection),
   );
 
   const handleSubmit = () => {
@@ -273,7 +275,7 @@ export function StoryCreationPanel({
               disabled={busy || (craftsLoading && crafts.length === 0)}
               className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-50"
             >
-              <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option>
+              {!requiresCraftSelection ? <option value="">{isZh ? "不使用写作模式" : "No writing mode"}</option> : null}
               {crafts.map((craft) => (
                 <option key={craft.id} value={craft.id}>
                   {craft.sourceName}{craftModeLabel(craft.mode, craft.sourceType) ? ` · ${craftModeLabel(craft.mode, craft.sourceType)}` : ""}
@@ -290,7 +292,9 @@ export function StoryCreationPanel({
               </p>
             ) : (
               <div className="flex items-center justify-between gap-3 text-xs leading-5 text-muted-foreground">
-                <span>{isZh ? "未选择模式，将使用默认写作规则。" : "No mode selected; default writing rules will be used."}</span>
+                <span>{requiresCraftSelection
+                  ? (isZh ? "短篇故事必须选择短篇故事写作模式。" : "Short stories require a short-story writing mode.")
+                  : (isZh ? "未选择模式，将使用默认写作规则。" : "No mode selected; default writing rules will be used.")}</span>
                 {onOpenCraft ? (
                   <button type="button" onClick={onOpenCraft} className="shrink-0 text-primary hover:underline">
                     {isZh ? "去创建模式" : "Create a mode"}
@@ -338,7 +342,7 @@ export function StoryCreationPanel({
         </div>
         <div className="mt-5 grid gap-4 rounded-xl border border-border/50 bg-background/35 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <dl className="grid gap-2 text-sm sm:grid-cols-3">
-            <div><dt className="text-xs text-muted-foreground">{isZh ? "故事类型" : "Story type"}</dt><dd className="mt-1 font-medium">{kind === "long" ? (isZh ? "长篇故事" : "Long story") : (isZh ? "短篇故事" : "Short story")}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{isZh ? "故事类型" : "Story type"}</dt><dd className="mt-1 font-medium">{kind === "long" ? (isZh ? "长篇小说" : "Long novel") : (isZh ? "短篇故事" : "Short story")}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{isZh ? "写作模式" : "Writing mode"}</dt><dd className="mt-1 truncate font-medium">{selectedCraft ? selectedCraft.sourceName : (isZh ? "默认规则" : "Default rules")}</dd></div>
             <div><dt className="text-xs text-muted-foreground">{isZh ? "每章字数" : "Words / chapter"}</dt><dd className="mt-1 font-medium">{formatStoryWordCount(Number(chapterWordCount), isZh ? "zh" : "en")}</dd></div>
           </dl>

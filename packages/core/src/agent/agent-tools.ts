@@ -1281,6 +1281,9 @@ export function createShortFictionRunTool(
       const craftMeta = craftId
         ? (await pipeline.listCrafts()).find((craft) => craft.id === craftId)
         : undefined;
+      if (shortPayload?.requiredCraftMode && (craftMeta?.mode !== shortPayload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
+        throw new Error(`短篇故事只能使用${shortPayload.requiredCraftMode}写作模式。`);
+      }
       const result = await runShortFictionProduction({
         projectRoot,
         direction: shortPayload?.direction ?? params.direction,
@@ -1380,6 +1383,16 @@ const ScriptCreateParams = Type.Object({
   episodeDuration: Type.Optional(Type.String({
     description: "Optional per-episode/per-segment duration.",
   })),
+  craftId: Type.Optional(Type.String({
+    description: "Optional selected writing craft profile id.",
+  })),
+  requiredCraftMode: Type.Optional(Type.Union([
+    Type.Literal("general"),
+    Type.Literal("ghost-story"),
+    Type.Literal("bilibili-short-story"),
+    Type.Literal("bilibili-commentary"),
+    Type.Literal("bilibili-review"),
+  ], { description: "When set by a dedicated creation page, the selected craft must use this mode." })),
   projectId: Type.Optional(Type.String({
     description: "Optional output id under dramas/.",
   })),
@@ -1410,6 +1423,25 @@ export function createScriptCreationTool(
     ): Promise<AgentToolResult<unknown>> {
       const progress = (message: string) => onUpdate?.(textResult(message));
       const payload = options.actionPayload?.scriptCreate;
+      const craftId = payload?.craftId ?? params.craftId;
+      const craftProfile = craftId ? (await pipeline.loadCraft(craftId) ?? undefined) : undefined;
+      const craftMeta = craftId
+        ? (await pipeline.listCrafts()).find((craft) => craft.id === craftId)
+        : undefined;
+      if (payload?.requiredCraftMode && (craftMeta?.mode !== payload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
+        throw new Error(`该创建入口只能使用${payload.requiredCraftMode}写作模式。`);
+      }
+      const craftGuidance = craftProfile && craftMeta
+        ? [
+            `已选择写作模式：${craftMeta.sourceName}。只迁移它的叙事功能，不复制原素材。`,
+            craftProfile.videoStory?.outline ? `影视结构参考：${craftProfile.videoStory.outline}` : "",
+            craftProfile.videoStory?.hookStrategy ? `开场策略：${craftProfile.videoStory.hookStrategy}` : "",
+            craftProfile.videoStory?.pacingCurve ? `节奏曲线：${craftProfile.videoStory.pacingCurve}` : "",
+            craftProfile.videoStory?.originalizationRules?.length
+              ? `原创化边界：${craftProfile.videoStory.originalizationRules.join("；")}`
+              : "",
+          ].filter(Boolean).join("\n")
+        : "";
       const result = await runScriptCreation({
         projectRoot,
         runtime: pipeline.createAgentContext("script-creation"),
@@ -1419,7 +1451,7 @@ export function createScriptCreationTool(
         targetFormat: (payload?.targetFormat ?? params.targetFormat) as ScriptTargetFormat | undefined,
         sourceText: payload?.sourceText ?? params.sourceText,
         sourcePath: payload?.sourcePath ?? params.sourcePath,
-        requirements: payload?.requirements ?? params.requirements,
+        requirements: [payload?.requirements ?? params.requirements, craftGuidance].filter(Boolean).join("\n\n") || undefined,
         episodeCount: payload?.episodeCount ?? params.episodeCount,
         episodeDuration: payload?.episodeDuration ?? params.episodeDuration,
         language: options.language,

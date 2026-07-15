@@ -5,6 +5,8 @@ import {
   formatStoryWordCount,
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
+  filterCraftOptionsForStoryKind,
+  resolveDefaultCreationCraftId,
   LONG_STORY_CHAPTERS,
   SHORT_STORY_CHAPTERS,
   STORY_WORD_COUNT_OPTIONS,
@@ -19,6 +21,17 @@ import {
 } from "./story-seed-stream";
 
 describe("story creation actions", () => {
+  it("limits short-story creation to Bilibili short-story craft modes", () => {
+    const crafts = [
+      { id: "novel", sourceName: "小说模式", mode: "general" as const, sourceType: "novel" as const },
+      { id: "film", sourceName: "影视解说", mode: "bilibili-commentary" as const, sourceType: "bilibili" as const },
+      { id: "short", sourceName: "短篇参考", mode: "bilibili-short-story" as const, sourceType: "bilibili" as const },
+    ];
+
+    expect(filterCraftOptionsForStoryKind("short", crafts).map((craft) => craft.id)).toEqual(["short"]);
+    expect(resolveDefaultCreationCraftId(filterCraftOptionsForStoryKind("short", crafts), "novel")).toBe("short");
+  });
+
   it("never automatically generates a short-story seed", () => {
     expect(shouldAutoGenerateShortStorySeed({
       title: "缓存故事",
@@ -175,6 +188,7 @@ describe("story creation actions", () => {
     const action = buildShortStoryCreationAction({
       direction: "快速生成一个原创悬疑短篇",
       chapterWordCount: 5_000,
+      craftId: "craft-short-story",
       quality: "quick",
     });
 

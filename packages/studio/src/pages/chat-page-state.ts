@@ -23,6 +23,10 @@ export interface ChatPageSessionSummary {
 const BOOK_CREATE_SESSION_KEY = "storyos.book-create.session-id";
 const PROJECT_CHAT_SESSION_KEY = "storyos.project-chat.session-id";
 const LAST_SELECTED_SHORT_STORY_KEY = "storyos.short-story.last-selected-id";
+const SCRIPT_CREATE_SESSION_KEYS = {
+  "film-commentary": "storyos.film-commentary.session-id",
+  "review-commentary": "storyos.review-commentary.session-id",
+} as const;
 
 export function getBookCreateSessionId(): string | null {
   return globalThis.localStorage?.getItem(BOOK_CREATE_SESSION_KEY) ?? null;
@@ -42,6 +46,14 @@ export function getProjectChatSessionId(): string | null {
 
 export function setProjectChatSessionId(sessionId: string): void {
   globalThis.localStorage?.setItem(PROJECT_CHAT_SESSION_KEY, sessionId);
+}
+
+export function getScriptCreationSessionId(type: keyof typeof SCRIPT_CREATE_SESSION_KEYS): string | null {
+  return globalThis.localStorage?.getItem(SCRIPT_CREATE_SESSION_KEYS[type]) ?? null;
+}
+
+export function setScriptCreationSessionId(type: keyof typeof SCRIPT_CREATE_SESSION_KEYS, sessionId: string): void {
+  globalThis.localStorage?.setItem(SCRIPT_CREATE_SESSION_KEYS[type], sessionId);
 }
 
 export function getLastSelectedShortStoryId(): string | null {

@@ -33,16 +33,20 @@ import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
 import { StoryScriptPanel } from "./StoryScriptPanel";
 import { StoryVideoPanel } from "./StoryVideoPanel";
+import { VideoCreationPanel } from "./VideoCreationPanel";
 import { registerPendingCreation } from "../store/story-creation/registry";
 import { toast } from "../store/toast/store";
 import {
   buildLongStoryCreationAction,
   buildShortStoryCreationAction,
+  filterCraftOptionsForStoryKind,
+  resolveDefaultCreationCraftId,
   type CraftOption,
   type LongStoryCreationInput,
   type ShortStoryCreationInput,
   type StoryDirectionGenerationInput,
 } from "./story-creation-state";
+import { buildVideoCreationAction, requiredCraftModeForVideoCreation, type VideoCreationInput, type VideoCreationType } from "./video-creation-state";
 import {
   streamStorySeed,
   type StorySeedGenerationInput,
@@ -70,10 +74,12 @@ import {
   filterModelGroups,
   getChatScrollBehavior,
   getBookCreateSessionId,
+  getScriptCreationSessionId,
   getProjectChatSessionId,
   pickProjectChatSessionId,
   pickModelSelection,
   setBookCreateSessionId,
+  setScriptCreationSessionId,
   setProjectChatSessionId,
   isChatScrollNearBottom,
   shouldShowPlayChoicePanel,
@@ -111,7 +117,8 @@ interface Nav {
 export interface ChatPageProps {
   readonly activeBookId?: string;
   readonly activeShortId?: string;
-  readonly mode?: "book" | "short" | "book-create" | "project-chat" | "interactive-film-authoring";
+  readonly mode?: "book" | "short" | "book-create" | "project-chat" | "interactive-film-authoring" | "script-create";
+  readonly scriptCraftMode?: VideoCreationType;
   readonly nav: Nav;
   readonly theme: Theme;
   readonly t: TFunction;
@@ -279,6 +286,7 @@ export function resolveChatPageSessionKind(input: {
   if (input.mode === "book-create") return "book-create";
   if (input.mode === "project-chat") return "chat";
   if (input.mode === "interactive-film-authoring") return "interactive-film-authoring";
+  if (input.mode === "script-create") return "script";
   return input.activeSessionKind ?? (input.activeBookId ? "book" : "chat");
 }
 
@@ -434,7 +442,7 @@ function SkillPickerPanel({
 
 // -- Component --
 
-export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "book" : "book-create", nav, theme, t, sse: _sse }: ChatPageProps) {
+export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "book" : "book-create", scriptCraftMode, nav, theme, t, sse: _sse }: ChatPageProps) {
   // -- Store selectors --
   const messages = useChatStore(chatSelectors.activeMessages);
   const activeSession = useChatStore(chatSelectors.activeSession);
@@ -486,6 +494,12 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
   const { data: booksData, loading: booksLoading, error: booksError, refetch: refetchBooks } = useApi<{ books: ReadonlyArray<StoryListRecord> }>("/books");
   const { data: shortsData, loading: shortsLoading, error: shortsError, refetch: refetchShorts } = useApi<{ shorts: ReadonlyArray<StoryListRecord> }>("/shorts");
   const crafts = craftsData?.crafts ?? [];
+  const creationCrafts = useMemo(() => {
+    if (mode === "script-create" && scriptCraftMode) {
+      return crafts.filter((craft) => craft.mode === requiredCraftModeForVideoCreation(scriptCraftMode) && craft.sourceType === "bilibili");
+    }
+    return filterCraftOptionsForStoryKind(storyCreationKind ?? "long", crafts);
+  }, [crafts, mode, scriptCraftMode, storyCreationKind]);
   const playMode = activeSession?.playMode;
   // A play session must pick its playstyle (点着玩 / 自由玩) before chatting.
   const needsPlayModeChoice = currentSessionKind === "play" && !playMode;
@@ -537,10 +551,10 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
   useEffect(() => {
     if (!craftsData) return;
     setSelectedCraftId((current) => {
-      if (current && craftsData.crafts.some((craft) => craft.id === current)) return current;
-      return craftsData.recentCraftId ?? craftsData.crafts[0]?.id ?? "";
+      if (current && creationCrafts.some((craft) => craft.id === current)) return current;
+      return resolveDefaultCreationCraftId(creationCrafts, craftsData.recentCraftId);
     });
-  }, [craftsData]);
+  }, [craftsData, creationCrafts]);
 
   usePageToolbar("story-workspace", {
     tabs: isStorySession ? buildStoryWorkspaceTabs(isZh) : [],
@@ -763,7 +777,9 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
 
       const existingId = mode === "project-chat"
         ? getProjectChatSessionId()
-        : getBookCreateSessionId();
+        : mode === "script-create" && scriptCraftMode
+          ? getScriptCreationSessionId(scriptCraftMode)
+          : getBookCreateSessionId();
       if (existingId) {
         await loadSessionDetail(existingId);
         if (cancelled) return;
@@ -789,10 +805,14 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
         }
       }
 
-      const newSessionId = await createSession(null, mode === "book-create" ? "book-create" : "chat");
+      const newSessionId = await createSession(null,
+        mode === "book-create" ? "book-create" : mode === "script-create" ? "script" : "chat",
+      );
       if (!cancelled) {
         if (mode === "project-chat") {
           setProjectChatSessionId(newSessionId);
+        } else if (mode === "script-create" && scriptCraftMode) {
+          setScriptCreationSessionId(scriptCraftMode, newSessionId);
         } else {
           setBookCreateSessionId(newSessionId);
         }
@@ -802,7 +822,7 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     return () => {
       cancelled = true;
     };
-  }, [activeBookId, activeShortId, activateSession, createSession, loadSessionDetail, loadSessionList, mode]);
+  }, [activeBookId, activeShortId, activateSession, createSession, loadSessionDetail, loadSessionList, mode, scriptCraftMode]);
 
   const addAttachedFiles = (files: FileList | File[]) => {
     const incoming = Array.from(files);
@@ -1078,6 +1098,24 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     );
   };
 
+  const handleCreateVideo = async (input: VideoCreationInput) => {
+    if (!activeSessionId) return;
+    const action = buildVideoCreationAction(input);
+    void sendMessage(activeSessionId, action.instruction, {
+      sessionKind: "script",
+      actionSource: "button",
+      requestedIntent: action.requestedIntent,
+      actionPayload: action.actionPayload,
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(isZh ? "创建失败" : "Creation failed", message);
+    });
+    toast.info(
+      isZh ? "正在创建视频脚本…" : "Creating video script…",
+      isZh ? "脚本会写入 dramas/，完成后可继续制作" : "The script will be written under dramas/ for further production",
+    );
+  };
+
   const emptyGuidance = (() => {
     if (currentSessionKind === "short") {
       return isZh
@@ -1112,14 +1150,29 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           </button>
         </div>
       ) : null}
-      {storyWorkspace.view === "creation" ? (
+      {mode === "script-create" && scriptCraftMode && messages.length === 0 && !loading ? (
+        <VideoCreationPanel
+          type={scriptCraftMode}
+          theme={theme}
+          isZh={isZh}
+          activeSessionId={activeSessionId}
+          busy={loading}
+          crafts={creationCrafts}
+          craftsLoading={craftsLoading}
+          craftsError={craftsError}
+          selectedCraftId={selectedCraftId}
+          onCraftChange={handleCraftChange}
+          onCreate={handleCreateVideo}
+          onOpenCraft={nav.toCraft}
+        />
+      ) : storyWorkspace.view === "creation" ? (
         <StoryCreationPanel
           kind={storyCreationKind ?? "long"}
           theme={theme}
           isZh={isZh}
           activeSessionId={activeSessionId}
           busy={loading}
-          crafts={crafts}
+          crafts={creationCrafts}
           craftsLoading={craftsLoading}
           craftsError={craftsError}
           selectedCraftId={selectedCraftId}

@@ -50,7 +50,9 @@ describe("getRouteToolbarTitle", () => {
     expect(getRouteToolbarTitle({ page: "craft" }, "zh")).toBe("写作模式");
     expect(getRouteToolbarTitle({ page: "import" }, "zh")).toBe("导入");
     expect(getRouteToolbarTitle({ page: "book", bookId: "book-1" }, "zh")).toBe("写作");
-    expect(getRouteToolbarTitle({ page: "book-create" }, "zh")).toBe("长篇故事");
+    expect(getRouteToolbarTitle({ page: "book-create" }, "zh")).toBe("长篇小说");
+    expect(getRouteToolbarTitle({ page: "film-commentary" }, "zh")).toBe("影视解说");
+    expect(getRouteToolbarTitle({ page: "commentary-review" }, "zh")).toBe("评论调侃");
     expect(getRouteToolbarTitle({ page: "chat" }, "zh", "short")).toBe("聊天");
     expect(getRouteToolbarTitle({ page: "chat" }, "zh", "chat")).toBe("聊天");
   });
