@@ -100,7 +100,7 @@ export const CHAT_LAYOUT_CLASSES = {
 interface Nav {
   toDashboard: () => void;
   toBook: (id: string) => void;
-  toShort?: (id: string) => void;
+  toShort?: (id?: string) => void;
   toServices: () => void;
   toImport: (tab?: "chapters" | "canon" | "fanfic" | "spinoff") => void;
   toFilm: (projectId: string) => void;
@@ -267,6 +267,19 @@ export function latestShortStoryId(messages: ReadonlyArray<{ readonly toolExecut
     }
   }
   return null;
+}
+
+export function resolveChatPageSessionKind(input: {
+  readonly mode?: ChatPageProps["mode"];
+  readonly activeSessionKind?: ChatSessionKind;
+  readonly activeBookId?: string;
+}): ChatSessionKind {
+  if (input.mode === "short") return "short";
+  if (input.mode === "book") return "book";
+  if (input.mode === "book-create") return "book-create";
+  if (input.mode === "project-chat") return "chat";
+  if (input.mode === "interactive-film-authoring") return "interactive-film-authoring";
+  return input.activeSessionKind ?? (input.activeBookId ? "book" : "chat");
 }
 
 type AssistantRenderItem =
@@ -450,10 +463,11 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
 
   const isZh = t("nav.connected") === "\u5DF2\u8FDE\u63A5";
   const hasBook = Boolean(activeBookId ?? activeSession?.bookId);
-  const currentSessionKind: ChatSessionKind = mode === "short" ? "short" : activeSession?.sessionKind
-    ?? (mode === "interactive-film-authoring" ? "interactive-film-authoring"
-      : mode === "book-create" ? "book-create"
-      : activeBookId ? "book" : "chat");
+  const currentSessionKind = resolveChatPageSessionKind({
+    mode,
+    activeSessionKind: activeSession?.sessionKind,
+    activeBookId,
+  });
   const storyCreationKind: "long" | "short" | null = currentSessionKind === "short"
     ? "short"
     : currentSessionKind === "book-create" || currentSessionKind === "book"

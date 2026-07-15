@@ -4,7 +4,7 @@ export type HashRoute =
   | { page: "dashboard" }
   | { page: "chat" }
   | { page: "book"; bookId: string }
-  | { page: "short"; shortId: string }
+  | { page: "short"; shortId?: string }
   | { page: "book-settings"; bookId: string }
   | { page: "book-create" }
   | { page: "services" }
@@ -33,6 +33,7 @@ function parseHash(hash: string): HashRoute {
 
   if (!path || path === "/") return { page: "dashboard" };
   if (path === "chat") return { page: "chat" };
+  if (path === "short") return { page: "short" };
   if (path === "config" || path === "services" || path === "settings") return { page: "project-settings" };
   if (path === "doctor") return { page: "project-settings" };
   if (path === "import") return { page: "import" };
@@ -80,7 +81,9 @@ function routeToHash(route: HashRoute): string {
     case "dashboard": return "#/";
     case "chat": return "#/chat";
     case "book": return `#/book/${encodeURIComponent(route.bookId)}`;
-    case "short": return `#/short/${encodeURIComponent(route.shortId)}`;
+    case "short": return route.shortId
+      ? `#/short/${encodeURIComponent(route.shortId)}`
+      : "#/short";
     case "book-settings": return `#/book/${encodeURIComponent(route.bookId)}/settings`;
     case "book-create": return "#/book/new";
     case "services": return "#/settings";

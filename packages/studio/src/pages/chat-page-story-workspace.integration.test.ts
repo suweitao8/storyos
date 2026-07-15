@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStoryAssetExtractionPath, latestShortStoryId, resolveChatPageStoryWorkspace } from "./ChatPage";
+import {
+  buildStoryAssetExtractionPath,
+  latestShortStoryId,
+  resolveChatPageSessionKind,
+  resolveChatPageStoryWorkspace,
+} from "./ChatPage";
 
 describe("ChatPage story workspace integration", () => {
+  it("keeps project chat as chat even if an old active session is short", () => {
+    expect(resolveChatPageSessionKind({
+      mode: "project-chat",
+      activeSessionKind: "short",
+      activeBookId: undefined,
+    })).toBe("chat");
+  });
+
   it("finds the latest created short story id from tool execution details", () => {
     expect(latestShortStoryId([
       { toolExecutions: [{ details: { kind: "short_fiction_created", storyId: "old" } }] },

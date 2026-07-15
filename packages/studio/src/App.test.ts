@@ -51,7 +51,7 @@ describe("getRouteToolbarTitle", () => {
     expect(getRouteToolbarTitle({ page: "import" }, "zh")).toBe("导入");
     expect(getRouteToolbarTitle({ page: "book", bookId: "book-1" }, "zh")).toBe("写作");
     expect(getRouteToolbarTitle({ page: "book-create" }, "zh")).toBe("长篇故事");
-    expect(getRouteToolbarTitle({ page: "chat" }, "zh", "short")).toBe("短篇故事");
+    expect(getRouteToolbarTitle({ page: "chat" }, "zh", "short")).toBe("聊天");
     expect(getRouteToolbarTitle({ page: "chat" }, "zh", "chat")).toBe("聊天");
   });
 
@@ -65,7 +65,7 @@ describe("getRouteToolbarTitle", () => {
     expect(getRouteToolbarTitle({ page: "service-detail", serviceId: "xfyun" }, "en")).toBe("Service Configuration");
     expect(getRouteToolbarTitle({ page: "chapter", bookId: "book-1", chapterNumber: 4 }, "en")).toBe("Chapter Reader");
     expect(getRouteToolbarTitle({ page: "book-create" }, "en")).toBe("Long Novel");
-    expect(getRouteToolbarTitle({ page: "chat" }, "en", "short")).toBe("Short Story");
+    expect(getRouteToolbarTitle({ page: "chat" }, "en", "short")).toBe("Chat");
   });
 
   it("keeps a title for every supported page route", () => {
@@ -102,14 +102,14 @@ describe("getRouteToolbarTitle", () => {
 });
 
 describe("resolveActiveStoryTitle", () => {
-  it("resolves the active short story title on the shared chat route", () => {
+  it("does not resolve a short-story title on the chat route", () => {
     expect(resolveActiveStoryTitle({
       route: { page: "chat" },
       sessionKind: "short",
       activeShortStoryId: "short-1",
       books: [],
       shorts: [{ id: "short-1", title: "鬼吹灯" }],
-    })).toBe("鬼吹灯");
+    })).toBeUndefined();
   });
 
   it("does not show a short story title for a normal chat session", () => {
@@ -131,13 +131,11 @@ describe("resolveActiveStoryTitle", () => {
     })).toBe("无内容");
 
     expect(resolveActiveStoryTitle({
-      route: { page: "chat" },
-      sessionKind: "short",
-      activeShortStoryId: null,
+      route: { page: "short" },
       lang: "zh",
       books: [],
       shorts: [],
-    })).toBe("无内容");
+    })).toBeUndefined();
   });
 
   it("uses the active or first book for long-story pages only", () => {
@@ -210,7 +208,7 @@ describe("resolveActiveShortStoryId", () => {
     { id: "short-2", title: "第二个故事" },
   ];
 
-  it("prefers the route selection, then the recent selection, then the active session", () => {
+  it("uses the route selection only on a short-story route", () => {
     expect(resolveActiveShortStoryId({
       route: { page: "short", shortId: "short-2" },
       activeShortStoryId: "short-1",
@@ -219,33 +217,22 @@ describe("resolveActiveShortStoryId", () => {
     })).toBe("short-2");
 
     expect(resolveActiveShortStoryId({
-      route: { page: "chat" },
-      sessionKind: "short",
+      route: { page: "short" },
       activeShortStoryId: "short-2",
       recentShortStoryId: "short-1",
       shorts,
     })).toBe("short-1");
-
-    expect(resolveActiveShortStoryId({
-      route: { page: "chat" },
-      sessionKind: "short",
-      activeShortStoryId: "short-2",
-      recentShortStoryId: null,
-      shorts,
-    })).toBe("short-2");
   });
 
   it("falls back to the recent available story, then the first story", () => {
     expect(resolveActiveShortStoryId({
-      route: { page: "chat" },
-      sessionKind: "short",
+      route: { page: "short" },
       recentShortStoryId: "short-2",
       shorts,
     })).toBe("short-2");
 
     expect(resolveActiveShortStoryId({
-      route: { page: "chat" },
-      sessionKind: "short",
+      route: { page: "short" },
       recentShortStoryId: "deleted-short",
       shorts,
     })).toBe("short-1");
@@ -254,7 +241,7 @@ describe("resolveActiveShortStoryId", () => {
   it("does not select a short story outside a short-story surface", () => {
     expect(resolveActiveShortStoryId({
       route: { page: "chat" },
-      sessionKind: "chat",
+      sessionKind: "short",
       recentShortStoryId: "short-1",
       shorts,
     })).toBeNull();
