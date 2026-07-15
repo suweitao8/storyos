@@ -347,6 +347,25 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
   }
   if (craftProfile.videoStory) {
     const v = craftProfile.videoStory;
+    if (hasApprovedStorySeed) {
+      lines.push(
+        "",
+        "## 视频节奏迁移指南",
+        "原创故事设定已经确认。仅迁移参考视频的节拍功能、相对位置、升级间距和收束时机；不得引入参考视频的具体人物、事件、地点、反转真相、线索或因果链。",
+        `- 观众承诺：${v.audiencePromise}`,
+        `- 节奏曲线：${v.pacingCurve}`,
+        `- 钩子策略：${v.hookStrategy}`,
+        `- 高潮策略：${v.climaxStrategy}`,
+        `- 结尾余味：${v.endingAftertaste}`,
+        "### 节拍功能（只迁移位置与功能）",
+        ...v.beats.map((beat) => `- ${Math.round(beat.position * 100)}% [${beat.kind}] 功能：${beat.function}；情绪：${beat.emotionalEffect}`),
+        "### 反转与收束节奏（不迁移具体真相或线索）",
+        ...v.reversals.map((reversal) => `- ${Math.round(reversal.position * 100)}%：前置节拍 ${reversal.setupBeatOrders.join(", ")}；情绪：${reversal.emotionalEffect}`),
+        ...v.payoffs.map((payoff) => `- ${Math.round(payoff.position * 100)}%：情绪释放：${payoff.emotionalEffect}`),
+        "### 原创化规则",
+        ...v.originalizationRules.map((rule) => `- ${rule}`),
+      );
+    } else {
     lines.push(
       "",
       "## 视频节奏迁移指南",
@@ -368,6 +387,7 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
       ...v.originalizationRules.map((rule) => `- ${rule}`),
       "起草前，创造新的角色、设定、因果链、超自然机制、场景细节和结局。仅保留节奏图谱和叙事功能。",
     );
+    }
   }
   if (craftProfile.storySeed) {
     lines.push(
