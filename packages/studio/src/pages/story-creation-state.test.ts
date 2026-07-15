@@ -13,6 +13,7 @@ import {
   normalizeStoryWordCount,
   resolveDefaultStoryWordCount,
   resolveStorySeedGenerationStatus,
+  isStorySeedReadyForCreation,
   shouldAutoGenerateShortStorySeed,
 } from "./story-creation-state";
 import {
@@ -71,6 +72,26 @@ describe("story creation actions", () => {
     } })).toBe("generating");
     expect(resolveStorySeedGenerationStatus({ id: "error", sourceName: "error", storySeedStatus: "error" })).toBe("error");
     expect(resolveStorySeedGenerationStatus({ id: "idle", sourceName: "idle" })).toBe("idle");
+  });
+
+  it("does not allow a story seed that failed its quality gate to create a story", () => {
+    const failedSeed = {
+      id: "failed",
+      sourceName: "failed",
+      storySeedStatus: "error" as const,
+      storySeed: {
+        title: "旧设定", genreTone: "现实悬疑", hook: "钩子", worldview: "现实场景", characters: "角色",
+        conflict: "冲突", outline: "大纲", reversals: "反转", ending: "结局", visualAudioMotifs: "氛围",
+      },
+    };
+
+    expect(isStorySeedReadyForCreation(failedSeed)).toBe(false);
+    expect(isStorySeedReadyForCreation({ ...failedSeed, storySeedStatus: "ready" })).toBe(true);
+    expect(isStorySeedReadyForCreation({
+      ...failedSeed,
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "pending",
+    })).toBe(false);
   });
 
   it("uses the cached story seed as the default direction", () => {

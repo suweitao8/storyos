@@ -851,6 +851,43 @@ describe("agent deterministic writing tools", () => {
     expect(toolText).not.toContain("deconstruction");
   });
 
+  it("rejects a short-fiction run when its writing mode story seed failed quality review", async () => {
+    const pipeline = {
+      loadCraft: vi.fn(async () => ({ id: "craft-rejected" })),
+      listCrafts: vi.fn(async () => ([{
+        id: "craft-rejected",
+        storySeedStatus: "error",
+      }])),
+      createAgentContext: vi.fn(),
+    };
+    const tool = createShortFictionRunTool(pipeline as never, root, { language: "zh" });
+
+    await expect(tool.execute("short-rejected", {
+      craftId: "craft-rejected",
+      direction: "现实悬疑短篇",
+    })).rejects.toThrow("质量检查");
+    expect(pipeline.createAgentContext).not.toHaveBeenCalled();
+  });
+
+  it("waits for a writing mode story seed quality review before starting short-fiction production", async () => {
+    const pipeline = {
+      loadCraft: vi.fn(async () => ({ id: "craft-scoring" })),
+      listCrafts: vi.fn(async () => ([{
+        id: "craft-scoring",
+        storySeedStatus: "ready",
+        storySeedScoreStatus: "pending",
+      }])),
+      createAgentContext: vi.fn(),
+    };
+    const tool = createShortFictionRunTool(pipeline as never, root, { language: "zh" });
+
+    await expect(tool.execute("short-scoring", {
+      craftId: "craft-scoring",
+      direction: "现实悬疑短篇",
+    })).rejects.toThrow("评分尚未完成");
+    expect(pipeline.createAgentContext).not.toHaveBeenCalled();
+  });
+
   it("exposes standalone cover generation as its own tool", () => {
     const tool = createGenerateCoverTool(root);
     const schemaText = JSON.stringify(tool.parameters);

@@ -15,6 +15,7 @@ import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
   formatStoryWordCount,
+  isStorySeedReadyForCreation,
   resolveDefaultStoryWordCount,
   resolveStorySeedGenerationStatus,
   type LongStoryCreationInput,
@@ -107,6 +108,7 @@ export function StoryCreationPanel({
       else setShortDirection("");
       const persistedStatus = resolveStorySeedGenerationStatus(selectedCraft);
       if (persistedStatus !== "ready") {
+        setShortDirection("");
         setShortSeed(null);
         setShortSeedStreamedContent("");
         setShortSeedError(selectedCraft?.storySeedError ?? null);
@@ -197,7 +199,7 @@ export function StoryCreationPanel({
     activeSessionId
       && (kind === "long"
         ? longTitle.trim() && longGenre.trim() && longDirection.trim()
-        : shortSeedStatus !== "generating" && (
+        : isStorySeedReadyForCreation(selectedCraft) && shortSeedStatus !== "generating" && (
           shortSeed
             ? Boolean(shortSeed.title?.trim() && shortSeed.worldview?.trim() && shortSeed.outline?.trim())
             : shortDirection.trim()

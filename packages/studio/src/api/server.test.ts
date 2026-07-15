@@ -986,6 +986,42 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
   });
 
+  it("marks a repeatedly low-scoring story seed unusable after its background retry", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" })
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(currentMeta.storySeedStatus).toBe("error"));
+    expect(currentMeta.storySeedScoreStatus).toBe("error");
+    expect(currentMeta.storySeedScore).toBe(55);
+    expect(currentMeta.storySeedError).toContain("55");
+  });
+
   it("auto-starts story foundation generation when a saved craft has no foundation state", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
