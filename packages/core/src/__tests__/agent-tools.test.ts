@@ -869,7 +869,7 @@ describe("agent deterministic writing tools", () => {
     expect(pipeline.createAgentContext).not.toHaveBeenCalled();
   });
 
-  it("waits for a writing mode story seed quality review before starting short-fiction production", async () => {
+  it("starts short-fiction production while writing mode story seed scoring continues in the background", async () => {
     const pipeline = {
       loadCraft: vi.fn(async () => ({ id: "craft-scoring" })),
       listCrafts: vi.fn(async () => ([{
@@ -884,8 +884,8 @@ describe("agent deterministic writing tools", () => {
     await expect(tool.execute("short-scoring", {
       craftId: "craft-scoring",
       direction: "现实悬疑短篇",
-    })).rejects.toThrow("评分尚未完成");
-    expect(pipeline.createAgentContext).not.toHaveBeenCalled();
+    })).rejects.toThrow();
+    expect(pipeline.createAgentContext).toHaveBeenCalledWith("short-outline");
   });
 
   it("exposes standalone cover generation as its own tool", () => {
