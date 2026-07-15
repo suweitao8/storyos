@@ -97,6 +97,18 @@ describe("story creation actions", () => {
       storySeedStatus: "ready",
       storySeedScoreStatus: "error",
     })).toBe(true);
+    expect(isStorySeedReadyForCreation({
+      ...failedSeed,
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "ready",
+      storySeedScore: 55,
+    })).toBe(false);
+    expect(isStorySeedReadyForCreation({
+      ...failedSeed,
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "ready",
+      storySeedScore: 70,
+    })).toBe(true);
   });
 
   it("uses the cached story seed as the default direction", () => {

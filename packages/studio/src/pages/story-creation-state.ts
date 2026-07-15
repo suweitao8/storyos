@@ -1,5 +1,4 @@
-import type { ActionPayload } from "@actalk/inkos-core";
-import type { StorySeed } from "@actalk/inkos-core";
+import { STORY_SEED_MIN_CREATION_SCORE, type ActionPayload, type StorySeed } from "@actalk/inkos-core";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 import {
   serializeStorySeed,
@@ -87,9 +86,12 @@ export function resolveStorySeedGenerationStatus(craft?: CraftOption): StorySeed
 }
 
 export function isStorySeedReadyForCreation(craft?: CraftOption): boolean {
-  // Story-seed scoring is advisory work that continues in the background.
-  // Only the actual story-seed generation state should block creation.
-  return resolveStorySeedGenerationStatus(craft) === "ready";
+  if (resolveStorySeedGenerationStatus(craft) !== "ready") return false;
+  // Scoring remains non-blocking while pending, but a completed score below
+  // the creation threshold must not send a known-bad contract downstream.
+  return !(craft?.storySeedScoreStatus === "ready"
+    && typeof craft.storySeedScore === "number"
+    && craft.storySeedScore < STORY_SEED_MIN_CREATION_SCORE);
 }
 
 export function buildDefaultStoryDirection(
