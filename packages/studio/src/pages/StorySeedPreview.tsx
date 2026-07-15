@@ -12,6 +12,30 @@ interface StorySeedPreviewProps {
 
 export type { StorySeedPreviewProps };
 
+/** Parse the streamed Markdown into titled sections for readable display. */
+function parseSections(markdown: string): { title: string; body: string }[] {
+  const sections: { title: string; body: string }[] = [];
+  let currentTitle = "";
+  let currentBody: string[] = [];
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const heading = line.match(/^##\s+(.+?)\s*$/u);
+    if (heading) {
+      if (currentTitle || currentBody.length > 0) {
+        sections.push({ title: currentTitle, body: currentBody.join("\n").trim() });
+      }
+      currentTitle = heading[1].trim();
+      currentBody = [];
+    } else {
+      currentBody.push(line);
+    }
+  }
+  if (currentTitle || currentBody.length > 0) {
+    sections.push({ title: currentTitle, body: currentBody.join("\n").trim() });
+  }
+  return sections;
+}
+
 export function StorySeedPreview({
   streamedContent,
   status,
@@ -21,7 +45,7 @@ export function StorySeedPreview({
   scoreNote,
 }: StorySeedPreviewProps) {
   const statusLabel = status === "generating"
-    ? (isZh ? "正在生成完整故事设定" : "Generating the full story foundation")
+    ? (isZh ? "正在生成故事设定" : "Generating the story foundation")
     : status === "ready"
       ? (isZh ? "已生成，确认后创建" : "Generated — review before creating")
       : status === "error"
@@ -31,6 +55,9 @@ export function StorySeedPreview({
   const hasScore = typeof score === "number" && score > 0;
   const scoreColor = !hasScore ? "" : score >= 75 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-destructive";
   const lowScore = hasScore && score < 60;
+
+  const sections = streamedContent ? parseSections(streamedContent) : [];
+  const hasSections = sections.length > 0;
 
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/70">
@@ -77,19 +104,26 @@ export function StorySeedPreview({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        <div className="flex min-h-[260px] flex-col gap-3">
-          <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/70">
-            {isZh ? "模型原始输出" : "Raw model output"}
+        {hasSections ? (
+          <div data-testid="story-seed-stream-output" className="flex flex-col gap-5">
+            {sections.map((section, index) => (
+              <div key={index} className="flex flex-col gap-1.5">
+                {section.title && (
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-primary/80">{section.title}</h4>
+                )}
+                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/90">{section.body}</p>
+              </div>
+            ))}
           </div>
-          <pre data-testid="story-seed-stream-output" className="min-h-[220px] whitespace-pre-wrap rounded-xl bg-secondary/20 p-4 font-mono text-xs leading-6 text-foreground/80">
-            {streamedContent
-              || (status === "generating"
-                ? (isZh ? "模型正在后台生成故事设定。你可以离开此页面，完成后回来查看结果。" : "The model is generating this foundation in the background. You can leave this page and return when it is ready.")
-                : status === "idle"
-                  ? (isZh ? "还没有默认故事设定。你可以点击'重新随机生成'，也可以直接使用默认规则创作。" : "No default story foundation exists yet. Regenerate one, or create directly with the default rules.")
-                  : "")}
-          </pre>
-        </div>
+        ) : (
+          <div data-testid="story-seed-stream-output" className="flex min-h-[260px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+            {status === "generating"
+              ? (isZh ? "模型正在后台生成故事设定。你可以离开此页面，完成后回来查看结果。" : "The model is generating this foundation in the background. You can leave this page and return when it is ready.")
+              : status === "idle"
+                ? (isZh ? "还没有故事设定。点击「重新随机生成」，或直接使用默认规则创作。" : "No story foundation yet. Regenerate one, or create directly with the default rules.")
+                : ""}
+          </div>
+        )}
       </div>
     </section>
   );

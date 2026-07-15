@@ -44,7 +44,6 @@ import {
   buildStorySeedPrompt,
   STORY_SEED_SECTION_DEFINITIONS,
   isStorySeed,
-  isStorySeedWithOriginalizationPlan,
   parseStorySeed,
   serializeStorySeed,
   type StorySeed,
@@ -2741,9 +2740,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         },
       );
       const storySeed = parseStorySeed(response.content);
-      if (!isStorySeedWithOriginalizationPlan(storySeed)) {
-        throw new Error("Generated story seed is missing the originality transformation plan.");
-      }
       if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
         // Score the generated seed in the background (non-blocking).
         void scoreStorySeed(craftId, generationId, storySeed, pipeline, language);
@@ -6311,9 +6307,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         );
         await writeChain;
         const seed = parseStorySeed(response.content || generated);
-        if (!isStorySeedWithOriginalizationPlan(seed)) {
-          throw new Error("Generated story seed is missing the originality transformation plan.");
-        }
         await stream.writeSSE({ event: "complete", data: JSON.stringify({
           seed,
           content: response.content || generated,

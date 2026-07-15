@@ -478,22 +478,24 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
   if (language === "zh") {
     return {
       system: [
-        "你是在给朋友讲一个故事点子，用最短的话把剧情说清楚就行。",
+        "你在给朋友讲一个故事点子。像聊天一样自然，让人一听就想知道接下来怎样。",
       ],
       user: [
-        "极简。全部板块加起来控制在 500 字左右。每个板块一两句话就够了，不要展开。",
-        "说人话，不写术语。大纲只写'发生了什么→主角怎么应对→结果怎样'。",
+        "说人话，像讲故事一样写，不要写分析报告。大纲按时间顺序讲清楚：开头怎样→中间发生了什么→结局如何。",
+        "故事名称要吸引人但不要标题党。世界观两三句话就够了，让人一看就懂这个世界是什么规则。",
+        "大纲是重点——用大白话把整个故事从头到尾讲一遍，像跟朋友复述一部电影。不要写术语，不要分析手法。",
       ],
     };
   }
 
   return {
     system: [
-      "You are pitching a story idea to a friend in the shortest way possible.",
+      "You are telling a friend a story idea. Sound natural, like a conversation — make them want to know what happens next.",
     ],
     user: [
-      "Keep it minimal. All sections combined should be around 500 words. One or two sentences per section.",
-      "Plain language, no jargon. The outline only tells what happens.",
+      "Plain language, like telling a story. The outline goes chronologically: how it starts → what happens → how it ends.",
+      "The title should be catchy but not clickbait. The worldview is 2-3 sentences that make the world's rules instantly clear.",
+      "The outline is the core — retell the whole story in plain words, like describing a movie to a friend. No jargon, no craft analysis.",
     ],
   };
 }
@@ -505,61 +507,16 @@ export function buildStoryDirectionPrompt(
   language: "zh" | "en",
   previousDirection?: string,
 ): StoryDirectionPrompt {
-  const structure = craftProfile.structure;
-  const rhythm = craftProfile.sceneRhythm;
-  const disclosure = craftProfile.informationDisclosure;
-  const perspective = craftProfile.narrativePerspective;
-  const referenceSections = [
-    ["原世界观与规则", craftProfile.worldview],
-    ["原故事大纲", craftProfile.storyOutline],
-    ["开篇与章节弧线", `${structure.openingPattern}; ${structure.chapterArc}; 结尾钩子: ${structure.endingHookType}`],
-    ["场景节奏", `${rhythm.sceneTransitionTechnique}; 节奏: ${rhythm.pacingCurve}; 升级: ${rhythm.conflictEscalation}`],
-    ["信息揭露", `${disclosure.foreshadowingDensity}; ${disclosure.informationReleaseRhythm}; ${disclosure.suspenseManagement}`],
-    ["叙事视角", `${perspective.povStrategy}; ${perspective.narrationDialogueRatio}; ${perspective.narrativeDistance}`],
-  ]
-    .filter(([, value]) => Boolean(value?.trim()))
-    .map(([label, value]) => `${label}:\n${compactStoryDirectionSource(value)}`);
-
-  if (craftProfile.ghostStory) {
-    const ghost = craftProfile.ghostStory;
-    referenceSections.push(
-      [
-        "鬼故事机制",
-        [
-          `恐惧核心: ${ghost.fearCore}`,
-          `超自然规则: ${ghost.supernaturalRules}`,
-          `禁忌: ${ghost.taboos}`,
-          `主角弱点: ${ghost.protagonistVulnerability}`,
-          `线索体系: ${ghost.clueSystem}`,
-          `揭示节奏: ${ghost.revealCadence}`,
-          `惊吓节奏: ${ghost.scareCadence}`,
-          `升级阶梯: ${ghost.escalationLadder}`,
-          `感官意象: ${ghost.sensoryMotifs}`,
-          `结尾余味: ${ghost.endingAftertaste}`,
-        ].join("\n"),
-      ].join("\n"),
-    );
+  // Only inject worldview + outline as reference. The technical craft
+  // mechanics (pacing, POV, rhythm, etc.) pollute the output with jargon
+  // and make the seed harder to read. The LLM should focus on the story
+  // itself, not on writing techniques.
+  const referenceSections: string[] = [];
+  if (craftProfile.worldview?.trim()) {
+    referenceSections.push(`参考世界观：\n${compactStoryDirectionSource(craftProfile.worldview)}`);
   }
-
-  if (craftProfile.videoStory) {
-    const video = craftProfile.videoStory;
-    referenceSections.push(
-      [
-        "原视频故事",
-        [
-          `一句话故事: ${video.logline}`,
-          `观众承诺: ${video.audiencePromise}`,
-          `大纲: ${video.outline}`,
-          `节奏: ${video.pacingCurve}`,
-          `钩子: ${video.hookStrategy}`,
-          `高潮: ${video.climaxStrategy}`,
-          `结尾: ${video.endingAftertaste}`,
-          ...video.beats.map((beat) => `${Math.round(beat.position * 100)}% [${beat.kind}] ${beat.function}: ${beat.emotionalEffect}`),
-          ...video.reversals.map((reversal) => `${Math.round(reversal.position * 100)}% 反转: ${reversal.emotionalEffect}`),
-          ...video.payoffs.map((payoff) => `${Math.round(payoff.position * 100)}% 收束: ${payoff.emotionalEffect}`),
-        ].join("\n"),
-      ].join("\n"),
-    );
+  if (craftProfile.storyOutline?.trim()) {
+    referenceSections.push(`参考故事大纲：\n${compactStoryDirectionSource(craftProfile.storyOutline)}`);
   }
 
   const target = kind === "short" ? "一篇单章节短篇故事" : "一部十章长篇故事";
@@ -568,50 +525,35 @@ export function buildStoryDirectionPrompt(
     : "Output the result in English.";
   const plainLanguageGuidance = buildPlainLanguageGuidance(language);
 
-  // Genre-lock: when the craft profile has a specific mode (ghost-story,
-  // video-story, etc.), the generated story MUST stay in the same genre.
-  // The originalization step is about swapping concrete details (location,
-  // props, character identities), NOT changing the genre or emotional core.
-  const genreLockZh = craftProfile.mode === "ghost-story"
-    ? [
-        "【题材锁定·硬约束】参考素材是恐怖鬼故事。你生成的故事必须是恐怖鬼故事——保留超自然元素、恐惧氛围、鬼怪或灵异规则。绝对不允许把题材改成现实主义社会议题、劳动事故、职场纠纷等非恐怖方向。",
-        "原创化改编只替换具体的空间、道具和角色身份（比如公交车改地铁、旧小区改写字楼），但超自然设定和恐怖基调必须原封不动保留。",
-      ]
-    : craftProfile.mode === "bilibili-short-story" || craftProfile.mode === "bilibili-commentary"
-      ? ["保持参考素材的故事类型和情绪基调不变。原创化改编只替换具体细节，不改变故事类型。"]
-      : [];
-  const genreLockEn = craftProfile.mode === "ghost-story"
-    ? [
-        "[GENRE LOCK · HARD CONSTRAINT] The reference is a horror ghost story. Your story MUST be a horror ghost story — keep the supernatural elements, fear atmosphere, and ghost/spirit rules. Absolutely do not drift into realistic social issues, workplace accidents, or other non-horror directions.",
-        "Originalization only swaps concrete details (location, props, character identities). The supernatural setting and horror tone must be preserved as-is.",
-      ]
-    : craftProfile.mode === "bilibili-short-story" || craftProfile.mode === "bilibili-commentary"
-      ? ["Keep the reference's story type and emotional tone unchanged. Originalization only swaps concrete details, never the genre."]
-      : [];
-  const genreLock = language === "zh" ? genreLockZh : genreLockEn;
+  const genreLock = craftProfile.mode === "ghost-story"
+    ? (language === "zh"
+      ? "题材锁定：参考素材是恐怖鬼故事，你写的也必须是恐怖鬼故事。保留超自然元素和恐怖氛围，只换具体场景和角色。"
+      : "Genre lock: the reference is a horror ghost story. Yours must also be a horror ghost story — keep the supernatural and horror tone, only swap the setting and characters.")
+    : "";
 
   return {
     system: [
       "你是一位故事创作者。",
       languageRule,
       ...plainLanguageGuidance.system,
-      "你的任务是基于参考素材的世界观和故事大纲，创作一个同框架但细节不同的故事。保持原故事的核心设定、因果走向和情绪节奏不变，但替换具体的空间、道具、角色身份和事件载体。",
-      "比如：原故事在公交车上发生，你可以改到末班地铁上；原角色手机没电，你可以改成信号消失；原场景在老旧小区，你可以换到深夜写字楼。保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。",
-      ...genreLock,
-      "不要照搬原作的名字、对白和标志性细节，但世界观规则、核心冲突类型、反转结构要和原故事保持一致。",
-      "只返回可直接使用的故事方向简报，不要分析参考素材，也不要写前言。",
+      language === "zh"
+        ? "参考素材提供了世界观和故事大纲。你要写一个同框架但细节不同的新故事：保持世界观规则和故事走向不变，只替换具体的空间、道具和角色身份。"
+        : "The reference provides a worldview and story outline. Write a new story with the same framework: keep the world's rules and story direction, only swap the concrete setting, props, and character identities.",
+      ...(genreLock ? [genreLock] : []),
+      language === "zh"
+        ? "比如原故事在公交车上，你可以改到末班地铁；原角色手机没电，你可以改成信号消失。换个壳，故事内核不变。"
+        : "e.g. if the original takes place on a bus, move it to the last subway; if the character's phone dies, change it to losing signal. Swap the shell, keep the core.",
     ].join("\n"),
     user: [
-      `参考以下素材，创作一个同框架的${target}——保持世界观和大纲一致，替换具体载体。`,
+      `基于以下素材，创作${target}。`,
       ...plainLanguageGuidance.user,
-      "参考素材（保持框架，替换细节）：",
-      referenceSections.join("\n\n"),
+      ...(referenceSections.length > 0
+        ? ["参考素材：", referenceSections.join("\n\n")]
+        : []),
       previousDirection?.trim()
-        ? `待改进或替换的上一版方向：\n${compactStoryDirectionSource(previousDirection, 3_000)}\n生成一个实质上不同的新方案。`
-        : "没有上一版方向。请基于参考素材创作。",
-      "包含以下板块：标题钩子、题材与设定、主角与压力、核心冲突、推进与反转计划、高潮与情感回报、结局、原创性约束。",
-      "让每个板块都足够具体，能够立即开始起草。保持方向自洽，不要提及参考作品。",
-    ].join("\n\n"),
+        ? `上一版（请生成一个不同的新方案）：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
+        : "",
+    ].filter(Boolean).join("\n\n"),
   };
 }
 
@@ -627,36 +569,36 @@ export function buildStorySeedPrompt(
     ? buildStoryDirectionPrompt(craftProfile, kind, language, previousDirection)
     : {
         system: [
-          "你是一位短片故事开发编辑。",
+          "你是一位故事创作者。",
           language === "zh" ? "用简体中文输出结果。" : "Output the result in English.",
           ...plainLanguageGuidance.system,
-          "未选择创作参考素材。使用强有力的原创短片叙事原则：一个具体的主角、一个可见的压力、一个因果递进、一个有意义的反转和一个水到渠成的结局。",
+          language === "zh"
+            ? "没有参考素材。从零创作一个有吸引力的原创短篇故事。"
+            : "No reference material. Create an original, compelling short story from scratch.",
         ].join("\n"),
         user: [
-          "从零开始创建一个单章节短篇故事种子。",
-          "Create a complete one-chapter short story seed.",
+          language === "zh"
+            ? "从零创建一个单章节短篇故事种子。"
+            : "Create a complete one-chapter short story seed.",
           ...plainLanguageGuidance.user,
-          "未选择创作参考素材；请发明原创的前提、设定、角色、冲突和结局。",
           previousDirection?.trim()
-            ? `待改进或替换的上一版种子：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
-            : "没有上一版种子。请生成一个有力的初版。",
-        ].join("\n\n"),
+            ? `上一版（请生成一个不同的新方案）：\n${compactStoryDirectionSource(previousDirection, 3_000)}`
+            : "",
+        ].filter(Boolean).join("\n\n"),
       };
-  const labels = [
-    ...REQUIRED_STORY_SEED_SECTION_DEFINITIONS,
-    { key: "originalizationPlan", zh: "原创要点", en: "Originality notes" },
-  ].map((definition) => language === "zh" ? definition.zh : definition.en).join(", ");
+  const labels = REQUIRED_STORY_SEED_SECTION_DEFINITIONS
+    .map((definition) => language === "zh" ? definition.zh : definition.en).join(", ");
 
   return {
     system: [
       base.system,
       language === "zh"
-        ? "只返回下方要求的 Markdown 板块。"
-        : "Return only the Markdown sections listed below.",
-      "不要输出 <think>、推理、分析、前言或 Markdown 代码围栏。Do not output <think>, reasoning, analysis, prefaces, or Markdown fences.",
+        ? "只返回下方要求的 Markdown 板块，不要输出前言、分析或代码围栏。"
+        : "Return only the Markdown sections listed below — no prefaces, analysis, or code fences.",
+      "Do not output <think>, reasoning, or analysis.",
       language === "zh"
-        ? "极简输出。故事名称一句话，世界观两三句话，大纲是核心——用 300-400 字讲清楚整个故事从开头到结局发生了什么。原创要点一两句话。总共控制在 500 字左右。"
-        : "Be extremely concise. Story title: one line. Worldview: 2-3 sentences. Outline is the core — 300-400 words covering the entire story from beginning to end. Total around 500 words.",
+        ? "故事名称一句话。世界观两三句话，让人一看就懂。大纲是重点——用大白话把故事从头到尾讲一遍，让人想读下去。总共 400-500 字。"
+        : "Story title: one line. Worldview: 2-3 clear sentences. The outline is the core — tell the whole story in plain language, make it engaging. Total 400-500 words.",
     ].join("\n"),
     user: [
       base.user,
@@ -664,16 +606,8 @@ export function buildStorySeedPrompt(
         ? `按以下顺序输出二级 Markdown 标题：${labels}。`
         : `Output these level-two Markdown headings in this order: ${labels}.`,
       language === "zh"
-        ? "大纲只写剧情：谁做了什么、出了什么事、结果怎样。按时间顺序从头到尾讲一遍，不要写写作手法或节奏术语。"
-        : "The outline tells only what happens: who does what, what goes wrong, how it ends. Chronological from start to finish. No writing techniques.",
-      language === "zh"
-        ? "保持参考素材的世界观框架和大纲走向不变，只替换具体的空间、道具、角色身份和事件载体。比如公交车改地铁、手机没电改信号消失——保持'为什么好看'的逻辑不变，只换'在哪发生、用什么实现'。"
-        : "Keep the reference material's worldview framework and plot outline intact; only swap the specific setting, props, character identities, and event vehicles. Same logic for why it works, different implementation.",
-      ...(craftProfile?.mode === "ghost-story"
-        ? [language === "zh"
-            ? "再次强调：这必须是恐怖鬼故事。超自然元素和恐怖氛围是核心卖点，不能去掉。"
-            : "Reminder: this MUST be a horror ghost story. Supernatural elements and horror atmosphere are the core selling point — do not remove them."]
-        : []),
+        ? "大纲只写故事：谁、做了什么、出了什么事、结果怎样。像跟朋友讲一部电影那样从头讲到尾。"
+        : "The outline only tells the story: who, what they do, what happens, how it ends. Like describing a movie to a friend, start to finish.",
     ].join("\n\n"),
   };
 }
