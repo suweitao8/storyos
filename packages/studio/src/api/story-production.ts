@@ -61,7 +61,12 @@ function emptyShot(scene: string): ParsedShot {
 }
 
 function cleanFieldValue(value: string): string {
-  return value.trim().replace(/^\*\*(.+)\*\*$/u, "$1").trim();
+  return value
+    .trim()
+    .replace(/^\*\*(.+)\*\*$/u, "$1")
+    // 去掉模型误加的分隔符（---、***、``` 等）
+    .replace(/\s*(?:^-{3,}$|^={3,}$|^\*{3,}$|^`{3}$)\s*$/gmu, "")
+    .trim();
 }
 
 function parseDurationMs(value: string): number {
@@ -167,11 +172,12 @@ export function parseUnifiedScript(raw: string): UnifiedScriptDocument {
 /** 单个镜头的质量问题。 */
 export type ScriptShotIssue = {
   readonly shot: number;
-  readonly type: "missing_narration" | "missing_camera" | "thin_image_prompt" | "untracked_asset_name";
+  readonly type: "missing_narration" | "long_narration" | "missing_camera" | "thin_image_prompt" | "untracked_asset_name";
   readonly message: string;
 };
 
 const IMAGE_PROMPT_MIN_LENGTH = 15;
+const NARRATION_MAX_LENGTH = 80;
 
 /** 检查剧本质量：每个镜头是否都有旁白、景别、足够的图像提示词。
  *  assetNames 传入故事资产的名称集合，用于检测画面里出现的角色/场景是否在资产库里。 */
@@ -184,8 +190,11 @@ export function validateScriptQuality(
 
   for (const shot of shots) {
     // 1. 每个镜头必须有旁白
-    if (!shot.subtitle?.trim()) {
+    const narrationText = (shot.subtitle ?? "").replace(/\s/gu, "");
+    if (!narrationText) {
       issues.push({ shot: shot.number, type: "missing_narration", message: `镜头 ${shot.number} 缺少旁白` });
+    } else if (narrationText.length > NARRATION_MAX_LENGTH) {
+      issues.push({ shot: shot.number, type: "long_narration", message: `镜头 ${shot.number} 旁白过长（${narrationText.length} 字，建议 ≤${NARRATION_MAX_LENGTH}）` });
     }
 
     // 2. 每个镜头必须有景别
@@ -228,6 +237,7 @@ export function formatScriptIssues(issues: readonly ScriptShotIssue[]): string |
   }
   const labels: Record<string, string> = {
     missing_narration: "缺少旁白",
+    long_narration: "旁白过长",
     missing_camera: "缺少景别",
     thin_image_prompt: "图像提示词不完整",
     untracked_asset_name: "引用了未知资产",
