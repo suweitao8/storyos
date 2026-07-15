@@ -2579,12 +2579,11 @@ export function normalizeCraftMode(
   mode: CraftMode | undefined,
   sourceType: "bilibili" | "novel" | undefined,
 ): CraftMode {
-  if (mode === "ghost-story") return "ghost-story";
   if (sourceType === "bilibili") {
-    return mode === "bilibili-commentary" || mode === "bilibili-short-story" || mode === "bilibili-review"
-      ? mode
-      : "bilibili-short-story";
+    if (mode === "bilibili-commentary" || mode === "bilibili-review") return "bilibili-commentary";
+    return "bilibili-short-story";
   }
+  if (mode === "ghost-story") return "ghost-story";
   return "general";
 }
 
@@ -6119,7 +6118,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const bvid = parseBvid(url);
     if (!bvid) return c.json({ error: "Invalid Bilibili video URL" }, 400);
 
-    const craftMode: CraftMode = modeParam === "bilibili-commentary" || modeParam === "bilibili-review"
+    const craftMode: CraftMode = modeParam === "bilibili-commentary"
       ? modeParam
       : "bilibili-short-story";
 

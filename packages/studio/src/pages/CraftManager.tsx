@@ -78,7 +78,7 @@ export function craftSourceTypeLabel(sourceType: CraftSourceType | undefined): s
 export function craftModeLabel(mode: string | undefined): string | null {
   if (mode === "bilibili-short-story") return "短篇故事";
   if (mode === "bilibili-commentary") return "影视解说";
-  if (mode === "bilibili-review") return "评论调侃";
+  if (mode === "bilibili-review") return "影视解说";
   return null;
 }
 
@@ -172,12 +172,11 @@ interface BilibiliCreateResponse {
   readonly meta: CraftMeta;
 }
 
-type BilibiliVideoMode = "bilibili-short-story" | "bilibili-commentary" | "bilibili-review";
+type BilibiliVideoMode = "bilibili-short-story" | "bilibili-commentary";
 
 const BILIBILI_VIDEO_MODES: ReadonlyArray<{ readonly value: BilibiliVideoMode; readonly label: string; readonly hint: string }> = [
   { value: "bilibili-short-story", label: "短篇故事", hint: "原创短剧/短故事，参考其叙事节奏创作新故事" },
   { value: "bilibili-commentary", label: "影视解说", hint: "UP主解说电影/电视剧，参考其剧情结构创作原创解说" },
-  { value: "bilibili-review", label: "评论调侃", hint: "时事评论/吐槽/调侃，参考其表达风格创作二次内容" },
 ];
 
 export function craftProcessingLabel(craft: Pick<CraftMeta, "processingStatus" | "processingStage">): string | null {

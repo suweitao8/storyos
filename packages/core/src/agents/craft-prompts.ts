@@ -74,7 +74,7 @@ export function buildCraftAnalysisSystemPrompt(
     : [];
 
   const videoModeInstructions = sourceType === "bilibili"
-    ? mode === "bilibili-commentary"
+    ? (mode === "bilibili-commentary" || mode === "bilibili-review")
       ? language === "en"
         ? [
             "This is a Bilibili film or television commentary reference. The creator narrated someone else's movie or show in their own style. Treat the commentary as a compressed plot retelling, and extract the causal chain, character pressure, reversals, reveals, and payoff timing that can be rebuilt as an original story.",
@@ -84,23 +84,7 @@ export function buildCraftAnalysisSystemPrompt(
             "这是B站影视解说参考。UP主用自己的风格解说了一部电影或电视剧。把解说当作被压缩的剧情来分析：重点提取因果链、人物压力、反转、信息揭示节奏和情绪回报。",
             "目标是参考这个解说的叙事结构，先创作一部全新电影或故事，再用影视解说的角度讲述它。剧情必须完全原创，必须替换原影视作品的人物、场景、因果链、具体事件和结局——只迁移叙事节奏和结构手法。",
           ]
-      : mode === "bilibili-review"
-        ? language === "en"
-          ? [
-              "This is a Bilibili commentary/review/roast reference. The creator shares opinions, roasts, or hot takes on a trending topic. Extract the angle of approach, core argument, reasoning structure, roast techniques, emotional rhythm, and memorable phrasing that can be reused for an original piece.",
-              "The profile must support creating an original commentary piece on a similar topic with a fresh perspective. Replace the specific topic, people, and events — only transfer the argumentation style, comedic timing, and rhetorical techniques.",
-            ]
-          : [
-              "这是B站评论/调侃/吐槽类视频参考。UP主对某个热门话题发表观点、吐槽或调侃。重点提取以下可复用的手法：",
-              "- 选题角度：UP主从什么切入点切入这个话题，怎么找到让人共鸣的吐槽点。",
-              "- 核心观点：UP主想表达什么立场，怎么用通俗的话说清楚。",
-              "- 论证结构：怎么一步步展开论述，先说什么后说什么。",
-              "- 调侃手法：用什么修辞制造笑点（夸张、反讽、类比、金句）。",
-              "- 情绪节奏：怎么控制观众情绪起伏，什么时候正经什么时候搞笑。",
-              "- 金句模式：UP主怎么造出传播力强的短句。",
-              "目标是参考这个视频的表达风格和论证结构，创作一个话题相近但观点和内容完全原创的评论/调侃作品。必须替换具体的话题、人物和事件——只迁移表达手法和节奏。",
-            ]
-        : mode === "bilibili-short-story"
+      : mode === "bilibili-short-story"
           ? language === "en"
             ? [
                 "This is a Bilibili short-story reference. Extract the compact hook, escalation, reversal, emotional payoff, and ending aftertaste that make the short story work.",

@@ -49,7 +49,12 @@ export interface CraftOption {
   readonly storySeedScoreError?: string;
 }
 
-export type StoryCraftMode = Extract<CraftMode, "bilibili-short-story" | "bilibili-commentary" | "bilibili-review">;
+export type StoryCraftMode = Extract<CraftMode, "bilibili-short-story" | "bilibili-commentary">;
+
+function normalizeStoryCraftMode(mode: CraftMode | undefined): StoryCraftMode | undefined {
+  if (mode === "bilibili-review") return "bilibili-commentary";
+  return mode === "bilibili-short-story" || mode === "bilibili-commentary" ? mode : undefined;
+}
 
 export function filterCraftOptionsForStoryKind(
   kind: "long" | "short",
@@ -57,7 +62,7 @@ export function filterCraftOptionsForStoryKind(
   requiredCraftMode?: StoryCraftMode,
 ): ReadonlyArray<CraftOption> {
   return kind === "short"
-    ? crafts.filter((craft) => craft.mode === (requiredCraftMode ?? "bilibili-short-story") && craft.sourceType === "bilibili")
+    ? crafts.filter((craft) => normalizeStoryCraftMode(craft.mode) === (requiredCraftMode ?? "bilibili-short-story") && craft.sourceType === "bilibili")
     : crafts;
 }
 
@@ -90,16 +95,10 @@ export function buildDefaultStoryDirection(
     return serializeStorySeed(craft.storySeed, isZh ? "zh" : "en");
   }
 
-  if (craft.mode === "bilibili-commentary") {
+  if (normalizeStoryCraftMode(craft.mode) === "bilibili-commentary") {
     return isZh
       ? `参考这条 B 站影视解说提取出的悬念、剧情骨架、反转和节奏，先创作一个全新的原创电影或故事，再用影视解说的角度讲述它，形成一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}并最终制作成视频。影视解说只提供结构参考，不要继续解说原电影；必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
       : `Use the selected Bilibili commentary's plot skeleton, reversals, and pacing as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"}. Redesign the characters, setting, causal chain, and ending; do not copy the film, series, or commentary.`;
-  }
-
-  if (craft.mode === "bilibili-review") {
-    return isZh
-      ? `参考这条 B 站评论调侃内容的观察角度、反差、笑点节奏和情绪回收，创作一个原创${kind === "long" ? "长篇故事" : "短篇故事"}，最终制作成视频。评论素材只提供叙事结构参考，不要复述原视频观点或事件；重新设计人物、场景、因果链和结局，让故事本身可以独立成立。`
-      : `Use the selected Bilibili review video's point of view, contrast, comic rhythm, and emotional payoff as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"} for video production. Do not restate the source video's opinions or events; redesign the characters, setting, causal chain, and ending so the story stands on its own.`;
   }
 
   if (craft.mode === "bilibili-short-story") {

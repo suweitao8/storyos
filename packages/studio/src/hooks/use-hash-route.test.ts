@@ -39,9 +39,9 @@ describe("hash route", () => {
     expect(parseHash("#/book/new")).toEqual({ page: "book-create" });
   });
 
-  it("parses dedicated video creation routes", () => {
+  it("parses the film-commentary route and redirects the retired review route", () => {
     expect(parseHash("#/film-commentary")).toEqual({ page: "film-commentary" });
-    expect(parseHash("#/commentary-review")).toEqual({ page: "commentary-review" });
+    expect(parseHash("#/commentary-review")).toEqual({ page: "film-commentary" });
   });
 
     it("parses config as project-settings (redirect)", () => {
@@ -113,9 +113,8 @@ describe("hash route", () => {
     expect(routeToHash({ page: "book-create" })).toBe("#/book/new");
   });
 
-  it("serializes dedicated video creation routes", () => {
+  it("serializes the supported video creation route", () => {
     expect(routeToHash({ page: "film-commentary" })).toBe("#/film-commentary");
-    expect(routeToHash({ page: "commentary-review" })).toBe("#/commentary-review");
   });
 
     it("services serializes to settings (redirect)", () => {

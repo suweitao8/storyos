@@ -72,12 +72,16 @@ describe("CraftAnalyzerAgent", () => {
 
   it("distinguishes Bilibili commentary from short-story reference material", () => {
     const commentaryPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-commentary", "bilibili");
+    const legacyReviewPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-review", "bilibili");
     const shortStoryPrompt = buildCraftAnalysisSystemPrompt("zh", "bilibili-short-story", "bilibili");
 
     expect(commentaryPrompt).toContain("影视解说");
     expect(commentaryPrompt).toContain("原创");
     expect(commentaryPrompt).toContain("全新电影或故事");
     expect(commentaryPrompt).toContain("影视解说的角度");
+    expect(legacyReviewPrompt).toContain("影视解说");
+    expect(legacyReviewPrompt).toContain("全新电影或故事");
+    expect(legacyReviewPrompt).not.toContain("评论/调侃/吐槽");
     expect(shortStoryPrompt).toContain("短篇故事");
   });
 
