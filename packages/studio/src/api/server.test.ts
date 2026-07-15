@@ -737,6 +737,41 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
+  it("automatically queues a missing story seed when listing a ready craft", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Legacy Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+    chatCompletionMock.mockResolvedValueOnce({
+      content: storySeedMarkdown,
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      crafts: [{ id: "craft-1", storySeedStatus: "pending" }],
+    });
+    expect(updateCraftStorySeedStatusMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({
+      storySeedStatus: "pending",
+      storySeedScoreStatus: "pending",
+    }));
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+  });
+
   it("saves a complete story seed for a craft", async () => {
     const storySeed = {
       title: "凌晨两点十七分",

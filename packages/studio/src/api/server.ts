@@ -6264,7 +6264,27 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   app.get("/api/v1/crafts", async (c) => {
     const pipelineConfig = await buildPipelineConfig();
     const pipeline = new PipelineRunner(pipelineConfig);
-    const crafts = await pipeline.listCrafts({ includeDeleted: true });
+    const listedCrafts = await pipeline.listCrafts({ includeDeleted: true });
+    // Older craft records predate the cached story foundation. Bring them to
+    // the same contract as newly analyzed crafts as soon as they enter a
+    // creation surface. The model call itself remains detached; the list
+    // response only returns the durable pending state so the UI never waits.
+    const crafts = await Promise.all(listedCrafts.map(async (craft) => {
+      if (
+        craft.deletedAt
+        || craft.storySeed
+        || craft.storySeedStatus
+        || (craft.processingStatus !== undefined && craft.processingStatus !== "ready")
+      ) {
+        return craft;
+      }
+      try {
+        return (await ensureCraftStorySeedGeneration(craft.id, { kind: "short", language: craft.language })) ?? craft;
+      } catch (error) {
+        pipelineConfig.logger?.warn(`Failed to queue missing story seed for ${craft.id}: ${String(error)}`);
+        return craft;
+      }
+    }));
     for (const craft of crafts) {
       if (craft.deletedAt || craft.storySeedStatus !== "pending") continue;
       if (craft.storySeedGenerationId) {
