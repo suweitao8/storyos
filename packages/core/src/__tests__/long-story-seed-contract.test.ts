@@ -6,8 +6,8 @@ const profile: CraftProfile = {
   sourceName: "现实悬疑拆文",
   analyzedAt: "2026-07-16T00:00:00.000Z",
   language: "zh",
-  worldview: "现实都市中的案件必须有可验证的解释。",
-  storyOutline: "从命案线索进入调查，在证词反转中收束。",
+  worldview: "REFERENCE_WORLDVIEW_EVENT",
+  storyOutline: "REFERENCE_PLOT_CHAIN",
   structure: { openingPattern: "命案钩子", chapterArc: "调查升级", endingHookType: "证据反转" },
   sceneRhythm: { sceneTransitionTechnique: "线索切换", pacingCurve: "逐步收紧", conflictEscalation: "证据升级" },
   informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "逐层释放", suspenseManagement: "延迟揭示" },
@@ -36,5 +36,7 @@ describe("long-form craft story seed contract", () => {
     expect(guide).toContain("失物招领处的录音");
     expect(guide).toContain("所有异常都必须通过人、物证与信息差得到现实解释");
     expect(guide).toContain("保留调查节奏，重建人物、地点、犯罪动机与证据链");
+    expect(guide).not.toContain("REFERENCE_WORLDVIEW_EVENT");
+    expect(guide).not.toContain("REFERENCE_PLOT_CHAIN");
   });
 });
