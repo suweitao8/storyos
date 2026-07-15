@@ -96,6 +96,39 @@ describe("ReviserAgent", () => {
     }
   });
 
+  it("keeps the saved writing-mode contract in the revision prompt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "storyos-reviser-craft-contract-"));
+    const bookDir = join(root, "book");
+    const storyDir = join(bookDir, "story");
+    await mkdir(storyDir, { recursive: true });
+    await writeFile(
+      join(storyDir, "brief.md"),
+      "MODE_CONTRACT: 现实悬疑；所有异常必须有现实解释，禁止科幻技术与超自然设定。",
+      "utf-8",
+    );
+
+    const agent = new ReviserAgent({ client: {} as never, model: "test-model", projectRoot: root });
+    const chatSpy = vi.spyOn(ReviserAgent.prototype as never, "chat" as never).mockResolvedValue({
+      content: [
+        "=== FIXED_ISSUES ===", "- 删除了科幻解释。",
+        "=== REVISED_CONTENT ===", "修订后的现实悬疑章节。",
+        "=== UPDATED_STATE ===", "状态卡",
+        "=== UPDATED_HOOKS ===", "伏笔池",
+      ].join("\n"),
+      usage: ZERO_USAGE,
+    });
+
+    try {
+      await agent.reviseChapter(bookDir, "原章节。", 1, [CRITICAL_ISSUE], "rewrite", "other");
+      const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ content: string }> | undefined;
+      expect(messages?.[1]?.content).toContain("## 写作模式契约（修订时必须保留）");
+      expect(messages?.[1]?.content).toContain("MODE_CONTRACT: 现实悬疑");
+      expect(messages?.[1]?.content).toContain("不得为解决问题而改变题材或现实层级");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("keeps rewrite mode local-first instead of encouraging full-chapter replacement", async () => {
     const root = await mkdtemp(join(tmpdir(), "storyos-reviser-rewrite-guardrail-test-"));
     const bookDir = join(root, "book");
