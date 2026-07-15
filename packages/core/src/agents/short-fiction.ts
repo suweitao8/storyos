@@ -121,6 +121,8 @@ export interface ShortFictionPackageInput {
   readonly outlineMarkdown: string;
   readonly draft: ShortFictionBatchDraft;
   readonly craftGuide?: string;
+  /** A bounded corrective pass for packaging that drifted from the craft contract. */
+  readonly repairInstructions?: string;
   readonly language?: ShortFictionLanguage;
 }
 
@@ -299,6 +301,7 @@ export class ShortFictionPackagingAgent extends BaseAgent {
           draftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
           draftTitle: input.draft.storyTitle,
           craftGuide: input.craftGuide,
+          repairInstructions: input.repairInstructions,
         }, input.language) },
       ], { temperature: 0.45, maxTokens: 4096 });
     }, this.name, this.log);

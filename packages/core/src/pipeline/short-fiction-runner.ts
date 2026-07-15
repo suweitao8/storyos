@@ -395,6 +395,7 @@ async function produceShort(
     await writeFinalArtifacts(root, baseDir, finalDraft, language);
 
     options.onProgress?.("Generating synopsis and cover prompt...");
+    await removePackageArtifacts(root, baseDir);
     const packager = new ShortFictionPackagingAgent(options.runtimes.package);
     salesPackage = await packager.generatePackage({
       direction: options.direction,
@@ -403,6 +404,24 @@ async function produceShort(
       craftGuide,
       language,
     });
+    const packageViolations = detectShortFictionPackageRealityDrift(salesPackage, options.craftProfile);
+    if (packageViolations.length > 0) {
+      options.onProgress?.("Repairing package to match the writing mode reality level...");
+      salesPackage = await packager.generatePackage({
+        direction: options.direction,
+        outlineMarkdown,
+        draft: finalDraft,
+        craftGuide,
+        repairInstructions: buildShortFictionPackageRealityRepairInstructions(packageViolations, language),
+        language,
+      });
+      const remainingPackageViolations = detectShortFictionPackageRealityDrift(salesPackage, options.craftProfile);
+      if (remainingPackageViolations.length > 0) {
+        throw new Error(
+          `Short fiction sales package still violates the writing mode reality-level lock: ${remainingPackageViolations.join(", ")}.`,
+        );
+      }
+    }
     await writePackageArtifacts(root, baseDir, salesPackage, language);
   } catch (error) {
     await writeShortRunStatus(root, baseDir, {
@@ -451,6 +470,40 @@ function assertDraftMatchesCraftReality(
   if (violations.length > 0) {
     throw new Error(`Short fiction draft violates the writing mode reality-level lock: ${violations.join(", ")}.`);
   }
+}
+
+function detectShortFictionPackageRealityDrift(
+  salesPackage: ShortFictionSalesPackage,
+  craftProfile: CraftProfile | undefined,
+): readonly string[] {
+  if (!craftProfile) return [];
+  return detectCraftRealityDrift(craftProfile, [
+    salesPackage.title,
+    salesPackage.intro,
+    ...salesPackage.sellingPoints,
+    salesPackage.coverPrompt,
+    salesPackage.rawContent,
+  ].join("\n"));
+}
+
+function buildShortFictionPackageRealityRepairInstructions(
+  violations: readonly string[],
+  language: ShortFictionLanguage,
+): string {
+  if (language === "en") {
+    return [
+      "The sales package violated the writing-mode reality-level lock.",
+      `Remove these unsupported mechanisms from the title, synopsis, selling points, cover prompt, and any other output: ${violations.join(", ")}.`,
+      "Keep the final draft's actual plot, title, genre, evidence, human motives, and consequences. Do not invent a new explanation or setting.",
+      "Return the complete package in the requested tagged format.",
+    ].join("\n");
+  }
+  return [
+    "这份包装内容违反了写作模式的现实层级锁。",
+    `必须从标题、简介、卖点、封面提示词及其他输出中删除以下不被模式支持的机制：${violations.join("、")}。`,
+    "保留最终正文真实发生的剧情、标题、题材、证据、人物动机和现实后果，不要发明新的解释或世界设定。",
+    "请按要求的标签格式返回完整包装内容。",
+  ].join("\n");
 }
 
 async function repairShortFictionOutlineRealityDrift(input: {
@@ -682,6 +735,17 @@ async function writePackageArtifacts(
     salesPackage.coverPrompt,
   ].join("\n"));
   await writeText(root, join(finalDir, "cover-prompt.md"), salesPackage.coverPrompt || "(empty)");
+}
+
+async function removePackageArtifacts(root: string, baseDir: string): Promise<void> {
+  const finalDir = join(baseDir, "final");
+  await Promise.all([
+    "sales-package.json",
+    "sales-package.md",
+    "cover-prompt.md",
+  ].map((fileName) => unlink(safeChildPath(root, join(finalDir, fileName))).catch((error) => {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  })));
 }
 
 async function writeShortRunStatus(
