@@ -141,6 +141,42 @@ ${"正文".repeat(2_146)}
     chatSpy.mockRestore();
   });
 
+  it("keeps the writing-mode contract in a truncated-draft continuation prompt", async () => {
+    const partial = parseShortFictionBatchDraft(`
+=== SHORT_FICTION_TITLE ===
+办公楼里的空工位
+`, { expectedChapters: 1 });
+    const chatSpy = vi
+      .spyOn(ShortFictionWriterAgent.prototype as never, "chat" as never)
+      .mockResolvedValue({
+        content: `
+=== CHAPTER 1 TITLE ===
+空工位
+=== CHAPTER 1 CONTENT ===
+${"有效场面。".repeat(300)}
+`,
+        usage: ZERO_USAGE,
+      });
+    const agent = new ShortFictionWriterAgent({
+      client: fakeClient(),
+      model: "fake",
+      projectRoot: "/tmp",
+    });
+
+    await agent.continueDraft({
+      direction: "现实悬疑短篇",
+      outlineMarkdown: "## 大纲\n全新的办公楼因果链",
+      chapterCount: 1,
+      charsPerChapter: 1_000,
+      craftGuide: "MODE_CONTRACT: 现实规则，压迫递进",
+      draft: partial,
+    });
+
+    const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ role: string; content: string }>;
+    expect(messages[1]?.content).toContain("MODE_CONTRACT: 现实规则，压迫递进");
+    chatSpy.mockRestore();
+  });
+
   it("uses the previous draft as assistant context for the second writer pass", async () => {
     const firstDraft = parseShortFictionBatchDraft(`
 === SHORT_FICTION_TITLE ===
