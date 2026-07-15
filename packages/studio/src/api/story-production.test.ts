@@ -36,13 +36,13 @@ describe("unified story production", () => {
     expect(result.shots).toHaveLength(2);
     expect(result.shots[0]).toMatchObject({
       scene: "第一场：电梯门口",
-      // 旁白在逗号处断句换行
-      subtitle: "旁白：凌晨两点，\n电梯自己亮了。",
+      // 旁白在逗号处断行并删除标点
+      subtitle: "旁白：凌晨两点\n电梯自己亮了",
       durationMs: 4000,
       visual: "老旧电梯停在十三层。",
     });
-    // 句号处也会换行（句末标点后跟换行，但 trim 掉尾换行）
-    expect(result.shots[1]?.subtitle).toBe("门缝里伸出一只手。");
+    // 末尾句号被替换成换行后 trim 掉
+    expect(result.shots[1]?.subtitle).toBe("门缝里伸出一只手");
   });
 
   it("builds timed subtitle entries with stable minimum durations", () => {
@@ -53,7 +53,8 @@ describe("unified story production", () => {
 
     expect(entries).toHaveLength(2);
     expect(entries[0]).toMatchObject({ startTimeMs: 0, endTimeMs: 1000, text: "短句" });
-    expect(entries[1]).toMatchObject({ startTimeMs: 1200, endTimeMs: 3200, text: "第二句" });
+    // durationMs 不再用 AI 估算值，按字数计算：3字 × 180ms = 540 → max(1000) = 1000
+    expect(entries[1]).toMatchObject({ startTimeMs: 1200, endTimeMs: 2200, text: "第二句" });
   });
 
   it("treats 字幕/旁白/台词/对白 as the same narration field", () => {
@@ -75,9 +76,10 @@ describe("unified story production", () => {
 
     expect(result.shots).toHaveLength(3);
     // 旁白、字幕、台词都应归入同一个 subtitle 字段
-    expect(result.shots[0]?.subtitle).toBe("他朝着光走去。");
-    expect(result.shots[1]?.subtitle).toBe("门外是另一片天地。");
-    expect(result.shots[2]?.subtitle).toBe("一切都回不去了。");
+    // 旁白在标点处断行并删除标点，末尾标点被 trim
+    expect(result.shots[0]?.subtitle).toBe("他朝着光走去");
+    expect(result.shots[1]?.subtitle).toBe("门外是另一片天地");
+    expect(result.shots[2]?.subtitle).toBe("一切都回不去了");
   });
 
   it("numbers shots per-scene starting from 1", () => {
@@ -116,8 +118,8 @@ describe("unified story production", () => {
 ### 镜头 1
 - 旁白：天色暗了下来，路灯亮了，她终于走到了门口。`);
 
-    // 逗号和句号后插入换行，句末尾换行被 trim
-    expect(result.shots[0]?.subtitle).toBe("天色暗了下来，\n路灯亮了，\n她终于走到了门口。");
+    // 逗号和句号处断行并删除标点，末尾标点被 trim
+    expect(result.shots[0]?.subtitle).toBe("天色暗了下来\n路灯亮了\n她终于走到了门口");
   });
 });
 
