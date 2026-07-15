@@ -159,6 +159,65 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(status.status).toBe("failed");
   });
 
+  it("repairs a drifting outline before it can steer a realistic short-fiction draft", async () => {
+    const driftingOutline = {
+      storyTitle: "电梯多一层",
+      rawContent: "## 故事方案\n凶手用来自未来的人工智能改写电梯监控。",
+    };
+    const repairedOutline = {
+      storyTitle: "电梯多一层",
+      rawContent: "## 故事方案\n凶手伪造门禁与监控记录，让目击者背上责任。",
+    };
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline").mockResolvedValue(driftingOutline);
+    const repair = vi.spyOn(ShortFictionOutlineReviserAgent.prototype, "reviseOutline").mockResolvedValue(repairedOutline);
+    const writer = vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      craftProfile: realisticCraft, runtimes: runtimes(root),
+    });
+
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({
+      outline: driftingOutline,
+      review: expect.stringContaining("现实层级锁"),
+    }));
+    expect(writer.mock.calls[0]?.[0].outlineMarkdown).toBe(repairedOutline.rawContent);
+  });
+
+  it("repairs a resumed outline before continuing a realistic short-fiction run", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    const driftingOutline = "## 故事方案\n凶手用来自未来的人工智能改写电梯监控。";
+    const repairedOutline = "## 故事方案\n凶手伪造门禁与监控记录，让目击者背上责任。";
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), driftingOutline, "utf-8");
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    const repair = vi.spyOn(ShortFictionOutlineReviserAgent.prototype, "reviseOutline").mockResolvedValue({
+      storyTitle: "电梯多一层",
+      rawContent: repairedOutline,
+    });
+    const writer = vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      craftProfile: realisticCraft, runtimes: runtimes(root),
+    });
+
+    expect(repair).toHaveBeenCalledWith(expect.objectContaining({
+      outline: expect.objectContaining({ rawContent: driftingOutline }),
+    }));
+    expect(writer.mock.calls[0]?.[0].outlineMarkdown).toBe(repairedOutline);
+    const savedOutline = await readFile(join(root, "shorts", "elevator", "outline", "v002.md"), "utf-8");
+    expect(savedOutline.trim()).toBe(repairedOutline);
+  });
+
   it("continues a truncated first draft before review instead of reviewing empty chapters", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
