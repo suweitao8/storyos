@@ -293,6 +293,7 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
   const r = craftProfile.sceneRhythm;
   const i = craftProfile.informationDisclosure;
   const n = craftProfile.narrativePerspective;
+  const hasApprovedStorySeed = Boolean(craftProfile.storySeed);
 
   const lines = [
     "## 写作手法指南",
@@ -300,10 +301,10 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
     "以下是从参考作品中提取的写作拆文信息。请在创作中模仿这些手法，而不是只模仿表层措辞：",
     "",
     moduleSection,
-    ...(craftProfile.worldview?.trim()
+    ...(!hasApprovedStorySeed && craftProfile.worldview?.trim()
       ? ["", "参考世界观（仅借鉴规则与机制）", craftProfile.worldview.trim()]
       : []),
-    ...(craftProfile.storyOutline?.trim()
+    ...(!hasApprovedStorySeed && craftProfile.storyOutline?.trim()
       ? ["", "参考故事大纲（重新设计人物与事件）", craftProfile.storyOutline.trim()]
       : []),
     "",
