@@ -916,6 +916,41 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(chatCompletionMock).toHaveBeenCalledTimes(3);
   });
 
+  it("rejects a repeatedly drifted realistic story seed instead of persisting it", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    const driftedStorySeedMarkdown = storySeedMarkdown
+      .replace("重复的声音会改变记录。", "鬼魂会在时间循环里重置记录。")
+      .replace("发现、调查、转折、高潮、结局。", "主角调查人工智能控制的车站，发现平行宇宙入口。");
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: driftedStorySeedMarkdown })
+      .mockResolvedValueOnce({ content: driftedStorySeedMarkdown });
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(currentMeta.storySeedStatus).toBe("error"));
+    expect(currentMeta.storySeedError).toContain("reality-level");
+    expect(saveCraftStorySeedMock).not.toHaveBeenCalled();
+  });
+
   it("retries once when the quality gate scores a seed below the generation threshold", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
