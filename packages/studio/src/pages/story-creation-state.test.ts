@@ -74,7 +74,7 @@ describe("story creation actions", () => {
     expect(resolveStorySeedGenerationStatus({ id: "idle", sourceName: "idle" })).toBe("idle");
   });
 
-  it("does not allow a story seed that failed its quality gate to create a story", () => {
+  it("allows creation after the story seed is ready while its background score continues", () => {
     const failedSeed = {
       id: "failed",
       sourceName: "failed",
@@ -91,7 +91,12 @@ describe("story creation actions", () => {
       ...failedSeed,
       storySeedStatus: "ready",
       storySeedScoreStatus: "pending",
-    })).toBe(false);
+    })).toBe(true);
+    expect(isStorySeedReadyForCreation({
+      ...failedSeed,
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "error",
+    })).toBe(true);
   });
 
   it("uses the cached story seed as the default direction", () => {

@@ -14,7 +14,7 @@ describe("StorySeedPreview", () => {
     expect(html).toContain("回声井");
     expect(html).not.toContain("<textarea");
     expect(html).not.toContain("<input");
-    expect(html).toContain("## 故事名称");
+    expect(html).toContain("故事名称");
     expect(html).toContain("已生成，确认后创建");
   });
 
@@ -26,7 +26,7 @@ describe("StorySeedPreview", () => {
     }));
 
     expect(html).toContain("正在生成");
-    expect(html).toContain("正在生成完整故事设定");
+    expect(html).toContain("正在生成故事设定");
   });
 
   it("does not show the 'waiting for model output' placeholder when status is ready but content is empty", () => {

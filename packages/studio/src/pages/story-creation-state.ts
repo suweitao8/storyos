@@ -87,9 +87,9 @@ export function resolveStorySeedGenerationStatus(craft?: CraftOption): StorySeed
 }
 
 export function isStorySeedReadyForCreation(craft?: CraftOption): boolean {
-  return resolveStorySeedGenerationStatus(craft) === "ready"
-    && craft?.storySeedScoreStatus !== "pending"
-    && craft?.storySeedScoreStatus !== "error";
+  // Story-seed scoring is advisory work that continues in the background.
+  // Only the actual story-seed generation state should block creation.
+  return resolveStorySeedGenerationStatus(craft) === "ready";
 }
 
 export function buildDefaultStoryDirection(

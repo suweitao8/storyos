@@ -1290,12 +1290,8 @@ export function createShortFictionRunTool(
       if (craftMeta?.storySeedStatus === "error") {
         throw new Error("该写作模式的故事设定未通过质量检查，请重新生成后再创建短篇故事。");
       }
-      if (craftMeta?.storySeedScoreStatus === "pending") {
-        throw new Error("该写作模式的故事设定评分尚未完成，请稍后再创建短篇故事。");
-      }
-      if (craftMeta?.storySeedScoreStatus === "error") {
-        throw new Error("该写作模式的故事设定未通过质量检查，请重新生成后再创建短篇故事。");
-      }
+      // The score is durable background feedback. A ready story seed can start
+      // production immediately while its score is still being calculated.
       const result = await runShortFictionProduction({
         projectRoot,
         direction: shortPayload?.direction ?? params.direction,
