@@ -9,6 +9,7 @@ import {
   craftSourceTypeLabel,
   craftProcessingErrorText,
   formatCraftBeatDuration,
+  shouldReloadCraftProfileAfterStatus,
 } from "./CraftManager";
 
 describe("craft mode presentation", () => {
@@ -65,5 +66,24 @@ describe("craft mode presentation", () => {
       processingStage: "正在获取视频与字幕",
       processingError: "Bcut 识别超时",
     })).toBe("阶段：正在获取视频与字幕；错误详情：Bcut 识别超时");
+  });
+
+  it("does not reload an already loaded profile while only its score is pending", () => {
+    const storySeed = {
+      title: "测试故事",
+      worldview: "现实都市中的异常订单。",
+      outline: "主角调查订单留下的物证。",
+    };
+
+    expect(shouldReloadCraftProfileAfterStatus("ready", {
+      storySeedStatus: "ready",
+      storySeed,
+    })).toBe(false);
+    expect(shouldReloadCraftProfileAfterStatus("ready", {
+      storySeedStatus: "ready",
+    })).toBe(true);
+    expect(shouldReloadCraftProfileAfterStatus("processing", {
+      storySeedStatus: "pending",
+    })).toBe(false);
   });
 });
