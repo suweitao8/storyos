@@ -16,6 +16,15 @@ import { toast } from "../store/toast/store";
 import { tr } from "../lib/app-language";
 import type { ProductionTask } from "../api/background-production-tasks";
 
+export function productionTaskInvalidationPaths(task: Pick<ProductionTask, "kind" | "storyId" | "storyKind">): ReadonlyArray<string> {
+  const storyId = encodeURIComponent(task.storyId);
+  if (task.kind === "asset-extract" || task.kind === "asset-image" || task.kind === "asset-batch") {
+    return [`/api/v1/stories/${task.storyKind}/${storyId}/assets`];
+  }
+  const collection = task.storyKind === "book" ? "books" : "shorts";
+  return [`/api/v1/${collection}/${storyId}/production`];
+}
+
 /**
  * 全局监听 SSE 事件，驱动后台创建任务的收尾：
  * - agent:complete — agent 运行结束，执行 script/assets 提取 + 弹成功 toast
@@ -92,12 +101,17 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
     if (recent.event === "production:task") {
       const task = recent.data as ProductionTask | null;
       if (!task?.id) return;
+      if (task.status !== "running") {
+        invalidateApiPaths(productionTaskInvalidationPaths(task));
+      }
       const label = task.kind === "script"
         ? tr("剧本", "script")
         : task.kind === "video"
           ? tr("合集视频", "collection video")
-          : task.kind === "scene-video"
+        : task.kind === "scene-video"
             ? tr("场景视频", "scene video")
+            : task.kind === "asset-extract"
+              ? tr("故事资产", "story assets")
             : task.kind === "asset-image"
               ? tr("资产图片", "asset image")
               : tr("资产图片批量生成", "asset image batch");
@@ -147,21 +161,22 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
 }
 
 /** 执行创建后的 script + assets 提取（后台、不阻塞）。 */
-async function runPostCreationSteps(kind: "book" | "short", storyId: string): Promise<void> {
-  const basePath = kind === "book"
-    ? `/stories/book/${storyId}`
-    : `/stories/short/${storyId}`;
+export async function runPostCreationSteps(kind: "book" | "short", storyId: string): Promise<void> {
+  const assetBasePath = `/stories/${kind}/${encodeURIComponent(storyId)}`;
+  const productionBasePath = kind === "book"
+    ? `/books/${encodeURIComponent(storyId)}/production`
+    : `/shorts/${encodeURIComponent(storyId)}/production`;
 
   // Script 创建（空故事没有 script，失败是正常的，静默忽略）
   try {
-    await fetchJson(`${basePath}/script`, { method: "POST" });
+    await fetchJson(`${productionBasePath}/script?background=true`, { method: "POST" });
   } catch {
     // 空故事还没有 script 源，正常
   }
 
   // Assets 提取（失败弹 toast 提示，但不阻断）
   try {
-    await fetchJson(`${basePath}/assets/extract`, { method: "POST" });
+    await fetchJson(`${assetBasePath}/assets/extract?background=true`, { method: "POST" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     toast.error(
