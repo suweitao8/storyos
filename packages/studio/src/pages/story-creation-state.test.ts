@@ -199,7 +199,7 @@ describe("story creation actions", () => {
     expect(action.actionPayload.createBook?.targetChapters).toBe(LONG_STORY_CHAPTERS);
     expect(action.actionPayload.createBook?.platform).toBe("qidian");
     expect(action.actionPayload.createBook?.chapterWordCount).toBe(10_000);
-    expect(action.actionPayload.createBook?.quick).toBe(true);
+    expect(action.actionPayload.createBook?.quick).toBe(false);
     expect(LONG_STORY_CHAPTERS * 10_000).toBe(100_000);
     expect(action.instruction).toContain("使用所选写作模式");
   });
