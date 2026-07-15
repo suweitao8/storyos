@@ -16,19 +16,32 @@ vi.mock("./use-sse", () => ({
 import { productionTaskInvalidationPaths, runPostCreationSteps } from "./use-background-creation";
 
 describe("runPostCreationSteps", () => {
-  it("starts script generation through the durable production endpoint before extracting assets", async () => {
-    fetchJsonMock.mockResolvedValue({});
+  it("extracts assets before it queues the background script that must reference them", async () => {
+    let finishAssetExtraction: (() => void) | undefined;
+    fetchJsonMock.mockImplementation((path: string) => {
+      if (path.includes("/assets/extract")) {
+        return new Promise<void>((resolve) => { finishAssetExtraction = resolve; });
+      }
+      return Promise.resolve({});
+    });
 
-    await runPostCreationSteps("short", "cold-ledger");
+    const postCreation = runPostCreationSteps("short", "cold-ledger");
+    await Promise.resolve();
 
-    expect(fetchJsonMock).toHaveBeenNthCalledWith(
-      1,
+    expect(fetchJsonMock).toHaveBeenCalledWith(
+      "/stories/short/cold-ledger/assets/extract",
+      { method: "POST" },
+    );
+    expect(fetchJsonMock).not.toHaveBeenCalledWith(
       "/shorts/cold-ledger/production/script?background=true",
       { method: "POST" },
     );
-    expect(fetchJsonMock).toHaveBeenNthCalledWith(
-      2,
-      "/stories/short/cold-ledger/assets/extract?background=true",
+
+    finishAssetExtraction?.();
+    await postCreation;
+
+    expect(fetchJsonMock).toHaveBeenCalledWith(
+      "/shorts/cold-ledger/production/script?background=true",
       { method: "POST" },
     );
   });

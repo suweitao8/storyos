@@ -167,22 +167,24 @@ export async function runPostCreationSteps(kind: "book" | "short", storyId: stri
     ? `/books/${encodeURIComponent(storyId)}/production`
     : `/shorts/${encodeURIComponent(storyId)}/production`;
 
-  // Script 创建（空故事没有 script，失败是正常的，静默忽略）
+  // 先完整提取资产。剧本生成会把资产名称注入分镜约束；若两者同时开始，
+  // 剧本往往读到空资产清单，后续也无法自动补回这些引用。
   try {
-    await fetchJson(`${productionBasePath}/script?background=true`, { method: "POST" });
-  } catch {
-    // 空故事还没有 script 源，正常
-  }
-
-  // Assets 提取（失败弹 toast 提示，但不阻断）
-  try {
-    await fetchJson(`${assetBasePath}/assets/extract?background=true`, { method: "POST" });
+    await fetchJson(`${assetBasePath}/assets/extract`, { method: "POST" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     toast.error(
       tr("资产提取失败", "Asset extraction failed"),
       message,
     );
+    return;
+  }
+
+  // 资产就绪后再把耗时的剧本生成交给服务端后台任务。
+  try {
+    await fetchJson(`${productionBasePath}/script?background=true`, { method: "POST" });
+  } catch {
+    // 空故事还没有 script 源，正常
   }
 }
 
