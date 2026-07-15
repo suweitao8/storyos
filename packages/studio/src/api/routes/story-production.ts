@@ -21,7 +21,7 @@ import {
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
 import { ProductionTaskRegistry } from "../background-production-tasks.js";
-import { resolveStoryArtStyle } from "../story-art-style.js";
+import { resolveStoryArtStyle, resolveStoryCraftId } from "../story-art-style.js";
 import { isSafeBookId } from "../safety.js";
 import { resolveCraftSourceFile } from "../craft-source-assets.js";
 import {
@@ -634,7 +634,8 @@ async function generateProductionScript(
   const source = await readStorySource(context, kind, id);
   if (!source.text.trim()) throw new Error("故事正文为空，无法生成剧本");
   const dir = productionPath(context.root, kind, id);
-  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, body.craftId);
+  const craftId = body.craftId ?? await resolveStoryCraftId(context.root, kind, id);
+  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, craftId);
   await mkdir(dir, { recursive: true });
   let content: string | undefined;
   let warning: string | undefined;
@@ -695,7 +696,7 @@ async function generateProductionScript(
   }
   const generatedAt = new Date().toISOString();
   await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
-  await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(body.craftId ? { craftId: body.craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
+  await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(craftId ? { craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
   return { ...(await readProduction(context, kind, id)), warning: warning ?? null };
 }
 
@@ -805,7 +806,8 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     if (!source.text.trim()) return c.json({ error: "故事正文为空，无法生成剧本" }, 400);
     const dir = productionPath(context.root, kind, id);
     const body = await c.req.json<{ craftId?: string }>().catch(() => ({} as { craftId?: string }));
-    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, body.craftId);
+    const craftId = body.craftId ?? await resolveStoryCraftId(context.root, kind, id);
+    const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, craftId);
     await mkdir(dir, { recursive: true });
     let content: string | undefined;
     let warning: string | undefined;
@@ -871,7 +873,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     }
     const generatedAt = new Date().toISOString();
     await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
-    await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(body.craftId ? { craftId: body.craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
+    await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(craftId ? { craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
     return c.json({ ...(await readProduction(context, kind, id)), warning: warning ?? null });
   });
 
