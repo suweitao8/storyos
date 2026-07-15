@@ -3,6 +3,11 @@ import { Sparkles } from "lucide-react";
 
 import type { Theme } from "../hooks/use-theme";
 import { fetchJson, postApi, useApi } from "../hooks/use-api";
+import {
+  buildProductionTaskStatusPath,
+  getProductionTaskFeedback,
+  useProductionTaskStatus,
+} from "../hooks/use-production-task-status";
 
 export type StoryAssetKind = "character" | "scene" | "prop";
 export type StoryAssetImageStatus = "missing" | "generating" | "ready" | "error";
@@ -176,6 +181,18 @@ export function StoryAssetsPanel({
   const allAssets = useMemo(() => Object.values(grouped).flat(), [grouped]);
 
   const selectedAsset = allAssets.find((a) => a.id === selectedAssetId) ?? allAssets[0] ?? null;
+  const trackedAssetId = backgroundPendingAssetId ?? selectedAsset?.id;
+  const taskPath = !onGenerateAsset && storyId && trackedAssetId
+    ? buildProductionTaskStatusPath(path, { kind: "asset-image", assetId: trackedAssetId })
+    : "";
+  const { task: backgroundTask, refetch: refetchBackgroundTask } = useProductionTaskStatus(taskPath);
+  const backgroundFeedback = getProductionTaskFeedback(backgroundTask);
+  const selectedAssetPending = Boolean(selectedAsset) && (
+    backgroundPendingAssetId === selectedAsset?.id
+      ? backgroundTask?.status !== "completed" && backgroundTask?.status !== "failed"
+      : backgroundFeedback.pending
+  );
+  const selectedAssetTaskError = backgroundTask?.assetId === selectedAsset?.id ? backgroundFeedback.error : null;
 
   useEffect(() => {
     setSelectedAssetId((currentId) => chooseStoryAssetId(allAssets, currentId));
@@ -184,13 +201,25 @@ export function StoryAssetsPanel({
   useEffect(() => {
     if (!backgroundPendingAssetId) return;
     const asset = assets.find((candidate) => candidate.id === backgroundPendingAssetId);
-    if (asset?.image?.status === "ready" || asset?.image?.status === "error") {
+    if (
+      asset?.image?.status === "ready" ||
+      asset?.image?.status === "error" ||
+      backgroundTask?.status === "completed" ||
+      backgroundTask?.status === "failed"
+    ) {
       setBackgroundPendingAssetId(null);
+      void refetch();
       return;
     }
+    if (!onGenerateAsset) return;
     const interval = window.setInterval(() => { void refetch(); }, 4_000);
     return () => window.clearInterval(interval);
-  }, [assets, backgroundPendingAssetId, refetch]);
+  }, [assets, backgroundPendingAssetId, backgroundTask?.id, backgroundTask?.status, onGenerateAsset, refetch]);
+
+  useEffect(() => {
+    if (!backgroundTask || backgroundTask.status === "running") return;
+    void refetch();
+  }, [backgroundTask?.id, backgroundTask?.status, refetch]);
 
   const runAction = async (key: string, action: () => void | Promise<void>) => {
     setBusyAction(key);
@@ -209,6 +238,7 @@ export function StoryAssetsPanel({
       if (onGenerateAsset) await onGenerateAsset(asset);
       else await postApi(`${buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)}?background=true`);
       setBackgroundPendingAssetId(asset.id);
+      await refetchBackgroundTask();
     } finally {
       setBusyAction(null);
     }
@@ -289,7 +319,8 @@ export function StoryAssetsPanel({
                     ? `/api/v1${buildStoryAssetImagePath(kind, storyId, selectedAsset.id)}`
                     : undefined
                 }
-                busy={busyAction === `generate:${selectedAsset.id}` || backgroundPendingAssetId === selectedAsset.id}
+                busy={busyAction === `generate:${selectedAsset.id}` || selectedAssetPending}
+                backgroundError={selectedAssetTaskError}
                 onGenerate={() => void generateAsset(selectedAsset)}
                 onEdit={(field, value, detailKey) => editAsset(selectedAsset, field, value, detailKey)}
               />
@@ -366,6 +397,7 @@ function AssetDetails({
   isZh,
   imageUrl,
   busy,
+  backgroundError,
   onGenerate,
   onEdit,
 }: {
@@ -373,6 +405,7 @@ function AssetDetails({
   readonly isZh: boolean;
   readonly imageUrl?: string;
   readonly busy: boolean;
+  readonly backgroundError: string | null;
   readonly onGenerate: () => void;
   readonly onEdit: (field: StoryAssetTextField, value: string, detailKey?: string) => void;
 }) {
@@ -380,6 +413,11 @@ function AssetDetails({
   return (
     <section className="min-h-0 flex-1 overflow-y-auto bg-card/20 p-4" data-testid="story-asset-details">
       <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        {backgroundError ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {backgroundError}
+          </div>
+        ) : null}
         {/* 标题行：左侧分类标签，右侧状态+生成按钮，紧凑一行 */}
         <div className="flex shrink-0 items-center justify-between gap-3">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">

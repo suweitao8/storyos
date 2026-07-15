@@ -39,6 +39,7 @@ function errorMessage(error: unknown): string {
  */
 export class ProductionTaskRegistry {
   private readonly activeTaskIds = new Map<string, string>();
+  private readonly latestTaskIds = new Map<string, string>();
   private readonly tasks = new Map<string, ProductionTask>();
 
   constructor(private readonly onUpdate?: TaskUpdateListener) {}
@@ -46,6 +47,11 @@ export class ProductionTaskRegistry {
   get(id: string): ProductionTask | undefined {
     const task = this.tasks.get(id);
     return task ? { ...task } : undefined;
+  }
+
+  latest(target: ProductionTaskTarget): ProductionTask | undefined {
+    const id = this.latestTaskIds.get(taskKey(target));
+    return id ? this.get(id) : undefined;
   }
 
   start(target: ProductionTaskTarget, run: () => Promise<void>): ProductionTask {
@@ -64,6 +70,7 @@ export class ProductionTaskRegistry {
     };
     this.tasks.set(task.id, task);
     this.activeTaskIds.set(key, task.id);
+    this.latestTaskIds.set(key, task.id);
     this.emit(task);
 
     let work: Promise<void>;

@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { Film, Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
+import {
+  buildProductionTaskStatusPath,
+  getProductionTaskFeedback,
+  useProductionTaskStatus,
+} from "../hooks/use-production-task-status";
 import type { Theme } from "../hooks/use-theme";
 import type { UnifiedScriptDocument } from "../api/story-production";
 import { buildStoryProductionPath } from "./StoryScriptPanel";
@@ -33,9 +38,16 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const path = storyId ? buildStoryProductionPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
   const [busy, setBusy] = useState(false);
-  const [backgroundPending, setBackgroundPending] = useState<Selection | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>({ type: "collection" });
+  const taskPath = path
+    ? buildProductionTaskStatusPath(path, selection.type === "scene"
+      ? { kind: "scene-video", sceneIndex: selection.index }
+      : { kind: "video" })
+    : "";
+  const { task: backgroundTask, refetch: refetchBackgroundTask } = useProductionTaskStatus(taskPath);
+  const backgroundFeedback = getProductionTaskFeedback(backgroundTask);
+  const backgroundPending = backgroundFeedback.pending;
 
   const collectionVideoUrl = storyId
     ? `/api/v1${path}/video/file?ts=${encodeURIComponent(data?.video.generatedAt ?? "0")}`
@@ -43,17 +55,13 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
   const scenes = data?.scenes ?? [];
 
   useEffect(() => {
-    if (!backgroundPending) return;
-    const completed = backgroundPending.type === "collection"
-      ? data?.video.exists
-      : scenes.find((scene) => scene.index === backgroundPending.index)?.videoExists;
-    if (completed) {
-      setBackgroundPending(null);
-      return;
-    }
-    const interval = window.setInterval(() => { void refetch(); }, 5_000);
-    return () => window.clearInterval(interval);
-  }, [backgroundPending, data?.video.exists, refetch, scenes]);
+    if (!backgroundTask || backgroundTask.status === "running") return;
+    void refetch();
+  }, [backgroundTask?.id, backgroundTask?.status, refetch]);
+
+  useEffect(() => {
+    if (backgroundFeedback.error) setActionError(backgroundFeedback.error);
+  }, [backgroundFeedback.error]);
 
   if (!loading && (!storyId || (data && !data.script.exists))) {
     return (
@@ -72,7 +80,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
         ? `${path}/video/scene/${selection.index}`
         : `${path}/video`;
       await postApi(`${endpoint}?background=true`, { voice: true });
-      setBackgroundPending(selection);
+      await refetchBackgroundTask();
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -161,7 +169,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
                   <h2 className="text-base font-semibold">{isZh ? "合集 — 全部场景" : "Collection — All scenes"}</h2>
-                  <GenerateButton busy={busy || backgroundPending?.type === "collection"} onGenerate={generate} isZh={isZh} scope="collection" />
+                  <GenerateButton busy={busy || backgroundPending} onGenerate={generate} isZh={isZh} scope="collection" />
                 </div>
                 {data.video.exists ? (
                   <video
@@ -183,7 +191,7 @@ export function StoryVideoPanel({ kind, storyId, theme: _theme, isZh }: StoryVid
                   <h2 className="truncate text-base font-semibold">
                     {selectedScene?.name ?? (isZh ? "场景" : "Scene")}
                   </h2>
-                  <GenerateButton busy={busy || (backgroundPending?.type === "scene" && backgroundPending.index === selection.index)} onGenerate={generate} isZh={isZh} scope="scene" />
+                  <GenerateButton busy={busy || backgroundPending} onGenerate={generate} isZh={isZh} scope="scene" />
                 </div>
                 {selectedSceneVideoUrl && selectedScene?.videoExists ? (
                   <video

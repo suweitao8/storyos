@@ -76,4 +76,19 @@ describe("ProductionTaskRegistry", () => {
       status: "failed",
     });
   });
+
+  it("keeps the latest task for a production target after it reaches a terminal state", async () => {
+    const registry = new ProductionTaskRegistry();
+    const work = deferred<void>();
+    const task = registry.start(taskTarget, () => work.promise);
+
+    work.reject(new Error("provider unavailable"));
+    await Promise.resolve();
+
+    expect(registry.latest(taskTarget)).toMatchObject({
+      id: task.id,
+      error: "provider unavailable",
+      status: "failed",
+    });
+  });
 });
