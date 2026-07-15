@@ -33,6 +33,10 @@ export function deriveInvalidationPaths(path: string): ReadonlyArray<string> {
     return ["/api/v1/project"];
   }
 
+  if (normalized === "/api/v1/crafts/recent") {
+    return ["/api/v1/crafts"];
+  }
+
   if (normalized.startsWith("/api/v1/project/")) {
     return ["/api/v1/project", normalized];
   }
@@ -231,4 +235,22 @@ export async function putApi<T>(path: string, body?: unknown): Promise<T> {
   });
   invalidateApiPaths(deriveInvalidationPaths(path));
   return result;
+}
+
+export async function deleteApi<T>(path: string): Promise<T> {
+  const result = await fetchJson<T>(path, { method: "DELETE" });
+  invalidateApiPaths(deriveInvalidationPaths(path));
+  return result;
+}
+
+export async function persistRecentCraftSelection(craftId: string | null): Promise<void> {
+  if (craftId) {
+    await putApi("/crafts/recent", { craftId });
+  } else {
+    await deleteApi("/crafts/recent");
+  }
+
+  // Keep every mounted craft consumer in sync immediately. The recent craft
+  // is shared state, not only the selection state of the current page.
+  invalidateApiPaths(["/api/v1/crafts"]);
 }

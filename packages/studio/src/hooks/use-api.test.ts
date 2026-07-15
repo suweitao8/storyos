@@ -90,6 +90,10 @@ describe("fetchJsonWithRetry", () => {
 });
 
 describe("deriveInvalidationPaths", () => {
+  it("refreshes craft selections after changing the recent craft", () => {
+    expect(deriveInvalidationPaths("/crafts/recent")).toEqual(["/api/v1/crafts"]);
+  });
+
   it("refreshes book collections after creating a book", () => {
     expect(deriveInvalidationPaths("/books/create")).toEqual(["/api/v1/books"]);
     expect(deriveInvalidationPaths("/spinoff/init")).toEqual(["/api/v1/books"]);
