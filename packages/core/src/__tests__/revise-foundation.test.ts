@@ -170,6 +170,66 @@ describe("pipeline.reviseFoundation", () => {
     }
   });
 
+  it("reuses the craft contract when revising a book foundation", async () => {
+    const { mkdtemp, writeFile, mkdir, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { PipelineRunner } = await import("../pipeline/runner.js");
+    const { StateManager } = await import("../state/manager.js");
+
+    const root = await mkdtemp(join(tmpdir(), "storyos-revise-craft-contract-"));
+    const bookDir = join(root, "books", "contract-book");
+    const craftDir = join(root, "crafts", "realistic-suspense");
+    try {
+      await mkdir(join(bookDir, "story"), { recursive: true });
+      await mkdir(craftDir, { recursive: true });
+      await Promise.all([
+        writeFile(join(bookDir, "story", "story_bible.md"), "旧设定", "utf-8"),
+        writeFile(join(bookDir, "story", "volume_outline.md"), "旧大纲", "utf-8"),
+        writeFile(join(bookDir, "story", "book_rules.md"), "旧规则", "utf-8"),
+        writeFile(join(bookDir, "story", "character_matrix.md"), "旧角色", "utf-8"),
+        writeFile(join(bookDir, "book.json"), JSON.stringify({
+          id: "contract-book", title: "现实悬疑", platform: "qidian", genre: "suspense",
+          status: "active", targetChapters: 30, chapterWordCount: 3000, language: "zh",
+          craftId: "realistic-suspense",
+          createdAt: "2026-07-15T00:00:00.000Z", updatedAt: "2026-07-15T00:00:00.000Z",
+        }), "utf-8"),
+        writeFile(join(craftDir, "meta.json"), JSON.stringify({
+          id: "realistic-suspense", sourceName: "现实悬疑拆文", language: "zh", createdAt: "2026-07-15T00:00:00.000Z",
+        }), "utf-8"),
+        writeFile(join(craftDir, "craft_profile.json"), JSON.stringify({
+          sourceName: "现实悬疑拆文", analyzedAt: "2026-07-15T00:00:00.000Z", language: "zh",
+          worldview: "MODE_CONTRACT: 现实悬疑；所有异常必须有现实解释，禁止科幻技术与超自然设定。",
+          structure: { openingPattern: "命案钩子", chapterArc: "调查升级", endingHookType: "证据反转" },
+          sceneRhythm: { sceneTransitionTechnique: "线索切换", pacingCurve: "逐步收紧", conflictEscalation: "证据升级" },
+          informationDisclosure: { foreshadowingDensity: "高", informationReleaseRhythm: "逐层释放", suspenseManagement: "延迟揭示" },
+          narrativePerspective: { povStrategy: "近景第三人称", narrationDialogueRatio: "均衡", narrativeDistance: "近" },
+          exemplars: [],
+        }), "utf-8"),
+      ]);
+
+      const generateSpy = vi.spyOn(ArchitectAgent.prototype, "generateFoundation").mockResolvedValue({
+        storyBible: "新设定", volumeOutline: "新大纲", bookRules: "新规则", currentState: "", pendingHooks: "",
+        storyFrame: "新设定", volumeMap: "新大纲", roles: [],
+      });
+      const reviewSpy = vi.spyOn(FoundationReviewerAgent.prototype, "review").mockResolvedValue({
+        passed: true, totalScore: 90, dimensions: [], overallFeedback: "ok",
+      } as unknown as Awaited<ReturnType<FoundationReviewerAgent["review"]>>);
+      const runner = new PipelineRunner({
+        state: new StateManager(root), projectRoot: root, client: TEST_CLIENT, model: "test-model",
+      } as unknown as ConstructorParameters<typeof PipelineRunner>[0]);
+
+      await runner.reviseFoundation("contract-book", "强化案件调查线");
+
+      expect(generateSpy.mock.calls[0]?.[1]).toContain("MODE_CONTRACT: 现实悬疑");
+      expect(reviewSpy).toHaveBeenCalledWith(expect.objectContaining({
+        writingContract: expect.stringContaining("MODE_CONTRACT: 现实悬疑"),
+      }));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   // ---- Bug fix regression suite ----
 
   it("revise 不重置运行时状态文件（current_state / pending_hooks / particle_ledger / subplot_board / emotional_arcs 保留章节累积）", async () => {

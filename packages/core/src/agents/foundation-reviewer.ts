@@ -24,20 +24,28 @@ export class FoundationReviewerAgent extends BaseAgent {
     readonly foundation: ArchitectOutput;
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
+    /** Writing-mode constraints that the foundation must preserve. */
+    readonly writingContract?: string;
     readonly language: "zh" | "en";
     readonly targetChapters?: number;
   }): Promise<FoundationReviewResult> {
     const canonBlock = params.sourceCanon
       ? `\n## 原作正典参照\n${params.sourceCanon}\n`
       : "";
+    const writingContract = params.writingContract?.trim();
+    const contractBlock = writingContract
+      ? params.language === "en"
+        ? `\n## Writing Mode Contract\n${writingContract}\n\nTreat this contract as a hard constraint. A foundation that changes its promised genre, reality level, narrative mechanism, or originalization boundaries cannot pass.\n`
+        : `\n## 写作模式契约\n${writingContract}\n\n必须把这份契约当作硬约束：若设定改变了承诺的题材、现实程度、叙事机制或原创化边界，即使其他部分完整也不能通过。\n`
+      : "";
 
     const dimensions = params.mode === "original"
-      ? this.originalDimensions(params.language, params.targetChapters)
+      ? this.originalDimensions(params.language, params.targetChapters, Boolean(writingContract))
       : this.derivativeDimensions(params.language, params.mode);
 
     const systemPrompt = params.language === "en"
-      ? this.buildEnglishReviewPrompt(dimensions, canonBlock)
-      : this.buildChineseReviewPrompt(dimensions, canonBlock);
+      ? this.buildEnglishReviewPrompt(dimensions, canonBlock, contractBlock)
+      : this.buildChineseReviewPrompt(dimensions, canonBlock, contractBlock);
 
     const userPrompt = this.buildFoundationExcerpt(params.foundation, params.language);
 
@@ -49,13 +57,17 @@ export class FoundationReviewerAgent extends BaseAgent {
     return this.parseReviewResult(response.content, dimensions);
   }
 
-  private originalDimensions(language: "zh" | "en", targetChapters?: number): ReadonlyArray<string> {
+  private originalDimensions(
+    language: "zh" | "en",
+    targetChapters?: number,
+    hasWritingContract = false,
+  ): ReadonlyArray<string> {
     const target = Number.isFinite(targetChapters) && targetChapters && targetChapters > 0
       ? Math.round(targetChapters)
       : 40;
     const openingWindow = Math.min(5, target);
     const repeatWindow = Math.min(10, Math.max(3, target));
-    return language === "en"
+    const dimensions = language === "en"
       ? [
           `Core Conflict (Is there a clear, compelling central conflict that can sustain the requested ${target} chapters?)`,
           `Opening Momentum (Can the first ${openingWindow} chapters create a page-turning hook?)`,
@@ -70,6 +82,12 @@ export class FoundationReviewerAgent extends BaseAgent {
           "角色区分度（主要角色的声音和动机是否各不相同？）",
           `节奏可行性（大纲是否适配用户要求的${target}章，并避免连续${repeatWindow}章同一种节拍？）`,
         ];
+    if (hasWritingContract) {
+      dimensions.push(language === "en"
+        ? "Writing Mode Fidelity (Does the foundation preserve the required genre, reality level, narrative mechanism, and originality boundaries?)"
+        : "模式契约遵循（是否保留了要求的题材、现实程度、叙事机制与原创化边界？）");
+    }
+    return dimensions;
   }
 
   private derivativeDimensions(language: "zh" | "en", mode: "fanfic" | "series"): ReadonlyArray<string> {
@@ -97,6 +115,7 @@ export class FoundationReviewerAgent extends BaseAgent {
   private buildChineseReviewPrompt(
     dimensions: ReadonlyArray<string>,
     canonBlock: string,
+    contractBlock: string,
   ): string {
     return `你是一位资深小说编辑，正在审核一本新书的基础设定（世界观 + 大纲 + 规则）。
 
@@ -125,6 +144,7 @@ ${dimensions.map((dim, i) => `${i + 1}. ${dim}`).join("\n")}
 通过：{是/否}
 总评：{1-2段总结，指出最大的问题和最值得保留的优点}
 ${canonBlock}
+${contractBlock}
 
 审核时要严格。不要因为"还行"就给高分。80分意味着"可以直接开写，不需要改"。`;
   }
@@ -132,6 +152,7 @@ ${canonBlock}
   private buildEnglishReviewPrompt(
     dimensions: ReadonlyArray<string>,
     canonBlock: string,
+    contractBlock: string,
   ): string {
     return `You are a senior fiction editor reviewing a new book's foundation (worldbuilding + outline + rules).
 
@@ -160,6 +181,7 @@ Total: {weighted average}
 Passed: {yes/no}
 Summary: {1-2 paragraphs — biggest problem and best quality}
 ${canonBlock}
+${contractBlock}
 
 Be strict. 80 means "ready to write without changes."`;
   }

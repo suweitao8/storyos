@@ -71,6 +71,46 @@ describe("FoundationReviewerAgent", () => {
     expect(messages[0]?.content).not.toContain("连续10章");
   });
 
+  it("treats the writing-mode contract as a non-negotiable review constraint", async () => {
+    const agent = new FoundationReviewerAgent({
+      client: TEST_CLIENT,
+      model: "test-model",
+      projectRoot: process.cwd(),
+    });
+    const chatSpy = vi.spyOn(
+      agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> },
+      "chat",
+    ).mockResolvedValue({
+      content: [
+        "=== DIMENSION: 1 ===", "分数：80", "意见：可用",
+        "=== DIMENSION: 2 ===", "分数：80", "意见：可用",
+        "=== DIMENSION: 3 ===", "分数：80", "意见：可用",
+        "=== DIMENSION: 4 ===", "分数：80", "意见：可用",
+        "=== DIMENSION: 5 ===", "分数：80", "意见：可用",
+        "=== DIMENSION: 6 ===", "分数：80", "意见：可用",
+        "=== OVERALL ===", "总分：80", "通过：是", "总评：可开写。",
+      ].join("\n"),
+      usage: ZERO_USAGE,
+    });
+
+    await agent.review({
+      language: "zh",
+      mode: "original",
+      writingContract: "MODE_CONTRACT: 现实悬疑；不得引入科幻技术或超自然设定。",
+      foundation: {
+        storyBible: "一宗发生在旧城区的失踪案。",
+        volumeOutline: "调查逐步逼近真相。",
+        bookRules: "所有异常必须有现实解释。",
+        currentState: "调查刚开始。",
+        pendingHooks: "失踪者的手机在现场响起。",
+      },
+    });
+
+    const messages = chatSpy.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(messages[0]?.content).toContain("MODE_CONTRACT: 现实悬疑");
+    expect(messages[0]?.content).toContain("模式契约遵循");
+  });
+
   it("does not silently truncate foundation, canon, or style inputs before review", async () => {
     const agent = new FoundationReviewerAgent({
       client: TEST_CLIENT,
