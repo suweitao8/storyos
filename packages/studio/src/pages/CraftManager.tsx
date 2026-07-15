@@ -184,6 +184,18 @@ export function craftProcessingLabel(craft: Pick<CraftMeta, "processingStatus" |
   return null;
 }
 
+export function craftProcessingErrorText(
+  craft: Pick<CraftMeta, "processingStage" | "processingError">,
+): string | null {
+  const stage = craft.processingStage?.trim();
+  const error = craft.processingError?.trim();
+  if (!stage && !error) return null;
+  return [
+    stage ? `阶段：${stage}` : null,
+    error ? `错误详情：${error}` : null,
+  ].filter((part): part is string => Boolean(part)).join("；");
+}
+
 export type CraftSourceType = "bilibili" | "novel";
 
 type CraftSourceFileKey = "source" | "video" | "subtitlesJson" | "subtitlesText" | "analysisInput";
@@ -1431,11 +1443,12 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
   }
 
   if (meta?.processingStatus === "error") {
+    const processingErrorText = craftProcessingErrorText(meta!);
     return (
       <div className="mx-auto w-full max-w-2xl space-y-4 rounded-2xl border border-destructive/20 bg-destructive/[0.03] p-6" role="alert">
         <div>
           <h2 className="text-lg font-semibold text-destructive">写作模式处理失败</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{meta.processingError ?? error ?? "后台任务失败"}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{processingErrorText ?? error ?? "后台任务失败"}</p>
         </div>
         <div className="flex gap-3">
           <button

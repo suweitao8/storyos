@@ -2907,22 +2907,41 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   }
 
+  const describeCraftProcessingError = (error: unknown): string => {
+    if (!(error instanceof Error)) return String(error);
+    const details = error as Error & {
+      readonly code?: unknown;
+      readonly signal?: unknown;
+      readonly stderr?: unknown;
+    };
+    const parts = [error.message || error.name];
+    if (details.code !== undefined) parts.push(`code=${String(details.code)}`);
+    if (details.signal !== undefined) parts.push(`signal=${String(details.signal)}`);
+    if (typeof details.stderr === "string" && details.stderr.trim()) {
+      parts.push(`stderr=${details.stderr.trim().slice(0, 1_000)}`);
+    }
+    return parts.join("；").slice(0, 2_000);
+  };
+
   const runBilibiliCraftTask = async (craftId: string, url: string, craftMode: CraftMode): Promise<void> => {
     let pipeline: PipelineRunner | undefined;
     let sourceAssetId: string | undefined;
+    let processingStage = "正在获取视频与字幕";
     try {
       const pipelineConfig = await buildPipelineConfig();
       pipeline = new PipelineRunner(pipelineConfig);
       await pipeline.updateCraftProcessing(craftId, {
         processingStatus: "processing",
-        processingStage: "正在获取视频与字幕",
+        processingStage,
         processingError: undefined,
       });
       const prepared = await prepareBilibiliCraftSource(url, pipelineConfig, async (stage) => {
+        processingStage = stage;
         await pipeline!.updateCraftProcessing(craftId, { processingStage: stage });
       });
       sourceAssetId = prepared.sourceAssetId;
-      await pipeline.updateCraftProcessing(craftId, { processingStage: "正在解析写作模式" });
+      processingStage = "正在解析写作模式";
+      await pipeline.updateCraftProcessing(craftId, { processingStage });
       const analyzed = await pipeline.analyzeCraft(
         prepared.analysisText,
         prepared.detectedName,
@@ -2936,10 +2955,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       await finalizeCraftSourceUpload(root, sourceAssetId, analyzed.craftId, {
         sourceRef: prepared.videoInfo.bvid,
       });
-      await pipeline.updateCraftProcessing(craftId, { processingStage: "模式解析完成，故事设定后台生成中" });
+      processingStage = "模式解析完成，故事设定后台生成中";
+      await pipeline.updateCraftProcessing(craftId, { processingStage });
       await pipeline.updateCraftProcessing(craftId, {
         processingStatus: "ready",
-        processingStage: "模式解析完成，故事设定后台生成中",
+        processingStage,
         processingError: undefined,
       });
       const generationId = randomUUID();
@@ -2952,11 +2972,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       broadcast("craft:complete", { craftId, sourceName: prepared.detectedName, status: "ready" });
     } catch (error) {
       if (sourceAssetId) await cleanupCraftSourceUpload(root, sourceAssetId).catch(() => undefined);
-      const message = error instanceof Error ? error.message : String(error);
+      const message = describeCraftProcessingError(error);
       if (pipeline) {
         await pipeline.updateCraftProcessing(craftId, {
           processingStatus: "error",
-          processingStage: "后台任务失败",
+          processingStage,
           processingError: message,
         }).catch(() => undefined);
       }
@@ -6094,7 +6114,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       startCraftStorySeedGeneration(id, { generationId: meta.storySeedGenerationId });
     } else if (meta.storySeedStatus === "pending") {
       meta = await ensureCraftStorySeedGeneration(id);
-    } else if (meta.processingStatus !== "processing" && !meta.storySeed && !meta.storySeedStatus) {
+    } else if ((meta.processingStatus === undefined || meta.processingStatus === "ready") && !meta.storySeed && !meta.storySeedStatus) {
       meta = await ensureCraftStorySeedGeneration(id);
     }
     return c.json({
