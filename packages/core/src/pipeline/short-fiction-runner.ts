@@ -82,8 +82,10 @@ export interface ShortFictionRunOptions {
 export interface ShortFictionRunResult {
   readonly storyId: string;
   readonly outlinePath: string;
-  readonly outlineReviewPath: string;
-  readonly draftReviewPath: string;
+  /** Present only when the full review-and-revision workflow ran. */
+  readonly outlineReviewPath?: string;
+  /** Present only when the full review-and-revision workflow ran. */
+  readonly draftReviewPath?: string;
   readonly finalMarkdownPath: string;
   readonly finalJsonPath: string;
   readonly salesPackagePath: string;
@@ -137,7 +139,13 @@ export async function runShortFictionProduction(
     if (options.artStyle) {
       await writeShortStoryVisualConfig(root, join(outDir, providedStoryId), options.craftId, options.artStyle);
     }
-    return buildShortRunResult(providedStoryId, join(outDir, providedStoryId), { coverError: "already-complete" });
+    const hasReviewedOutline = await projectFileExists(root, join(outDir, providedStoryId, "outline", "v002.md"));
+    return buildShortRunResult(
+      providedStoryId,
+      join(outDir, providedStoryId),
+      { coverError: "already-complete" },
+      { quick: !hasReviewedOutline },
+    );
   }
 
   try {
@@ -399,19 +407,22 @@ async function produceShort(
     }).catch(() => undefined);
   }
 
-  return buildShortRunResult(storyId, baseDir, coverArtifacts);
+  return buildShortRunResult(storyId, baseDir, coverArtifacts, { quick: options.quick === true });
 }
 
 function buildShortRunResult(
   storyId: string,
   baseDir: string,
   coverArtifacts: { readonly coverImagePath?: string; readonly coverError?: string },
+  options: { readonly quick: boolean },
 ): ShortFictionRunResult {
   return {
     storyId,
-    outlinePath: projectPath(join(baseDir, "outline", "v002.md")),
-    outlineReviewPath: projectPath(join(baseDir, "reviews", "outline-v001.md")),
-    draftReviewPath: projectPath(join(baseDir, "reviews", "draft-v001.md")),
+    outlinePath: projectPath(join(baseDir, "outline", options.quick ? "v001.md" : "v002.md")),
+    ...(options.quick ? {} : {
+      outlineReviewPath: projectPath(join(baseDir, "reviews", "outline-v001.md")),
+      draftReviewPath: projectPath(join(baseDir, "reviews", "draft-v001.md")),
+    }),
     finalMarkdownPath: projectPath(join(baseDir, "final", "full.md")),
     finalJsonPath: projectPath(join(baseDir, "final", "short-story.json")),
     salesPackagePath: projectPath(join(baseDir, "final", "sales-package.md")),

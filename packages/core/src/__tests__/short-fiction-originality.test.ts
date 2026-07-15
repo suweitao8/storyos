@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -88,7 +88,7 @@ describe("short-fiction originality wiring", () => {
       rawContent: "",
     });
 
-    await runShortFictionProduction({
+    const result = await runShortFictionProduction({
       projectRoot: root,
       direction: "以原创化改编方案创作一篇新短篇",
       runtimes: {
@@ -113,6 +113,10 @@ describe("short-fiction originality wiring", () => {
     expect(outlineInput?.craftGuide).not.toContain("REFERENCE_STORY_OUTLINE_EVENT");
     expect(writerInput?.craftGuide).toContain("NEW_SPACE=OFFICE");
     expect(writerInput?.craftExemplars).toBeUndefined();
+    expect(result.outlinePath).toMatch(/outline\/v001\.md$/);
+    await expect(access(join(root, result.outlinePath))).resolves.toBeUndefined();
+    expect(result.outlineReviewPath).toBeUndefined();
+    expect(result.draftReviewPath).toBeUndefined();
   });
 
   it("keeps the originality contract when completing a truncated draft", async () => {
