@@ -160,31 +160,20 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
   });
 }
 
-/** 执行创建后的 script + assets 提取（后台、不阻塞）。 */
+/** 启动创建后的服务端后台链路；浏览器不负责串联耗时阶段。 */
 export async function runPostCreationSteps(kind: "book" | "short", storyId: string): Promise<void> {
   const assetBasePath = `/stories/${kind}/${encodeURIComponent(storyId)}`;
-  const productionBasePath = kind === "book"
-    ? `/books/${encodeURIComponent(storyId)}/production`
-    : `/shorts/${encodeURIComponent(storyId)}/production`;
 
-  // 先完整提取资产。剧本生成会把资产名称注入分镜约束；若两者同时开始，
-  // 剧本往往读到空资产清单，后续也无法自动补回这些引用。
+  // 服务端任务会在资产提取成功后自动排队剧本生成；前端只发起一次任务，
+  // 因此切页、刷新甚至关闭浏览器都不会截断阶段链路。
   try {
-    await fetchJson(`${assetBasePath}/assets/extract`, { method: "POST" });
+    await fetchJson(`${assetBasePath}/assets/extract?background=true`, { method: "POST" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     toast.error(
       tr("资产提取失败", "Asset extraction failed"),
       message,
     );
-    return;
-  }
-
-  // 资产就绪后再把耗时的剧本生成交给服务端后台任务。
-  try {
-    await fetchJson(`${productionBasePath}/script?background=true`, { method: "POST" });
-  } catch {
-    // 空故事还没有 script 源，正常
   }
 }
 

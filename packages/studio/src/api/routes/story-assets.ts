@@ -1,4 +1,4 @@
-import type { Context } from "hono";
+import type { Context, Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -32,6 +32,22 @@ import { resolveStoryArtStyle } from "../story-art-style.js";
 import { ProductionTaskRegistry, type ProductionTaskKind } from "../background-production-tasks.js";
 
 type StoryAssetRouteKind = "book" | "short";
+
+export function buildPostExtractionScriptPath(kind: StoryAssetRouteKind, storyId: string): string {
+  const collection = kind === "book" ? "books" : "shorts";
+  return `/api/v1/${collection}/${encodeURIComponent(storyId)}/production/script?background=true`;
+}
+
+export async function queuePostExtractionProductionScript(
+  app: Pick<Hono, "request">,
+  kind: StoryAssetRouteKind,
+  storyId: string,
+): Promise<void> {
+  const response = await app.request(buildPostExtractionScriptPath(kind, storyId), { method: "POST" });
+  if (response.ok) return;
+  const detail = (await response.text()).trim();
+  throw new Error(detail || `Unable to queue production script for ${storyId}.`);
+}
 
 const STORY_ASSET_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/u;
 const STORY_ASSET_IMAGE_CONTENT_TYPES: Record<string, string> = {
@@ -282,7 +298,10 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
     if (c.req.query("background") === "true") {
       const task = tasks.start(
         { kind: "asset-extract", storyId, storyKind: kind },
-        async () => { await runExtraction(); },
+        async () => {
+          await runExtraction();
+          await queuePostExtractionProductionScript(app, kind, storyId);
+        },
       );
       return c.json({ task }, 202);
     }
