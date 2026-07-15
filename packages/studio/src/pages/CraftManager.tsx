@@ -1172,6 +1172,13 @@ interface CraftStatusResponse {
   readonly error?: string | null;
 }
 
+export function shouldReloadCraftProfileAfterStatus(
+  status: CraftStatusResponse["status"],
+  meta: Pick<CraftMeta, "storySeed" | "storySeedStatus">,
+): boolean {
+  return status === "ready" && meta.storySeedStatus !== "pending" && !meta.storySeed;
+}
+
 function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
@@ -1282,7 +1289,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
         setStorySeedStatus("error");
         setStorySeedError(data.meta.storySeedError ?? "默认故事设定生成失败");
       }
-      if (data.status === "ready" && data.meta.storySeedStatus !== "pending") {
+      if (shouldReloadCraftProfileAfterStatus(data.status, data.meta)) {
         await loadProfile();
       } else if (data.status === "error") {
         setError(data.error ?? data.meta.processingError ?? "后台处理失败");
@@ -1323,7 +1330,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
       active = false;
       window.clearInterval(timer);
     };
-  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, meta?.storySeedScore, meta?.storySeed]);
+  }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, meta?.storySeedScore, Boolean(meta?.storySeed)]);
 
   useEffect(() => {
     if (!craftId || meta?.processingStatus !== "processing") return;
