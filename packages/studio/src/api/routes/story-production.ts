@@ -20,6 +20,7 @@ import {
   type ArtStyle,
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
+import { ProductionTaskRegistry } from "../background-production-tasks.js";
 import { resolveStoryArtStyle } from "../story-art-style.js";
 import { isSafeBookId } from "../safety.js";
 import { resolveCraftSourceFile } from "../craft-source-assets.js";
@@ -624,7 +625,163 @@ async function readProduction(context: StudioRouteContext, kind: StoryKind, id: 
   };
 }
 
-function registerProductionRoutesForKind(context: StudioRouteContext, kind: StoryKind): void {
+async function generateProductionScript(
+  context: StudioRouteContext,
+  kind: StoryKind,
+  id: string,
+  body: { readonly craftId?: string },
+) {
+  const source = await readStorySource(context, kind, id);
+  if (!source.text.trim()) throw new Error("故事正文为空，无法生成剧本");
+  const dir = productionPath(context.root, kind, id);
+  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, body.craftId);
+  await mkdir(dir, { recursive: true });
+  let content: string | undefined;
+  let warning: string | undefined;
+  const assets = await readStoryAssets(context.root, kind, id);
+  const assetsContext = buildAssetsContext(assets);
+  const assetNames = assets.map((asset) => asset.name);
+  const requirements = assetsContext
+    ? `${unifiedScriptRequirements()}\n\n${assetsContext}`
+    : unifiedScriptRequirements();
+  const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+  const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
+  const styleDescription = resolveImageStyleDescription("shot", artStyle);
+  const styledRequirements = `${requirements}\n\n## 统一画面风格（必须遵守）\n所有「图像提示词：」都必须明确使用以下画面风格，不得只停留在抽象的风格标签：\n${styleDescription}`;
+  const agent = new ScriptCreationAgent(pipeline.createAgentContext("script"));
+
+  const maxAttempts = 2;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const raw = await agent.writeScript({
+        title: source.title,
+        sourceKind: kind === "short" ? "StoryOS short story" : "StoryOS book",
+        targetFormat: "general_script",
+        sourceText: source.text.slice(0, MAX_SOURCE_CHARS),
+        requirements: attempt > 1
+          ? `${styledRequirements}\n\n上一轮生成的剧本存在问题，请修正后重新输出完整剧本。`
+          : styledRequirements,
+        language: "zh",
+      });
+      const parsed = parseUnifiedScript(raw, { confirmedSourceSegments });
+      if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
+      const issues = validateScriptQuality(parsed.shots, assetNames);
+      const criticalIssues = issues.filter(
+        (issue) => issue.type === "missing_narration" || issue.type === "thin_image_prompt",
+      );
+      const issueWarning = formatScriptIssues(issues);
+      if (criticalIssues.length > parsed.shots.length / 2 && attempt < maxAttempts) {
+        warning = `第 ${attempt} 次生成质量不达标（${criticalIssues.length}/${parsed.shots.length} 镜头有问题），正在重试…`;
+        lastError = new Error(warning);
+        continue;
+      }
+      content = raw;
+      if (issueWarning) warning = issueWarning;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        warning = `第 ${attempt} 次生成失败，正在重试…`;
+      }
+    }
+  }
+
+  if (!content) {
+    content = fallbackUnifiedScript(source);
+    warning = lastError instanceof Error
+      ? `模型剧本生成失败，已生成基础脚本：${lastError.message}`
+      : "模型剧本生成失败，已生成基础脚本";
+  }
+  const generatedAt = new Date().toISOString();
+  await writeFile(join(dir, "script.md"), content.trimEnd() + "\n", "utf-8");
+  await writeFile(join(dir, "manifest.json"), JSON.stringify({ scriptGeneratedAt: generatedAt, ...(body.craftId ? { craftId: body.craftId } : {}), ...(warning ? { warning } : {}) }, null, 2), "utf-8");
+  return { ...(await readProduction(context, kind, id)), warning: warning ?? null };
+}
+
+async function generateProductionVideo(
+  context: StudioRouteContext,
+  kind: StoryKind,
+  id: string,
+  body: { readonly voice?: boolean },
+) {
+  const dir = productionPath(context.root, kind, id);
+  const script = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
+  if (!script.trim()) throw new Error("请先在剧本阶段生成剧本");
+  const raw = await context.loadRawConfig();
+  const secrets = await context.loadSecrets();
+  const imageConfig = await resolveImageConfig(context.root);
+  const previous = await readManifest(dir);
+  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
+  const sourceVideoPath = previous.craftId
+    ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
+    : undefined;
+  const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+  const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
+  const result = await composeVideo({
+    productionDir: dir,
+    script: parseUnifiedScript(script, { confirmedSourceSegments }),
+    voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
+    withVoice: body.voice !== false,
+    imageConfig,
+    sourceVideoPath,
+    artStyle,
+  });
+  await writeFile(join(dir, "manifest.json"), JSON.stringify({
+    ...previous,
+    videoGeneratedAt: new Date().toISOString(),
+    videoDurationMs: result.durationMs,
+    voiceEnabled: result.voiceEnabled,
+    ...(result.warning ? { warning: result.warning } : {}),
+  }, null, 2), "utf-8");
+  return { ...(await readProduction(context, kind, id)), warning: result.warning ?? null };
+}
+
+async function generateProductionSceneVideo(
+  context: StudioRouteContext,
+  kind: StoryKind,
+  id: string,
+  index: number,
+  body: { readonly voice?: boolean },
+) {
+  const dir = productionPath(context.root, kind, id);
+  const scriptText = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
+  if (!scriptText.trim()) throw new Error("请先在剧本阶段生成剧本");
+  const previous = await readManifest(dir);
+  const confirmedSourceSegments = await readConfirmedSourceSegments(context.root, previous.craftId);
+  const sourceVideoPath = previous.craftId
+    ? await resolveCraftSourceFile(context.root, previous.craftId, "sourceVideo").catch(() => undefined)
+    : undefined;
+  const scenes = groupShotsByScene(parseUnifiedScript(scriptText, { confirmedSourceSegments }).shots);
+  const scene = scenes.find((item) => item.index === index);
+  if (!scene) throw new Error("场景不存在");
+  const raw = await context.loadRawConfig();
+  const secrets = await context.loadSecrets();
+  const imageConfig = await resolveImageConfig(context.root);
+  const pipeline = new PipelineRunner(await context.buildPipelineConfig());
+  const artStyle = await resolveStoryArtStyle(context.root, kind, id, pipeline);
+  const scenesDir = join(dir, "scenes");
+  const tempDir = join(dir, ".tmp-video", `scene-${index}`);
+  await mkdir(scenesDir, { recursive: true });
+  await mkdir(tempDir, { recursive: true });
+  const sceneImageCache = imageConfig ? join(dir, "images", `scene-${index}`) : undefined;
+  if (sceneImageCache) await mkdir(sceneImageCache, { recursive: true });
+  const sceneOutput = join(scenesDir, `scene-${String(index).padStart(3, "0")}.mp4`);
+  const result = await composeSegmentVideo({
+    tempDir,
+    outputPath: sceneOutput,
+    shots: scene.shots,
+    voiceConfig: parseLlmVoiceConfig(raw, secrets as unknown as Record<string, unknown>),
+    withVoice: body.voice !== false,
+    imageConfig,
+    artStyle,
+    imageCacheDir: sceneImageCache,
+    sourceVideoPath,
+  });
+  return { ...(await readProduction(context, kind, id)), warning: result.warning ?? null };
+}
+
+function registerProductionRoutesForKind(context: StudioRouteContext, kind: StoryKind, tasks: ProductionTaskRegistry): void {
   const prefix = kind === "short" ? "/api/v1/shorts" : "/api/v1/books";
 
   context.app.get(`${prefix}/:id/production`, async (c) => {
@@ -636,6 +793,14 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
   context.app.post(`${prefix}/:id/production/script`, async (c) => {
     const id = c.req.param("id");
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
+    if (c.req.query("background") === "true") {
+      const body = await c.req.json<{ craftId?: string }>().catch(() => ({}));
+      const task = tasks.start(
+        { kind: "script", storyId: id, storyKind: kind },
+        async () => { await generateProductionScript(context, kind, id, body); },
+      );
+      return c.json({ task }, 202);
+    }
     const source = await readStorySource(context, kind, id);
     if (!source.text.trim()) return c.json({ error: "故事正文为空，无法生成剧本" }, 400);
     const dir = productionPath(context.root, kind, id);
@@ -713,6 +878,14 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
   context.app.post(`${prefix}/:id/production/video`, async (c) => {
     const id = c.req.param("id");
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
+    if (c.req.query("background") === "true") {
+      const body = await c.req.json<{ voice?: boolean }>().catch(() => ({}));
+      const task = tasks.start(
+        { kind: "video", storyId: id, storyKind: kind },
+        async () => { await generateProductionVideo(context, kind, id, body); },
+      );
+      return c.json({ task }, 202);
+    }
     const dir = productionPath(context.root, kind, id);
     const script = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
     if (!script.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
@@ -751,6 +924,14 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
     const index = Number(c.req.param("index"));
     if (!Number.isInteger(index) || index < 0) return c.json({ error: "Invalid scene index" }, 400);
+    if (c.req.query("background") === "true") {
+      const body = await c.req.json<{ voice?: boolean }>().catch(() => ({}));
+      const task = tasks.start(
+        { kind: "scene-video", sceneIndex: index, storyId: id, storyKind: kind },
+        async () => { await generateProductionSceneVideo(context, kind, id, index, body); },
+      );
+      return c.json({ task }, 202);
+    }
     const dir = productionPath(context.root, kind, id);
     const scriptText = await readFile(join(dir, "script.md"), "utf-8").catch(() => "");
     if (!scriptText.trim()) return c.json({ error: "请先在剧本阶段生成剧本" }, 400);
@@ -812,6 +993,7 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
 }
 
 export function registerStoryProductionRoutes(context: StudioRouteContext): void {
-  registerProductionRoutesForKind(context, "short");
-  registerProductionRoutesForKind(context, "book");
+  const tasks = new ProductionTaskRegistry((task) => context.broadcast("production:task", task));
+  registerProductionRoutesForKind(context, "short", tasks);
+  registerProductionRoutesForKind(context, "book", tasks);
 }
