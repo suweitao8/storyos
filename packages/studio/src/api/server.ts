@@ -2865,71 +2865,9 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         return;
       }
 
-      if (quality.score < 70 && (options.attempt ?? 0) < 1 && options.generationId) {
-        const nextGenerationId = randomUUID();
-        const prepared = await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
-          storySeedStatus: "pending",
-          storySeedError: undefined,
-          storySeedGenerationId: nextGenerationId,
-          storySeedScoreStatus: "pending",
-          storySeedScore: undefined,
-          storySeedScoreNote: undefined,
-          storySeedScoreError: undefined,
-        });
-        if (prepared) {
-          console.warn(`[craft] story seed quality score ${quality.score}; retrying once in the background`);
-          startCraftStorySeedGeneration(craftId, {
-            force: true,
-            generationId: nextGenerationId,
-            kind: options.kind,
-            language,
-            attempt: (options.attempt ?? 0) + 1,
-            previousDirection: [
-              language === "zh"
-                ? `上一版质量评分只有 ${quality.score} 分，请重做并保持题材、现实层级和核心冲突，不要只改标题。`
-                : `The previous version scored only ${quality.score}. Rebuild it while preserving the genre, reality level, and core conflict instead of changing only the title.`,
-              serializeStorySeed(storySeed, language),
-            ].join("\n\n"),
-          });
-        }
-        return;
-      }
-
-      if (quality.score < 70) {
-        const error = language === "zh"
-          ? `故事设定评分为 ${quality.score} 分，未达到 70 分质量门槛，请重新生成。`
-          : `Story foundation scored ${quality.score}, below the 70-point quality threshold. Regenerate it before creating a story.`;
-        const current = await (options.generationId
-          ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
-              storySeedStatus: "error",
-              storySeedError: error,
-              storySeedScoreStatus: "error",
-              storySeedScore: quality.score,
-              storySeedScoreNote: quality.note,
-              storySeedScoreError: error,
-            })
-          : queueCraftStorySeedWrite(craftId, async () => {
-              await pipeline.updateCraftStorySeedStatus(craftId, {
-                storySeedStatus: "error",
-                storySeedError: error,
-                storySeedScoreStatus: "error",
-                storySeedScore: quality.score,
-                storySeedScoreNote: quality.note,
-                storySeedScoreError: error,
-              });
-              return true;
-            })).catch(() => false);
-        if (current) {
-          broadcast("craft:story-seed-score-error", {
-            craftId,
-            generationId: options.generationId,
-            score: quality.score,
-            error,
-          });
-        }
-        return;
-      }
-
+      // Scores are durable background feedback, not a second generation state.
+      // A low score is visible to the user and recommends regeneration, but it
+      // must never replace or disable an already-published creation contract.
       const current = await (options.generationId
         ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
             storySeedScoreStatus: "ready",
