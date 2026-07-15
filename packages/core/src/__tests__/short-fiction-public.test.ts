@@ -274,6 +274,7 @@ ${"正文".repeat(2_146)}
         coverEndpoint: "https://images.example.test/v1/images/generations",
         coverModel: "gpt-image-2",
         coverApiKeyEnv: "STORYOS_TEST_COVER_KEY",
+        artStyle: "cg3d",
       });
 
       expect(result.coverPromptPath).toBe("covers/demo/cover-prompt.md");
@@ -291,6 +292,7 @@ ${"正文".repeat(2_146)}
       );
       const body = String(fetchMock.mock.calls[0]?.[1]?.body ?? "");
       expect(body).toContain("按用户给出的标题、简介、卖点和视觉要求生成封面图。");
+      expect(body).toContain("3D国漫风格");
       expect(body).not.toContain("不添加文字");
       expect(body).not.toContain("水印");
       expect(body).not.toContain("固定模板");

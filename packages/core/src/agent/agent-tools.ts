@@ -1278,6 +1278,9 @@ export function createShortFictionRunTool(
       if (craftId && !craftProfile) {
         throw new Error(`Craft profile not found: ${craftId}`);
       }
+      const craftMeta = craftId
+        ? (await pipeline.listCrafts()).find((craft) => craft.id === craftId)
+        : undefined;
       const result = await runShortFictionProduction({
         projectRoot,
         direction: shortPayload?.direction ?? params.direction,
@@ -1291,6 +1294,8 @@ export function createShortFictionRunTool(
         },
         ...((shortPayload?.reference ?? params.reference) ? { reference: { text: shortPayload?.reference ?? params.reference! } } : {}),
         storyId: shortPayload?.storyId ?? params.storyId,
+        craftId,
+        artStyle: craftMeta?.artStyle,
         craftProfile,
         chapterCount: shortPayload?.chapters ?? params.chapters,
         charsPerChapter: shortPayload?.charsPerChapter ?? params.charsPerChapter,

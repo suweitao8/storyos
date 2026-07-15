@@ -5588,6 +5588,8 @@ describe("story asset API", () => {
 
   it("generates one image only when the explicit image route is called", async () => {
     await writeManifest("short", "mist-harbor");
+    await mkdir(join(root, "shorts", "mist-harbor"), { recursive: true });
+    await writeFile(join(root, "shorts", "mist-harbor", "story-config.json"), JSON.stringify({ artStyle: "cg3d" }), "utf-8");
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
 
@@ -5596,6 +5598,7 @@ describe("story asset API", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ assetId: "hero", status: "ready", path: "shorts/mist-harbor/assets/images/hero.png" });
     expect(generatePlayImageMock).toHaveBeenCalledTimes(1);
+    expect(generatePlayImageMock.mock.calls[0]?.[0]).toMatchObject({ prompt: expect.stringContaining("3D国漫风格") });
     await expect(readFile(join(root, "shorts", "mist-harbor", "assets", "images", "hero.png"), "utf-8")).resolves.toBe("PNG");
   });
 
