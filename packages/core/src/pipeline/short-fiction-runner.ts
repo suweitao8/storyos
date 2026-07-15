@@ -26,6 +26,7 @@ import {
   validateShortFictionDraftForFinal,
   type ShortFictionBatchDraft,
   type ShortFictionLanguage,
+  type ShortFictionOutline,
   type ShortFictionReference,
   type ShortFictionSalesPackage,
 } from "../agents/short-fiction.js";
@@ -207,17 +208,36 @@ async function produceShort(
   if (providedStoryId && resumedOutline?.trim()) {
     storyId = providedStoryId;
     baseDir = join(outDir, storyId);
-    outlineMarkdown = resumedOutline;
+    const repairedOutline = await repairShortFictionOutlineRealityDrift({
+      outline: { storyTitle: storyId, rawContent: resumedOutline },
+      options,
+      craftGuide,
+      chapterCount,
+      charsPerChapter,
+      language,
+    });
+    outlineMarkdown = repairedOutline.rawContent;
+    if (outlineMarkdown !== resumedOutline) {
+      await writeText(root, join(baseDir, "outline", "v002.md"), outlineMarkdown);
+    }
     options.onProgress?.("Resuming from existing outline (skipping outline stages)...");
   } else {
     options.onProgress?.("Creating short fiction outline...");
     const outlineAgent = new ShortFictionOutlineAgent(options.runtimes.planner);
-    const outlineV1 = await outlineAgent.createOutline({
+    let outlineV1 = await outlineAgent.createOutline({
       direction: options.direction,
       chapterCount,
       charsPerChapter,
       reference: options.reference,
       craftGuide,
+      language,
+    });
+    outlineV1 = await repairShortFictionOutlineRealityDrift({
+      outline: outlineV1,
+      options,
+      craftGuide,
+      chapterCount,
+      charsPerChapter,
       language,
     });
 
@@ -241,7 +261,7 @@ async function produceShort(
 
       options.onProgress?.("Revising outline once...");
       const outlineReviser = new ShortFictionOutlineReviserAgent(options.runtimes.planner);
-      const outlineV2 = await outlineReviser.reviseOutline({
+      let outlineV2 = await outlineReviser.reviseOutline({
         direction: options.direction,
         outline: outlineV1,
         review: outlineReview,
@@ -249,6 +269,14 @@ async function produceShort(
         chapterCount,
         charsPerChapter,
         craftGuide,
+        language,
+      });
+      outlineV2 = await repairShortFictionOutlineRealityDrift({
+        outline: outlineV2,
+        options,
+        craftGuide,
+        chapterCount,
+        charsPerChapter,
         language,
       });
       await writeText(root, join(baseDir, "outline", "v002.md"), outlineV2.rawContent);
@@ -423,6 +451,57 @@ function assertDraftMatchesCraftReality(
   if (violations.length > 0) {
     throw new Error(`Short fiction draft violates the writing mode reality-level lock: ${violations.join(", ")}.`);
   }
+}
+
+async function repairShortFictionOutlineRealityDrift(input: {
+  readonly outline: ShortFictionOutline;
+  readonly options: ShortFictionRunOptions;
+  readonly craftGuide?: string;
+  readonly chapterCount: number;
+  readonly charsPerChapter: number;
+  readonly language: ShortFictionLanguage;
+}): Promise<ShortFictionOutline> {
+  const craftProfile = input.options.craftProfile;
+  const violations = craftProfile ? detectCraftRealityDrift(craftProfile, input.outline.rawContent) : [];
+  if (violations.length === 0) return input.outline;
+
+  input.options.onProgress?.("Repairing outline to match the writing mode reality level...");
+  const reviser = new ShortFictionOutlineReviserAgent(input.options.runtimes.planner);
+  const repaired = await reviser.reviseOutline({
+    direction: input.options.direction,
+    outline: input.outline,
+    review: buildShortFictionRealityRepairReview(violations, input.language),
+    reference: input.options.reference,
+    chapterCount: input.chapterCount,
+    charsPerChapter: input.charsPerChapter,
+    craftGuide: input.craftGuide,
+    language: input.language,
+  });
+  const remaining = detectCraftRealityDrift(craftProfile!, repaired.rawContent);
+  if (remaining.length > 0) {
+    throw new Error(`Short fiction outline still violates the writing mode reality-level lock: ${remaining.join(", ")}.`);
+  }
+  return repaired;
+}
+
+function buildShortFictionRealityRepairReview(
+  violations: readonly string[],
+  language: ShortFictionLanguage,
+): string {
+  if (language === "en") {
+    return [
+      "The outline violates the writing-mode reality-level lock.",
+      `Remove these unsupported mechanisms: ${violations.join(", ")}.`,
+      "Keep the story's genre engine, pressure chain, characters, and promised payoff, but replace the invalid explanation with plausible human motives, evidence, relationships, crime, or environmental danger.",
+      "Return the complete revised outline, not an explanation of the edits.",
+    ].join("\n");
+  }
+  return [
+    "该大纲违反了写作模式的现实层级锁。",
+    `必须删除以下不被参考模式支持的机制：${violations.join("、")}。`,
+    "保留题材发动机、压力链、人物关系与结局回报，但将无效解释改为可信的人为动机、证据、关系、犯罪或现实环境危险。",
+    "请直接返回完整修订大纲，不要解释修改过程。",
+  ].join("\n");
 }
 
 function buildShortRunResult(
