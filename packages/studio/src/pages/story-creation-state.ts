@@ -173,7 +173,11 @@ export function buildLongStoryCreationAction(input: LongStoryCreationInput): {
         language: input.language,
         targetChapters: LONG_STORY_CHAPTERS,
         chapterWordCount: input.chapterWordCount,
-        quick: true,
+        // Long-form creation should keep the foundation review enabled. The UI
+        // already lets the generation run in the background, so skipping this
+        // quality gate only trades away consistency for a wait-time that the
+        // user does not need to sit through.
+        quick: false,
         ...(input.craftId ? { craftId: input.craftId } : {}),
       },
     },
