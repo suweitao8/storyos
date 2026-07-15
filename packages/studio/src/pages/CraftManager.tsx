@@ -53,6 +53,8 @@ interface CraftMeta {
   readonly storySeedError?: string;
   readonly storySeedScore?: number;
   readonly storySeedScoreNote?: string;
+  readonly storySeedScoreStatus?: "pending" | "ready" | "error";
+  readonly storySeedScoreError?: string;
   readonly artStyle?: CraftArtStyle;
   readonly processingStatus?: "processing" | "ready" | "error";
   readonly processingStage?: string;
@@ -1306,10 +1308,11 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
 
   useEffect(() => {
     if (!craftId || meta?.processingStatus === "processing") return;
-    // Keep polling while the story seed is generating (pending) or while the
-    // AI quality score hasn't been written yet (score runs after the seed is ready).
+    // Keep polling while the story seed or its independent background score is pending.
     const seedPending = meta?.storySeedStatus === "pending";
-    const scorePending = meta?.storySeedStatus === "ready" && meta?.storySeed && typeof meta?.storySeedScore !== "number";
+    const scorePending = meta?.storySeedStatus === "ready" && meta?.storySeed
+      && (meta?.storySeedScoreStatus === "pending"
+        || (!meta?.storySeedScoreStatus && typeof meta?.storySeedScore !== "number"));
     if (!seedPending && !scorePending) return;
     let active = true;
     const startedAt = Date.now();
@@ -1558,6 +1561,8 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
             isZh={profile.language === "zh"}
             score={meta?.storySeedScore}
             scoreNote={meta?.storySeedScoreNote}
+            scoreStatus={meta?.storySeedScoreStatus}
+            scoreError={meta?.storySeedScoreError}
           />
         </section>
       )}

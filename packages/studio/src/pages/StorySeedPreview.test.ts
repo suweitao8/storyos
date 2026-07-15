@@ -50,4 +50,16 @@ describe("StorySeedPreview", () => {
     expect(html).toContain("后台生成故事设定");
     expect(html).not.toContain("等待模型输出");
   });
+
+  it("makes background scoring explicit without blocking the generated story", () => {
+    const html = renderToStaticMarkup(createElement(StorySeedPreview, {
+      streamedContent: "## 故事名称\n\n回声井",
+      status: "ready",
+      scoreStatus: "pending",
+      isZh: true,
+    }));
+
+    expect(html).toContain("正在后台评分，不影响继续创作");
+    expect(html).toContain("回声井");
+  });
 });
