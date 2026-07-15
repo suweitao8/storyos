@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ImageIcon, Mic, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
 import type { Theme } from "../hooks/use-theme";
@@ -219,67 +219,31 @@ function ShotRow({ shot, isZh, selected, onSelect }: {
 
 function ShotDetails({ shot, isZh }: { readonly shot: UnifiedScriptShot; readonly isZh: boolean }) {
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto bg-card/20 p-4" data-testid="story-script-details">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        {/* 标题行 */}
-        <div className="flex shrink-0 items-center justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <p className="shrink-0 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{shot.scene}</p>
-            <h2 className="truncate text-lg font-semibold">{isZh ? `镜头 ${shot.number}` : `Shot ${shot.number}`}</h2>
-            {shot.camera ? <span className="shrink-0 rounded border border-border/50 bg-secondary/50 px-1.5 py-0.5 text-[11px] text-muted-foreground">{shot.camera}</span> : null}
-          </div>
-          <span className="shrink-0 text-xs text-muted-foreground">{shot.durationMs ? `${Math.round(shot.durationMs / 1000)}s` : isZh ? "自动时长" : "Auto"}</span>
+    <section className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="story-script-details">
+      <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        {/* 标题行：场景 + 镜头号 + 景别（只显示一次） */}
+        <div className="flex shrink-0 items-baseline gap-2">
+          <p className="shrink-0 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{shot.scene}</p>
+          <h2 className="truncate text-lg font-semibold">{isZh ? `镜头 ${shot.number}` : `Shot ${shot.number}`}</h2>
+          {shot.camera ? <span className="shrink-0 text-xs text-muted-foreground">{shot.camera}</span> : null}
         </div>
 
-        {/* 生成按钮（占位：单镜头生成能力待后端支持） */}
-        <div className="flex shrink-0 gap-2">
-          <PlaceholderButton icon={<Mic size={14} />} label={isZh ? "生成语音" : "Generate voice"} isZh={isZh} />
-          <PlaceholderButton icon={<ImageIcon size={14} />} label={isZh ? "生成图片" : "Generate image"} isZh={isZh} />
-        </div>
-
-        {/* 图片占位区 */}
-        <div className="flex aspect-[16/9] shrink-0 items-center justify-center rounded-xl border border-dashed border-border/60 bg-secondary/40">
-          <span className="text-sm text-muted-foreground/50">{isZh ? "分镜图片（待生成）" : "Shot image (pending)"}</span>
-        </div>
-
-        {/* 字段区 */}
-        <div className="min-h-0 flex-1 space-y-4">
-          <Field label={isZh ? "景别 / 机位" : "Camera"}>
-            <p className="rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm text-foreground/80">{shot.camera || (isZh ? "未设置" : "Not set")}</p>
-          </Field>
+        {/* 字段区：只保留核心信息，去掉冗余 */}
+        <div className="space-y-3">
           <Field label={isZh ? "分镜内容" : "Visual"}>
-            <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground/80">{shot.visual || (isZh ? "画面待补充" : "No visual description")}</p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">{shot.visual || (isZh ? "画面待补充" : "No visual description")}</p>
           </Field>
-          {shot.action ? (
-            <Field label={isZh ? "动作" : "Action"}>
-              <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-muted-foreground">{shot.action}</p>
-            </Field>
-          ) : null}
-          <Field label={isZh ? "旁白 / 台词" : "Narration"}>
-            <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground/80">{shot.subtitle || (isZh ? "无旁白" : "No narration")}</p>
+          <Field label={isZh ? "旁白" : "Narration"}>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/80">{shot.subtitle || (isZh ? "无旁白" : "No narration")}</p>
           </Field>
           {shot.imagePrompt ? (
             <Field label={isZh ? "图像提示词" : "Image prompt"}>
-              <p className="whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-background/40 px-3 py-2 text-xs leading-5 text-muted-foreground">{shot.imagePrompt}</p>
+              <p className="whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">{shot.imagePrompt}</p>
             </Field>
           ) : null}
         </div>
       </div>
     </section>
-  );
-}
-
-function PlaceholderButton({ icon, label, isZh }: { readonly icon: ReactNode; readonly label: string; readonly isZh: boolean }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title={isZh ? "单镜头生成能力即将上线" : "Per-shot generation coming soon"}
-      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground opacity-60"
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 
