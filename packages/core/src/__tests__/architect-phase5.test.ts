@@ -303,8 +303,9 @@ describe("ArchitectAgent — Phase 5 prose output", () => {
 
     expect(chat).toHaveBeenCalledTimes(2);
     const repairMessages = chat.mock.calls[1]?.[0] as Array<{ role: string; content: string }>;
-    expect(repairMessages[0]?.content).toContain("修复 StoryOS architect");
-    expect(repairMessages[1]?.content).toContain("缺失 section");
+    expect(repairMessages[0]?.content).toContain("你负责修复 architect 的输出格式");
+    expect(repairMessages[0]?.content).toContain("不要重新发明一本书");
+    expect(repairMessages[1]?.content).toContain("缺失 section：roles, book_rules");
     expect(out.storyFrame).toContain("这本书讲的是");
     expect(out.bookRules).toContain("version");
     expect(out.roles?.length).toBeGreaterThan(0);
