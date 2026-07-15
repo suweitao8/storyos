@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ArtStyle, PipelineRunner } from "@actalk/inkos-core";
+import { getRecentCraftId } from "./studio-preferences-db.js";
 
 type StoryKind = "short" | "book";
 
@@ -34,7 +35,9 @@ export async function resolveStoryArtStyle(
     : undefined;
   const craftId = typeof visualConfig?.craftId === "string"
     ? visualConfig.craftId
-    : typeof bookConfig?.craftId === "string" ? bookConfig.craftId : undefined;
+    : typeof bookConfig?.craftId === "string"
+      ? bookConfig.craftId
+      : kind === "short" ? await getRecentCraftId(root).catch(() => null) ?? undefined : undefined;
   if (craftId) {
     const craft = (await pipeline.listCrafts()).find((candidate) => candidate.id === craftId);
     if (isArtStyle(craft?.artStyle)) return craft.artStyle;
