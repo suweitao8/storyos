@@ -416,10 +416,13 @@ export function buildShortFictionCraftGuide(craftProfile?: CraftProfile): string
   const r = craftProfile.sceneRhythm;
   const i = craftProfile.informationDisclosure;
   const n = craftProfile.narrativePerspective;
+  const hasApprovedStorySeed = Boolean(craftProfile.storySeed);
   const lines = [
     "## 短篇原创化写作契约",
     "",
-    "写作模式只提供可迁移的叙事功能和节奏，不提供可复述的原故事。先按改编方案重建故事，再按节拍功能组织新事件。",
+    hasApprovedStorySeed
+      ? "写作模式只提供可迁移的叙事功能和节奏。下方已确认的原创故事设定是本次短篇的唯一故事空间；用节拍功能丰富它，不得替换其人物、规则、因果链、反转或结局。"
+      : "写作模式只提供可迁移的叙事功能和节奏，不提供可复述的原故事。先按改编方案重建故事，再按节拍功能组织新事件。",
     "",
     "### 允许迁移的叙事机制",
     `- 开篇功能: ${s.openingPattern}`,
@@ -485,11 +488,25 @@ export function buildShortFictionCraftGuide(craftProfile?: CraftProfile): string
     );
   }
 
+  if (craftProfile.storySeed) {
+    lines.push(
+      "",
+      "### 已确认的原创故事设定（短篇必须遵守）",
+      "以下是用户已经确认的本次原创故事。它不是参考素材，必须保留其题材与基调、现实或超自然边界、人物关系、核心因果链、关键反转和结局代价；只能用前面的写作机制丰富表达，不能另起一套故事。",
+      ...STORY_SEED_SECTION_DEFINITIONS.flatMap((definition) => {
+        const value = craftProfile.storySeed?.[definition.key]?.trim();
+        return value ? [`- ${definition.zh}: ${value}`] : [];
+      }),
+    );
+  }
+
   lines.push(
     "",
     "### 硬性原创要求",
     "- 原始 worldview、故事大纲、视频 logline、具体事件、反转揭示、收束事件和范例原文不是创作素材，不得复述或改写。",
-    "- 新故事至少重建故事空间、职业/身份、关系结构、核心因果链、关键道具/规则、场景事件和结局代价。",
+    hasApprovedStorySeed
+      ? "- 已确认的原创故事设定是唯一的故事空间；不得用参考素材或新的默认设定替换其人物、规则、因果链、关键反转或结局代价。"
+      : "- 新故事至少重建故事空间、职业/身份、关系结构、核心因果链、关键道具/规则、场景事件和结局代价。",
     "- 节拍只能迁移开场钩子、压力间距、信息释放、反转位置、高潮功能和余味功能，不能迁移事件顺序。",
     "- 写大纲前先完成替换检查：如果只是给原人物改名、给原地点换称呼或保留同一条因果链，必须推倒重建。",
   );
