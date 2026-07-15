@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildStoryDirectionPrompt, buildStorySeedPrompt } from "../agents/craft-prompts.js";
+import {
+  buildStoryDirectionPrompt,
+  buildStorySeedPrompt,
+  buildStorySeedQualitySystemPrompt,
+} from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 
 const profile: CraftProfile = {
@@ -93,5 +97,63 @@ describe("story direction prompt", () => {
 
     expect(prompt.system).toContain("同框架");
     expect(prompt.system).toContain("替换");
+  });
+
+  it("inherits realistic suspense and horror boundaries instead of inventing science fiction", () => {
+    const prompt = buildStorySeedPrompt({
+      ...profile,
+      mode: "bilibili-commentary",
+      videoStory: {
+        logline: "一个普通维修工发现楼道里有人被悄悄抹去。",
+        audiencePromise: "在熟悉的城市生活里逐步发现一个无法解释的悬疑真相。",
+        outline: "从日常异常开始，经过调查和误导，在现实关系中揭开代价。",
+        beats: [],
+        reversals: [],
+        payoffs: [],
+        pacingCurve: "前慢后紧，线索连续收紧",
+        hookStrategy: "用一个日常中不对劲的细节开场",
+        climaxStrategy: "让主角在现实代价面前做选择",
+        endingAftertaste: "真相落地但留下不安",
+        originalizationRules: [],
+      },
+    }, "short", "zh");
+
+    expect(prompt.user).toContain("题材、时代、现实层级和情绪承诺");
+    expect(prompt.user).toContain("禁止主动加入科幻");
+    expect(prompt.user).toContain("观众承诺");
+    expect(prompt.system).toContain("不是题材和现实层级");
+    expect(prompt.system).not.toContain("末班地铁");
+  });
+
+  it("keeps ghost-story supernatural horror without allowing a sci-fi drift", () => {
+    const prompt = buildStoryDirectionPrompt({
+      ...profile,
+      mode: "ghost-story",
+      ghostStory: {
+        fearCore: "熟悉的家中空间逐渐变得不可信",
+        supernaturalRules: "回应第三次敲门会失去一段记忆",
+        taboos: "不能在门后叫出名字",
+        protagonistVulnerability: "主角害怕忘记家人",
+        clueSystem: "声音和门牌变化构成线索",
+        revealCadence: "先给异常，再解释代价",
+        scareCadence: "少量惊吓，持续压迫",
+        escalationLadder: "从听见到看见，再到被规则锁定",
+        sensoryMotifs: "敲门声和坏掉的灯",
+        endingAftertaste: "解决眼前问题但留下记忆缺口",
+      },
+    }, "short", "zh");
+
+    expect(prompt.user).toContain("这是恐怖鬼故事模式");
+    expect(prompt.user).toContain("超自然规则");
+    expect(prompt.user).toContain("不能改成科幻悬疑");
+  });
+
+  it("makes the background score check mode fidelity and reality level", () => {
+    const qualityPrompt = buildStorySeedQualitySystemPrompt(profile, "zh");
+
+    expect(qualityPrompt).toContain("题材与现实感一致性");
+    expect(qualityPrompt).toContain("科幻");
+    expect(qualityPrompt).toContain(profile.worldview);
+    expect(qualityPrompt).toContain(profile.storyOutline);
   });
 });

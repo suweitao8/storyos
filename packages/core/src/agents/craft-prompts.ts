@@ -500,6 +500,77 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
   };
 }
 
+function buildStoryFoundationCraftContext(
+  craftProfile: CraftProfile,
+  language: "zh" | "en",
+): string[] {
+  const isZh = language === "zh";
+  const mode = craftProfile.mode ?? "general";
+  const lines = isZh
+    ? [
+        "### 写作模式继承（高优先级）",
+        `- 当前模式：${mode}`,
+        "- 题材、时代、现实层级和情绪承诺，以参考世界观与故事大纲明确呈现的内容为准；创作新故事不等于改变题材。",
+        "- 如果参考素材是现实都市里的悬疑、惊悚或恐怖故事，必须继续落在现实可发生的范围内，用人物动机、犯罪、关系、环境、身体和信息差制造压力。",
+        "- 参考素材没有明确依据时，禁止主动加入科幻、未来科技、人工智能、赛博朋克、太空、外星、时间旅行、实验室等设定，也不要用科技解释恐怖。",
+        "- 只有参考素材明确存在超自然或科幻元素时，才可以保留对应元素；不得因为“世界观”这个词就擅自扩展设定。",
+      ]
+    : [
+        "### Craft-mode inheritance (high priority)",
+        `- Current mode: ${mode}`,
+        "- Preserve the genre, era, reality level, and emotional promise explicitly shown by the reference worldview and outline; creating a new story does not mean changing its genre.",
+        "- If the reference is a realistic urban suspense, thriller, or horror story, stay within recognizable reality and create pressure through motives, crime, relationships, environment, the body, and missing information.",
+        "- Unless the reference explicitly supports them, do not introduce science fiction, future technology, AI, cyberpunk, space, aliens, time travel, laboratories, or technological explanations for the horror.",
+        "- Keep supernatural or science-fiction elements only when the reference clearly contains them; the word 'worldview' is not permission to invent a larger setting.",
+      ];
+
+  if (mode === "ghost-story" && craftProfile.ghostStory) {
+    const h = craftProfile.ghostStory;
+    lines.push(
+      ...(isZh
+        ? [
+            "- 这是恐怖鬼故事模式：保留恐怖核心、超自然规则、禁忌、线索和升级方式；可以换人物与地点，但不能改成科幻悬疑或普通冒险。",
+            `- 恐怖核心：${compactStoryDirectionSource(h.fearCore, 600)}`,
+            `- 规则与触发：${compactStoryDirectionSource(h.supernaturalRules, 600)}`,
+            `- 恐怖升级：${compactStoryDirectionSource(h.escalationLadder, 600)}`,
+            `- 结尾余味：${compactStoryDirectionSource(h.endingAftertaste, 600)}`,
+          ]
+        : [
+            "- This is a horror ghost-story mode: preserve the fear core, supernatural rules, taboos, clues, and escalation; change people and places without turning it into science-fiction suspense or an adventure.",
+            `- Fear core: ${compactStoryDirectionSource(h.fearCore, 600)}`,
+            `- Rules and triggers: ${compactStoryDirectionSource(h.supernaturalRules, 600)}`,
+            `- Escalation: ${compactStoryDirectionSource(h.escalationLadder, 600)}`,
+            `- Ending aftertaste: ${compactStoryDirectionSource(h.endingAftertaste, 600)}`,
+          ]),
+    );
+  }
+
+  if (craftProfile.videoStory) {
+    const v = craftProfile.videoStory;
+    lines.push(
+      ...(isZh
+        ? [
+            "- 视频模式只迁移叙事节拍和观众承诺，不迁移原视频的具体事件、人物、地点或因果链。",
+            `- 观众承诺：${compactStoryDirectionSource(v.audiencePromise, 800)}`,
+            `- 节奏曲线：${compactStoryDirectionSource(v.pacingCurve, 600)}`,
+            `- 开场钩子：${compactStoryDirectionSource(v.hookStrategy, 600)}`,
+            `- 高潮功能：${compactStoryDirectionSource(v.climaxStrategy, 600)}`,
+            `- 结尾余味：${compactStoryDirectionSource(v.endingAftertaste, 600)}`,
+          ]
+        : [
+            "- For video modes, transfer only beat functions and the audience promise, never the source video's concrete events, people, places, or causal chain.",
+            `- Audience promise: ${compactStoryDirectionSource(v.audiencePromise, 800)}`,
+            `- Pacing curve: ${compactStoryDirectionSource(v.pacingCurve, 600)}`,
+            `- Opening hook: ${compactStoryDirectionSource(v.hookStrategy, 600)}`,
+            `- Climax function: ${compactStoryDirectionSource(v.climaxStrategy, 600)}`,
+            `- Ending aftertaste: ${compactStoryDirectionSource(v.endingAftertaste, 600)}`,
+          ]),
+    );
+  }
+
+  return lines;
+}
+
 /** Build a generation prompt that transfers craft mechanics into a new story direction. */
 export function buildStoryDirectionPrompt(
   craftProfile: CraftProfile,
@@ -507,10 +578,6 @@ export function buildStoryDirectionPrompt(
   language: "zh" | "en",
   previousDirection?: string,
 ): StoryDirectionPrompt {
-  // Only inject worldview + outline as reference. The technical craft
-  // mechanics (pacing, POV, rhythm, etc.) pollute the output with jargon
-  // and make the seed harder to read. The LLM should focus on the story
-  // itself, not on writing techniques.
   const referenceSections: string[] = [];
   if (craftProfile.worldview?.trim()) {
     referenceSections.push(`参考世界观：\n${compactStoryDirectionSource(craftProfile.worldview)}`);
@@ -525,11 +592,7 @@ export function buildStoryDirectionPrompt(
     : "Output the result in English.";
   const plainLanguageGuidance = buildPlainLanguageGuidance(language);
 
-  const genreLock = craftProfile.mode === "ghost-story"
-    ? (language === "zh"
-      ? "题材锁定：参考素材是恐怖鬼故事，你写的也必须是恐怖鬼故事。保留超自然元素和恐怖氛围，只换具体场景和角色。"
-      : "Genre lock: the reference is a horror ghost story. Yours must also be a horror ghost story — keep the supernatural and horror tone, only swap the setting and characters.")
-    : "";
+  const craftContext = buildStoryFoundationCraftContext(craftProfile, language);
 
   return {
     system: [
@@ -537,16 +600,16 @@ export function buildStoryDirectionPrompt(
       languageRule,
       ...plainLanguageGuidance.system,
       language === "zh"
-        ? "参考素材提供了世界观和故事大纲。你要写一个同框架但细节不同的新故事：保持世界观规则和故事走向不变，只替换具体的空间、道具和角色身份。"
-        : "The reference provides a worldview and story outline. Write a new story with the same framework: keep the world's rules and story direction, only swap the concrete setting, props, and character identities.",
-      ...(genreLock ? [genreLock] : []),
+        ? "参考素材提供了世界观、故事骨架和写作模式。你要写一个同框架但细节不同的新故事：保留题材、时代、现实感、情绪承诺、悬念或恐怖强度和叙事功能，不是简单替换名字或地点，而是重新设计人物、空间、道具、因果链与结局代价。"
+        : "The reference provides a worldview, story skeleton, and craft mode. Write a new story with the same framework: preserve its genre, era, reality level, emotional promise, suspense or horror intensity, and narrative functions, while rebuilding the people, setting, props, causal chain, and ending cost.",
       language === "zh"
-        ? "比如原故事在公交车上，你可以改到末班地铁；原角色手机没电，你可以改成信号消失。换个壳，故事内核不变。"
-        : "e.g. if the original takes place on a bus, move it to the last subway; if the character's phone dies, change it to losing signal. Swap the shell, keep the core.",
+        ? "换的是人物、空间和事件，不是题材和现实层级；没有参考依据时，不得把现实悬疑/恐怖升级成科幻。"
+        : "Change the people, setting, and events — not the genre or reality level. Without evidence in the reference, never upgrade realistic suspense or horror into science fiction.",
     ].join("\n"),
     user: [
       `基于以下素材，创作${target}。`,
       ...plainLanguageGuidance.user,
+      ...craftContext,
       ...(referenceSections.length > 0
         ? ["参考素材：", referenceSections.join("\n\n")]
         : []),
@@ -555,6 +618,47 @@ export function buildStoryDirectionPrompt(
         : "",
     ].filter(Boolean).join("\n\n"),
   };
+}
+
+/** Build the background quality-check prompt for generated story foundations. */
+export function buildStorySeedQualitySystemPrompt(
+  craftProfile: CraftProfile | undefined,
+  language: "zh" | "en",
+): string {
+  const reference = craftProfile
+    ? [
+        `参考模式：${craftProfile.mode ?? "general"}`,
+        craftProfile.worldview?.trim() ? `参考世界观：${compactStoryDirectionSource(craftProfile.worldview, 1_200)}` : "",
+        craftProfile.storyOutline?.trim() ? `参考故事大纲：${compactStoryDirectionSource(craftProfile.storyOutline, 1_200)}` : "",
+        craftProfile.videoStory?.audiencePromise?.trim()
+          ? `参考视频的观众承诺：${compactStoryDirectionSource(craftProfile.videoStory.audiencePromise, 800)}`
+          : "",
+      ].filter(Boolean).join("\n")
+    : "";
+  if (language === "zh") {
+    return [
+      "你是一个故事编辑，负责评估故事设定是否忠实继承了参考写作模式。",
+      reference ? `先以这份参考模式为准：\n${reference}` : "没有参考模式时，只检查故事自身是否完整。",
+      "从以下几个维度打分（0-100 分），然后给出总分：",
+      "- 题材与现实感一致性：是否保持参考素材的悬疑、惊悚、恐怖或其他明确类型；现实题材是否仍然贴近现实。没有依据时出现科幻、未来科技、AI、赛博朋克、太空、外星、时间旅行、实验室或科技解释恐怖，必须大幅扣分。",
+      "- 钩子吸引力：开场能不能抓住人。",
+      "- 冲突张力：主角面临的困境够不够紧迫、够不够有戏剧性。",
+      "- 意外感：故事走向有没有让人意想不到的转折。",
+      "- 情感共鸣：读者能不能代入主角、能不能被打动。",
+      "- 完整性：故事从头到尾逻辑通不通、有没有明显漏洞。",
+      "总分低于 60 分的故事设定通常需要重新生成。",
+      "输出格式：第一行写总分数字（0-100），第二行起写一句简短评价（不超过 50 字）。",
+      "只输出数字和评价，不要其他内容。",
+    ].join("\n");
+  }
+  return [
+    "You are a story editor evaluating whether a story foundation faithfully inherits its reference craft mode.",
+    reference ? `Use this reference mode as the authority:\n${reference}` : "With no reference mode, check only whether the story is complete.",
+    "Score 0-100 based on genre and reality-level fidelity, hook strength, conflict tension, surprise, emotional resonance, and completeness.",
+    "For a realistic reference, heavily penalize unsupported science fiction, future technology, AI, cyberpunk, space, aliens, time travel, laboratories, or technological explanations for horror.",
+    "Below 60 usually means it should be regenerated.",
+    "Output format: first line is the numeric score (0-100), second line is a brief comment (max 50 words). Output only the score and comment.",
+  ].join("\n");
 }
 
 /** Build the complete, editable short-story seed shown before production starts. */

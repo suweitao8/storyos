@@ -283,6 +283,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     isUsablePlayInitialScene: actual.isUsablePlayInitialScene,
     chatCompletion: chatCompletionMock,
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
+    buildStorySeedQualitySystemPrompt: actual.buildStorySeedQualitySystemPrompt,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
     isStorySeedWithOriginalizationPlan: actual.isStorySeedWithOriginalizationPlan,

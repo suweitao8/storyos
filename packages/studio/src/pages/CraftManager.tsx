@@ -1284,7 +1284,7 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
   }, [craftId, loadStatus, meta?.processingStatus, meta?.storySeedStatus, profile?.storySeed]);
 
   useEffect(() => {
-    if (!craftId || meta.processingStatus === "processing") return;
+    if (!craftId || meta?.processingStatus === "processing") return;
     // Keep polling while the story seed is generating (pending) or while the
     // AI quality score hasn't been written yet (score runs after the seed is ready).
     const seedPending = meta?.storySeedStatus === "pending";
