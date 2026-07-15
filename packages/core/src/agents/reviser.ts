@@ -129,13 +129,14 @@ export class ReviserAgent extends BaseAgent {
       lengthSpec?: LengthSpec;
     },
   ): Promise<ReviseOutput> {
-    const [currentState, ledger, hooks, writingMethodologyRaw, volumeOutline, storyBible, characterMatrix, chapterSummaries, parentCanon, fanficCanon] = await Promise.all([
+    const [currentState, ledger, hooks, writingMethodologyRaw, writingContractRaw, volumeOutline, storyBible, characterMatrix, chapterSummaries, parentCanon, fanficCanon] = await Promise.all([
       // Phase 5 consolidation: derive initial state from roles + seed hooks
       // when current_state.md is still the architect seed placeholder.
       readCurrentStateWithFallback(bookDir, "(文件不存在)"),
       this.readFileSafe(join(bookDir, "story/particle_ledger.md")),
       this.readFileSafe(join(bookDir, "story/pending_hooks.md")),
       this.readFileSafe(join(bookDir, "story/writing_methodology.md")),
+      this.readFileSafe(join(bookDir, "story/brief.md")),
       readVolumeMap(bookDir, "(文件不存在)"),
       readStoryFrame(bookDir, "(文件不存在)"),
       readCharacterContext(bookDir, "(文件不存在)"),
@@ -263,6 +264,9 @@ export class ReviserAgent extends BaseAgent {
     const methodologyBlock = reducedControlBlock.length === 0
       ? `\n## 写作方法论\n${writingMethodology}`
       : "";
+    const writingContractBlock = writingContractRaw !== "(文件不存在)" && writingContractRaw.trim().length > 0
+      ? `\n## 写作模式契约（修订时必须保留）\n不得为解决问题而改变题材或现实层级；必须遵守其中明确的叙事机制与原创化边界。\n${writingContractRaw}\n`
+      : "";
 
     const userPrompt = `请修正第${chapterNumber}章。
 
@@ -272,7 +276,7 @@ ${issueList}
 ## 当前状态卡
 ${currentState}
 ${ledgerBlock}
-${sanitizeNarrativeEvidenceBlock(hookDebtBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(hooksBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(volumeSummariesBlock, resolvedLanguage) ?? ""}${reducedControlBlock || outlineBlock}${bibleBlock}${matrixBlock}${sanitizeNarrativeEvidenceBlock(summariesBlock, resolvedLanguage) ?? ""}${canonBlock}${fanficCanonBlock}${methodologyBlock}${lengthGuidanceBlock}
+${sanitizeNarrativeEvidenceBlock(hookDebtBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(hooksBlock, resolvedLanguage) ?? ""}${sanitizeNarrativeEvidenceBlock(volumeSummariesBlock, resolvedLanguage) ?? ""}${reducedControlBlock || outlineBlock}${bibleBlock}${matrixBlock}${sanitizeNarrativeEvidenceBlock(summariesBlock, resolvedLanguage) ?? ""}${canonBlock}${fanficCanonBlock}${methodologyBlock}${writingContractBlock}${lengthGuidanceBlock}
 
 ## 待修正章节
 ${chapterContent}`;
