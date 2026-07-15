@@ -86,6 +86,12 @@ export function resolveStorySeedGenerationStatus(craft?: CraftOption): StorySeed
   return "idle";
 }
 
+export function isStorySeedReadyForCreation(craft?: CraftOption): boolean {
+  return resolveStorySeedGenerationStatus(craft) === "ready"
+    && craft?.storySeedScoreStatus !== "pending"
+    && craft?.storySeedScoreStatus !== "error";
+}
+
 export function buildDefaultStoryDirection(
   craft: CraftOption,
   kind: "long" | "short",

@@ -1287,6 +1287,15 @@ export function createShortFictionRunTool(
       if (shortPayload?.requiredCraftMode && (effectiveCraftMode !== shortPayload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
         throw new Error(`短篇故事只能使用${shortPayload.requiredCraftMode}写作模式。`);
       }
+      if (craftMeta?.storySeedStatus === "error") {
+        throw new Error("该写作模式的故事设定未通过质量检查，请重新生成后再创建短篇故事。");
+      }
+      if (craftMeta?.storySeedScoreStatus === "pending") {
+        throw new Error("该写作模式的故事设定评分尚未完成，请稍后再创建短篇故事。");
+      }
+      if (craftMeta?.storySeedScoreStatus === "error") {
+        throw new Error("该写作模式的故事设定未通过质量检查，请重新生成后再创建短篇故事。");
+      }
       const result = await runShortFictionProduction({
         projectRoot,
         direction: shortPayload?.direction ?? params.direction,

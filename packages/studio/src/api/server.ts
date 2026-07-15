@@ -2895,6 +2895,41 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         return;
       }
 
+      if (quality.score < 70) {
+        const error = language === "zh"
+          ? `故事设定评分为 ${quality.score} 分，未达到 70 分质量门槛，请重新生成。`
+          : `Story foundation scored ${quality.score}, below the 70-point quality threshold. Regenerate it before creating a story.`;
+        const current = await (options.generationId
+          ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
+              storySeedStatus: "error",
+              storySeedError: error,
+              storySeedScoreStatus: "error",
+              storySeedScore: quality.score,
+              storySeedScoreNote: quality.note,
+              storySeedScoreError: error,
+            })
+          : queueCraftStorySeedWrite(craftId, async () => {
+              await pipeline.updateCraftStorySeedStatus(craftId, {
+                storySeedStatus: "error",
+                storySeedError: error,
+                storySeedScoreStatus: "error",
+                storySeedScore: quality.score,
+                storySeedScoreNote: quality.note,
+                storySeedScoreError: error,
+              });
+              return true;
+            })).catch(() => false);
+        if (current) {
+          broadcast("craft:story-seed-score-error", {
+            craftId,
+            generationId: options.generationId,
+            score: quality.score,
+            error,
+          });
+        }
+        return;
+      }
+
       const current = await (options.generationId
         ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
             storySeedScoreStatus: "ready",
