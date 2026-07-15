@@ -7,6 +7,7 @@ import {
   craftCardTitle,
   craftCardMeta,
   craftSourceTypeLabel,
+  craftProcessingErrorText,
   formatCraftBeatDuration,
 } from "./CraftManager";
 
@@ -57,5 +58,12 @@ describe("craft mode presentation", () => {
     expect(formatCraftBeatDuration("3.1s-5.2s")).toBe("3秒–5秒");
     expect(formatCraftBeatDuration("00:00:40-00:02:00")).toBe("40秒–2分");
     expect(formatCraftBeatDuration(undefined)).toBeUndefined();
+  });
+
+  it("shows the failed processing stage together with the underlying error", () => {
+    expect(craftProcessingErrorText({
+      processingStage: "正在获取视频与字幕",
+      processingError: "Bcut 识别超时",
+    })).toBe("阶段：正在获取视频与字幕；错误详情：Bcut 识别超时");
   });
 });
