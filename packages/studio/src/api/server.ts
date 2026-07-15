@@ -2911,11 +2911,19 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!(error instanceof Error)) return String(error);
     const details = error as Error & {
       readonly code?: unknown;
+      readonly cause?: unknown;
       readonly signal?: unknown;
       readonly stderr?: unknown;
     };
     const parts = [error.message || error.name];
     if (details.code !== undefined) parts.push(`code=${String(details.code)}`);
+    if (details.cause instanceof Error) {
+      parts.push(`cause=${details.cause.message || details.cause.name}`);
+      const causeDetails = details.cause as Error & { readonly code?: unknown };
+      if (causeDetails.code !== undefined) parts.push(`causeCode=${String(causeDetails.code)}`);
+    } else if (details.cause !== undefined) {
+      parts.push(`cause=${String(details.cause)}`);
+    }
     if (details.signal !== undefined) parts.push(`signal=${String(details.signal)}`);
     if (typeof details.stderr === "string" && details.stderr.trim()) {
       parts.push(`stderr=${details.stderr.trim().slice(0, 1_000)}`);

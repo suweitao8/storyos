@@ -152,4 +152,29 @@ describe("Bilibili craft import subtitle correction", () => {
       expect(status.meta.processingError).toContain("Bcut 识别超时");
     });
   });
+
+  it("includes the underlying network cause and code in background errors", async () => {
+    const cause = Object.assign(new Error("connect timeout"), { code: "UND_ERR_CONNECT_TIMEOUT" });
+    importBilibiliSourceMock.mockRejectedValueOnce(Object.assign(new Error("fetch failed"), { cause }));
+    const { createStudioServer } = await import("../api/server.js");
+    const app = createStudioServer(projectConfig as never, root);
+
+    const response = await app.request("http://localhost/api/v1/craft/bilibili/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "BV1test00001" }),
+    });
+    const body = await response.json() as { craftId: string };
+
+    await vi.waitFor(async () => {
+      const statusResponse = await app.request(`http://localhost/api/v1/crafts/${body.craftId}/status`);
+      expect(statusResponse.status).toBe(200);
+      const status = await statusResponse.json() as {
+        meta: { processingError?: string };
+      };
+      expect(status.meta.processingError).toContain("fetch failed");
+      expect(status.meta.processingError).toContain("cause=connect timeout");
+      expect(status.meta.processingError).toContain("causeCode=UND_ERR_CONNECT_TIMEOUT");
+    });
+  });
 });
