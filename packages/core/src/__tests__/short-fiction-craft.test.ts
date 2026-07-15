@@ -141,6 +141,14 @@ describe("short-fiction originality craft guide", () => {
     const guide = buildShortFictionCraftGuide(filteredProfile);
 
     expect(guide).toContain("NEW_SPACE=OFFICE");
+    expect(guide).toContain("### 已确认的原创故事设定（短篇必须遵守）");
+    expect(guide).toContain("新的默认设定");
+    expect(guide).toContain("新的世界规则");
+    expect(guide).toContain("新的角色关系");
+    expect(guide).toContain("新的核心冲突");
+    expect(guide).toContain("新的反转");
+    expect(guide).toContain("新的结局");
+    expect(guide).toContain("唯一的故事空间");
     expect(guide).toContain("create a question");
     expect(guide).not.toContain("REFERENCE_WORLDVIEW_EVENT");
     expect(guide).not.toContain("REFERENCE_STORY_OUTLINE_EVENT");

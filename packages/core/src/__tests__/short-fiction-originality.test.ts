@@ -109,9 +109,14 @@ describe("short-fiction originality wiring", () => {
     const outlineInput = outline.mock.calls[0]?.[0];
     const writerInput = writer.mock.calls[0]?.[0];
     expect(outlineInput?.craftGuide).toContain("NEW_SPACE=OFFICE");
+    expect(outlineInput?.craftGuide).toContain("新的默认设定");
+    expect(outlineInput?.craftGuide).toContain("新的规则");
+    expect(outlineInput?.craftGuide).toContain("新的冲突");
+    expect(outlineInput?.craftGuide).toContain("新的结局");
     expect(outlineInput?.craftGuide).not.toContain("REFERENCE_WORLDVIEW_EVENT");
     expect(outlineInput?.craftGuide).not.toContain("REFERENCE_STORY_OUTLINE_EVENT");
     expect(writerInput?.craftGuide).toContain("NEW_SPACE=OFFICE");
+    expect(writerInput?.craftGuide).toContain("新的默认设定");
     expect(writerInput?.craftExemplars).toBeUndefined();
     expect(packager.mock.calls[0]?.[0].craftGuide).toContain("NEW_SPACE=OFFICE");
     expect(result.outlinePath).toMatch(/outline\/v001\.md$/);
