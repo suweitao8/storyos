@@ -278,6 +278,7 @@ async function produceShort(
           outlineMarkdown,
           chapterCount,
           charsPerChapter,
+          craftGuide,
           language,
           draft: draftV1,
         });
