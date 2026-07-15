@@ -452,8 +452,8 @@ export function App() {
           {route.page === "film-commentary" && (
             <div className="absolute inset-0 flex min-w-0">
               <ChatPage
-                mode="script-create"
-                scriptCraftMode="film-commentary"
+                mode="short"
+                shortCraftMode="bilibili-commentary"
                 nav={nav}
                 theme={theme}
                 t={t}
@@ -464,8 +464,8 @@ export function App() {
           {route.page === "commentary-review" && (
             <div className="absolute inset-0 flex min-w-0">
               <ChatPage
-                mode="script-create"
-                scriptCraftMode="review-commentary"
+                mode="short"
+                shortCraftMode="bilibili-review"
                 nav={nav}
                 theme={theme}
                 t={t}

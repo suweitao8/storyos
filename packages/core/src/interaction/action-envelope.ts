@@ -95,14 +95,6 @@ export const ScriptCreateActionPayloadSchema = z.object({
   requirements: z.string().min(1).optional(),
   episodeCount: z.number().int().min(1).optional(),
   episodeDuration: z.string().min(1).optional(),
-  craftId: z.string().min(1).optional(),
-  requiredCraftMode: z.enum([
-    "general",
-    "ghost-story",
-    "bilibili-short-story",
-    "bilibili-commentary",
-    "bilibili-review",
-  ]).optional(),
   projectId: z.string().min(1).optional(),
   outDir: z.string().min(1).optional(),
 }).strict();
