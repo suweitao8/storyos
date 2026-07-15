@@ -285,6 +285,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     chatCompletion: chatCompletionMock,
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
     buildStorySeedQualitySystemPrompt: actual.buildStorySeedQualitySystemPrompt,
+    detectStorySeedRealityDrift: actual.detectStorySeedRealityDrift,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
     isStorySeedWithOriginalizationPlan: actual.isStorySeedWithOriginalizationPlan,
@@ -834,6 +835,77 @@ describe("createStudioServer daemon lifecycle", () => {
 
     resolveModel({ content: storySeedMarkdown });
     await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+  });
+
+  it("retries once when a realistic story seed introduces unsupported world rules", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    const driftedStorySeedMarkdown = storySeedMarkdown
+      .replace("重复的声音会改变记录。", "鬼魂会在时间循环里重置记录。")
+      .replace("发现、调查、转折、高潮、结局。", "主角调查人工智能控制的车站，发现平行宇宙入口。");
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: driftedStorySeedMarkdown })
+      .mockResolvedValueOnce({ content: storySeedMarkdown });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1));
+    expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
+    expect(chatCompletionMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries once when the quality gate scores a seed below the generation threshold", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" })
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "82\n现实感稳定，冲突和结局代价完整。" });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1));
+    expect(chatCompletionMock).toHaveBeenCalledTimes(4);
+    expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
   });
 
   it("auto-starts story foundation generation when a saved craft has no foundation state", async () => {

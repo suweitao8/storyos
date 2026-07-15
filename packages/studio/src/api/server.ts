@@ -43,6 +43,7 @@ import {
   buildStoryDirectionPrompt,
   buildStorySeedPrompt,
   buildStorySeedQualitySystemPrompt,
+  detectStorySeedRealityDrift,
   STORY_SEED_SECTION_DEFINITIONS,
   isStorySeed,
   parseStorySeed,
@@ -2726,7 +2727,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     readonly language?: "zh" | "en";
     readonly previousDirection?: string;
     readonly generationId?: string;
+    readonly attempt?: number;
   }
+
+  type StorySeedQualityResult = {
+    readonly score: number;
+    readonly note: string;
+  };
 
   const queueCraftStorySeedWrite = async <T>(
     craftId: string,
@@ -2773,6 +2780,38 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     return true;
   });
 
+  const evaluateStorySeedQuality = async (
+    storySeed: StorySeed,
+    craftProfile: CraftProfile,
+    pipeline: PipelineRunner,
+    language: "zh" | "en",
+  ): Promise<StorySeedQualityResult | undefined> => {
+    try {
+      const seedMarkdown = serializeStorySeed(storySeed, language);
+      const systemPrompt = buildStorySeedQualitySystemPrompt(craftProfile, language);
+      const agent = pipeline.createAgentContext("short-outline");
+      const response = await chatCompletion(
+        agent.client,
+        agent.model,
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: seedMarkdown },
+        ],
+        { temperature: 0.3, maxTokens: 200, retry: false },
+      );
+      const lines = response.content.trim().split("\n");
+      const scoreText = lines[0]?.trim() ?? "";
+      const rawScore = Number(scoreText);
+      if (!/^\d{1,3}$/u.test(scoreText) || !Number.isFinite(rawScore)) return undefined;
+      return {
+        score: Math.max(0, Math.min(100, Math.round(rawScore))),
+        note: lines.slice(1).join(" ").trim().slice(0, 200) || (language === "zh" ? "无评价" : "No comment"),
+      };
+    } catch {
+      return undefined;
+    }
+  };
+
   const generateCraftStorySeed = async (
     craftId: string,
     options: CraftStorySeedGenerationOptions = {},
@@ -2800,9 +2839,38 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         },
       );
       const storySeed = parseStorySeed(response.content);
+      const realityDrift = detectStorySeedRealityDrift(profile, storySeed);
+      if (realityDrift.length > 0 && (options.attempt ?? 0) < 1) {
+        console.warn(`[craft] story seed reality drift detected; retrying once: ${realityDrift.join(", ")}`);
+        await generateCraftStorySeed(craftId, {
+          ...options,
+          attempt: (options.attempt ?? 0) + 1,
+          previousDirection: serializeStorySeed(storySeed, language),
+          generationId,
+        });
+        return;
+      }
+      const quality = await evaluateStorySeedQuality(storySeed, profile, pipeline, language);
+      if (quality && quality.score < 70 && (options.attempt ?? 0) < 1) {
+        console.warn(`[craft] story seed quality score ${quality.score}; retrying once`);
+        await generateCraftStorySeed(craftId, {
+          ...options,
+          attempt: (options.attempt ?? 0) + 1,
+          previousDirection: [
+            language === "zh"
+              ? `上一版质量评分只有 ${quality.score} 分，请重做并保持题材、现实层级和核心冲突，不要只改标题。`
+              : `The previous version scored only ${quality.score}. Rebuild it while preserving the genre, reality level, and core conflict instead of changing only the title.`,
+            serializeStorySeed(storySeed, language),
+          ].join("\n\n"),
+          generationId,
+        });
+        return;
+      }
       if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
-        // Score the generated seed in the background (non-blocking).
-        void scoreStorySeed(craftId, generationId, storySeed, profile, pipeline, language);
+        await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, generationId, {
+          storySeedStatus: "ready",
+          ...(quality ? { storySeedScore: quality.score, storySeedScoreNote: quality.note } : {}),
+        });
         broadcast("craft:story-seed-complete", { craftId, generationId, status: "ready" });
       }
     } catch (error) {
@@ -2813,43 +2881,6 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedGenerationId: generationId,
       }).catch(() => false);
       if (current) broadcast("craft:story-seed-error", { craftId, generationId, error: message });
-    }
-  };
-
-  /** Ask the LLM to score a generated story seed for excitement and quality. */
-  const scoreStorySeed = async (
-    craftId: string,
-    generationId: string,
-    storySeed: StorySeed,
-    craftProfile: CraftProfile,
-    pipeline: PipelineRunner,
-    language: "zh" | "en",
-  ): Promise<void> => {
-    try {
-      const seedMarkdown = serializeStorySeed(storySeed, language);
-      const systemPrompt = buildStorySeedQualitySystemPrompt(craftProfile, language);
-      const agent = pipeline.createAgentContext("short-outline");
-      const response = await chatCompletion(
-        agent.client,
-        agent.model,
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: seedMarkdown },
-        ],
-        { temperature: 0.3, maxTokens: 200, retry: false },
-      );
-      const lines = response.content.trim().split("\n");
-      const score = Math.max(0, Math.min(100, Math.round(Number(lines[0]?.trim()) || 0)));
-      const note = lines.slice(1).join(" ").trim().slice(0, 200) || (language === "zh" ? "无评价" : "No comment");
-      const current = await isCurrentCraftStorySeedGeneration(pipeline, craftId, generationId);
-      if (!current) return;
-      await pipeline.updateCraftStorySeedStatus(craftId, {
-        storySeedStatus: "ready",
-        storySeedScore: score,
-        storySeedScoreNote: note,
-      });
-    } catch {
-      // Scoring failure should not block the story seed.
     }
   };
 

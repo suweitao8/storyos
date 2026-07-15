@@ -1,5 +1,5 @@
 import type { CraftMode, CraftProfile } from "../models/craft-profile.js";
-import { STORY_SEED_SECTION_DEFINITIONS, REQUIRED_STORY_SEED_SECTION_DEFINITIONS } from "../models/story-seed.js";
+import { STORY_SEED_SECTION_DEFINITIONS, REQUIRED_STORY_SEED_SECTION_DEFINITIONS, type StorySeed } from "../models/story-seed.js";
 import { formatCraftBreakdownModules } from "./craft-breakdown.js";
 
 // ---------------------------------------------------------------------------
@@ -500,12 +500,113 @@ function buildPlainLanguageGuidance(language: "zh" | "en"): { readonly system: r
   };
 }
 
+export type CraftRealityLevel = "realistic" | "supernatural" | "science-fiction";
+
+const SCIENCE_FICTION_CUES = [
+  "科幻", "未来世界", "未来科技", "人工智能", "机器人", "赛博朋克", "外星人", "外星", "太空", "星际",
+  "时间旅行", "穿越时空", "平行宇宙", "量子", "克隆", "基因改造",
+  "science fiction", "sci-fi", "future world", "future technology", "artificial intelligence", "cyberpunk",
+  "outer space", "spacecraft", "spaceship", "alien invasion", "interstellar", "time travel", "parallel universe",
+  "quantum computing", "human cloning", "genetic modification",
+];
+
+const SUPERNATURAL_CUES = [
+  "鬼故事", "鬼魂", "冤魂", "亡魂", "灵魂", "附身", "诅咒", "法术", "超自然", "灵异", "怪谈", "阴间",
+  "复活法术", "鬼笔", "借活人的手", "轮回", "前世",
+  "ghost story", "ghost", "spirit", "possession", "curse", "spell", "supernatural", "paranormal",
+  "haunted", "afterlife", "reincarnation", "past life",
+];
+
+function craftProfileSourceText(craftProfile: CraftProfile): string {
+  return [
+    craftProfile.worldview,
+    craftProfile.storyOutline,
+    craftProfile.videoStory?.logline,
+    craftProfile.videoStory?.audiencePromise,
+    craftProfile.videoStory?.outline,
+    craftProfile.ghostStory?.fearCore,
+    craftProfile.ghostStory?.supernaturalRules,
+  ].filter((value): value is string => Boolean(value?.trim())).join("\n");
+}
+
+/** Infer the source's reality level so generation cannot silently raise its world scale. */
+export function inferCraftRealityLevel(craftProfile: CraftProfile): CraftRealityLevel {
+  if (craftProfile.mode === "ghost-story" || craftProfile.ghostStory) return "supernatural";
+  const source = craftProfileSourceText(craftProfile).toLowerCase();
+  if (SCIENCE_FICTION_CUES.some((cue) => source.includes(cue))) return "science-fiction";
+  if (SUPERNATURAL_CUES.some((cue) => source.includes(cue))) return "supernatural";
+  return "realistic";
+}
+
+function buildRealityLevelGuidance(
+  realityLevel: CraftRealityLevel,
+  language: "zh" | "en",
+): string[] {
+  if (language === "zh") {
+    if (realityLevel === "realistic") {
+      return [
+        "- 现实层级锁：这份参考模式按现实题材处理。新故事的恐怖和悬疑必须能落到人物行为、犯罪、失踪、物证、监控、职业风险、家庭关系或真实的身体/环境问题上。",
+        "- 现实模式禁止新增鬼魂、附身、诅咒、法术、轮回、前世、时间循环、平行世界、未来科技、人工智能、赛博朋克、外星或其他大型世界规则；不能用一个新设定替代原来的现实压力。",
+        "- 可以更换人物、地点和事件，但要留在同一类当代生活领域和问题类型中；不要从普通城市故事跳到跨时代旧案、秘密组织、宏大阴谋或无法验证的超自然真相。",
+        "- 如果结尾需要恐怖感，优先使用证据缺口、人的选择、现实后果和无法确认的细节，不要突然宣布“其实是鬼”或建立一套新法则。",
+      ];
+    }
+    if (realityLevel === "supernatural") {
+      return [
+        "- 超自然层级锁：参考素材明确包含超自然。只继承参考中已经出现的恐怖机制和规则数量，不要额外扩展成时间、宇宙、科技或跨时代体系。",
+        "- 新故事可以换人物、地点和事件，但必须让超自然规则服务于原来的恐惧核心、线索方式和情绪余味；不能为了反转不断增加新规则。",
+      ];
+    }
+    return [
+      "- 科幻层级锁：参考素材明确包含科幻元素。保留其技术前提和尺度，不要无依据添加新的宇宙、时间或科技体系。",
+    ];
+  }
+
+  if (realityLevel === "realistic") {
+    return [
+      "- Reality-level lock: treat this reference as realistic. The new suspense or horror must be grounded in human behavior, crime, disappearance, physical evidence, surveillance, occupational risk, family pressure, or plausible bodily/environmental danger.",
+      "- In realistic mode, do not add ghosts, possession, curses, spells, reincarnation, past lives, time loops, parallel worlds, future technology, AI, cyberpunk, aliens, or any new large-scale world system.",
+      "- Settings and events may change, but stay in the same kind of contemporary life domain and problem; do not jump from an ordinary urban story to a cross-era case, secret organization, grand conspiracy, or unverifiable supernatural truth.",
+      "- For a frightening ending, prefer missing evidence, human choices, real consequences, and an unresolved detail. Do not suddenly reveal that it was a ghost or establish a new rule system.",
+    ];
+  }
+  if (realityLevel === "supernatural") {
+    return [
+      "- Supernatural-level lock: the reference explicitly contains supernatural horror. Inherit only its existing fear mechanisms and rule scale; do not expand it into a new time, cosmic, technological, or cross-era system.",
+      "- Change people, places, and events while serving the same fear core, clue method, and emotional aftertaste. Do not add new rules merely for another twist.",
+    ];
+  }
+  return [
+    "- Science-fiction-level lock: the reference explicitly contains science fiction. Preserve its technical premise and scale without inventing unrelated cosmic, temporal, or technological systems.",
+  ];
+}
+
+/** Find hard reality-level violations before a seed is persisted. */
+export function detectStorySeedRealityDrift(
+  craftProfile: CraftProfile,
+  storySeed: StorySeed,
+): readonly string[] {
+  if (inferCraftRealityLevel(craftProfile) !== "realistic") return [];
+  const text = Object.values(storySeed)
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  const violations: string[] = [];
+  if (/鬼魂|冤魂|亡魂|灵魂|附身|诅咒|法术|超自然|灵异|鬼笔|借活人的手|轮回|前世|ghost|spirit|possession|curse|spell|supernatural|paranormal|haunted|afterlife|reincarnation|past life/iu.test(text)) {
+    violations.push("unsupported supernatural mechanism");
+  }
+  if (/人工智能|机器人|赛博朋克|外星|太空|时间旅行|时间循环|穿越时空|平行宇宙|量子|克隆|基因改造|未来科技|artificial intelligence|cyberpunk|alien invasion|outer space|spacecraft|spaceship|time travel|time loop|parallel universe|quantum computing|human cloning|genetic modification|future technology/iu.test(text)) {
+    violations.push("unsupported science-fiction mechanism");
+  }
+  return violations;
+}
+
 function buildStoryFoundationCraftContext(
   craftProfile: CraftProfile,
   language: "zh" | "en",
 ): string[] {
   const isZh = language === "zh";
   const mode = craftProfile.mode ?? "general";
+  const realityLevel = inferCraftRealityLevel(craftProfile);
   const lines = isZh
     ? [
         "### 写作模式继承（高优先级）",
@@ -523,6 +624,8 @@ function buildStoryFoundationCraftContext(
         "- Unless the reference explicitly supports them, do not introduce science fiction, future technology, AI, cyberpunk, space, aliens, time travel, laboratories, or technological explanations for the horror.",
         "- Keep supernatural or science-fiction elements only when the reference clearly contains them; the word 'worldview' is not permission to invent a larger setting.",
       ];
+
+  lines.push(...buildRealityLevelGuidance(realityLevel, language));
 
   if (mode === "ghost-story" && craftProfile.ghostStory) {
     const h = craftProfile.ghostStory;
@@ -638,6 +741,7 @@ export function buildStorySeedQualitySystemPrompt(
   if (language === "zh") {
     return [
       "你是一个故事编辑，负责评估故事设定是否忠实继承了参考写作模式。",
+      `参考现实层级：${craftProfile ? inferCraftRealityLevel(craftProfile) : "unknown"}`,
       reference ? `先以这份参考模式为准：\n${reference}` : "没有参考模式时，只检查故事自身是否完整。",
       "从以下几个维度打分（0-100 分），然后给出总分：",
       "- 题材与现实感一致性：是否保持参考素材的悬疑、惊悚、恐怖或其他明确类型；现实题材是否仍然贴近现实。没有依据时出现科幻、未来科技、AI、赛博朋克、太空、外星、时间旅行、实验室或科技解释恐怖，必须大幅扣分。",
@@ -646,17 +750,18 @@ export function buildStorySeedQualitySystemPrompt(
       "- 意外感：故事走向有没有让人意想不到的转折。",
       "- 情感共鸣：读者能不能代入主角、能不能被打动。",
       "- 完整性：故事从头到尾逻辑通不通、有没有明显漏洞。",
-      "总分低于 60 分的故事设定通常需要重新生成。",
+      "现实题材如果出现未经参考支持的超自然或大型新世界规则，总分不得高于 59 分；总分低于 70 分的故事设定需要重新生成。",
       "输出格式：第一行写总分数字（0-100），第二行起写一句简短评价（不超过 50 字）。",
       "只输出数字和评价，不要其他内容。",
     ].join("\n");
   }
   return [
     "You are a story editor evaluating whether a story foundation faithfully inherits its reference craft mode.",
+    `Reference reality level: ${craftProfile ? inferCraftRealityLevel(craftProfile) : "unknown"}`,
     reference ? `Use this reference mode as the authority:\n${reference}` : "With no reference mode, check only whether the story is complete.",
     "Score 0-100 based on genre and reality-level fidelity, hook strength, conflict tension, surprise, emotional resonance, and completeness.",
     "For a realistic reference, heavily penalize unsupported science fiction, future technology, AI, cyberpunk, space, aliens, time travel, laboratories, or technological explanations for horror.",
-    "Below 60 usually means it should be regenerated.",
+    "For a realistic reference, unsupported supernatural or large new world systems cap the score at 59. Below 70 means it should be regenerated.",
     "Output format: first line is the numeric score (0-100), second line is a brief comment (max 50 words). Output only the score and comment.",
   ].join("\n");
 }
