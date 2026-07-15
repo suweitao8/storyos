@@ -88,6 +88,7 @@ export interface ShortFictionOutlineReviewInput {
   readonly direction: string;
   readonly outline: ShortFictionOutline;
   readonly reference?: ShortFictionReference;
+  readonly craftGuide?: string;
   readonly language?: ShortFictionLanguage;
 }
 

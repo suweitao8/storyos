@@ -185,6 +185,7 @@ async function produceShort(
         SHORT_FICTION_MIN_CHARS_PER_CHAPTER,
         SHORT_FICTION_MAX_CHARS_PER_CHAPTER,
       );
+  const craftGuide = options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined;
 
   // Resume the (3-stage) outline from disk if v002 already exists for this id —
   // the writer + everything downstream only need the outline markdown.
@@ -208,7 +209,7 @@ async function produceShort(
       chapterCount,
       charsPerChapter,
       reference: options.reference,
-      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
+      craftGuide,
       language,
     });
 
@@ -225,6 +226,7 @@ async function produceShort(
         direction: options.direction,
         outline: outlineV1,
         reference: options.reference,
+        craftGuide,
         language,
       });
       await writeText(root, join(baseDir, "reviews", "outline-v001.md"), outlineReview);
@@ -238,6 +240,7 @@ async function produceShort(
         reference: options.reference,
         chapterCount,
         charsPerChapter,
+        craftGuide,
         language,
       });
       await writeText(root, join(baseDir, "outline", "v002.md"), outlineV2.rawContent);
@@ -258,7 +261,7 @@ async function produceShort(
       outlineMarkdown,
       chapterCount,
       charsPerChapter,
-      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
+      craftGuide,
       language,
     });
     let missingFromDraft = findEmptyShortFictionChapters(draftV1);
@@ -301,7 +304,7 @@ async function produceShort(
       draft: draftV1,
       chapterCount,
       charsPerChapter,
-      craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
+      craftGuide,
       language,
     });
     await writeText(root, join(baseDir, "reviews", "draft-v001.md"), draftReview);
@@ -316,7 +319,7 @@ async function produceShort(
         review: draftReview,
         chapterCount,
         charsPerChapter,
-        craftGuide: options.craftProfile ? buildShortFictionCraftGuide(options.craftProfile) : undefined,
+        craftGuide,
         language,
       });
       validateShortFictionDraftForFinal(draftV2, {
