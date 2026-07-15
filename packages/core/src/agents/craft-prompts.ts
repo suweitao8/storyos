@@ -368,6 +368,17 @@ export function buildCraftGuide(craftProfile?: CraftProfile): string {
       "起草前，创造新的角色、设定、因果链、超自然机制、场景细节和结局。仅保留节奏图谱和叙事功能。",
     );
   }
+  if (craftProfile.storySeed) {
+    lines.push(
+      "",
+      "## 已确认的原创故事设定（建书时必须遵守）",
+      "以下是用户已经确认的本书原创故事空间。参考素材只提供题材、现实感、节奏和叙事方法；不得为了重新创作而替换这份设定中的人物、因果链、规则或结局代价。",
+      ...STORY_SEED_SECTION_DEFINITIONS.flatMap((definition) => {
+        const value = craftProfile.storySeed?.[definition.key]?.trim();
+        return value ? [`### ${definition.zh}`, value] : [];
+      }),
+    );
+  }
   return lines.join("\n");
 }
 
