@@ -152,12 +152,13 @@ describe("story creation actions", () => {
     expect(direction).not.toContain("当前模式没有缓存的原创化改编方案");
   });
 
-  it("builds an editable original direction for the selected craft", () => {
+  it("does not inject a legacy supernatural plot into a selected craft", () => {
     const direction = buildDefaultStoryDirection({ id: "ghost", sourceName: "reference", mode: "ghost-story" }, "short", true);
 
     expect(direction).toContain("完全原创");
     expect(direction).toContain("不得复制参考作品");
-    expect(direction).toContain("第二次敲门");
+    expect(direction).not.toContain("鬼故事");
+    expect(direction).not.toContain("第二次敲门");
   });
 
   it("exposes the supported per-chapter word-count settings", () => {
