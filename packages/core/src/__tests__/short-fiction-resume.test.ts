@@ -218,6 +218,76 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(savedOutline.trim()).toBe(repairedOutline);
   });
 
+  it("repairs a drifting sales package before persisting it", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    const packageStory = vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage")
+      .mockResolvedValueOnce({
+        title: "电梯多一层",
+        intro: "来自未来的人工智能控制了整栋楼。",
+        sellingPoints: ["反转"],
+        coverPrompt: "办公楼电梯",
+        rawContent: "",
+      })
+      .mockResolvedValueOnce({
+        title: "电梯多一层",
+        intro: "保安发现门禁记录被人篡改，真正的危险来自一场有预谋的栽赃。",
+        sellingPoints: ["门禁证据", "现实犯罪"],
+        coverPrompt: "夜间办公楼电梯，人物紧张回头，门禁卡作为关键道具",
+        rawContent: "",
+      });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      craftProfile: realisticCraft, runtimes: runtimes(root),
+    });
+
+    expect(packageStory).toHaveBeenCalledTimes(2);
+    expect(packageStory.mock.calls[1]?.[0]).toEqual(expect.objectContaining({
+      repairInstructions: expect.stringContaining("现实层级锁"),
+    }));
+    const savedPackage = JSON.parse(await readFile(
+      join(root, "shorts", "elevator", "final", "sales-package.json"), "utf-8",
+    ));
+    expect(savedPackage.intro).not.toContain("人工智能");
+    expect(savedPackage.sellingPoints).toContain("现实犯罪");
+  });
+
+  it("fails the run instead of persisting a package that still drifts after repair", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "elevator", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "sales-package.json"), "旧包装", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "sales-package.md"), "旧包装", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "cover-prompt.md"), "旧封面", "utf-8");
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    const driftingPackage = {
+      title: "电梯多一层",
+      intro: "来自未来的人工智能控制了整栋楼。",
+      sellingPoints: ["反转"],
+      coverPrompt: "办公楼电梯",
+      rawContent: "",
+    };
+    const packageStory = vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage")
+      .mockResolvedValueOnce(driftingPackage)
+      .mockResolvedValueOnce(driftingPackage);
+
+    await expect(runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      craftProfile: realisticCraft, runtimes: runtimes(root),
+    })).rejects.toThrow(/sales package.*reality-level lock/i);
+
+    expect(packageStory).toHaveBeenCalledTimes(2);
+    await expect(access(join(root, "shorts", "elevator", "final", "sales-package.json"))).rejects.toThrow();
+    const status = JSON.parse(await readFile(join(root, "shorts", "elevator", "status.json"), "utf-8"));
+    expect(status.status).toBe("failed");
+  });
+
   it("continues a truncated first draft before review instead of reviewing empty chapters", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");

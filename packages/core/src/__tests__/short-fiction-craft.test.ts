@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildShortFictionCraftGuide } from "../agents/craft-prompts.js";
+import { buildShortFictionCraftGuide, detectCraftRealityDrift } from "../agents/craft-prompts.js";
 import type { CraftProfile } from "../models/craft-profile.js";
 import {
   buildShortFictionDraftReviewUserPrompt,
@@ -133,6 +133,18 @@ describe("short-fiction writer craft prompt", () => {
     expect(outlineReview).toContain("必须修复的问题");
     expect(draftReview).toContain("模式一致性");
     expect(draftReview).toContain("可执行修改清单");
+  });
+});
+
+describe("short-fiction reality lock", () => {
+  it("does not treat an explicit rejection of an unsupported mechanism as drift", () => {
+    const realisticProfile = { ...filteredProfile, storySeed: undefined };
+    expect(detectCraftRealityDrift(realisticProfile, "这不是人工智能，而是有人伪造了门禁记录。"))
+      .toEqual([]);
+    expect(detectCraftRealityDrift(realisticProfile, "人工智能并不是原因，真正的问题是有人伪造了门禁记录。"))
+      .toEqual([]);
+    expect(detectCraftRealityDrift(realisticProfile, "凶手用人工智能控制了整栋楼。"))
+      .toContain("unsupported science-fiction mechanism");
   });
 });
 

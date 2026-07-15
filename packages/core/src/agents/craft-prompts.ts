@@ -616,13 +616,31 @@ function buildRealityLevelGuidance(
 
 function detectUnsupportedRealityMechanisms(text: string): readonly string[] {
   const violations: string[] = [];
-  if (/鬼魂|冤魂|亡魂|灵魂|附身|诅咒|法术|超自然|灵异|鬼笔|借活人的手|轮回|前世|ghost|spirit|possession|curse|spell|supernatural|paranormal|haunted|afterlife|reincarnation|past life/iu.test(text)) {
+  if (containsAffirmedUnsupportedCue(text, /鬼魂|冤魂|亡魂|灵魂|附身|诅咒|法术|超自然|灵异|鬼笔|借活人的手|轮回|前世|ghost|spirit|possession|curse|spell|supernatural|paranormal|haunted|afterlife|reincarnation|past life/iu)) {
     violations.push("unsupported supernatural mechanism");
   }
-  if (/人工智能|机器人|赛博朋克|外星|太空|时间旅行|时间循环|穿越时空|平行宇宙|量子|克隆|基因改造|未来科技|artificial intelligence|cyberpunk|alien invasion|outer space|spacecraft|spaceship|time travel|time loop|parallel universe|quantum computing|human cloning|genetic modification|future technology/iu.test(text)) {
+  if (containsAffirmedUnsupportedCue(text, /人工智能|机器人|赛博朋克|外星|太空|时间旅行|时间循环|穿越时空|平行宇宙|量子|克隆|基因改造|未来科技|artificial intelligence|cyberpunk|alien invasion|outer space|spacecraft|spaceship|time travel|time loop|parallel universe|quantum computing|human cloning|genetic modification|future technology/iu)) {
     violations.push("unsupported science-fiction mechanism");
   }
   return violations;
+}
+
+function containsAffirmedUnsupportedCue(text: string, pattern: RegExp): boolean {
+  const matcher = new RegExp(pattern.source, `${pattern.flags}g`);
+  const segments = text.split(/(?<=[。！？!?；;\n])/u);
+  return segments.some((segment) => {
+    for (const match of segment.matchAll(matcher)) {
+      const start = match.index ?? 0;
+      const prefix = segment.slice(0, start);
+      const suffix = segment.slice(start + match[0].length);
+      const isNegated = /(?:不是|并非|没有|不含|排除|避免|禁止|不要|不得|不允许|未曾|未被|未出现)\s*[^。！？!?；;\n]{0,12}$/u.test(prefix)
+        || /(?:并不是|不是|并非|并没有|没有|未曾|未被|未出现)\s*[^。！？!?；;\n]{0,12}/u.test(suffix)
+        || /(?:not|without|no|never|do not|does not|doesn't|don't)\s+[^.!?;\n]{0,24}$/iu.test(prefix)
+        || /^(?:\s*(?:is|was|are|were)\s+not|\s*isn't|\s*wasn't|\s*aren't|\s*weren't|\s*not\b)/iu.test(suffix);
+      if (!isNegated) return true;
+    }
+    return false;
+  });
 }
 
 /** Find hard reality-level violations in any generated content for a realistic craft mode. */

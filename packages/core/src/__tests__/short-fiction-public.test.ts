@@ -203,11 +203,13 @@ ${"有效场面。".repeat(300)}
       direction: "现实悬疑短篇",
       outlineMarkdown: "## 大纲\n办公楼内的真实犯罪因果链",
       craftGuide: "MODE_CONTRACT: 现实规则，压迫递进",
+      repairInstructions: "必须保持现实层级锁，删除不支持的科幻机制。",
       draft,
     });
 
     const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ role: string; content: string }>;
     expect(messages[1]?.content).toContain("MODE_CONTRACT: 现实规则，压迫递进");
+    expect(messages[1]?.content).toContain("必须保持现实层级锁");
     chatSpy.mockRestore();
   });
 
