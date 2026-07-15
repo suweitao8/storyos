@@ -1,4 +1,5 @@
-import { STORY_SEED_MIN_CREATION_SCORE, type ActionPayload, type StorySeed } from "@actalk/inkos-core";
+import type { ActionPayload, StorySeed } from "@actalk/inkos-core";
+import { STORY_SEED_MIN_CREATION_SCORE } from "../../../core/src/models/story-seed-constants";
 import type { CraftMode } from "@actalk/inkos-core/models/craft-profile";
 import {
   serializeStorySeed,

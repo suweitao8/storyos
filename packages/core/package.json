@@ -36,6 +36,10 @@
     "./agents/*": {
       "types": "./dist/agents/*.d.ts",
       "import": "./dist/agents/*.js"
+    },
+    "./models/story-seed-constants": {
+      "types": "./dist/models/story-seed-constants.d.ts",
+      "import": "./dist/models/story-seed-constants.js"
     }
   },
   "files": [
