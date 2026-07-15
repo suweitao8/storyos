@@ -155,6 +155,7 @@ export function StoryAssetsPanel({
   const path = storyId ? buildStoryAssetsPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<StoryAssetManifest>(path);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [backgroundPendingAssetId, setBackgroundPendingAssetId] = useState<string | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const assets = data?.assets ?? [];
   const showEmptyState = shouldShowStoryAssetEmptyState(data, storyId, loading);
@@ -180,6 +181,17 @@ export function StoryAssetsPanel({
     setSelectedAssetId((currentId) => chooseStoryAssetId(allAssets, currentId));
   }, [allAssets]);
 
+  useEffect(() => {
+    if (!backgroundPendingAssetId) return;
+    const asset = assets.find((candidate) => candidate.id === backgroundPendingAssetId);
+    if (asset?.image?.status === "ready" || asset?.image?.status === "error") {
+      setBackgroundPendingAssetId(null);
+      return;
+    }
+    const interval = window.setInterval(() => { void refetch(); }, 4_000);
+    return () => window.clearInterval(interval);
+  }, [assets, backgroundPendingAssetId, refetch]);
+
   const runAction = async (key: string, action: () => void | Promise<void>) => {
     setBusyAction(key);
     try {
@@ -190,13 +202,17 @@ export function StoryAssetsPanel({
     }
   };
 
-  const generateAsset = (asset: StoryAsset) =>
-    runAction(`generate:${asset.id}`, () =>
-      chooseStoryAssetAction(
-        onGenerateAsset,
-        () => postApi(buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)),
-      )(asset),
-    );
+  const generateAsset = async (asset: StoryAsset) => {
+    const key = `generate:${asset.id}`;
+    setBusyAction(key);
+    try {
+      if (onGenerateAsset) await onGenerateAsset(asset);
+      else await postApi(`${buildStoryAssetGenerateImagePath(kind, storyId ?? "", asset.id)}?background=true`);
+      setBackgroundPendingAssetId(asset.id);
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const editAsset = (asset: StoryAsset, field: StoryAssetTextField, value: string, detailKey?: string) => {
     if (onEditAsset) {
@@ -273,7 +289,7 @@ export function StoryAssetsPanel({
                     ? `/api/v1${buildStoryAssetImagePath(kind, storyId, selectedAsset.id)}`
                     : undefined
                 }
-                busy={busyAction === `generate:${selectedAsset.id}`}
+                busy={busyAction === `generate:${selectedAsset.id}` || backgroundPendingAssetId === selectedAsset.id}
                 onGenerate={() => void generateAsset(selectedAsset)}
                 onEdit={(field, value, detailKey) => editAsset(selectedAsset, field, value, detailKey)}
               />

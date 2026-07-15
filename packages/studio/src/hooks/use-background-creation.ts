@@ -66,7 +66,11 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
         ? tr("剧本", "script")
         : task.kind === "video"
           ? tr("合集视频", "collection video")
-          : tr("场景视频", "scene video");
+          : task.kind === "scene-video"
+            ? tr("场景视频", "scene video")
+            : task.kind === "asset-image"
+              ? tr("资产图片", "asset image")
+              : tr("资产图片批量生成", "asset image batch");
       if (task.status === "running") {
         toast.info(tr("已转入后台生成", "Generation started in background"), tr(`${label}会继续生成，可自由切换页面`, `${label} will keep running while you navigate.`));
       } else if (task.status === "completed") {
