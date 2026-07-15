@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { LLMClient } from "../llm/provider.js";
 import {
   ShortFictionDraftReviserAgent,
+  ShortFictionPackagingAgent,
   ShortFictionWriterAgent,
   findShortFictionLengthDeficits,
   parseShortFictionBatchDraft,
@@ -170,6 +171,39 @@ ${"有效场面。".repeat(300)}
       charsPerChapter: 1_000,
       craftGuide: "MODE_CONTRACT: 现实规则，压迫递进",
       draft: partial,
+    });
+
+    const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ role: string; content: string }>;
+    expect(messages[1]?.content).toContain("MODE_CONTRACT: 现实规则，压迫递进");
+    chatSpy.mockRestore();
+  });
+
+  it("keeps the writing-mode contract in the sales package and cover prompt", async () => {
+    const draft = parseShortFictionBatchDraft(`
+=== SHORT_FICTION_TITLE ===
+办公楼里的空工位
+=== CHAPTER 1 TITLE ===
+空工位
+=== CHAPTER 1 CONTENT ===
+保安发现同一把门禁卡在凌晨刷了两次，电梯监控里却没有第二个人。
+`, { expectedChapters: 1 });
+    const chatSpy = vi
+      .spyOn(ShortFictionPackagingAgent.prototype as never, "chat" as never)
+      .mockResolvedValue({
+        content: "=== SHORT_FICTION_PACKAGE_TITLE ===\n办公楼里的空工位\n=== SHORT_FICTION_INTRO ===\n现实悬疑\n=== SHORT_FICTION_SELLING_POINTS ===\n- 门禁证据\n=== SHORT_FICTION_COVER_PROMPT ===\n办公楼电梯",
+        usage: ZERO_USAGE,
+      });
+    const agent = new ShortFictionPackagingAgent({
+      client: fakeClient(),
+      model: "fake",
+      projectRoot: "/tmp",
+    });
+
+    await agent.generatePackage({
+      direction: "现实悬疑短篇",
+      outlineMarkdown: "## 大纲\n办公楼内的真实犯罪因果链",
+      craftGuide: "MODE_CONTRACT: 现实规则，压迫递进",
+      draft,
     });
 
     const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ role: string; content: string }>;

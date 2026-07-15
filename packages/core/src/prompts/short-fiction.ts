@@ -60,6 +60,7 @@ export interface ShortFictionPackagePromptInput {
   readonly outlineMarkdown: string;
   readonly draftMarkdown: string;
   readonly draftTitle: string;
+  readonly craftGuide?: string;
 }
 
 export function buildShortFictionOutlineSystemPrompt(language: ShortFictionLanguage = "zh"): string {
@@ -590,6 +591,8 @@ export function buildShortFictionPackageUserPrompt(
       "## Story Plan",
       input.outlineMarkdown.trim(),
       "",
+      input.craftGuide ?? "",
+      "",
       "## Final Draft",
       input.draftMarkdown.trim(),
       "",
@@ -610,6 +613,8 @@ export function buildShortFictionPackageUserPrompt(
     "",
     "## 故事方案",
     input.outlineMarkdown.trim(),
+    "",
+    input.craftGuide ?? "",
     "",
     "## 最终正文",
     input.draftMarkdown.trim(),

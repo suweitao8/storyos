@@ -120,6 +120,7 @@ export interface ShortFictionPackageInput {
   readonly direction: string;
   readonly outlineMarkdown: string;
   readonly draft: ShortFictionBatchDraft;
+  readonly craftGuide?: string;
   readonly language?: ShortFictionLanguage;
 }
 
@@ -297,6 +298,7 @@ export class ShortFictionPackagingAgent extends BaseAgent {
           outlineMarkdown: input.outlineMarkdown,
           draftMarkdown: renderShortFictionDraftMarkdown(input.draft, input.language),
           draftTitle: input.draft.storyTitle,
+          craftGuide: input.craftGuide,
         }, input.language) },
       ], { temperature: 0.45, maxTokens: 4096 });
     }, this.name, this.log);

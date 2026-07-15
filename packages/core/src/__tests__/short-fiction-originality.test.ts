@@ -80,7 +80,7 @@ describe("short-fiction originality wiring", () => {
       "有效场面。".repeat(500),
     ].join("\n"), { expectedChapters: 1 });
     const writer = vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(draft);
-    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+    const packager = vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
       title: "写字楼的空工位",
       intro: "原创悬疑",
       sellingPoints: ["新因果链"],
@@ -113,6 +113,7 @@ describe("short-fiction originality wiring", () => {
     expect(outlineInput?.craftGuide).not.toContain("REFERENCE_STORY_OUTLINE_EVENT");
     expect(writerInput?.craftGuide).toContain("NEW_SPACE=OFFICE");
     expect(writerInput?.craftExemplars).toBeUndefined();
+    expect(packager.mock.calls[0]?.[0].craftGuide).toContain("NEW_SPACE=OFFICE");
     expect(result.outlinePath).toMatch(/outline\/v001\.md$/);
     await expect(access(join(root, result.outlinePath))).resolves.toBeUndefined();
     expect(result.outlineReviewPath).toBeUndefined();

@@ -370,6 +370,7 @@ async function produceShort(
       direction: options.direction,
       outlineMarkdown,
       draft: finalDraft,
+      craftGuide,
       language,
     });
     await writePackageArtifacts(root, baseDir, salesPackage, language);
