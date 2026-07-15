@@ -2,7 +2,7 @@ import { memo, useCallback, useRef, useEffect, useMemo, useState } from "react";
 import type { Theme } from "../hooks/use-theme";
 import type { TFunction } from "../hooks/use-i18n";
 import type { SSEMessage } from "../hooks/use-sse";
-import { fetchJson, persistRecentCraftSelection, useApi } from "../hooks/use-api";
+import { fetchJson, invalidateApiPaths, persistRecentCraftSelection, useApi } from "../hooks/use-api";
 import type { ChatAttachmentPayload, MessagePart } from "../store/chat/types";
 import { chatSelectors, useChatStore } from "../store/chat";
 import type { ChatSessionKind } from "../store/chat";
@@ -27,7 +27,6 @@ import { PlayChoicePanel } from "../components/chat/PlayChoicePanel";
 import { latestPlayChoiceSet } from "../components/chat/play-choices";
 import { usePageToolbar } from "../components/PageToolbar";
 import { StoryCreationPanel } from "./StoryCreationPanel";
-import type { StorySeed } from "@actalk/inkos-core";
 import { StoryAssetsPanel } from "./StoryAssetsPanel";
 import { StorySettingsPanel } from "./StorySettingsPanel";
 import { StoryListPanel, type StoryListRecord } from "./StoryListPanel";
@@ -47,9 +46,8 @@ import {
   type StoryDirectionGenerationInput,
 } from "./story-creation-state";
 import {
-  streamStorySeed,
+  queueStorySeedGeneration,
   type StorySeedGenerationInput,
-  type StorySeedStreamEvent,
 } from "./story-seed-stream";
 import {
   BotMessageSquare,
@@ -976,19 +974,10 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
     return result.direction;
   }, []);
 
-  const handleGenerateStorySeed = useCallback(async (
-    input: StorySeedGenerationInput,
-    onEvent: (event: StorySeedStreamEvent) => void,
-  ): Promise<StorySeed> => streamStorySeed(input, onEvent), []);
-
-  const handleSaveStorySeed = useCallback(async (craftId: string, storySeed: StorySeed, generationId?: string) => {
-    await fetchJson(`/crafts/${encodeURIComponent(craftId)}/story-seed`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storySeed, ...(generationId ? { generationId } : {}) }),
-    });
-    await refetchCrafts();
-  }, [refetchCrafts]);
+  const handleGenerateStorySeed = useCallback(async (input: StorySeedGenerationInput): Promise<void> => {
+    await queueStorySeedGeneration(input);
+    invalidateApiPaths(["/api/v1/crafts"]);
+  }, []);
 
   const requestStoryAssetExtraction = async (kind: "book" | "short", storyId: string) => {
     try {
@@ -1128,7 +1117,6 @@ export function ChatPage({ activeBookId, activeShortId, mode = activeBookId ? "b
           requiredCraftMode={shortCraftMode}
           onGenerateDirection={handleGenerateStoryDirection}
           onGenerateSeed={handleGenerateStorySeed}
-          onSaveSeed={handleSaveStorySeed}
           onOpenCraft={nav.toCraft}
         />
       ) : storyWorkspace.view === "list" ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { localizeKnownRuntimeMessage } from "../lib/error-copy";
 
 const BASE = "/api/v1";
@@ -6,6 +6,10 @@ const API_INVALIDATE_EVENT = "storyos:api-invalidate";
 
 interface ApiInvalidateDetail {
   readonly paths: ReadonlyArray<string>;
+}
+
+export function shouldApplyApiResponse(requestId: number, latestRequestId: number): boolean {
+  return requestId === latestRequestId;
 }
 
 export function buildApiUrl(path: string): string | null {
@@ -34,6 +38,10 @@ export function deriveInvalidationPaths(path: string): ReadonlyArray<string> {
   }
 
   if (normalized === "/api/v1/crafts/recent") {
+    return ["/api/v1/crafts"];
+  }
+
+  if (/^\/api\/v1\/crafts\/[^/]+\/story-seed(?:\/generate)?$/.test(normalized)) {
     return ["/api/v1/crafts"];
   }
 
@@ -168,10 +176,13 @@ export function useApi<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const refetch = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     const url = buildApiUrl(path);
     if (!url) {
+      if (!shouldApplyApiResponse(requestId, requestIdRef.current)) return;
       setData(null);
       setError(null);
       setLoading(false);
@@ -184,10 +195,13 @@ export function useApi<T>(
       const json = options?.retry
         ? await fetchJsonWithRetry<T>(url, {}, options.retry)
         : await fetchJson<T>(url);
+      if (!shouldApplyApiResponse(requestId, requestIdRef.current)) return;
       setData(json);
     } catch (e) {
+      if (!shouldApplyApiResponse(requestId, requestIdRef.current)) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      if (!shouldApplyApiResponse(requestId, requestIdRef.current)) return;
       setLoading(false);
     }
   }, [path, options?.retry]);
