@@ -237,8 +237,8 @@ describe("hasTableRows", () => {
 
 describe("FOUNDATION_FILE_LABELS", () => {
   it("labels the authoritative Phase 5 files and excludes character files", () => {
-    expect(FOUNDATION_FILE_LABELS["outline/story_frame.md"]).toBe("故事基石");
-    expect(FOUNDATION_FILE_LABELS["outline/volume_map.md"]).toBe("卷纲规划");
+    expect(FOUNDATION_FILE_LABELS["outline/story_frame.md"]).toBe("故事设定");
+    expect(FOUNDATION_FILE_LABELS["outline/volume_map.md"]).toBe("分卷规划");
     // character files do not belong to the foundation list
     expect(FOUNDATION_FILE_LABELS["character_matrix.md"]).toBeUndefined();
   });
@@ -273,6 +273,6 @@ describe("English UI (app language = en)", () => {
     expect(foundationFileLabel("outline/story_frame.md")).toBe("Story Foundation");
     expect(foundationFileLabel("character_matrix.md")).toBeUndefined();
     setAppLanguage("zh");
-    expect(foundationFileLabel("outline/story_frame.md")).toBe("故事基石");
+    expect(foundationFileLabel("outline/story_frame.md")).toBe("故事设定");
   });
 });

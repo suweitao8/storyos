@@ -289,7 +289,7 @@ interface CraftModule {
 const CRAFT_CATEGORY_LABELS: Record<"zh" | "en", Record<CraftModule["category"], string>> = {
   zh: {
     opening: "开头",
-    chapterFlow: "推进",
+    chapterFlow: "章节推进",
     sceneRhythm: "节奏",
     disclosure: "信息",
     suspense: "悬念",
@@ -300,7 +300,7 @@ const CRAFT_CATEGORY_LABELS: Record<"zh" | "en", Record<CraftModule["category"],
   },
   en: {
     opening: "Opening",
-    chapterFlow: "Flow",
+    chapterFlow: "Chapter Flow",
     sceneRhythm: "Pacing",
     disclosure: "Info",
     suspense: "Suspense",

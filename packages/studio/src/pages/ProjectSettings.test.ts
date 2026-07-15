@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { PROJECT_SETTINGS_TAB_IDS } from "./ProjectSettings";
+import { PROJECT_SETTINGS_RESOURCE_TABLES, PROJECT_SETTINGS_TAB_IDS } from "./ProjectSettings";
 
 describe("project settings resource tabs", () => {
-  it("merges models into common tab", () => {
+  it("keeps low-frequency genre and skill tables together inside settings", () => {
     expect(PROJECT_SETTINGS_TAB_IDS).toEqual([
       "common",
-      "genres",
+      "resources",
       "diagnostics",
     ]);
+    expect(PROJECT_SETTINGS_RESOURCE_TABLES).toEqual(["genres", "skills"]);
   });
 });

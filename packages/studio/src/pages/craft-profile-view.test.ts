@@ -34,7 +34,7 @@ describe("craft card list presentation", () => {
       mode: "ghost-story",
       summary: "夜班维修员在停电的旧楼里发现每层电梯都通向同一间不存在的房间。",
     })).toContain("夜班维修员");
-    expect(craftCardDescription({ mode: "general", summary: "  " })).toContain("场景节奏");
+    expect(craftCardDescription({ mode: "general", summary: "  " })).toContain("节奏控制");
   });
 });
 
