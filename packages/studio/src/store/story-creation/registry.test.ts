@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  PENDING_CREATION_TIMEOUT_MS,
   registerPendingCreation,
   unregisterPendingCreation,
   getPendingCreation,
@@ -28,6 +29,27 @@ describe("pending creation registry", () => {
     registerPendingCreation(makeEntry("s2"));
     unregisterPendingCreation("s2");
     expect(getPendingCreation("s2")).toBeUndefined();
+  });
+
+  it("keeps long-running background creation registered until it completes", () => {
+    registerPendingCreation({
+      ...makeEntry("long-running-short", "short"),
+      createdAt: Date.now() - 30 * 60 * 1000,
+    });
+
+    expect(getPendingCreation("long-running-short")).toEqual(
+      expect.objectContaining({ kind: "short" }),
+    );
+    unregisterPendingCreation("long-running-short");
+  });
+
+  it("removes entries after the configured background creation window", () => {
+    registerPendingCreation({
+      ...makeEntry("stale-creation"),
+      createdAt: Date.now() - PENDING_CREATION_TIMEOUT_MS - 1,
+    });
+
+    expect(getPendingCreation("stale-creation")).toBeUndefined();
   });
 
   it("completePendingCreation fires handler and removes entry", () => {
