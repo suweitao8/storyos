@@ -32,56 +32,66 @@ const profile: CraftProfile = {
 };
 
 describe("story direction prompt", () => {
-  it("uses the craft worldview AND story outline as reference", () => {
+  it("injects worldview and story outline as reference", () => {
     const prompt = buildStoryDirectionPrompt(profile, "short", "zh", "old direction");
 
-    expect(prompt.system).toContain("同框架");
     expect(prompt.user).toContain(profile.worldview);
-    // storyOutline IS now injected — we want the LLM to see the original plot
     expect(prompt.user).toContain(profile.storyOutline);
     expect(prompt.user).toContain("old direction");
     expect(prompt.user).toContain("一篇单章节短篇故事");
   });
 
-  it("keeps story directions extremely concise", () => {
+  it("does NOT inject technical craft mechanics (pacing, POV, rhythm)", () => {
+    const prompt = buildStoryDirectionPrompt(profile, "short", "zh");
+
+    // Technical jargon from the craft profile must not leak into the prompt
+    expect(prompt.user).not.toContain("openingPattern");
+    expect(prompt.user).not.toContain("pacingCurve");
+    expect(prompt.user).not.toContain("povStrategy");
+    expect(prompt.user).not.toContain("narrativeDistance");
+  });
+
+  it("asks for plain, conversational language", () => {
     const directionPrompt = buildStoryDirectionPrompt(profile, "short", "zh");
     const seedPrompt = buildStorySeedPrompt(profile, "short", "zh");
 
-    for (const prompt of [directionPrompt, seedPrompt]) {
-      expect(prompt.user).toContain("500");
-      expect(prompt.user).toContain("说人话");
-    }
+    // The system prompt should encourage natural storytelling, not analysis
+    expect(directionPrompt.system).toContain("朋友");
+    expect(seedPrompt.system).toContain("朋友");
   });
 
-  it("requests a complete editable short-story seed without thinking output", () => {
+  it("requests only three sections: title, worldview, outline", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
     for (const section of [
       "故事名称",
       "世界观与运行规则",
       "分段故事大纲",
-      "原创要点",
     ]) {
       expect(prompt.user).toContain(section);
     }
-    expect(prompt.user).toContain(profile.worldview);
+    // The originality plan section should NOT be requested anymore
+    expect(prompt.user).not.toContain("原创要点");
+    expect(prompt.user).not.toContain("原创化改编方案");
+  });
+
+  it("forbids thinking and analysis output", () => {
+    const prompt = buildStorySeedPrompt(profile, "short", "zh");
+
     expect(prompt.system).toContain("Do not output <think>");
-    expect(prompt.system).toContain("500");
   });
 
   it("can build a direct-output seed prompt without a selected craft", () => {
     const prompt = buildStorySeedPrompt(undefined, "short", "en");
 
     expect(prompt.user).toContain("Story title");
-    expect(prompt.user).toContain("one-chapter short story");
-    expect(prompt.user).toContain("未选择创作参考素材");
+    expect(prompt.user).toContain("short story seed");
   });
 
   it("keeps the framework but swaps specific elements", () => {
     const prompt = buildStorySeedPrompt(profile, "short", "zh");
 
     expect(prompt.system).toContain("同框架");
-    expect(prompt.user).toContain("保持");
-    expect(prompt.user).toContain("替换");
+    expect(prompt.system).toContain("替换");
   });
 });

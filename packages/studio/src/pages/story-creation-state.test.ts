@@ -65,14 +65,15 @@ describe("story creation actions", () => {
       },
     }, "short", true);
 
+    // The serialized seed is the full direction — no extra originality instruction
     expect(direction).toContain("午夜的门");
     expect(direction).toContain("整栋楼会删除住户的痕迹");
-    expect(direction).toContain("原创化改编方案");
+    // Legacy optional fields are still serialized if present
+    expect(direction).toContain("原创要点");
     expect(direction).toContain("把住宅改造成写字楼");
-    expect(direction).toContain("不得复制原作");
   });
 
-  it("gives legacy cached seeds a generic originality contract", () => {
+  it("returns the serialized seed without extra instructions for legacy seeds", () => {
     const direction = buildDefaultStoryDirection({
       id: "legacy-seed",
       sourceName: "旧模式",
@@ -91,9 +92,10 @@ describe("story creation actions", () => {
       },
     }, "short", true);
 
-    expect(direction).toContain("当前模式没有缓存的原创化改编方案");
-    expect(direction).toContain("重新设计故事空间、身份、关系、因果链、关键事件与结局");
-    expect(direction).not.toContain("请先执行以上‘原创化改编方案’");
+    expect(direction).toContain("旧故事设定");
+    expect(direction).toContain("旧世界规则");
+    // No originality instruction is appended anymore
+    expect(direction).not.toContain("当前模式没有缓存的原创化改编方案");
   });
 
   it("builds an editable original direction for the selected craft", () => {

@@ -63,15 +63,7 @@ export function buildDefaultStoryDirection(
   isZh: boolean,
 ): string {
   if (craft.storySeed) {
-    const serializedSeed = serializeStorySeed(craft.storySeed, isZh ? "zh" : "en");
-    const originalityInstruction = craft.storySeed.originalizationPlan?.trim()
-      ? isZh
-        ? "请先执行以上‘原创化改编方案’，再基于它创作新故事：必须重建故事空间、身份、关系、因果链、关键事件与结局，不得复制原作的人物、情节、措辞或场景。"
-        : "First apply the originality transformation plan above, then create a new story: rebuild the setting, identities, relationships, causal chain, key events, and ending; do not copy the reference work's characters, plot, wording, or scenes."
-      : isZh
-        ? "当前模式没有缓存的原创化改编方案。请先自行制定并执行原创化改编：重新设计故事空间、身份、关系、因果链、关键事件与结局，不得复制原作的人物、情节、措辞或场景。"
-        : "This legacy craft has no cached originality transformation plan. First define and apply one yourself: rebuild the setting, identities, relationships, causal chain, key events, and ending; do not copy the reference work's characters, plot, wording, or scenes.";
-    return `${serializedSeed}\n\n${originalityInstruction}`;
+    return serializeStorySeed(craft.storySeed, isZh ? "zh" : "en");
   }
 
   if (craft.mode === "bilibili-commentary") {
