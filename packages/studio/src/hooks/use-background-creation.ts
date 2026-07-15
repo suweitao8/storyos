@@ -11,7 +11,7 @@ import {
 } from "../store/story-creation/registry";
 import { useChatStore } from "../store/chat";
 import { latestShortStoryId } from "../pages/ChatPage";
-import { fetchJson } from "./use-api";
+import { fetchJson, invalidateApiPaths } from "./use-api";
 import { toast } from "../store/toast/store";
 import { tr } from "../lib/app-language";
 import type { ProductionTask } from "../api/background-production-tasks";
@@ -59,6 +59,36 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
 
   // 消费 SSE 事件
   useNewSSEMessages(sse.messages, (recent) => {
+    if (recent.event === "craft:story-seed-complete") {
+      invalidateApiPaths(["/api/v1/crafts"]);
+      toast.success(tr("故事设定已生成", "Story foundation generated"), tr("写作模式已更新，可继续创建故事", "The writing mode is updated and ready for story creation."));
+      return;
+    }
+
+    if (recent.event === "craft:story-seed-error") {
+      const data = recent.data as { error?: string } | null;
+      invalidateApiPaths(["/api/v1/crafts"]);
+      toast.error(tr("故事设定生成失败", "Story foundation generation failed"), data?.error);
+      return;
+    }
+
+    if (recent.event === "craft:story-seed-score-complete") {
+      const data = recent.data as { score?: number } | null;
+      invalidateApiPaths(["/api/v1/crafts"]);
+      const detail = typeof data?.score === "number"
+        ? tr(`质量评分 ${data.score}`, `Quality score ${data.score}`)
+        : undefined;
+      toast.info(tr("故事设定评分完成", "Story foundation scoring completed"), detail);
+      return;
+    }
+
+    if (recent.event === "craft:story-seed-score-error") {
+      const data = recent.data as { error?: string } | null;
+      invalidateApiPaths(["/api/v1/crafts"]);
+      toast.error(tr("故事设定评分失败", "Story foundation scoring failed"), data?.error);
+      return;
+    }
+
     if (recent.event === "production:task") {
       const task = recent.data as ProductionTask | null;
       if (!task?.id) return;

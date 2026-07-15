@@ -43,6 +43,10 @@ export interface CraftOption {
   readonly storySeedStatus?: "pending" | "ready" | "error";
   readonly storySeedError?: string;
   readonly storySeedGenerationId?: string;
+  readonly storySeedScore?: number;
+  readonly storySeedScoreNote?: string;
+  readonly storySeedScoreStatus?: "pending" | "ready" | "error";
+  readonly storySeedScoreError?: string;
 }
 
 export type StoryCraftMode = Extract<CraftMode, "bilibili-short-story" | "bilibili-commentary" | "bilibili-review">;
@@ -71,9 +75,9 @@ export function shouldAutoGenerateShortStorySeed(storySeed?: StorySeed): boolean
 }
 
 export function resolveStorySeedGenerationStatus(craft?: CraftOption): StorySeedGenerationStatus {
-  if (craft?.storySeed) return "ready";
   if (craft?.storySeedStatus === "pending") return "generating";
   if (craft?.storySeedStatus === "error") return "error";
+  if (craft?.storySeed) return "ready";
   return "idle";
 }
 

@@ -17,6 +17,7 @@ import {
 } from "./story-creation-state";
 import {
   parseStorySeedStreamEvent,
+  queueStorySeedGeneration,
   streamStorySeed,
 } from "./story-seed-stream";
 
@@ -65,6 +66,10 @@ describe("story creation actions", () => {
       conflict: "冲突", outline: "大纲", reversals: "反转", ending: "结局", visualAudioMotifs: "母题",
     } })).toBe("ready");
     expect(resolveStorySeedGenerationStatus({ id: "pending", sourceName: "pending", storySeedStatus: "pending" })).toBe("generating");
+    expect(resolveStorySeedGenerationStatus({ id: "replacing", sourceName: "replacing", storySeedStatus: "pending", storySeed: {
+      title: "旧设定", genreTone: "类型", hook: "钩子", worldview: "世界", characters: "角色",
+      conflict: "冲突", outline: "大纲", reversals: "反转", ending: "结局", visualAudioMotifs: "母题",
+    } })).toBe("generating");
     expect(resolveStorySeedGenerationStatus({ id: "error", sourceName: "error", storySeedStatus: "error" })).toBe("error");
     expect(resolveStorySeedGenerationStatus({ id: "idle", sourceName: "idle" })).toBe("idle");
   });
@@ -248,6 +253,32 @@ describe("story creation actions", () => {
 });
 
 describe("short-story seed streaming", () => {
+  it("queues a selected craft's story foundation through the background endpoint", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      craftId: "craft / 1",
+      status: "pending",
+      meta: { storySeedStatus: "pending" },
+    }), { status: 202, headers: { "content-type": "application/json" } }));
+
+    await expect(queueStorySeedGeneration({
+      craftId: "craft / 1",
+      kind: "short",
+      language: "zh",
+      previousDirection: "保留现实悬疑基调",
+    }, fetchImpl)).resolves.toEqual({ craftId: "craft / 1", status: "pending" });
+
+    expect(fetchImpl).toHaveBeenCalledWith("/api/v1/crafts/craft%20%2F%201/story-seed/generate", expect.objectContaining({
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        craftId: "craft / 1",
+        kind: "short",
+        language: "zh",
+        previousDirection: "保留现实悬疑基调",
+      }),
+    }));
+  });
+
   it("parses structured SSE events without exposing reasoning fields", () => {
     expect(parseStorySeedStreamEvent('event: delta\ndata: {"text":"## 故事名称"}')).toEqual({
       event: "delta",

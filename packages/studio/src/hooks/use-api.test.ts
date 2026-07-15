@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildApiUrl, deriveInvalidationPaths, fetchJson, fetchJsonWithRetry } from "./use-api";
+import { buildApiUrl, deriveInvalidationPaths, fetchJson, fetchJsonWithRetry, shouldApplyApiResponse } from "./use-api";
 
 describe("buildApiUrl", () => {
   it("returns null for blank paths so callers can skip requests", () => {
@@ -89,9 +89,20 @@ describe("fetchJsonWithRetry", () => {
   });
 });
 
+describe("API response ordering", () => {
+  it("rejects an older response after a newer invalidation refresh has started", () => {
+    expect(shouldApplyApiResponse(3, 3)).toBe(true);
+    expect(shouldApplyApiResponse(2, 3)).toBe(false);
+  });
+});
+
 describe("deriveInvalidationPaths", () => {
   it("refreshes craft selections after changing the recent craft", () => {
     expect(deriveInvalidationPaths("/crafts/recent")).toEqual(["/api/v1/crafts"]);
+  });
+
+  it("refreshes craft selections after queuing a story foundation", () => {
+    expect(deriveInvalidationPaths("/crafts/craft-1/story-seed/generate")).toEqual(["/api/v1/crafts"]);
   });
 
   it("refreshes book collections after creating a book", () => {

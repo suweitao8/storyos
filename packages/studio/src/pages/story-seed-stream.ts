@@ -32,6 +32,11 @@ export interface StorySeedGenerationInput {
   readonly previousDirection?: string;
 }
 
+export interface QueuedStorySeedGeneration {
+  readonly craftId: string;
+  readonly status: "pending" | "ready" | "error";
+}
+
 export type StorySeedGenerationStatus = "idle" | "generating" | "ready" | "error";
 
 export type StorySeedStreamEventName = "start" | "delta" | "complete" | "error";
@@ -72,6 +77,32 @@ function storySeedStreamPath(input: StorySeedGenerationInput): string {
   return input.craftId
     ? `/api/v1/crafts/${encodeURIComponent(input.craftId)}/story-direction/stream`
     : "/api/v1/story-direction/stream";
+}
+
+export async function queueStorySeedGeneration(
+  input: StorySeedGenerationInput,
+  fetchImpl: typeof fetch = fetch,
+): Promise<QueuedStorySeedGeneration> {
+  if (!input.craftId) {
+    throw new Error("A writing mode is required to generate a story foundation in the background");
+  }
+
+  const response = await fetchImpl(`/api/v1/crafts/${encodeURIComponent(input.craftId)}/story-seed/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(`Story seed generation failed (${response.status})`);
+  }
+
+  const payload = await response.json() as { craftId?: unknown; status?: unknown };
+  const craftId = typeof payload.craftId === "string" ? payload.craftId : input.craftId;
+  const status = payload.status;
+  if (status !== "pending" && status !== "ready" && status !== "error") {
+    throw new Error("Story seed generation returned an invalid status");
+  }
+  return { craftId, status };
 }
 
 export async function streamStorySeed(
