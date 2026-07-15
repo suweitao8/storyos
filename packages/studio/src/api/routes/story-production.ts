@@ -20,7 +20,7 @@ import {
   type ArtStyle,
 } from "@actalk/inkos-core";
 import type { StudioRouteContext } from "./context.js";
-import { ProductionTaskRegistry } from "../background-production-tasks.js";
+import { ProductionTaskRegistry, type ProductionTaskKind } from "../background-production-tasks.js";
 import { resolveStoryArtStyle, resolveStoryCraftId } from "../story-art-style.js";
 import { isSafeBookId } from "../safety.js";
 import { resolveCraftSourceFile } from "../craft-source-assets.js";
@@ -789,6 +789,26 @@ function registerProductionRoutesForKind(context: StudioRouteContext, kind: Stor
     const id = c.req.param("id");
     if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
     return c.json(await readProduction(context, kind, id));
+  });
+
+  context.app.get(`${prefix}/:id/production/tasks`, (c) => {
+    const id = c.req.param("id");
+    if (!isSafeStoryId(id)) return c.json({ error: "Invalid story id" }, 400);
+    const taskKind = c.req.query("kind");
+    if (taskKind !== "script" && taskKind !== "video" && taskKind !== "scene-video") {
+      return c.json({ error: "Invalid production task kind" }, 400);
+    }
+    const target: { readonly kind: ProductionTaskKind; readonly storyId: string; readonly storyKind: StoryKind; readonly sceneIndex?: number } = {
+      kind: taskKind,
+      storyId: id,
+      storyKind: kind,
+    };
+    if (taskKind === "scene-video") {
+      const sceneIndex = Number(c.req.query("sceneIndex"));
+      if (!Number.isInteger(sceneIndex) || sceneIndex < 0) return c.json({ error: "Invalid scene index" }, 400);
+      return c.json({ task: tasks.latest({ ...target, sceneIndex }) ?? null });
+    }
+    return c.json({ task: tasks.latest(target) ?? null });
   });
 
   context.app.post(`${prefix}/:id/production/script`, async (c) => {

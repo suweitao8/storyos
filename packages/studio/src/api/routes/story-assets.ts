@@ -29,7 +29,7 @@ import {
 } from "./boundary.js";
 import type { StudioRouteContext } from "./context.js";
 import { resolveStoryArtStyle } from "../story-art-style.js";
-import { ProductionTaskRegistry } from "../background-production-tasks.js";
+import { ProductionTaskRegistry, type ProductionTaskKind } from "../background-production-tasks.js";
 
 type StoryAssetRouteKind = "book" | "short";
 
@@ -232,6 +232,29 @@ export function registerStoryAssetRoutes(context: StudioRouteContext): void {
   app.get("/api/v1/stories/:kind/:id/assets", async (c) => getStoryAssetManifest(c, c.req.param("kind"), c.req.param("id")));
   app.get("/api/v1/books/:id/assets", async (c) => getStoryAssetManifest(c, "book", c.req.param("id")));
   app.get("/api/v1/shorts/:id/assets", async (c) => getStoryAssetManifest(c, "short", c.req.param("id")));
+
+  app.get("/api/v1/stories/:kind/:id/assets/tasks", (c) => {
+    try {
+      const kind = assertStoryAssetKind(c.req.param("kind"));
+      const storyId = assertStoryAssetId(c.req.param("id"));
+      const taskKind = c.req.query("kind");
+      if (taskKind !== "asset-extract" && taskKind !== "asset-image" && taskKind !== "asset-batch") {
+        throw new ApiError(400, "INVALID_PRODUCTION_TASK_KIND", "Invalid asset production task kind.");
+      }
+      const target: { readonly kind: ProductionTaskKind; readonly storyId: string; readonly storyKind: StoryAssetRouteKind; readonly assetId?: string } = {
+        kind: taskKind,
+        storyId,
+        storyKind: kind,
+      };
+      if (taskKind === "asset-image") {
+        const assetId = assertStoryAssetAssetId(c.req.query("assetId"));
+        return c.json({ task: tasks.latest({ ...target, assetId }) ?? null });
+      }
+      return c.json({ task: tasks.latest(target) ?? null });
+    } catch (error) {
+      return storyAssetErrorResponse(c, error);
+    }
+  });
 
   const extractRoute = async (c: Context, kindValue: unknown, storyIdValue: unknown) => {
     let kind: StoryAssetRouteKind; let storyId: string;

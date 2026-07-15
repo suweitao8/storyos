@@ -39,4 +39,21 @@ describe("story production background routes", () => {
       data: expect.objectContaining({ id: firstBody.task.id, status: "running" }),
     }));
   });
+
+  it("exposes the latest task status so a returning page can recover from a failed background run", async () => {
+    const { app } = createRouteContext();
+    const started = await app.request("/api/v1/shorts/background-status/production/script?background=true", {
+      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const { task } = await started.json() as { task: { id: string } };
+
+    const status = await app.request("/api/v1/shorts/background-status/production/tasks?kind=script");
+
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toMatchObject({
+      task: { id: task.id, kind: "script", storyId: "background-status" },
+    });
+  });
 });

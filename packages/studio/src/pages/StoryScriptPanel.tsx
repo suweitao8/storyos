@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 
 import { postApi, useApi } from "../hooks/use-api";
+import {
+  buildProductionTaskStatusPath,
+  getProductionTaskFeedback,
+  useProductionTaskStatus,
+} from "../hooks/use-production-task-status";
 import type { Theme } from "../hooks/use-theme";
 import type { UnifiedScriptDocument, UnifiedScriptShot } from "../api/story-production";
 
@@ -45,8 +50,9 @@ interface StoryScriptPanelProps {
 export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StoryScriptPanelProps) {
   const path = storyId ? buildStoryProductionPath(kind, storyId) : "";
   const { data, loading, error, refetch } = useApi<ProductionResponse>(path);
+  const taskPath = path ? buildProductionTaskStatusPath(path, { kind: "script" }) : "";
+  const { task: backgroundTask, refetch: refetchBackgroundTask } = useProductionTaskStatus(taskPath);
   const [busy, setBusy] = useState(false);
-  const [backgroundPending, setBackgroundPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -63,16 +69,17 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
   }, [allKeys, selectedKey]);
 
   const selectedShot = useMemo(() => shots.find((shot) => shotKey(shot) === selectedKey) ?? null, [shots, selectedKey]);
+  const backgroundFeedback = getProductionTaskFeedback(backgroundTask);
+  const backgroundPending = backgroundFeedback.pending;
 
   useEffect(() => {
-    if (!backgroundPending) return;
-    if (data?.script.exists) {
-      setBackgroundPending(false);
-      return;
-    }
-    const interval = window.setInterval(() => { void refetch(); }, 4_000);
-    return () => window.clearInterval(interval);
-  }, [backgroundPending, data?.script.exists, refetch]);
+    if (!backgroundTask || backgroundTask.status === "running") return;
+    void refetch();
+  }, [backgroundTask?.id, backgroundTask?.status, refetch]);
+
+  useEffect(() => {
+    if (backgroundFeedback.error) setActionError(backgroundFeedback.error);
+  }, [backgroundFeedback.error]);
 
   async function generate(): Promise<void> {
     if (!storyId) return;
@@ -80,7 +87,7 @@ export function StoryScriptPanel({ kind, storyId, theme: _theme, isZh }: StorySc
     setActionError(null);
     try {
       await postApi(`${path}/script?background=true`);
-      setBackgroundPending(true);
+      await refetchBackgroundTask();
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : String(failure));
     } finally {

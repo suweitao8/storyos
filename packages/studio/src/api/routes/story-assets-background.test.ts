@@ -32,4 +32,25 @@ describe("story asset background routes", () => {
       data: expect.objectContaining({ kind: "asset-extract", status: "running" }),
     }));
   });
+
+  it("exposes the latest asset task status for pages opened after the request", async () => {
+    const app = new Hono();
+    registerStoryAssetRoutes({
+      app,
+      root: "D:/StoryOS-test-runtime",
+      broadcast: () => undefined,
+    } as unknown as StudioRouteContext);
+
+    const started = await app.request("/api/v1/stories/short/background-assets-status/assets/extract?background=true", {
+      method: "POST",
+    });
+    const { task } = await started.json() as { task: { id: string } };
+
+    const status = await app.request("/api/v1/stories/short/background-assets-status/assets/tasks?kind=asset-extract");
+
+    expect(status.status).toBe(200);
+    await expect(status.json()).resolves.toMatchObject({
+      task: { id: task.id, kind: "asset-extract", storyId: "background-assets-status" },
+    });
+  });
 });
