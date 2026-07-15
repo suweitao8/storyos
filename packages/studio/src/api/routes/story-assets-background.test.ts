@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { Hono } from "hono";
 
-import { registerStoryAssetRoutes } from "./story-assets";
+import { buildPostExtractionScriptPath, queuePostExtractionProductionScript, registerStoryAssetRoutes } from "./story-assets";
 import type { StudioRouteContext } from "./context";
 
 describe("story asset background routes", () => {
+  it("queues the production script through the server after extraction", async () => {
+    const app = new Hono();
+    let queuedPath = "";
+    app.post("/api/v1/shorts/cold-ledger/production/script", (c) => {
+      queuedPath = new URL(c.req.url).pathname + new URL(c.req.url).search;
+      return c.json({ task: { status: "running" } }, 202);
+    });
+
+    await queuePostExtractionProductionScript(app, "short", "cold-ledger");
+
+    expect(queuedPath).toBe("/api/v1/shorts/cold-ledger/production/script?background=true");
+    expect(buildPostExtractionScriptPath("book", "night harbor")).toBe("/api/v1/books/night%20harbor/production/script?background=true");
+  });
+
   it("accepts extraction as a background production task", async () => {
     const app = new Hono();
     const broadcasts: Array<{ event: string; data: unknown }> = [];
