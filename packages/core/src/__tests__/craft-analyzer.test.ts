@@ -197,7 +197,7 @@ describe("CraftAnalyzerAgent", () => {
     expect(profile.videoStory?.beats).toHaveLength(4);
     expect(profile.videoStory?.reversals[0]?.position).toBe(0.54);
     expect(profile.videoStory?.payoffs[0]?.setup).toContain("loophole");
-    expect(buildCraftGuide(profile)).toContain("Transfer the reference video's beat functions");
+    expect(buildCraftGuide(profile)).toContain("仅迁移参考视频的节拍功能、相对位置、升级间距、反转和收束时机");
     expect(buildCraftGuide(profile)).toContain("Do not reuse the reference's three-event chain");
   });
 

@@ -24,7 +24,8 @@ describe("prompt pack loader", () => {
     const loaded = await loadPromptPackPrompt({ promptId: "longform.writer" });
 
     expect(loaded.source).toBe("builtin");
-    expect(loaded.content).toContain("长篇章节写作器");
+    expect(loaded.content).toContain("专业的长篇故事章节作家");
+    expect(loaded.content).toContain("受保护上下文具有约束力");
     expect(loaded.promptId).toBe("longform.writer");
   });
 
