@@ -2718,7 +2718,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     readonly promise: Promise<void>;
   };
 
+  type CraftStorySeedScoreTask = {
+    readonly generationId?: string;
+    readonly promise: Promise<void>;
+  };
+
   const craftStorySeedTasks = new Map<string, CraftStorySeedTask>();
+  const craftStorySeedScoreTasks = new Map<string, CraftStorySeedScoreTask>();
   const craftStorySeedWriteTasks = new Map<string, Promise<void>>();
 
   interface CraftStorySeedGenerationOptions {
@@ -2728,6 +2734,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     readonly previousDirection?: string;
     readonly generationId?: string;
     readonly attempt?: number;
+  }
+
+  interface CraftStorySeedScoreOptions {
+    readonly generationId?: string;
+    readonly kind?: "long" | "short";
+    readonly language?: "zh" | "en";
+    readonly attempt?: number;
+    readonly storySeed?: StorySeed;
   }
 
   type StorySeedQualityResult = {
@@ -2812,7 +2826,127 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   };
 
-  const generateCraftStorySeed = async (
+  let startCraftStorySeedGeneration!: (
+    craftId: string,
+    options?: CraftStorySeedGenerationOptions,
+  ) => void;
+
+  let generateCraftStorySeed!: (
+    craftId: string,
+    options?: CraftStorySeedGenerationOptions,
+  ) => Promise<void>;
+
+  const scoreCraftStorySeed = async (
+    craftId: string,
+    options: CraftStorySeedScoreOptions = {},
+  ): Promise<void> => {
+    const pipeline = new PipelineRunner(await buildPipelineConfig());
+    try {
+      if (options.generationId && !await isCurrentCraftStorySeedGeneration(pipeline, craftId, options.generationId)) return;
+      const profile = await pipeline.loadCraft(craftId);
+      const storySeed = options.storySeed ?? profile?.storySeed;
+      if (!profile || !storySeed) return;
+      const language = options.language ?? profile.language ?? "zh";
+      const quality = await evaluateStorySeedQuality(storySeed, profile, pipeline, language);
+      if (!quality) {
+        const current = await (options.generationId
+          ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
+              storySeedScoreStatus: "error",
+              storySeedScoreError: language === "zh" ? "评分模型未返回有效结果" : "The scoring model returned no valid result",
+            })
+          : queueCraftStorySeedWrite(craftId, async () => {
+              await pipeline.updateCraftStorySeedStatus(craftId, {
+                storySeedScoreStatus: "error",
+                storySeedScoreError: language === "zh" ? "评分模型未返回有效结果" : "The scoring model returned no valid result",
+              });
+              return true;
+            })).catch(() => false);
+        if (current) broadcast("craft:story-seed-score-error", { craftId, generationId: options.generationId });
+        return;
+      }
+
+      if (quality.score < 70 && (options.attempt ?? 0) < 1 && options.generationId) {
+        const nextGenerationId = randomUUID();
+        const prepared = await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
+          storySeedStatus: "pending",
+          storySeedError: undefined,
+          storySeedGenerationId: nextGenerationId,
+          storySeedScoreStatus: "pending",
+          storySeedScore: undefined,
+          storySeedScoreNote: undefined,
+          storySeedScoreError: undefined,
+        });
+        if (prepared) {
+          console.warn(`[craft] story seed quality score ${quality.score}; retrying once in the background`);
+          startCraftStorySeedGeneration(craftId, {
+            force: true,
+            generationId: nextGenerationId,
+            kind: options.kind,
+            language,
+            attempt: (options.attempt ?? 0) + 1,
+            previousDirection: [
+              language === "zh"
+                ? `上一版质量评分只有 ${quality.score} 分，请重做并保持题材、现实层级和核心冲突，不要只改标题。`
+                : `The previous version scored only ${quality.score}. Rebuild it while preserving the genre, reality level, and core conflict instead of changing only the title.`,
+              serializeStorySeed(storySeed, language),
+            ].join("\n\n"),
+          });
+        }
+        return;
+      }
+
+      const current = await (options.generationId
+        ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
+            storySeedScoreStatus: "ready",
+            storySeedScore: quality.score,
+            storySeedScoreNote: quality.note,
+            storySeedScoreError: undefined,
+          })
+        : queueCraftStorySeedWrite(craftId, async () => {
+            await pipeline.updateCraftStorySeedStatus(craftId, {
+              storySeedScoreStatus: "ready",
+              storySeedScore: quality.score,
+              storySeedScoreNote: quality.note,
+              storySeedScoreError: undefined,
+            });
+            return true;
+          }));
+      if (current) broadcast("craft:story-seed-score-complete", { craftId, generationId: options.generationId, score: quality.score });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const current = await (options.generationId
+        ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
+            storySeedScoreStatus: "error",
+            storySeedScoreError: message,
+          })
+        : queueCraftStorySeedWrite(craftId, async () => {
+            await pipeline.updateCraftStorySeedStatus(craftId, {
+              storySeedScoreStatus: "error",
+              storySeedScoreError: message,
+            });
+            return true;
+          })).catch(() => false);
+      if (current) broadcast("craft:story-seed-score-error", { craftId, generationId: options.generationId, error: message });
+    }
+  };
+
+  const startCraftStorySeedScoring = (
+    craftId: string,
+    options: CraftStorySeedScoreOptions = {},
+  ): void => {
+    const existing = craftStorySeedScoreTasks.get(craftId);
+    if (existing && existing.generationId === options.generationId) return;
+    const task = scoreCraftStorySeed(craftId, options);
+    const taskRecord = { generationId: options.generationId, promise: task } satisfies CraftStorySeedScoreTask;
+    craftStorySeedScoreTasks.set(craftId, taskRecord);
+    void task.then(() => {
+      if (craftStorySeedScoreTasks.get(craftId) === taskRecord) craftStorySeedScoreTasks.delete(craftId);
+    }, () => {
+      if (craftStorySeedScoreTasks.get(craftId) === taskRecord) craftStorySeedScoreTasks.delete(craftId);
+    });
+  };
+
+  generateCraftStorySeed = async (
     craftId: string,
     options: CraftStorySeedGenerationOptions = {},
   ): Promise<void> => {
@@ -2850,28 +2984,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         });
         return;
       }
-      const quality = await evaluateStorySeedQuality(storySeed, profile, pipeline, language);
-      if (quality && quality.score < 70 && (options.attempt ?? 0) < 1) {
-        console.warn(`[craft] story seed quality score ${quality.score}; retrying once`);
-        await generateCraftStorySeed(craftId, {
-          ...options,
-          attempt: (options.attempt ?? 0) + 1,
-          previousDirection: [
-            language === "zh"
-              ? `上一版质量评分只有 ${quality.score} 分，请重做并保持题材、现实层级和核心冲突，不要只改标题。`
-              : `The previous version scored only ${quality.score}. Rebuild it while preserving the genre, reality level, and core conflict instead of changing only the title.`,
-            serializeStorySeed(storySeed, language),
-          ].join("\n\n"),
-          generationId,
-        });
-        return;
-      }
       if (await saveCraftStorySeedIfCurrent(pipeline, craftId, generationId, storySeed)) {
         await updateCraftStorySeedStatusIfCurrent(pipeline, craftId, generationId, {
           storySeedStatus: "ready",
-          ...(quality ? { storySeedScore: quality.score, storySeedScoreNote: quality.note } : {}),
+          storySeedScoreStatus: "pending",
+          storySeedScore: undefined,
+          storySeedScoreNote: undefined,
+          storySeedScoreError: undefined,
         });
         broadcast("craft:story-seed-complete", { craftId, generationId, status: "ready" });
+        startCraftStorySeedScoring(craftId, { generationId, kind, language, attempt: options.attempt, storySeed });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2884,7 +3006,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     }
   };
 
-  const startCraftStorySeedGeneration = (
+  startCraftStorySeedGeneration = (
     craftId: string,
     options: CraftStorySeedGenerationOptions = {},
   ): void => {
@@ -2921,6 +3043,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       storySeedStatus: "pending",
       storySeedError: undefined,
       storySeedGenerationId: generationId,
+      storySeedScoreStatus: "pending",
+      storySeedScore: undefined,
+      storySeedScoreNote: undefined,
+      storySeedScoreError: undefined,
     });
     startCraftStorySeedGeneration(craftId, { ...options, force: true, generationId });
     return pendingMeta;
@@ -3064,6 +3190,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedScoreStatus: "pending",
+        storySeedScore: undefined,
+        storySeedScoreNote: undefined,
+        storySeedScoreError: undefined,
       });
       startCraftStorySeedGeneration(craftId, { generationId });
       broadcast("craft:complete", { craftId, sourceName: prepared.detectedName, status: "ready" });
@@ -6115,6 +6245,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedScoreStatus: "pending",
+        storySeedScore: undefined,
+        storySeedScoreNote: undefined,
+        storySeedScoreError: undefined,
       });
       startCraftStorySeedGeneration(craftId, { generationId });
       broadcast("craft:complete", { craftId, sourceName });
@@ -6139,6 +6273,18 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       } else {
         void ensureCraftStorySeedGeneration(craft.id).catch((error) => {
           pipelineConfig.logger?.warn(`Failed to resume story seed generation for ${craft.id}: ${String(error)}`);
+        });
+      }
+    }
+    for (const craft of crafts) {
+      if (craft.deletedAt || !craft.storySeed || craft.storySeedStatus === "pending") continue;
+      const scorePending = craft.storySeedScoreStatus === "pending"
+        || (!craft.storySeedScoreStatus && typeof craft.storySeedScore !== "number");
+      if (scorePending) {
+        startCraftStorySeedScoring(craft.id, {
+          generationId: craft.storySeedGenerationId,
+          language: craft.language,
+          kind: "short",
         });
       }
     }
@@ -6211,6 +6357,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       startCraftStorySeedGeneration(id, { generationId: meta.storySeedGenerationId });
     } else if (meta.storySeedStatus === "pending") {
       meta = await ensureCraftStorySeedGeneration(id);
+    } else if (meta.storySeed && (meta.storySeedScoreStatus === "pending"
+      || (!meta.storySeedScoreStatus && typeof meta.storySeedScore !== "number"))) {
+      startCraftStorySeedScoring(id, {
+        generationId: meta.storySeedGenerationId,
+        language: meta.language,
+        kind: "short",
+      });
     } else if ((meta.processingStatus === undefined || meta.processingStatus === "ready") && !meta.storySeed && !meta.storySeedStatus) {
       meta = await ensureCraftStorySeedGeneration(id);
     }
@@ -6573,6 +6726,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedScoreStatus: "pending",
+        storySeedScore: undefined,
+        storySeedScoreNote: undefined,
+        storySeedScoreError: undefined,
       });
     }
 
@@ -6679,6 +6836,20 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     } else {
       await pipeline.saveCraftStorySeed(id, storySeed);
     }
+    const savedMeta = (await pipeline.listCrafts({ includeDeleted: true })).find((craft) => craft.id === id);
+    await pipeline.updateCraftStorySeedStatus(id, {
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "pending",
+      storySeedScore: undefined,
+      storySeedScoreNote: undefined,
+      storySeedScoreError: undefined,
+      ...(generationId ? { storySeedGenerationId: generationId } : {}),
+    });
+    startCraftStorySeedScoring(id, {
+      generationId: generationId ?? savedMeta?.storySeedGenerationId,
+      language: savedMeta?.language,
+      kind: "short",
+    });
     return c.json({ storySeed });
   });
 

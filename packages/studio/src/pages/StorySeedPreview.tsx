@@ -8,6 +8,8 @@ interface StorySeedPreviewProps {
   readonly isZh: boolean;
   readonly score?: number;
   readonly scoreNote?: string;
+  readonly scoreStatus?: "pending" | "ready" | "error";
+  readonly scoreError?: string;
 }
 
 export type { StorySeedPreviewProps };
@@ -43,6 +45,8 @@ export function StorySeedPreview({
   isZh,
   score,
   scoreNote,
+  scoreStatus,
+  scoreError,
 }: StorySeedPreviewProps) {
   const statusLabel = status === "generating"
     ? (isZh ? "正在生成故事设定" : "Generating the story foundation")
@@ -52,7 +56,7 @@ export function StorySeedPreview({
         ? (isZh ? "生成失败，可重新生成" : "Generation failed — try again")
         : (isZh ? "等待后台任务启动" : "Waiting for background job");
 
-  const hasScore = typeof score === "number" && score > 0;
+  const hasScore = typeof score === "number";
   const scoreColor = !hasScore ? "" : score >= 75 ? "text-emerald-500" : score >= 60 ? "text-amber-500" : "text-destructive";
   const lowScore = hasScore && score < 60;
 
@@ -88,8 +92,10 @@ export function StorySeedPreview({
             </div>
           ) : (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 size={12} className="animate-spin" />
-              {isZh ? "正在评分…" : "Scoring…"}
+              {scoreStatus === "error" ? null : <Loader2 size={12} className="animate-spin" />}
+              {scoreStatus === "error"
+                ? (isZh ? `评分失败：${scoreError ?? "可稍后重试"}` : `Scoring failed: ${scoreError ?? "try again later"}`)
+                : (isZh ? "正在后台评分，不影响继续创作" : "Scoring in the background — you can keep creating")}
             </div>
           )}
           {scoreNote && (

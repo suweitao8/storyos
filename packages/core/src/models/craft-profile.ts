@@ -239,6 +239,10 @@ export interface CraftMeta {
   readonly storySeedScore?: number;
   /** Short AI comment explaining the score. */
   readonly storySeedScoreNote?: string;
+  /** Background state for scoring the cached story foundation. */
+  readonly storySeedScoreStatus?: "pending" | "ready" | "error";
+  /** Retryable background error summary for story foundation scoring. */
+  readonly storySeedScoreError?: string;
   /** Visual art style for image prompt generation (realistic or 3D国漫). User-editable. */
   readonly artStyle?: ArtStyle;
   /** Background processing state for asynchronously-created crafts. */

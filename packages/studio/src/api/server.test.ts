@@ -837,6 +837,48 @@ describe("createStudioServer daemon lifecycle", () => {
     await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
   });
 
+  it("publishes the generated story seed before its background score finishes", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+      storySeedStatus: "pending",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+    let resolveScore!: (value: { content: string }) => void;
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockReturnValueOnce(new Promise((resolve) => {
+        resolveScore = resolve;
+      }));
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" })));
+    await vi.waitFor(() => expect(chatCompletionMock).toHaveBeenCalledTimes(2));
+    expect(updateCraftStorySeedStatusMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({
+      storySeedStatus: "ready",
+      storySeedScoreStatus: "pending",
+    }));
+
+    resolveScore({ content: "82\n现实感稳定，冲突和结局代价完整。" });
+  });
+
   it("retries once when a realistic story seed introduces unsupported world rules", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
@@ -903,8 +945,8 @@ describe("createStudioServer daemon lifecycle", () => {
     });
 
     expect(response.status).toBe(202);
-    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1));
-    expect(chatCompletionMock).toHaveBeenCalledTimes(4);
+    await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(chatCompletionMock).toHaveBeenCalledTimes(4));
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
   });
 
