@@ -32,6 +32,17 @@ describe("story creation actions", () => {
     expect(resolveDefaultCreationCraftId(filterCraftOptionsForStoryKind("short", crafts), "novel")).toBe("short");
   });
 
+  it("limits dedicated video-story creation to its matching craft mode", () => {
+    const crafts = [
+      { id: "short", sourceName: "短篇参考", mode: "bilibili-short-story" as const, sourceType: "bilibili" as const },
+      { id: "film", sourceName: "影视解说", mode: "bilibili-commentary" as const, sourceType: "bilibili" as const },
+      { id: "review", sourceName: "评论调侃", mode: "bilibili-review" as const, sourceType: "bilibili" as const },
+    ];
+
+    expect(filterCraftOptionsForStoryKind("short", crafts, "bilibili-commentary").map((craft) => craft.id)).toEqual(["film"]);
+    expect(filterCraftOptionsForStoryKind("short", crafts, "bilibili-review").map((craft) => craft.id)).toEqual(["review"]);
+  });
+
   it("never automatically generates a short-story seed", () => {
     expect(shouldAutoGenerateShortStorySeed({
       title: "缓存故事",
@@ -206,6 +217,31 @@ describe("story creation actions", () => {
     expect(direction).toContain("影视解说");
     expect(direction).toContain("原创短篇故事");
     expect(direction).toContain("重新设计人物、场景、因果链和结局");
+  });
+
+  it("turns a Bilibili review craft into an original story direction", () => {
+    const direction = buildDefaultStoryDirection({
+      id: "craft-review",
+      sourceName: "测试评论调侃",
+      mode: "bilibili-review",
+      sourceType: "bilibili",
+    }, "short", true);
+
+    expect(direction).toContain("评论调侃");
+    expect(direction).toContain("原创短篇故事");
+    expect(direction).toContain("重新设计人物、场景、因果链和结局");
+    expect(direction).not.toContain("解说这部电影");
+  });
+
+  it("binds dedicated video-story creation to the requested craft mode", () => {
+    const action = buildShortStoryCreationAction({
+      direction: "把一段电影解说的结构改造成原创悬疑故事",
+      chapterWordCount: 10_000,
+      craftId: "craft-commentary",
+      requiredCraftMode: "bilibili-commentary",
+    });
+
+    expect(action.actionPayload.shortRun?.requiredCraftMode).toBe("bilibili-commentary");
   });
 });
 

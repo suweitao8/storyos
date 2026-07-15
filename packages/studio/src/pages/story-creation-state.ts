@@ -45,12 +45,15 @@ export interface CraftOption {
   readonly storySeedGenerationId?: string;
 }
 
+export type StoryCraftMode = Extract<CraftMode, "bilibili-short-story" | "bilibili-commentary" | "bilibili-review">;
+
 export function filterCraftOptionsForStoryKind(
   kind: "long" | "short",
   crafts: ReadonlyArray<CraftOption>,
+  requiredCraftMode?: StoryCraftMode,
 ): ReadonlyArray<CraftOption> {
   return kind === "short"
-    ? crafts.filter((craft) => craft.mode === "bilibili-short-story" && craft.sourceType === "bilibili")
+    ? crafts.filter((craft) => craft.mode === (requiredCraftMode ?? "bilibili-short-story") && craft.sourceType === "bilibili")
     : crafts;
 }
 
@@ -85,8 +88,14 @@ export function buildDefaultStoryDirection(
 
   if (craft.mode === "bilibili-commentary") {
     return isZh
-      ? `参考这条 B 站影视解说提取出的剧情骨架、反转和节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}。影视解说只提供结构参考，必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
+      ? `参考这条 B 站影视解说提取出的悬念、剧情骨架、反转和节奏，创作一个${kind === "long" ? "原创长篇故事" : "原创短篇故事"}，最终制作成视频。影视解说只提供结构参考，不要继续解说原电影；必须重新设计人物、场景、因果链和结局，不得复制原影视作品或解说内容。`
       : `Use the selected Bilibili commentary's plot skeleton, reversals, and pacing as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"}. Redesign the characters, setting, causal chain, and ending; do not copy the film, series, or commentary.`;
+  }
+
+  if (craft.mode === "bilibili-review") {
+    return isZh
+      ? `参考这条 B 站评论调侃内容的观察角度、反差、笑点节奏和情绪回收，创作一个原创${kind === "long" ? "长篇故事" : "短篇故事"}，最终制作成视频。评论素材只提供叙事结构参考，不要复述原视频观点或事件；重新设计人物、场景、因果链和结局，让故事本身可以独立成立。`
+      : `Use the selected Bilibili review video's point of view, contrast, comic rhythm, and emotional payoff as structural reference to create a completely original ${kind === "long" ? "long-form story" : "short story"} for video production. Do not restate the source video's opinions or events; redesign the characters, setting, causal chain, and ending so the story stands on its own.`;
   }
 
   if (craft.mode === "bilibili-short-story") {
@@ -120,6 +129,7 @@ export interface ShortStoryCreationInput {
   readonly direction: string;
   readonly chapterWordCount: number;
   readonly craftId?: string;
+  readonly requiredCraftMode?: StoryCraftMode;
   readonly quality?: "standard" | "quick";
 }
 
@@ -170,8 +180,9 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
   if (!input.craftId) {
     throw new Error("短篇故事必须选择短篇故事写作模式。");
   }
+  const requiredCraftMode = input.requiredCraftMode ?? "bilibili-short-story";
   return {
-    instruction: `生成短篇故事：${direction}${input.craftId ? "，使用所选写作模式的原创化改编方案和节奏功能作为参考，重新设计故事空间、身份、关系、因果链、关键事件与结局，不复制原作。" : "。"}`,
+    instruction: `生成短篇故事：${direction}，使用所选写作模式的原创化改编方案和节奏功能作为参考，重新设计故事空间、身份、关系、因果链、关键事件与结局，不复制原作，并继续生成对应剧本和视频制作资产。`,
     requestedIntent: "short_run",
     actionPayload: {
       shortRun: {
@@ -181,7 +192,7 @@ export function buildShortStoryCreationAction(input: ShortStoryCreationInput): {
         cover: false,
         quick: input.quality === "quick",
         craftId: input.craftId,
-        requiredCraftMode: "bilibili-short-story",
+        requiredCraftMode,
       },
     },
   };

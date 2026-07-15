@@ -1383,16 +1383,6 @@ const ScriptCreateParams = Type.Object({
   episodeDuration: Type.Optional(Type.String({
     description: "Optional per-episode/per-segment duration.",
   })),
-  craftId: Type.Optional(Type.String({
-    description: "Optional selected writing craft profile id.",
-  })),
-  requiredCraftMode: Type.Optional(Type.Union([
-    Type.Literal("general"),
-    Type.Literal("ghost-story"),
-    Type.Literal("bilibili-short-story"),
-    Type.Literal("bilibili-commentary"),
-    Type.Literal("bilibili-review"),
-  ], { description: "When set by a dedicated creation page, the selected craft must use this mode." })),
   projectId: Type.Optional(Type.String({
     description: "Optional output id under dramas/.",
   })),
@@ -1422,41 +1412,21 @@ export function createScriptCreationTool(
       onUpdate?: AgentToolUpdateCallback,
     ): Promise<AgentToolResult<unknown>> {
       const progress = (message: string) => onUpdate?.(textResult(message));
-      const payload = options.actionPayload?.scriptCreate;
-      const craftId = payload?.craftId ?? params.craftId;
-      const craftProfile = craftId ? (await pipeline.loadCraft(craftId) ?? undefined) : undefined;
-      const craftMeta = craftId
-        ? (await pipeline.listCrafts()).find((craft) => craft.id === craftId)
-        : undefined;
-      if (payload?.requiredCraftMode && (craftMeta?.mode !== payload.requiredCraftMode || craftMeta?.sourceType !== "bilibili")) {
-        throw new Error(`该创建入口只能使用${payload.requiredCraftMode}写作模式。`);
-      }
-      const craftGuidance = craftProfile && craftMeta
-        ? [
-            `已选择写作模式：${craftMeta.sourceName}。只迁移它的叙事功能，不复制原素材。`,
-            craftProfile.videoStory?.outline ? `影视结构参考：${craftProfile.videoStory.outline}` : "",
-            craftProfile.videoStory?.hookStrategy ? `开场策略：${craftProfile.videoStory.hookStrategy}` : "",
-            craftProfile.videoStory?.pacingCurve ? `节奏曲线：${craftProfile.videoStory.pacingCurve}` : "",
-            craftProfile.videoStory?.originalizationRules?.length
-              ? `原创化边界：${craftProfile.videoStory.originalizationRules.join("；")}`
-              : "",
-          ].filter(Boolean).join("\n")
-        : "";
       const result = await runScriptCreation({
         projectRoot,
         runtime: pipeline.createAgentContext("script-creation"),
-        title: payload?.title ?? params.title,
+        title: options.actionPayload?.scriptCreate?.title ?? params.title,
         instruction: params.instruction,
-        sourceKind: payload?.sourceKind ?? params.sourceKind,
-        targetFormat: (payload?.targetFormat ?? params.targetFormat) as ScriptTargetFormat | undefined,
-        sourceText: payload?.sourceText ?? params.sourceText,
-        sourcePath: payload?.sourcePath ?? params.sourcePath,
-        requirements: [payload?.requirements ?? params.requirements, craftGuidance].filter(Boolean).join("\n\n") || undefined,
-        episodeCount: payload?.episodeCount ?? params.episodeCount,
-        episodeDuration: payload?.episodeDuration ?? params.episodeDuration,
+        sourceKind: options.actionPayload?.scriptCreate?.sourceKind ?? params.sourceKind,
+        targetFormat: (options.actionPayload?.scriptCreate?.targetFormat ?? params.targetFormat) as ScriptTargetFormat | undefined,
+        sourceText: options.actionPayload?.scriptCreate?.sourceText ?? params.sourceText,
+        sourcePath: options.actionPayload?.scriptCreate?.sourcePath ?? params.sourcePath,
+        requirements: options.actionPayload?.scriptCreate?.requirements ?? params.requirements,
+        episodeCount: options.actionPayload?.scriptCreate?.episodeCount ?? params.episodeCount,
+        episodeDuration: options.actionPayload?.scriptCreate?.episodeDuration ?? params.episodeDuration,
         language: options.language,
-        projectId: payload?.projectId ?? params.projectId,
-        outDir: payload?.outDir ?? params.outDir,
+        projectId: options.actionPayload?.scriptCreate?.projectId ?? params.projectId,
+        outDir: options.actionPayload?.scriptCreate?.outDir ?? params.outDir,
         onProgress: progress,
       });
 
