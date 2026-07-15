@@ -60,6 +60,19 @@ interface ShortStorySalesPackage {
   readonly intro?: unknown;
 }
 
+interface ShortStoryRunStatus {
+  readonly status?: unknown;
+}
+
+async function isFailedShortStoryRun(directory: string): Promise<boolean> {
+  try {
+    const status = JSON.parse(await readFile(join(directory, "status.json"), "utf-8")) as ShortStoryRunStatus;
+    return status.status === "failed";
+  } catch {
+    return false;
+  }
+}
+
 function readWordCount(value: unknown): number {
   if (!Array.isArray(value)) return 0;
   return value.reduce((total, chapter) => {
@@ -85,6 +98,7 @@ export async function listStudioShortStories(root: string): Promise<ReadonlyArra
       const finalDir = join(shortRoot, entry.name, "final");
       const fullPath = join(finalDir, "full.md");
       try {
+        if (await isFailedShortStoryRun(directory)) return null;
         const fileStats = await stat(fullPath);
         if (!fileStats.isFile()) return null;
         const fullContent = await readFile(fullPath, "utf-8").catch(() => "");
