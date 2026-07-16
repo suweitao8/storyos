@@ -28,10 +28,20 @@ describe("story creation actions", () => {
       { id: "novel", sourceName: "小说模式", mode: "general" as const, sourceType: "novel" as const },
       { id: "film", sourceName: "影视解说", mode: "bilibili-commentary" as const, sourceType: "bilibili" as const },
       { id: "short", sourceName: "短篇参考", mode: "bilibili-short-story" as const, sourceType: "bilibili" as const },
+      { id: "deleted-short", sourceName: "已删除短篇模式", mode: "bilibili-short-story" as const, sourceType: "bilibili" as const, deletedAt: "2026-07-16T00:00:00.000Z" },
     ];
 
     expect(filterCraftOptionsForStoryKind("short", crafts).map((craft) => craft.id)).toEqual(["short"]);
     expect(resolveDefaultCreationCraftId(filterCraftOptionsForStoryKind("short", crafts), "novel")).toBe("short");
+  });
+
+  it("excludes deleted writing modes from long-form creation too", () => {
+    const crafts = [
+      { id: "active", sourceName: "有效模式" },
+      { id: "deleted", sourceName: "垃圾桶模式", deletedAt: "2026-07-16T00:00:00.000Z" },
+    ];
+
+    expect(filterCraftOptionsForStoryKind("long", crafts)).toEqual([crafts[0]]);
   });
 
   it("uses legacy review crafts as film-commentary references", () => {

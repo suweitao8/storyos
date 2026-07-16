@@ -36,6 +36,7 @@ export function formatStoryWordCount(value: number, language: "zh" | "en"): stri
 export interface CraftOption {
   readonly id: string;
   readonly sourceName: string;
+  readonly deletedAt?: string;
   readonly mode?: CraftMode;
   readonly sourceType?: "bilibili" | "novel";
   readonly recommendedWordCount?: number;
@@ -61,9 +62,10 @@ export function filterCraftOptionsForStoryKind(
   crafts: ReadonlyArray<CraftOption>,
   requiredCraftMode?: StoryCraftMode,
 ): ReadonlyArray<CraftOption> {
+  const activeCrafts = crafts.filter((craft) => !craft.deletedAt);
   return kind === "short"
-    ? crafts.filter((craft) => normalizeStoryCraftMode(craft.mode) === (requiredCraftMode ?? "bilibili-short-story") && craft.sourceType === "bilibili")
-    : crafts;
+    ? activeCrafts.filter((craft) => normalizeStoryCraftMode(craft.mode) === (requiredCraftMode ?? "bilibili-short-story") && craft.sourceType === "bilibili")
+    : activeCrafts;
 }
 
 export function resolveDefaultCreationCraftId(
