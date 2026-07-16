@@ -129,10 +129,10 @@ export function buildDefaultStoryDirection(
   }
 
   if (!isZh) {
-    return `Create an original ${kind === "long" ? "long-form" : "short"} story using the selected craft's pacing, viewpoint, conflict escalation, and chapter hooks. A records clerk finds tomorrow's incident reports in a sealed archive and realizes the next report describes a disaster involving someone close to them. They must choose between exposing the system and protecting the person named in the report. Do not copy the reference work's characters, plot, wording, or scenes.`;
+    return `Create a completely original ${kind === "long" ? "long-form" : "short"} story that preserves the selected craft's explicit genre, era, reality level, emotional promise, pacing, viewpoint, conflict escalation, and chapter hooks. Do not introduce science fiction, future technology, AI, or other unsupported unrealistic mechanisms, and do not copy the reference work's characters, plot, wording, or scenes.`;
   }
 
-  return `参考已选写作模式的叙事节奏、视角安排、冲突升级和章节钩子，创作一个完全原创的${kind === "long" ? "长篇" : "短篇"}故事：一名档案员在封存库里发现了明天才会发生的事故报告，并确认下一份报告写着身边重要之人的名字。主角必须在揭露这套系统和保护报告中的人之间作出选择。不得复制参考作品的人物、情节、措辞或场景。`;
+  return `参考已选写作模式明确的题材、时代、现实层级和情绪承诺，以及叙事节奏、视角安排、冲突升级和章节钩子，创作一个完全原创的${kind === "long" ? "长篇" : "短篇"}故事。不得无依据加入科幻、未来科技、人工智能或其他不现实设定，不得复制参考作品的人物、情节、措辞或场景。`;
 }
 
 export interface LongStoryCreationInput {

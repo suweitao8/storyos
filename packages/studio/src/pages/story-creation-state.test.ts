@@ -203,6 +203,15 @@ describe("story creation actions", () => {
     expect(direction).not.toContain("第二次敲门");
   });
 
+  it("does not inject an unrelated future-incident plot when a craft has no seed", () => {
+    const direction = buildDefaultStoryDirection({ id: "legacy", sourceName: "现实悬疑模式", mode: "general" }, "long", true);
+
+    expect(direction).toContain("题材、时代、现实层级和情绪承诺");
+    expect(direction).toContain("不得无依据加入科幻");
+    expect(direction).not.toContain("明天才会发生的事故报告");
+    expect(direction).not.toContain("封存库");
+  });
+
   it("exposes the supported per-chapter word-count settings", () => {
     expect(STORY_WORD_COUNT_OPTIONS).toEqual([5_000, 10_000, 15_000, 20_000, 25_000, 30_000]);
   });
