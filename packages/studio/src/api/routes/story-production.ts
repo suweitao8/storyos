@@ -29,6 +29,7 @@ import {
   buildSubtitleEntries,
   formatScriptIssues,
   parseUnifiedScript,
+  shouldRetryScriptQuality,
   validateScriptQuality,
   type UnifiedScriptDocument,
   type UnifiedScriptShot,
@@ -692,17 +693,17 @@ async function generateProductionScript(
       const parsed = parseUnifiedScript(raw, { confirmedSourceSegments });
       if (!parsed.shots.length) throw new Error("模型没有输出可解析的镜头");
       const issues = validateScriptQuality(parsed.shots, assetNames);
-      const criticalIssues = issues.filter(
-        (issue) => issue.type === "missing_narration" || issue.type === "thin_image_prompt",
-      );
       const issueWarning = formatScriptIssues(issues);
-      if (criticalIssues.length > parsed.shots.length / 2 && attempt < maxAttempts) {
-        warning = `第 ${attempt} 次生成质量不达标（${criticalIssues.length}/${parsed.shots.length} 镜头有问题），正在重试…`;
+      if (shouldRetryScriptQuality(issues) && attempt < maxAttempts) {
+        warning = `第 ${attempt} 次生成质量不达标（${issues.length} 处问题），正在重试…`;
         lastError = new Error(warning);
         continue;
       }
       content = raw;
-      if (issueWarning) warning = issueWarning;
+      // A successful corrective pass clears the transient retry notice. Keep
+      // only defects from the final script so the UI does not show a stale
+      // warning after the second attempt has repaired the output.
+      warning = issueWarning ?? undefined;
       break;
     } catch (error) {
       lastError = error;
