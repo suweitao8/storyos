@@ -121,6 +121,27 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(result.storyId).toBe("elevator");
   });
 
+  it("does not resume a partial outline after the writing mode changes", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "elevator", "reviews"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 旧模式大纲", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "reviews", "outline-v001.md"), "旧模式审纲", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "story-config.json"), JSON.stringify({ craftId: "old-mode" }), "utf-8");
+    const freshOutline = { storyTitle: "电梯多一层", rawContent: "## 新模式大纲\n现实悬疑因果链" };
+    const createOutline = vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline")
+      .mockResolvedValue(freshOutline);
+    stubDownstream();
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator", craftId: "new-mode",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true, runtimes: runtimes(root),
+    });
+
+    expect(createOutline).toHaveBeenCalled();
+    await expect(access(join(root, "shorts", "elevator", "outline", "v002.md"))).rejects.toThrow();
+    await expect(access(join(root, "shorts", "elevator", "reviews", "outline-v001.md"))).rejects.toThrow();
+  });
+
   it("writes a failure marker (status.json) when a stage throws, instead of orphaning a silent partial", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
@@ -469,12 +490,14 @@ describe("short fiction resume + failure marker (C2)", () => {
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
     await writeFile(join(root, "shorts", "elevator", "final", "full.md"), "# old mode story", "utf-8");
     await writeFile(join(root, "shorts", "elevator", "story-config.json"), JSON.stringify({ craftId: "old-mode" }), "utf-8");
+    vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline")
+      .mockResolvedValue({ storyTitle: "电梯多一层", rawContent: "## 新模式大纲" });
     stubDownstream();
     const writeDraft = vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft");
 
     const result = await runShortFictionProduction({
       projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
-      craftId: "new-mode", chapterCount: CH, charsPerChapter: 1000, cover: false,
+      craftId: "new-mode", chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
       runtimes: runtimes(root),
     });
 
