@@ -286,6 +286,7 @@ vi.mock("@actalk/inkos-core", async (importOriginal) => {
     buildStorySeedPrompt: actual.buildStorySeedPrompt,
     buildStorySeedQualitySystemPrompt: actual.buildStorySeedQualitySystemPrompt,
     detectStorySeedRealityDrift: actual.detectStorySeedRealityDrift,
+    STORY_SEED_MIN_CREATION_SCORE: actual.STORY_SEED_MIN_CREATION_SCORE,
     resolveProjectConfigPath: actual.resolveProjectConfigPath,
     STORY_SEED_SECTION_DEFINITIONS: actual.STORY_SEED_SECTION_DEFINITIONS,
     isStorySeed: actual.isStorySeed,
@@ -988,7 +989,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(saveCraftStorySeedMock).not.toHaveBeenCalled();
   });
 
-  it("keeps a published story seed available when background scoring reports a low score", async () => {
+  it("automatically regenerates a story seed after a low background score", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
       sourceName: "Existing Craft",
@@ -1004,7 +1005,9 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     chatCompletionMock
       .mockResolvedValueOnce({ content: storySeedMarkdown })
-      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" });
+      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" })
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "84\n题材与现实感稳定，冲突和结局代价完整。" });
     saveCraftStorySeedMock.mockResolvedValue(undefined);
 
     const { createStudioServer } = await import("./server.js");
@@ -1016,15 +1019,15 @@ describe("createStudioServer daemon lifecycle", () => {
     });
 
     expect(response.status).toBe(202);
-    await vi.waitFor(() => expect(currentMeta.storySeedScore).toBe(55));
-    expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1);
-    expect(chatCompletionMock).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(currentMeta.storySeedScore).toBe(84));
+    expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(2);
+    expect(chatCompletionMock).toHaveBeenCalledTimes(4);
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
     expect(currentMeta).toMatchObject({
       storySeedStatus: "ready",
       storySeedScoreStatus: "ready",
-      storySeedScore: 55,
-      storySeedScoreNote: "题材和现实感偏离参考模式，冲突也不够集中。",
+      storySeedScore: 84,
+      storySeedScoreNote: "题材与现实感稳定，冲突和结局代价完整。",
     });
   });
 
@@ -1066,7 +1069,7 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
-  it("does not replace or disable a published story seed after a low background score", async () => {
+  it("keeps the second low-scored seed visible and blocked after one automatic retry", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
       sourceName: "Existing Craft",
@@ -1082,7 +1085,9 @@ describe("createStudioServer daemon lifecycle", () => {
     });
     chatCompletionMock
       .mockResolvedValueOnce({ content: storySeedMarkdown })
-      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" });
+      .mockResolvedValueOnce({ content: "55\n题材和现实感偏离参考模式，冲突也不够集中。" })
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "55\n第二轮仍然偏离参考模式。" });
     saveCraftStorySeedMock.mockResolvedValue(undefined);
 
     const { createStudioServer } = await import("./server.js");
@@ -1099,8 +1104,8 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(currentMeta.storySeedScoreStatus).toBe("ready");
     expect(currentMeta.storySeedScore).toBe(55);
     expect(currentMeta.storySeedError).toBeUndefined();
-    expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1);
-    expect(chatCompletionMock).toHaveBeenCalledTimes(2);
+    expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(2);
+    expect(chatCompletionMock).toHaveBeenCalledTimes(4);
   });
 
   it("auto-starts story foundation generation when a saved craft has no foundation state", async () => {

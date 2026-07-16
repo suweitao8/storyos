@@ -74,6 +74,12 @@ export function useBackgroundCreation(sse: { messages: ReadonlyArray<SSEMessage>
       return;
     }
 
+    if (recent.event === "craft:story-seed-regenerate") {
+      invalidateApiPaths(["/api/v1/crafts"]);
+      toast.info(tr("故事设定正在自动优化", "Story foundation is being refined"), tr("首轮评分未达标准，系统会在后台重新生成并评分", "The first score was below the threshold; it will be regenerated and rescored in the background."));
+      return;
+    }
+
     if (recent.event === "craft:story-seed-error") {
       const data = recent.data as { error?: string } | null;
       invalidateApiPaths(["/api/v1/crafts"]);
