@@ -7,6 +7,7 @@ import {
   buildShortFictionOutlineReviewUserPrompt,
   buildShortFictionWriterUserPrompt,
 } from "../prompts/short-fiction.js";
+import { shouldReviseShortFictionDraft } from "../agents/short-fiction.js";
 
 const filteredProfile: CraftProfile = {
   sourceName: "reference",
@@ -137,6 +138,12 @@ describe("short-fiction writer craft prompt", () => {
     expect(outlineReview).not.toContain("前三章");
     expect(draftReview).toContain("模式一致性");
     expect(draftReview).toContain("可执行修改清单");
+  });
+
+  it("turns an explicit draft review decision into a revision gate", () => {
+    expect(shouldReviseShortFictionDraft("REVIEW_DECISION: KEEP\n没有必须修复的问题。")).toBe(false);
+    expect(shouldReviseShortFictionDraft("REVIEW_DECISION: REVISE\n必须修复：结尾没有兑现开篇线索。")).toBe(true);
+    expect(shouldReviseShortFictionDraft("### 必须修复的问题\n无\n### 可执行修改清单\n无")).toBe(false);
   });
 });
 

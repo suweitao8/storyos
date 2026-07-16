@@ -24,6 +24,7 @@ import {
   formatShortFictionChapterHeading,
   renderShortFictionDraftMarkdown,
   findShortFictionPackageDeficits,
+  shouldReviseShortFictionDraft,
   validateShortFictionDraftForFinal,
   type ShortFictionBatchDraft,
   type ShortFictionLanguage,
@@ -291,6 +292,7 @@ async function produceShort(
 
   let finalDraft: ShortFictionBatchDraft;
   let revisionWarning: string | undefined;
+  let draftRevision: "skipped" | "not-needed" | "applied" | "kept-first-draft" = options.quick ? "skipped" : "not-needed";
   let salesPackage: ShortFictionSalesPackage;
   try {
     options.onProgress?.("Writing full short fiction draft...");
@@ -350,48 +352,54 @@ async function produceShort(
     });
     await writeText(root, join(baseDir, "reviews", "draft-v001.md"), draftReview);
 
-    options.onProgress?.("Revising full draft once...");
-    const reviser = new ShortFictionDraftReviserAgent(options.runtimes.revise);
-    try {
-      const draftV2 = await reviser.reviseDraft({
-        direction: options.direction,
-        outlineMarkdown,
-        draft: draftV1,
-        review: draftReview,
-        chapterCount,
-        charsPerChapter,
-        craftGuide,
-        language,
-      });
-      validateShortFictionDraftForFinal(draftV2, {
-        expectedChapters: chapterCount,
-        minimumCharsPerChapter: charsPerChapter,
-        language,
-      });
-      assertDraftMatchesCraftReality(draftV2, options.craftProfile);
-      await writeDraftArtifacts(root, baseDir, "v002", draftV2, language);
-      finalDraft = draftV2;
-    } catch (error) {
-      revisionWarning = error instanceof Error ? error.message : String(error);
-      await writeText(root, join(baseDir, "reviews", "draft-v002-warning.md"), language === "en"
-        ? [
-            "# Second revision not adopted",
-            "",
-            "The system refused to overwrite the complete first draft with an incomplete or unparsable revision.",
-            "",
-            "## Reason",
-            "",
-            revisionWarning,
-          ].join("\n")
-        : [
-            "# 第二轮改稿未采用",
-            "",
-            "系统没有用不完整或解析失败的改稿覆盖完整首稿。",
-            "",
-            "## 原因",
-            "",
-            revisionWarning,
-          ].join("\n"));
+    if (shouldReviseShortFictionDraft(draftReview)) {
+      draftRevision = "kept-first-draft";
+      options.onProgress?.("Revising full draft once...");
+      const reviser = new ShortFictionDraftReviserAgent(options.runtimes.revise);
+      try {
+        const draftV2 = await reviser.reviseDraft({
+          direction: options.direction,
+          outlineMarkdown,
+          draft: draftV1,
+          review: draftReview,
+          chapterCount,
+          charsPerChapter,
+          craftGuide,
+          language,
+        });
+        validateShortFictionDraftForFinal(draftV2, {
+          expectedChapters: chapterCount,
+          minimumCharsPerChapter: charsPerChapter,
+          language,
+        });
+        assertDraftMatchesCraftReality(draftV2, options.craftProfile);
+        await writeDraftArtifacts(root, baseDir, "v002", draftV2, language);
+        finalDraft = draftV2;
+        draftRevision = "applied";
+      } catch (error) {
+        revisionWarning = error instanceof Error ? error.message : String(error);
+        await writeText(root, join(baseDir, "reviews", "draft-v002-warning.md"), language === "en"
+          ? [
+              "# Second revision not adopted",
+              "",
+              "The system refused to overwrite the complete first draft with an incomplete or unparsable revision.",
+              "",
+              "## Reason",
+              "",
+              revisionWarning,
+            ].join("\n")
+          : [
+              "# 第二轮改稿未采用",
+              "",
+              "系统没有用不完整或解析失败的改稿覆盖完整首稿。",
+              "",
+              "## 原因",
+              "",
+              revisionWarning,
+            ].join("\n"));
+      }
+    } else {
+      options.onProgress?.("Draft review passed; keeping the complete first draft...");
     }
     }
 
@@ -473,7 +481,7 @@ async function produceShort(
     status: "complete",
     stage: "packaged",
     generationMode: options.quick ? "quick" : "reviewed",
-    draftRevision: options.quick ? "skipped" : revisionWarning ? "kept-first-draft" : "applied",
+    draftRevision,
     ...(revisionWarning ? { warning: `revision skipped: ${revisionWarning}` } : {}),
   });
 
