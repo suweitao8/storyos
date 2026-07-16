@@ -41,6 +41,7 @@ export const STUDIO_SSE_EVENTS = [
   "craft:complete",
   "craft:error",
   "craft:story-seed-complete",
+  "craft:story-seed-regenerate",
   "craft:story-seed-error",
   "craft:story-seed-score-complete",
   "craft:story-seed-score-error",

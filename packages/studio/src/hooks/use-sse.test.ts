@@ -28,6 +28,7 @@ describe("STUDIO_SSE_EVENTS", () => {
       "rewrite:complete",
       "rewrite:error",
       "craft:story-seed-complete",
+      "craft:story-seed-regenerate",
       "craft:story-seed-error",
       "craft:story-seed-score-complete",
       "craft:story-seed-score-error",

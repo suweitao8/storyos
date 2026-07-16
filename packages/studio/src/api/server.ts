@@ -44,6 +44,7 @@ import {
   buildStorySeedPrompt,
   buildStorySeedQualitySystemPrompt,
   detectStorySeedRealityDrift,
+  STORY_SEED_MIN_CREATION_SCORE,
   STORY_SEED_SECTION_DEFINITIONS,
   isCompleteStorySeed,
   isStorySeed,
@@ -2836,6 +2837,45 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     options?: CraftStorySeedGenerationOptions,
   ) => Promise<void>;
 
+  const regenerateCraftStorySeedAfterLowScore = async (
+    craftId: string,
+    options: CraftStorySeedScoreOptions,
+    storySeed: StorySeed,
+    pipeline: PipelineRunner,
+    language: "zh" | "en",
+  ): Promise<boolean> => {
+    if ((options.attempt ?? 0) >= 1) return false;
+
+    const generationId = randomUUID();
+    const marked = await queueCraftStorySeedWrite(craftId, async () => {
+      if (options.generationId && !await isCurrentCraftStorySeedGeneration(pipeline, craftId, options.generationId)) {
+        return false;
+      }
+      await pipeline.updateCraftStorySeedStatus(craftId, {
+        storySeedStatus: "pending",
+        storySeedError: undefined,
+        storySeedGenerationId: generationId,
+        storySeedScoreStatus: "pending",
+        storySeedScore: undefined,
+        storySeedScoreNote: undefined,
+        storySeedScoreError: undefined,
+      });
+      return true;
+    }).catch(() => false);
+    if (!marked) return false;
+
+    broadcast("craft:story-seed-regenerate", { craftId, generationId, reason: "low-score" });
+    startCraftStorySeedGeneration(craftId, {
+      force: true,
+      kind: options.kind ?? "short",
+      language,
+      attempt: (options.attempt ?? 0) + 1,
+      previousDirection: serializeStorySeed(storySeed, language),
+      generationId,
+    });
+    return true;
+  };
+
   const scoreCraftStorySeed = async (
     craftId: string,
     options: CraftStorySeedScoreOptions = {},
@@ -2869,9 +2909,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         return;
       }
 
-      // Scores are durable background feedback, not a second generation state.
-      // A low score is visible to the user and recommends regeneration, but it
-      // must never replace or disable an already-published creation contract.
+      if (
+        quality.score < STORY_SEED_MIN_CREATION_SCORE
+        && await regenerateCraftStorySeedAfterLowScore(craftId, options, storySeed, pipeline, language)
+      ) {
+        return;
+      }
+
+      // After one automatic correction attempt, keep the final score as durable
+      // feedback so the UI can explain why creation is blocked and let the user
+      // decide whether to regenerate again manually.
       const current = await (options.generationId
         ? updateCraftStorySeedStatusIfCurrent(pipeline, craftId, options.generationId, {
             storySeedScoreStatus: "ready",
