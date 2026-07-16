@@ -129,6 +129,16 @@ export async function runShortFictionProduction(
   const root = options.projectRoot;
   const outDir = normalizeOutputDir(options.outDir ?? "shorts");
   const providedStoryId = options.storyId ? safeSegment(options.storyId) : undefined;
+  const providedBaseDir = providedStoryId ? join(outDir, providedStoryId) : undefined;
+  const craftCompatible = providedBaseDir
+    ? await isShortRunCompatibleWithCraft(root, providedBaseDir, options.craftId)
+    : true;
+
+  // A partial outline is just as mode-sensitive as a completed artifact. Do
+  // not let a quick run leave the old v002 behind for a later reviewed retry.
+  if (providedBaseDir && !craftCompatible) {
+    await clearStaleShortRunOutline(root, providedBaseDir);
+  }
 
   // A stable storyId lets a re-run resume from disk instead of redoing finished
   // work — a transient failure in a late stage used to throw the whole short
@@ -137,7 +147,7 @@ export async function runShortFictionProduction(
     providedStoryId
     && await projectFileExists(root, join(outDir, providedStoryId, "final", "full.md"))
     && !await isFailedShortRun(root, join(outDir, providedStoryId, "status.json"))
-    && await isShortRunCompatibleWithCraft(root, join(outDir, providedStoryId), options.craftId)
+    && craftCompatible
     && (!options.charsPerChapter || await isShortRunAtTarget(root, join(outDir, providedStoryId), options.charsPerChapter, options.language))
   ) {
     if (options.craftId || options.artStyle) {
@@ -153,7 +163,7 @@ export async function runShortFictionProduction(
   }
 
   try {
-    return await produceShort(options, root, outDir, providedStoryId);
+    return await produceShort(options, root, outDir, providedStoryId, craftCompatible);
   } catch (error) {
     // Mark the partial output as failed so drafts can't masquerade as a short.
     if (providedStoryId) {
@@ -171,6 +181,7 @@ async function produceShort(
   root: string,
   outDir: string,
   providedStoryId: string | undefined,
+  craftCompatible: boolean,
 ): Promise<ShortFictionRunResult> {
   const language = options.language ?? "zh";
   const chapterCount = boundedInteger(
@@ -202,6 +213,7 @@ async function produceShort(
   // Resume the (3-stage) outline from disk if v002 already exists for this id —
   // the writer + everything downstream only need the outline markdown.
   const resumedOutline = providedStoryId
+    && craftCompatible
     ? await tryReadProjectText(root, join(outDir, providedStoryId, "outline", "v002.md"))
     : undefined;
 
@@ -757,6 +769,15 @@ async function isShortRunCompatibleWithCraft(
     // run rewrites it with the current craft binding.
     return true;
   }
+}
+
+async function clearStaleShortRunOutline(root: string, baseDir: string): Promise<void> {
+  await Promise.all([
+    join(baseDir, "outline", "v002.md"),
+    join(baseDir, "reviews", "outline-v001.md"),
+  ].map((path) => unlink(safeChildPath(root, path)).catch((error) => {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  })));
 }
 
 async function writeFinalArtifacts(
