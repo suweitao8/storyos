@@ -84,7 +84,8 @@ describe("short fiction resume + failure marker (C2)", () => {
   function stubDownstream() {
     const draft = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
     vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(draft);
-    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("looks fine");
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft")
+      .mockResolvedValue("looks fine");
     vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockResolvedValue(draft);
     vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
       title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
@@ -330,7 +331,8 @@ describe("short fiction resume + failure marker (C2)", () => {
     const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
     const continueDraft = vi.spyOn(ShortFictionWriterAgent.prototype, "continueDraft").mockResolvedValue(complete);
     vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(partial);
-    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("looks fine");
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft")
+      .mockResolvedValue("looks fine");
     vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockResolvedValue(complete);
     vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
       title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
@@ -400,7 +402,8 @@ describe("short fiction resume + failure marker (C2)", () => {
     const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
     const invalidRevision = parseShortFictionBatchDraft("=== SHORT_FICTION_TITLE ===\n空改稿", { expectedChapters: CH });
     vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
-    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("looks fine");
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft")
+      .mockResolvedValue("REVIEW_DECISION: REVISE\n必须修复：结尾没有兑现开篇线索。");
     vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockResolvedValue(invalidRevision);
     vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
       title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
@@ -422,6 +425,28 @@ describe("short fiction resume + failure marker (C2)", () => {
     });
     const finalJson = JSON.parse(await readFile(join(root, "shorts", "elevator", "final", "short-story.json"), "utf-8"));
     expect(finalJson.chapters.every((chapter: { content: string }) => chapter.content.length > 0)).toBe(true);
+  });
+
+  it("keeps a reviewed draft without running a needless revision pass", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft")
+      .mockResolvedValue("REVIEW_DECISION: KEEP\n没有必须修复的问题。");
+    const revise = vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft");
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "电梯多一层", intro: "钩子", sellingPoints: ["反转"], coverPrompt: "", rawContent: "",
+    });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, runtimes: runtimes(root),
+    });
+
+    expect(revise).not.toHaveBeenCalled();
+    const status = JSON.parse(await readFile(join(root, "shorts", "elevator", "status.json"), "utf-8"));
+    expect(status.draftRevision).toBe("not-needed");
   });
 
   it("returns the existing short untouched when final/full.md already exists (idempotent)", async () => {

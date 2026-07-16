@@ -399,6 +399,39 @@ export function validateShortFictionDraftForFinal(
   }
 }
 
+/**
+ * Decide whether the draft reviewer found a blocking issue worth a full
+ * rewrite. The explicit marker is the source of truth; the fallback keeps
+ * compatibility with older prompt-pack responses and test doubles.
+ */
+export function shouldReviseShortFictionDraft(review: string): boolean {
+  const normalized = review.trim();
+  if (!normalized) return false;
+
+  const explicit = /^\s*REVIEW_DECISION\s*[:：]\s*(KEEP|REVISE)\b/iu.exec(normalized);
+  if (explicit?.[1]?.toUpperCase() === "KEEP") return false;
+  if (explicit?.[1]?.toUpperCase() === "REVISE") return true;
+
+  const heading = /^###\s*(?:必须修复的问题|Blocking issues)[^\n]*\n?/imu.exec(normalized);
+  const blockingSection = heading?.index !== undefined
+    ? (() => {
+        const rest = normalized.slice(heading.index + heading[0].length);
+        const nextHeading = rest.search(/^###\s/mu);
+        return nextHeading >= 0 ? rest.slice(0, nextHeading) : rest;
+      })()
+    : normalized;
+  if (/(?:^|\n)\s*(?:无|none|no blocking issues?|no hard issues?)\s*(?:$|\n)/iu.test(blockingSection)) {
+    return false;
+  }
+
+  // Older prompt packs often returned a short positive sentence instead of
+  // the marker. Keep the complete first draft in that case as well.
+  if (/^(?:looks?\s+fine|reads?\s+fine|all\s+good|无(?:问题|硬伤)?|没有(?:问题|硬伤)|none)\.?$/iu.test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
 export function findEmptyShortFictionChapters(draft: ShortFictionBatchDraft): number[] {
   return draft.chapters
     .filter((chapter) => !chapter.content.trim())
