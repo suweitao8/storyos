@@ -463,6 +463,27 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(result.coverError).toBe("already-complete");
   });
 
+  it("does not reuse a completed short when its writing mode changed", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await mkdir(join(root, "shorts", "elevator", "final"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "final", "full.md"), "# old mode story", "utf-8");
+    await writeFile(join(root, "shorts", "elevator", "story-config.json"), JSON.stringify({ craftId: "old-mode" }), "utf-8");
+    stubDownstream();
+    const writeDraft = vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft");
+
+    const result = await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      craftId: "new-mode", chapterCount: CH, charsPerChapter: 1000, cover: false,
+      runtimes: runtimes(root),
+    });
+
+    expect(writeDraft).toHaveBeenCalled();
+    expect(result.coverError).not.toBe("already-complete");
+    await expect(readFile(join(root, "shorts", "elevator", "story-config.json"), "utf-8"))
+      .resolves.toContain('"craftId": "new-mode"');
+  });
+
   it("does not treat a completed artifact below the requested length as complete", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await mkdir(join(root, "shorts", "elevator", "final"), { recursive: true });

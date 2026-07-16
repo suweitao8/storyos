@@ -137,9 +137,10 @@ export async function runShortFictionProduction(
     providedStoryId
     && await projectFileExists(root, join(outDir, providedStoryId, "final", "full.md"))
     && !await isFailedShortRun(root, join(outDir, providedStoryId, "status.json"))
+    && await isShortRunCompatibleWithCraft(root, join(outDir, providedStoryId), options.craftId)
     && (!options.charsPerChapter || await isShortRunAtTarget(root, join(outDir, providedStoryId), options.charsPerChapter, options.language))
   ) {
-    if (options.artStyle) {
+    if (options.craftId || options.artStyle) {
       await writeShortStoryVisualConfig(root, join(outDir, providedStoryId), options.craftId, options.artStyle);
     }
     const hasReviewedOutline = await projectFileExists(root, join(outDir, providedStoryId, "outline", "v002.md"));
@@ -729,6 +730,31 @@ async function isShortRunAtTarget(
       && findShortFictionLengthDeficits(draft, targetLength, language).length === 0;
   } catch {
     // Preserve legacy completed artifacts that predate short-story.json.
+    return true;
+  }
+}
+
+/**
+ * A completed artifact is reusable only for the same writing mode. Without
+ * this check, a stable story id could silently return an older mode's story
+ * after the user switched craft profiles.
+ */
+async function isShortRunCompatibleWithCraft(
+  root: string,
+  baseDir: string,
+  craftId: string | undefined,
+): Promise<boolean> {
+  const rawConfig = await tryReadProjectText(root, join(baseDir, "story-config.json"));
+  if (!rawConfig?.trim()) return true;
+  try {
+    const config = JSON.parse(rawConfig) as { readonly craftId?: unknown };
+    const storedCraftId = typeof config.craftId === "string" && config.craftId.trim()
+      ? config.craftId.trim()
+      : undefined;
+    return storedCraftId === craftId;
+  } catch {
+    // A malformed legacy config must not block recovery; the next successful
+    // run rewrites it with the current craft binding.
     return true;
   }
 }
