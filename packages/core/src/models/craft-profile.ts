@@ -233,6 +233,8 @@ export interface CraftMeta {
   readonly storySeedStatus?: "pending" | "ready" | "error";
   /** Monotonic generation token used to ignore stale background results. */
   readonly storySeedGenerationId?: string;
+  /** Durable count of automatic low-score replacement attempts for this seed. */
+  readonly storySeedLowScoreRetryCount?: number;
   /** Retryable background error summary for story foundation generation. */
   readonly storySeedError?: string;
   /** AI-generated quality score (0-100) for the cached story seed. */

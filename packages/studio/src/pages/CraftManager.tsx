@@ -50,6 +50,7 @@ interface CraftMeta {
   readonly storySeed?: StorySeed;
   readonly storySeedStatus?: "pending" | "ready" | "error";
   readonly storySeedError?: string;
+  readonly storySeedLowScoreRetryCount?: number;
   readonly storySeedScore?: number;
   readonly storySeedScoreNote?: string;
   readonly storySeedScoreStatus?: "pending" | "ready" | "error";
@@ -1178,6 +1179,14 @@ export function shouldReloadCraftProfileAfterStatus(
   return status === "ready" && meta.storySeedStatus !== "pending" && !meta.storySeed;
 }
 
+export function storySeedViewStatus(
+  meta: Pick<CraftMeta, "storySeed" | "storySeedStatus">,
+): StorySeedGenerationStatus {
+  if (meta.storySeedStatus === "pending") return "generating";
+  if (meta.storySeedStatus === "error") return "error";
+  return meta.storySeed ? "ready" : "idle";
+}
+
 function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c, t, onNew }: {
   craftId: string | null;
   initialProfile: CraftProfile | null;
@@ -1200,9 +1209,10 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
   const [storySeedStreamedContent, setStorySeedStreamedContent] = useState(
     initialProfile?.storySeed ? serializeStorySeed(initialProfile.storySeed, initialProfile.language) : "",
   );
-  const [storySeedStatus, setStorySeedStatus] = useState<StorySeedGenerationStatus>(
-    initialProfile?.storySeed ? "ready" : "idle",
-  );
+  const [storySeedStatus, setStorySeedStatus] = useState<StorySeedGenerationStatus>(storySeedViewStatus({
+    storySeed: initialProfile?.storySeed,
+    storySeedStatus: initialMeta?.storySeedStatus,
+  }));
   const [storySeedError, setStorySeedError] = useState<string | null>(initialMeta?.storySeedError ?? null);
   const [storySeedGenerating, setStorySeedGenerating] = useState(false);
   const [subtitleText, setSubtitleText] = useState<string | null>(null);
@@ -1266,7 +1276,10 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
     setMeta(initialMeta);
     setStorySeed(initialProfile?.storySeed ?? null);
     setStorySeedStreamedContent(initialProfile?.storySeed ? serializeStorySeed(initialProfile.storySeed, initialProfile.language) : "");
-    setStorySeedStatus(initialProfile?.storySeed ? "ready" : initialMeta?.storySeedStatus === "pending" ? "generating" : initialMeta?.storySeedStatus === "error" ? "error" : "idle");
+    setStorySeedStatus(storySeedViewStatus({
+      storySeed: initialProfile?.storySeed,
+      storySeedStatus: initialMeta?.storySeedStatus,
+    }));
     setStorySeedError(initialMeta?.storySeedError ?? null);
     setError(null);
     if (!craftId || initialProfile || initialMeta?.processingStatus === "processing" || initialMeta?.processingStatus === "error") {
@@ -1284,9 +1297,19 @@ function CraftDetail({ craftId, initialProfile, initialMeta, initialArtStyle, c,
       if (data.meta.storySeedStatus === "pending") {
         setStorySeedStatus("generating");
         setStorySeedError(null);
+        setStorySeed(null);
+        setStorySeedStreamedContent("");
       } else if (data.meta.storySeedStatus === "error") {
         setStorySeedStatus("error");
         setStorySeedError(data.meta.storySeedError ?? "默认故事设定生成失败");
+      } else {
+        setStorySeedStatus(storySeedViewStatus(data.meta));
+        setStorySeedError(null);
+        if (data.meta.storySeed) {
+          setStorySeed(data.meta.storySeed);
+          setStorySeedStreamedContent(serializeStorySeed(data.meta.storySeed, data.meta.language));
+          setProfile((current) => current ? { ...current, storySeed: data.meta.storySeed } : current);
+        }
       }
       if (shouldReloadCraftProfileAfterStatus(data.status, data.meta)) {
         await loadProfile();

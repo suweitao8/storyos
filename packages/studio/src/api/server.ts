@@ -2734,14 +2734,16 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     readonly language?: "zh" | "en";
     readonly previousDirection?: string;
     readonly generationId?: string;
-    readonly attempt?: number;
+    readonly generationAttempt?: number;
+    readonly lowScoreRetryAttempt?: number;
   }
 
   interface CraftStorySeedScoreOptions {
     readonly generationId?: string;
     readonly kind?: "long" | "short";
     readonly language?: "zh" | "en";
-    readonly attempt?: number;
+    readonly scoreAttempt?: number;
+    readonly lowScoreRetryAttempt?: number;
     readonly storySeed?: StorySeed;
   }
 
@@ -2844,7 +2846,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     pipeline: PipelineRunner,
     language: "zh" | "en",
   ): Promise<boolean> => {
-    if ((options.attempt ?? 0) >= 1) return false;
+    if ((options.lowScoreRetryAttempt ?? 0) >= 1) return false;
 
     const generationId = randomUUID();
     const marked = await queueCraftStorySeedWrite(craftId, async () => {
@@ -2855,6 +2857,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedLowScoreRetryCount: (options.lowScoreRetryAttempt ?? 0) + 1,
         storySeedScoreStatus: "pending",
         storySeedScore: undefined,
         storySeedScoreNote: undefined,
@@ -2869,7 +2872,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       force: true,
       kind: options.kind ?? "short",
       language,
-      attempt: (options.attempt ?? 0) + 1,
+      generationAttempt: 0,
+      lowScoreRetryAttempt: (options.lowScoreRetryAttempt ?? 0) + 1,
       previousDirection: serializeStorySeed(storySeed, language),
       generationId,
     });
@@ -2889,8 +2893,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       const language = options.language ?? profile.language ?? "zh";
       const quality = await evaluateStorySeedQuality(storySeed, profile, pipeline, language);
       if (!quality) {
-        if ((options.attempt ?? 0) < 1) {
-          await scoreCraftStorySeed(craftId, { ...options, attempt: (options.attempt ?? 0) + 1 });
+        if ((options.scoreAttempt ?? 0) < 1) {
+          await scoreCraftStorySeed(craftId, { ...options, scoreAttempt: (options.scoreAttempt ?? 0) + 1 });
           return;
         }
         const current = await (options.generationId
@@ -2937,8 +2941,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           }));
       if (current) broadcast("craft:story-seed-score-complete", { craftId, generationId: options.generationId, score: quality.score });
     } catch (error) {
-      if ((options.attempt ?? 0) < 1) {
-        await scoreCraftStorySeed(craftId, { ...options, attempt: (options.attempt ?? 0) + 1 });
+      if ((options.scoreAttempt ?? 0) < 1) {
+        await scoreCraftStorySeed(craftId, { ...options, scoreAttempt: (options.scoreAttempt ?? 0) + 1 });
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -3002,12 +3006,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       );
       const storySeed = parseStorySeed(response.content);
       if (!isCompleteStorySeed(storySeed)) {
-        const retrying = (options.attempt ?? 0) < 1;
+        const retrying = (options.generationAttempt ?? 0) < 1;
         if (retrying) {
           console.warn("[craft] incomplete story seed detected; retrying once");
           await generateCraftStorySeed(craftId, {
             ...options,
-            attempt: (options.attempt ?? 0) + 1,
+            generationAttempt: (options.generationAttempt ?? 0) + 1,
             previousDirection: serializeStorySeed(storySeed, language),
             generationId,
           });
@@ -3017,11 +3021,11 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       }
       const realityDrift = detectStorySeedRealityDrift(profile, storySeed);
       if (realityDrift.length > 0) {
-        if ((options.attempt ?? 0) < 1) {
+        if ((options.generationAttempt ?? 0) < 1) {
           console.warn(`[craft] story seed reality drift detected; retrying once: ${realityDrift.join(", ")}`);
           await generateCraftStorySeed(craftId, {
             ...options,
-            attempt: (options.attempt ?? 0) + 1,
+            generationAttempt: (options.generationAttempt ?? 0) + 1,
             previousDirection: serializeStorySeed(storySeed, language),
             generationId,
           });
@@ -3038,7 +3042,14 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           storySeedScoreError: undefined,
         });
         broadcast("craft:story-seed-complete", { craftId, generationId, status: "ready" });
-        startCraftStorySeedScoring(craftId, { generationId, kind, language, attempt: options.attempt, storySeed });
+        startCraftStorySeedScoring(craftId, {
+          generationId,
+          kind,
+          language,
+          scoreAttempt: 0,
+          lowScoreRetryAttempt: options.lowScoreRetryAttempt,
+          storySeed,
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -3088,6 +3099,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       storySeedStatus: "pending",
       storySeedError: undefined,
       storySeedGenerationId: generationId,
+      storySeedLowScoreRetryCount: 0,
       storySeedScoreStatus: "pending",
       storySeedScore: undefined,
       storySeedScoreNote: undefined,
@@ -3235,6 +3247,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedLowScoreRetryCount: 0,
         storySeedScoreStatus: "pending",
         storySeedScore: undefined,
         storySeedScoreNote: undefined,
@@ -6291,6 +6304,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedLowScoreRetryCount: 0,
         storySeedScoreStatus: "pending",
         storySeedScore: undefined,
         storySeedScoreNote: undefined,
@@ -6335,7 +6349,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     for (const craft of crafts) {
       if (craft.deletedAt || craft.storySeedStatus !== "pending") continue;
       if (craft.storySeedGenerationId) {
-        startCraftStorySeedGeneration(craft.id, { generationId: craft.storySeedGenerationId });
+        startCraftStorySeedGeneration(craft.id, {
+          generationId: craft.storySeedGenerationId,
+          lowScoreRetryAttempt: craft.storySeedLowScoreRetryCount,
+        });
       } else {
         void ensureCraftStorySeedGeneration(craft.id).catch((error) => {
           pipelineConfig.logger?.warn(`Failed to resume story seed generation for ${craft.id}: ${String(error)}`);
@@ -6351,6 +6368,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           generationId: craft.storySeedGenerationId,
           language: craft.language,
           kind: "short",
+          lowScoreRetryAttempt: craft.storySeedLowScoreRetryCount,
         });
       }
     }
@@ -6420,7 +6438,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       startBilibiliCraftTask(id, meta.sourceRef, meta.mode ?? "bilibili-short-story");
     }
     if (meta.storySeedStatus === "pending" && meta.storySeedGenerationId) {
-      startCraftStorySeedGeneration(id, { generationId: meta.storySeedGenerationId });
+      startCraftStorySeedGeneration(id, {
+        generationId: meta.storySeedGenerationId,
+        lowScoreRetryAttempt: meta.storySeedLowScoreRetryCount,
+      });
     } else if (meta.storySeedStatus === "pending") {
       meta = await ensureCraftStorySeedGeneration(id);
     } else if (meta.storySeed && (meta.storySeedScoreStatus === "pending"
@@ -6429,6 +6450,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         generationId: meta.storySeedGenerationId,
         language: meta.language,
         kind: "short",
+        lowScoreRetryAttempt: meta.storySeedLowScoreRetryCount,
       });
     } else if ((meta.processingStatus === undefined || meta.processingStatus === "ready") && !meta.storySeed && !meta.storySeedStatus) {
       meta = await ensureCraftStorySeedGeneration(id);
@@ -6792,6 +6814,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         storySeedStatus: "pending",
         storySeedError: undefined,
         storySeedGenerationId: generationId,
+        storySeedLowScoreRetryCount: 0,
         storySeedScoreStatus: "pending",
         storySeedScore: undefined,
         storySeedScoreNote: undefined,
@@ -6908,6 +6931,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     const savedMeta = (await pipeline.listCrafts({ includeDeleted: true })).find((craft) => craft.id === id);
     await pipeline.updateCraftStorySeedStatus(id, {
       storySeedStatus: "ready",
+      storySeedLowScoreRetryCount: 0,
       storySeedScoreStatus: "pending",
       storySeedScore: undefined,
       storySeedScoreNote: undefined,

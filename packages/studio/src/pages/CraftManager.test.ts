@@ -11,6 +11,7 @@ import {
   craftSourceFilesForDisplay,
   formatCraftBeatDuration,
   shouldReloadCraftProfileAfterStatus,
+  storySeedViewStatus,
 } from "./CraftManager";
 
 describe("craft mode presentation", () => {
@@ -95,5 +96,12 @@ describe("craft mode presentation", () => {
     expect(shouldReloadCraftProfileAfterStatus("processing", {
       storySeedStatus: "pending",
     })).toBe(false);
+  });
+
+  it("tracks story seed replacement status across background refreshes", () => {
+    expect(storySeedViewStatus({ storySeed: { title: "旧设定" } as never, storySeedStatus: "pending" })).toBe("generating");
+    expect(storySeedViewStatus({ storySeed: { title: "新设定" } as never, storySeedStatus: "ready" })).toBe("ready");
+    expect(storySeedViewStatus({ storySeedStatus: "error" })).toBe("error");
+    expect(storySeedViewStatus({})).toBe("idle");
   });
 });
