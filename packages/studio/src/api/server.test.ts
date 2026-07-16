@@ -951,7 +951,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(response.status).toBe(202);
     await vi.waitFor(() => expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(1));
     expect(saveCraftStorySeedMock).toHaveBeenCalledWith("craft-1", expect.objectContaining({ title: "测试故事" }));
-    expect(chatCompletionMock).toHaveBeenCalledTimes(3);
+    expect(chatCompletionMock).toHaveBeenCalledTimes(4);
   });
 
   it("rejects a repeatedly drifted realistic story seed instead of persisting it", async () => {
@@ -1031,6 +1031,42 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
+  it("keeps the low-score retry budget independent from malformed score retries", async () => {
+    const currentMeta: Record<string, unknown> = {
+      id: "craft-1",
+      sourceName: "Existing Craft",
+      createdAt: "2026-07-14T00:00:00.000Z",
+      language: "zh",
+      processingStatus: "ready",
+    };
+    listCraftsMock.mockResolvedValue([currentMeta]);
+    loadCraftMock.mockResolvedValue(storySeedCraftProfile);
+    updateCraftStorySeedStatusMock.mockImplementation(async (_craftId: string, patch: Record<string, unknown>) => {
+      Object.assign(currentMeta, patch);
+      return { ...currentMeta };
+    });
+    chatCompletionMock
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "评分模型暂时没有按要求返回数字。" })
+      .mockResolvedValueOnce({ content: "55\n首轮评分仍未达到创作标准。" })
+      .mockResolvedValueOnce({ content: storySeedMarkdown })
+      .mockResolvedValueOnce({ content: "84\n重新生成后的设定稳定可用。" });
+    saveCraftStorySeedMock.mockResolvedValue(undefined);
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/crafts/craft-1/story-seed/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "short", language: "zh" }),
+    });
+
+    expect(response.status).toBe(202);
+    await vi.waitFor(() => expect(currentMeta.storySeedScore).toBe(84));
+    expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(2);
+    expect(chatCompletionMock).toHaveBeenCalledTimes(5);
+  });
+
   it("retries background scoring once when the model returns a malformed score", async () => {
     const currentMeta: Record<string, unknown> = {
       id: "craft-1",
@@ -1103,6 +1139,7 @@ describe("createStudioServer daemon lifecycle", () => {
     expect(currentMeta.storySeedStatus).toBe("ready");
     expect(currentMeta.storySeedScoreStatus).toBe("ready");
     expect(currentMeta.storySeedScore).toBe(55);
+    expect(currentMeta.storySeedLowScoreRetryCount).toBe(1);
     expect(currentMeta.storySeedError).toBeUndefined();
     expect(saveCraftStorySeedMock).toHaveBeenCalledTimes(2);
     expect(chatCompletionMock).toHaveBeenCalledTimes(4);
