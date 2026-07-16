@@ -4,6 +4,7 @@ import {
   buildSubtitleEntries,
   formatScriptIssues,
   parseUnifiedScript,
+  shouldRetryScriptQuality,
   validateScriptQuality,
 } from "./story-production";
 import type { SourceSegmentRef } from "@actalk/inkos-core";
@@ -287,5 +288,12 @@ describe("validateScriptQuality", () => {
     expect(formatted).not.toBeNull();
     expect(formatted!).toContain("剧本质量校验发现问题");
     expect(formatted!).toContain("缺少旁白");
+  });
+
+  it("retries whenever any script quality defect is present", () => {
+    expect(shouldRetryScriptQuality([])).toBe(false);
+    expect(shouldRetryScriptQuality([
+      { shot: 3, type: "missing_camera", message: "镜头 3 缺少景别/机位" },
+    ])).toBe(true);
   });
 });

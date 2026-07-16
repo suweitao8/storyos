@@ -258,6 +258,16 @@ export function validateScriptQuality(
   return issues;
 }
 
+/**
+ * A production script should not silently skip a quality defect just because
+ * it affects fewer than half of the shots. One malformed shot can still
+ * produce a missing narration line, a blank image, or an untracked character
+ * in the final video, so any issue warrants one corrective generation pass.
+ */
+export function shouldRetryScriptQuality(issues: readonly ScriptShotIssue[]): boolean {
+  return issues.length > 0;
+}
+
 /** 把质量问题列表格式化成给用户看的 warning 文本。 */
 export function formatScriptIssues(issues: readonly ScriptShotIssue[]): string | null {
   if (issues.length === 0) return null;
