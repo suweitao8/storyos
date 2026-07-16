@@ -68,4 +68,29 @@ describe("story creation layout", () => {
     expect(html).toContain("后台生成故事设定");
     expect(html).not.toContain("即将替换的旧设定");
   });
+
+  it("shows the long-form creation gate while the selected craft foundation is pending", () => {
+    const html = renderToStaticMarkup(createElement(StoryCreationPanel, {
+      kind: "long",
+      theme: "dark",
+      isZh: true,
+      activeSessionId: "session-1",
+      busy: false,
+      craftsLoading: false,
+      crafts: [{
+        id: "craft-1",
+        sourceName: "现实悬疑模式",
+        mode: "general",
+        sourceType: "novel",
+        storySeedStatus: "pending",
+      }],
+      selectedCraftId: "craft-1",
+      onCraftChange: () => undefined,
+      onCreateLong: async () => undefined,
+      onCreateShort: async () => undefined,
+    }));
+
+    expect(html).toContain("故事设定正在后台生成");
+    expect(html).toContain("生成完成后才能创建故事");
+  });
 });

@@ -97,6 +97,16 @@ export function isStorySeedReadyForCreation(craft?: CraftOption): boolean {
     && craft.storySeedScore < STORY_SEED_MIN_CREATION_SCORE);
 }
 
+export function isStoryFoundationReadyForCreation(
+  kind: "long" | "short",
+  craft?: CraftOption,
+): boolean {
+  // Long-form stories may use the default rules when no craft is selected;
+  // once a craft is selected, its persisted foundation is part of the input
+  // contract just like it is for short stories.
+  return kind === "long" && !craft ? true : isStorySeedReadyForCreation(craft);
+}
+
 export function buildDefaultStoryDirection(
   craft: CraftOption,
   kind: "long" | "short",
