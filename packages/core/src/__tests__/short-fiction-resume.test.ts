@@ -288,6 +288,41 @@ describe("short fiction resume + failure marker (C2)", () => {
     expect(status.status).toBe("failed");
   });
 
+  it("repairs an incomplete package before marking the story complete", async () => {
+    await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
+    await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    const packageStory = vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage")
+      .mockResolvedValueOnce({
+        title: "",
+        intro: "",
+        sellingPoints: [],
+        coverPrompt: "",
+        rawContent: "格式正确但没有有效包装内容",
+      })
+      .mockResolvedValueOnce({
+        title: "电梯多一层",
+        intro: "保安发现门禁记录被人篡改，真正的危险来自一场有预谋的栽赃。",
+        sellingPoints: ["门禁证据"],
+        coverPrompt: "办公楼电梯",
+        rawContent: "完整包装",
+      });
+
+    await runShortFictionProduction({
+      projectRoot: root, direction: "现实悬疑短篇", storyId: "elevator",
+      chapterCount: CH, charsPerChapter: 1000, cover: false, quick: true,
+      runtimes: runtimes(root),
+    });
+
+    expect(packageStory).toHaveBeenCalledTimes(2);
+    expect(packageStory.mock.calls[1]?.[0].repairInstructions).toContain("简介");
+    const savedPackage = JSON.parse(await readFile(
+      join(root, "shorts", "elevator", "final", "sales-package.json"), "utf-8",
+    ));
+    expect(savedPackage.intro).toContain("门禁记录");
+  });
+
   it("continues a truncated first draft before review instead of reviewing empty chapters", async () => {
     await mkdir(join(root, "shorts", "elevator", "outline"), { recursive: true });
     await writeFile(join(root, "shorts", "elevator", "outline", "v002.md"), "## 既有大纲", "utf-8");

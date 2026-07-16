@@ -118,6 +118,8 @@ describe("short-fiction writer craft prompt", () => {
     const outlineReview = buildShortFictionOutlineReviewUserPrompt({
       direction: "现实悬疑短篇",
       outline: { rawContent: "完整大纲" },
+      chapterCount: 1,
+      charsPerChapter: 1000,
       craftGuide: "MODE_CONTRACT",
     });
     const draftReview = buildShortFictionDraftReviewUserPrompt({
@@ -131,6 +133,8 @@ describe("short-fiction writer craft prompt", () => {
 
     expect(outlineReview).toContain("MODE_CONTRACT");
     expect(outlineReview).toContain("必须修复的问题");
+    expect(outlineReview).toContain("目标为 1 章，每章约 1000 字");
+    expect(outlineReview).not.toContain("前三章");
     expect(draftReview).toContain("模式一致性");
     expect(draftReview).toContain("可执行修改清单");
   });
