@@ -23,6 +23,7 @@ import {
   findShortFictionLengthDeficits,
   formatShortFictionChapterHeading,
   renderShortFictionDraftMarkdown,
+  findShortFictionPackageDeficits,
   validateShortFictionDraftForFinal,
   type ShortFictionBatchDraft,
   type ShortFictionLanguage,
@@ -253,6 +254,8 @@ async function produceShort(
       const outlineReview = await outlineReviewer.reviewOutline({
         direction: options.direction,
         outline: outlineV1,
+        chapterCount,
+        charsPerChapter,
         reference: options.reference,
         craftGuide,
         language,
@@ -405,16 +408,32 @@ async function produceShort(
       language,
     });
     const packageViolations = detectShortFictionPackageRealityDrift(salesPackage, options.craftProfile);
-    if (packageViolations.length > 0) {
-      options.onProgress?.("Repairing package to match the writing mode reality level...");
+    const packageDeficits = findShortFictionPackageDeficits(salesPackage);
+    if (packageViolations.length > 0 || packageDeficits.length > 0) {
+      options.onProgress?.(packageDeficits.length > 0
+        ? "Repairing incomplete story package..."
+        : "Repairing package to match the writing mode reality level...");
       salesPackage = await packager.generatePackage({
         direction: options.direction,
         outlineMarkdown,
         draft: finalDraft,
         craftGuide,
-        repairInstructions: buildShortFictionPackageRealityRepairInstructions(packageViolations, language),
+        repairInstructions: [
+          packageViolations.length > 0
+            ? buildShortFictionPackageRealityRepairInstructions(packageViolations, language)
+            : "",
+          packageDeficits.length > 0
+            ? buildShortFictionPackageQualityRepairInstructions(packageDeficits, language)
+            : "",
+        ].filter(Boolean).join("\n\n"),
         language,
       });
+      const remainingPackageDeficits = findShortFictionPackageDeficits(salesPackage);
+      if (remainingPackageDeficits.length > 0) {
+        throw new Error(
+          `Short fiction sales package is still incomplete: ${remainingPackageDeficits.join(", ")}.`,
+        );
+      }
       const remainingPackageViolations = detectShortFictionPackageRealityDrift(salesPackage, options.craftProfile);
       if (remainingPackageViolations.length > 0) {
         throw new Error(
@@ -459,6 +478,24 @@ async function produceShort(
   });
 
   return buildShortRunResult(storyId, baseDir, coverArtifacts, { quick: options.quick === true });
+}
+
+function buildShortFictionPackageQualityRepairInstructions(
+  deficits: readonly string[],
+  language: ShortFictionLanguage,
+): string {
+  if (language === "en") {
+    return [
+      "The package is structurally incomplete.",
+      `Regenerate every missing field: ${deficits.join(", ")}.`,
+      "The synopsis must describe the actual final draft, and the selling points must be concrete reader-facing hooks. Return the complete package in the requested tagged format.",
+    ].join("\n");
+  }
+  return [
+    "包装内容结构不完整。",
+    `必须补齐缺失字段：${deficits.join("、")}。`,
+    "简介必须只描述最终正文真实发生的冲突、推进和回报；卖点必须是具体、面向读者的追读理由。请按要求的标签格式返回完整包装。",
+  ].join("\n");
 }
 
 function assertDraftMatchesCraftReality(

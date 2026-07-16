@@ -87,6 +87,8 @@ export interface ShortFictionOutlineInput {
 export interface ShortFictionOutlineReviewInput {
   readonly direction: string;
   readonly outline: ShortFictionOutline;
+  readonly chapterCount?: number;
+  readonly charsPerChapter?: number;
   readonly reference?: ShortFictionReference;
   readonly craftGuide?: string;
   readonly language?: ShortFictionLanguage;
@@ -508,6 +510,26 @@ export function parseShortFictionSalesPackage(rawContent: string, fallbackTitle 
     coverPrompt: coverPrompt.trim(),
     rawContent: rawContent.trim(),
   };
+}
+
+/** Return missing fields that would make a persisted package unusable in Studio. */
+export function findShortFictionPackageDeficits(
+  salesPackage: ShortFictionSalesPackage,
+): readonly string[] {
+  const deficits: string[] = [];
+  if (!salesPackage.title.trim()) deficits.push("title");
+  if (!salesPackage.intro.trim()) deficits.push("intro");
+  if (salesPackage.sellingPoints.every((point) => !point.trim())) deficits.push("selling points");
+  return deficits;
+}
+
+export function validateShortFictionSalesPackage(
+  salesPackage: ShortFictionSalesPackage,
+): void {
+  const deficits = findShortFictionPackageDeficits(salesPackage);
+  if (deficits.length > 0) {
+    throw new Error(`Short-fiction sales package is incomplete: ${deficits.join(", ")}.`);
+  }
 }
 
 function extractTaggedBlock(raw: string, tag: string): string {

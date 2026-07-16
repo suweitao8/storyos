@@ -17,6 +17,10 @@ export interface ShortFictionOutlineReviewPromptInput {
   readonly outline: {
     readonly rawContent: string;
   };
+  /** Creation target; optional for compatibility with callers outside the runner. */
+  readonly chapterCount?: number;
+  /** Native per-chapter target: Chinese characters or English words. */
+  readonly charsPerChapter?: number;
   readonly reference?: ShortFictionReferencePromptInput;
   readonly craftGuide?: string;
 }
@@ -154,10 +158,24 @@ export function buildShortFictionOutlineReviewUserPrompt(
   input: ShortFictionOutlineReviewPromptInput,
   language: ShortFictionLanguage = "zh",
 ): string {
+  const target = input.chapterCount && input.charsPerChapter
+    ? language === "en"
+      ? `## Target Contract\nThis story is exactly ${input.chapterCount} chapter${input.chapterCount === 1 ? "" : "s"}, about ${input.charsPerChapter} words per chapter. Review it against this target; do not apply a multi-chapter novel checklist.`
+      : `## 目标契约\n本故事目标为 ${input.chapterCount} 章，每章约 ${input.charsPerChapter} 字。请按这个目标审稿，不要套用长篇或多章节模板。`
+    : "";
+  const earlyReaderFocus = input.chapterCount === 1
+    ? language === "en"
+      ? "- Does the single chapter contain a complete click-to-payoff arc, rather than stopping after setup?"
+      : "- 这是单章短篇：这一章是否完成从点击、入局、升级到回报的完整弧线，而不是只写到开头就停。"
+    : language === "en"
+      ? "- Do the title, the opening, and the early chapters give readers a reason to click and keep reading?"
+      : "- 标题、开篇和前段章节是否有点击与追读理由，且没有把后半段压缩成结果摘要。";
   if (language === "en") {
     return [
       "## Creative Direction",
       input.direction,
+      "",
+      target,
       "",
       input.reference?.text ? "## Optional Reference Text\n" + input.reference.text.trim() + "\n" : "",
       "## Story Plan Under Review",
@@ -165,7 +183,7 @@ export function buildShortFictionOutlineReviewUserPrompt(
       "",
       "## Review Focus",
       "- Is this a complete short story, rather than a partial tryout plan?",
-      "- Do the title, the opening, and the first three chapters give readers a reason to click and keep reading?",
+      earlyReaderFocus,
       "- Is the outline dense enough, or will the writer run out of material in the back half?",
       "- Do the key scenes contain character action, counterattack, and payoff, instead of bare result summaries?",
       "- Will readers be thrown out of the story by timeline, relationship, evidence-access, physical-state, or common-sense problems?",
@@ -182,6 +200,8 @@ export function buildShortFictionOutlineReviewUserPrompt(
     "## 创作方向",
     input.direction,
     "",
+    target,
+    "",
     input.reference?.text ? "## 可选参考文本\n" + input.reference.text.trim() + "\n" : "",
     input.craftGuide ?? "",
     "## 待审故事方案",
@@ -189,7 +209,7 @@ export function buildShortFictionOutlineReviewUserPrompt(
     "",
     "## 审查重点",
     "- 这是不是完整短篇故事，而不是局部试写方案。",
-    "- 标题、开篇、前三章是否有点击和追读理由。",
+    earlyReaderFocus,
     "- 大纲是否足够密，写手是否会在后半段泄气。",
     "- 关键场面有没有人物行动、反扑和回报，不是纯结果摘要。",
     "- 读者会不会因为时间线、人物关系、证据权限、身体状态、常识问题出戏。",
@@ -284,6 +304,9 @@ export function buildShortFictionWriterUserPrompt(
     return [
       "## Task",
       `Write the complete ${input.chapterCount}-chapter story in one pass, about ${input.charsPerChapter} words per chapter. Plan the scene budget before drafting and aim for roughly 85%-115% of that target.`,
+      ...(input.chapterCount === 1
+        ? ["This is a one-chapter complete short story: finish the setup, escalation, reversal, climax, and consequence in this chapter. Do not stop after the premise or leave a novel-style continuation hook."]
+        : []),
       "Read the full story plan before writing. The prose must carry the plan's pressure chain, evidence chain, reversal chain, and emotional payoff — do not swerve into a different story midway.",
       "",
       buildShortFictionCraftPrompt("en"),
@@ -316,6 +339,9 @@ export function buildShortFictionWriterUserPrompt(
   return [
     "## 任务",
     `一次写完整 ${input.chapterCount} 章，每章约 ${input.charsPerChapter} 字。写作前先按目标字数规划场景和节奏，整体尽量落在目标的 85% 到 115%，不要把正文写成梗概。`,
+    ...(input.chapterCount === 1
+      ? ["本次是单章完整短篇：必须在这一章内完成入局、升级、反转、高潮和后果落点，不要停在设定介绍，也不要留下长篇式“下章继续”。"]
+      : []),
     "先读完整故事方案，再写正文。正文要承接大纲的压力链、证据链、反转链和情绪回报，不要临时改成另一种故事。",
     "",
     buildShortFictionCraftPrompt(),
@@ -597,6 +623,7 @@ export function buildShortFictionPackageUserPrompt(
       "",
       "## Final Draft",
       input.draftMarkdown.trim(),
+      "The final draft is the source of truth. Use the story plan only to understand intended continuity; do not invent packaging facts that appear only in the plan and never happen in the final draft.",
       "",
       "## Output Format",
       "=== SHORT_FICTION_PACKAGE_TITLE ===",
@@ -621,6 +648,7 @@ export function buildShortFictionPackageUserPrompt(
     "",
     "## 最终正文",
     input.draftMarkdown.trim(),
+    "最终正文是唯一事实来源。故事方案只用于理解原定连续性；正文没有发生的设定、人物关系、线索或结局，不得只从大纲补进包装。",
     "",
     "## 输出格式",
     "=== SHORT_FICTION_PACKAGE_TITLE ===",
