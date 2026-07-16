@@ -14,6 +14,7 @@ import {
   resolveDefaultStoryWordCount,
   resolveStorySeedGenerationStatus,
   isStorySeedReadyForCreation,
+  isStoryFoundationReadyForCreation,
   shouldAutoGenerateShortStorySeed,
 } from "./story-creation-state";
 import {
@@ -118,6 +119,25 @@ describe("story creation actions", () => {
       storySeedStatus: "ready",
       storySeedScoreStatus: "ready",
       storySeedScore: 70,
+    })).toBe(true);
+  });
+
+  it("requires a selected craft's story foundation before long-form creation", () => {
+    const pendingCraft = {
+      id: "pending",
+      sourceName: "待生成模式",
+      storySeedStatus: "pending" as const,
+    };
+
+    expect(isStoryFoundationReadyForCreation("long", undefined)).toBe(true);
+    expect(isStoryFoundationReadyForCreation("long", pendingCraft)).toBe(false);
+    expect(isStoryFoundationReadyForCreation("long", {
+      ...pendingCraft,
+      storySeedStatus: "ready" as const,
+      storySeed: {
+        title: "标题", genreTone: "现实悬疑", hook: "钩子", worldview: "现实世界", characters: "角色",
+        conflict: "冲突", outline: "大纲", reversals: "反转", ending: "结局", visualAudioMotifs: "母题",
+      },
     })).toBe(true);
   });
 

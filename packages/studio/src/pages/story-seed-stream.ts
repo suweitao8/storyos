@@ -27,7 +27,7 @@ export function serializeStorySeed(seed: StorySeed, language: "zh" | "en" = "zh"
 
 export interface StorySeedGenerationInput {
   readonly craftId?: string;
-  readonly kind: "short";
+  readonly kind: "long" | "short";
   readonly language: "zh" | "en";
   readonly previousDirection?: string;
 }

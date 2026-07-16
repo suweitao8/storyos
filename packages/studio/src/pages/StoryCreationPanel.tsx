@@ -15,7 +15,7 @@ import {
   buildDefaultStoryDirection,
   buildStoryWordCountOptions,
   formatStoryWordCount,
-  isStorySeedReadyForCreation,
+  isStoryFoundationReadyForCreation,
   resolveDefaultStoryWordCount,
   resolveStorySeedGenerationStatus,
   type LongStoryCreationInput,
@@ -89,6 +89,7 @@ export function StoryCreationPanel({
     : undefined;
   const requiresCraftSelection = kind === "short";
   const persistedSeedStatus = resolveStorySeedGenerationStatus(selectedCraft);
+  const storyFoundationReady = isStoryFoundationReadyForCreation(kind, selectedCraft);
   const previewSeed = shortSeed ?? selectedCraft?.storySeed;
   const previewStatus: StorySeedGenerationStatus = shortSeedStatus === "idle"
     ? persistedSeedStatus
@@ -135,6 +136,13 @@ export function StoryCreationPanel({
       setDirectionGenerationError(null);
       return;
     }
+    if (!isStoryFoundationReadyForCreation(kind, selectedCraft)) {
+      ++directionRequestRef.current;
+      setLongDirection("");
+      setDirectionGenerating(false);
+      setDirectionGenerationError(selectedCraft.storySeedError ?? null);
+      return;
+    }
     const defaultDirection = buildDefaultStoryDirection(selectedCraft, kind, isZh);
     setLongDirection(defaultDirection);
     setDirectionGenerationError(null);
@@ -169,7 +177,27 @@ export function StoryCreationPanel({
         });
       return;
     }
-    if (!selectedCraft || !onGenerateDirection || directionGenerating) return;
+    if (!selectedCraft || directionGenerating) return;
+    if (!isStoryFoundationReadyForCreation(kind, selectedCraft)) {
+      if (!onGenerateSeed) return;
+      const requestId = ++directionRequestRef.current;
+      setDirectionGenerating(true);
+      setDirectionGenerationError(null);
+      void onGenerateSeed({
+        craftId: selectedCraft.id,
+        kind,
+        language: isZh ? "zh" : "en",
+      })
+        .catch((error) => {
+          if (requestId !== directionRequestRef.current) return;
+          setDirectionGenerationError(error instanceof Error ? error.message : String(error));
+        })
+        .finally(() => {
+          if (requestId === directionRequestRef.current) setDirectionGenerating(false);
+        });
+      return;
+    }
+    if (!onGenerateDirection) return;
     const previousDirection = kind === "long" ? longDirection : shortDirection;
     const requestId = ++directionRequestRef.current;
     setDirectionGenerating(true);
@@ -198,8 +226,8 @@ export function StoryCreationPanel({
   const canCreate = Boolean(
     activeSessionId
       && (kind === "long"
-        ? longTitle.trim() && longGenre.trim() && longDirection.trim()
-        : isStorySeedReadyForCreation(selectedCraft) && shortSeedStatus !== "generating" && (
+        ? storyFoundationReady && longTitle.trim() && longGenre.trim() && longDirection.trim()
+        : isStoryFoundationReadyForCreation(kind, selectedCraft) && shortSeedStatus !== "generating" && (
           shortSeed
             ? Boolean(shortSeed.title?.trim() && shortSeed.worldview?.trim() && shortSeed.outline?.trim())
             : shortDirection.trim()
@@ -304,7 +332,10 @@ export function StoryCreationPanel({
             <button
               type="button"
               onClick={regenerateDirection}
-              disabled={busy || directionGenerating || shortSeedStatus === "generating" || !((kind === "long" && onGenerateDirection && selectedCraft) || (kind === "short" && onGenerateSeed && selectedCraft))}
+              disabled={busy || directionGenerating || shortSeedStatus === "generating" || !(
+                (kind === "long" && selectedCraft && ((storyFoundationReady && onGenerateDirection) || (!storyFoundationReady && onGenerateSeed)))
+                || (kind === "short" && onGenerateSeed && selectedCraft)
+              )}
               aria-label={isZh ? "重新随机生成故事设定" : "Regenerate story foundation"}
               className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/40 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -345,6 +376,15 @@ export function StoryCreationPanel({
             {directionGenerationError ? (
               <p className="text-xs leading-5 text-destructive">
                 {isZh ? `自动生成失败，可手动编辑或重试：${directionGenerationError}` : `Generation failed; edit manually or retry: ${directionGenerationError}`}
+              </p>
+            ) : null}
+            {selectedCraft && !storyFoundationReady ? (
+              <p role="status" className="text-xs leading-5 text-amber-600 dark:text-amber-400">
+                {persistedSeedStatus === "generating"
+                  ? (isZh ? "故事设定正在后台生成，生成完成后才能创建故事。" : "The story foundation is generating in the background. Creation will unlock when it is ready.")
+                  : persistedSeedStatus === "error"
+                    ? (isZh ? "故事设定生成失败，请点击“重新随机生成”重试。" : "The story foundation failed. Click “Regenerate” to retry.")
+                    : (isZh ? "正在准备故事设定，生成完成后才能创建故事。" : "Preparing the story foundation. Creation will unlock when it is ready.")}
               </p>
             ) : null}
             <textarea value={longDirection} onChange={(event) => setLongDirection(event.target.value)} rows={5} placeholder={isZh ? "简单写写故事发生在哪、主角是谁、要解决什么问题、想给读者什么感觉" : "Briefly describe the world, who the protagonist is, what problem they face, and the feeling you want readers to get"} className="w-full resize-y rounded-lg border border-border bg-secondary/20 px-3 py-2 leading-6 outline-none focus:border-primary" />
